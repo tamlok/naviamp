@@ -94,6 +94,50 @@ This is not equivalent to `./gradlew check`.
 Use `-Pnaviamp.bass.platform=windows-x64`, `linux-x64`, or `macos-arm64` for the relevant Desktop
 native target. See [testing](docs/testing.md) for connected/mobile/native commands and prerequisites.
 
+### Standalone Android car-pad loop (local Windows setup)
+
+This setup runs Naviamp directly on an Android tablet/head unit, not through Android Auto
+projection or an Android Automotive OS image. The local AVD is `Naviamp_CarPad_API35`:
+Android 15/API 35, 1280x720 landscape at 160 dpi, 8192 MB RAM, and 6 virtual CPUs. Android
+Emulator 36.6.11 caps an 8-core request to 6, even with `-cores 8`. Always use the explicit
+ADB serial `emulator-5582`; do not install to every connected device.
+
+The ignored `.windows-testing/android-env.ps1` helper reuses Android Studio's JDK 21 and the
+installed SDK, setting environment variables only for the current PowerShell process.
+`.windows-testing/android` is a local junction to the `Naviamp-CarPad-Dev` directory on drive `Q:`;
+it holds the AVD's writable disks and Gradle cache. These files and the AVD are machine-local
+prerequisites, not supplied by a fresh clone. Do not commit the helper, AVD, or `local.properties`.
+
+Run from the repository root in PowerShell:
+
+```powershell
+. ./.windows-testing/android-env.ps1
+
+# Only when this emulator is not already running; preserves data and disables snapshots.
+Start-NaviampCarPad
+adb -s emulator-5582 wait-for-device
+adb -s emulator-5582 shell getprop sys.boot_completed # Must print 1 before installing.
+
+./gradlew.bat :apps:android:assembleDebug "-Pkotlin.native.enableKlibsCrossCompilation=false"
+if ($LASTEXITCODE -ne 0) { throw 'Android build failed.' }
+
+adb -s emulator-5582 install -r apps/android/build/outputs/apk/debug/android-debug.apk
+if ($LASTEXITCODE -ne 0) { throw 'Android installation failed.' }
+adb -s emulator-5582 shell am start -n app.naviamp.android.v2test/app.naviamp.android.MainActivity
+```
+
+The separate **Naviamp v2 Test** package leaves the normal app untouched. Use the helper for
+cold launches: direct Device Manager or bare emulator launches can use snapshots. Stop the AVD
+before changing its resources, then cold-start it; never wipe its data just to apply RAM/CPU changes.
+Verify live resources with `adb -s emulator-5582 shell getconf _NPROCESSORS_ONLN` and
+`adb -s emulator-5582 shell cat /proc/meminfo`; usable guest memory is slightly below configured RAM.
+
+This Play Store tablet image uses SwiftShader here and has shown slow startup, Android-system
+boot warnings, and a Google Play Cast-module update forcing an app restart. Verify the rendered
+screen and interaction rather than treating an `am start` result as proof. It is a layout/input
+stand-in, not evidence of real-car performance, playback, audio routing, or ignition/suspend behavior.
+Match the actual head unit's Android version, resolution, and density before making UX conclusions.
+
 ## Code Conventions & Common Patterns
 
 - Follow official Kotlin style (`gradle.properties`): four-space indentation, existing multiline
