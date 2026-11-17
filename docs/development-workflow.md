@@ -11,36 +11,34 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 
 ## Work tracking
 
-- Create a GitHub issue for every feature, bug fix, or meaningful update before implementation.
+- GitHub issues are optional, not a prerequisite for implementation. Use existing relevant issues
+  when helpful; do not create upstream issues solely to track local or fork-only work.
 - Document the problem, intended behavior, scope, acceptance criteria, platform impact, and relevant
-  evidence in the issue. Keep design decisions and material scope changes in the issue so it remains
-  the durable record of the work.
+  evidence in the pull request or, when used, the related issue. Keep design decisions and material
+  scope changes in that record.
 - Assign each issue and pull request a release-note category when applicable: Feature, Improvement,
   Bug fix, Upgrade note, or Known issue. A change may contribute to more than one section, but its
   public description should not be duplicated unnecessarily.
-- Use GitHub milestones to identify the issues proposed for a particular release. An issue being in a
-  milestone expresses release intent, not permission to ship incomplete work.
-- Link pull requests to their issue. Use GitHub's closing keywords when merging the pull request
-  should close the issue automatically.
-
-Small repository-only maintenance changes may use a lightweight issue, but should still be tracked
-when they affect released behavior, dependencies, packaging, security, or user documentation.
+- Use GitHub milestones to identify the issues and pull requests proposed for a particular release.
+  Milestone membership expresses release intent, not permission to ship incomplete work.
+- Link pull requests to related issues when they exist. Use GitHub's closing keywords when merging
+  the pull request should close an existing issue automatically.
 
 ## Branches and pull requests
 
-- Give each issue its own short-lived branch, normally named `feature/<issue>-<slug>`,
-  `fix/<issue>-<slug>`, or `chore/<issue>-<slug>`.
-- Keep a branch limited to its issue. If implementation uncovers unrelated work, create and link a
-  separate issue instead of silently expanding the branch.
-- Open a pull request against `main`, link the issue, and keep the issue's acceptance criteria and
-  the pull request's verification results current.
+- Give each focused change its own short-lived branch, normally named `feature/<slug>`,
+  `fix/<slug>`, or `chore/<slug>`. An existing issue number may be included but is not required.
+- Keep a branch limited to its stated scope. Handle unrelated work in a separate branch or pull
+  request instead of silently expanding the branch.
+- Open a pull request against `main` and keep acceptance criteria and verification results current
+  in the pull request and any linked issue.
 - Merge only complete, reviewed work whose required automated checks and proportionate manual tests
-  pass. Incomplete features should remain on their issue branch unless they are safely disabled by a
+  pass. Incomplete features should remain on their branch unless they are safely disabled by a
   deliberate feature flag.
-- Prefer squash merging for a focused issue branch unless preserving multiple commits adds genuine
+- Prefer squash merging for a focused branch unless preserving multiple commits adds genuine
   diagnostic or historical value.
-- Delete merged issue branches after their pull requests land. Git history and the linked issue keep
-  the durable record.
+- Delete merged branches after their pull requests land. Git history, pull requests, and any linked
+  issues keep the durable record.
 
 `main` should remain releasable. Integrating completed work continuously avoids a long-lived release
 integration branch, large late merge conflicts, and fixes that exist only in one release line.
@@ -51,8 +49,8 @@ integration branch, large late merge conflicts, and fixes that exist only in one
 2. Add appropriate automated performance and regression tests for every release-scoped change, and
    require those tests to pass before creating the release tag.
 3. Cut `release/<version>` from the accepted `main` commit for focused stabilization.
-4. Limit that branch to release blockers, documentation, versioning, and packaging fixes, each linked
-   to an issue and pull request when substantive.
+4. Limit that branch to release blockers, documentation, versioning, and packaging fixes. Review
+   substantive fixes through pull requests, linking related issues when they exist.
 5. Merge each release fix back into `main` immediately, or fix `main` first and cherry-pick it.
 6. Run the complete release verification matrix against the release branch.
 7. Create `.github/releases/vX.Y.Z.md` from `.github/RELEASE_TEMPLATE.md`. Audit `README.md`
@@ -75,7 +73,7 @@ evidence does not match, the tag workflow runs the complete matrix again. Releas
 parallel with this gate, but the draft release cannot be created unless reused or fresh verification
 and every packaging job succeed.
 
-If an issue must be removed after the release branch is cut, prefer fixing or reverting that issue's
+If a change must be removed after the release branch is cut, prefer fixing or reverting its
 complete pull request rather than assembling a release from an undocumented collection of commits.
 
 ### Scope freeze and concurrent contributions
@@ -136,14 +134,15 @@ inspect channel delivery before retrying. A template edit alone does not configu
 - Keep bullets concise and independently understandable. Avoid tables, deep nesting, raw issue-title
   dumps, and internal implementation language.
 - Do not use emoji.
-- In GitHub release notes, link each substantive change to its GitHub issue and pull request. Prefer those durable records to
-  individual commit links because they contain the rationale, acceptance criteria, verification, and
-  complete commit history.
+- In GitHub release notes, link each substantive change to its pull request and any existing related
+  issue. Prefer those durable records to individual commit links because they contain the rationale,
+  acceptance criteria, verification, and complete commit history.
 - Add a GitHub comparison link for the complete commit-level changelog. Link an individual commit
-  only when that exact commit is important to understand or audit.
+  when neither an issue nor a pull request exists, or when that exact commit is important to understand
+  or audit.
 - In GitHub release notes, credit community contributors on each relevant change by public GitHub handle, distinguishing
-  reporting, implementation, testing, documentation, and translation work. Keep the originating
-  issue and implementation PR links next to that change; use a commit link when neither exists.
+  reporting, implementation, testing, documentation, and translation work. Keep originating issue
+  and implementation PR links next to that change when available; use a commit link when neither exists.
 - Include a deduplicated **Thanks** section for community contributions in the GitHub release,
   About-page release changelog, Discord announcement, and Announcements Discussion. Include people
   whose release contributions are not represented by commit authorship, and honor anonymous credit
@@ -201,8 +200,9 @@ after each mirror and investigate any mismatch.
 ## Hotfixes
 
 For an urgent fix to an already published version, branch from the affected release tag, verify and
-release the smallest safe patch, and merge the same fix back into `main`. Use a GitHub issue,
-milestone, pull request, release notes, and Announcement just as for a normal release.
+release the smallest safe patch, and merge the same fix back into `main`. Use a milestone, pull
+request, release notes, and Announcement just as for a normal release. The same optional-issue
+policy applies to hotfixes.
 
 ## Cutover record
 

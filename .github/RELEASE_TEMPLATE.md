@@ -11,15 +11,15 @@ Write this for someone deciding whether to update, not as an internal developmen
 
 ## Features
 
-- Describe the user-visible capability and why it is useful. ([Issue #123](https://github.com/goosepod/naviamp/issues/123), [PR #456](https://github.com/goosepod/naviamp/pull/456))
+- Describe the user-visible capability and why it is useful. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
 
 ## Improvements
 
-- Describe a meaningful improvement to existing behavior. ([Issue #123](https://github.com/goosepod/naviamp/issues/123), [PR #456](https://github.com/goosepod/naviamp/pull/456))
+- Describe a meaningful improvement to existing behavior. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
 
 ## Bug fixes
 
-- State what was broken and the behavior that is now restored. ([Issue #123](https://github.com/goosepod/naviamp/issues/123), [PR #456](https://github.com/goosepod/naviamp/pull/456))
+- State what was broken and the behavior that is now restored. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
 
 ## Upgrade notes
 
@@ -62,8 +62,9 @@ Release-author guidance:
 - Keep bullets short, independent, and free of deep nesting. Avoid tables; they do not transfer well
   to compact notification surfaces.
 - Use ordinary sentence case for headings and prose.
-- Link user-facing bullets to their GitHub issue and pull request. Link a specific commit only when
-  that exact commit is materially useful; the pull request already provides the normal commit trail.
+- Link user-facing bullets to their pull request and any existing related issue. Use a commit link
+  when neither exists, or when that exact commit is materially useful; the pull request otherwise
+  provides the normal commit trail.
 - Use absolute GitHub URLs so links work outside the repository and in copied release notes.
 - Credit community contributors on each relevant change (for example, “Reported by @REPORTER;
   fixed by @AUTHOR”), linking their public profiles and accurately identifying their roles.

@@ -174,9 +174,11 @@ migrations solely for experimental local history or alter unrelated user data to
 ### Repository workflow
 
 Follow [development workflow](docs/development-workflow.md): GitHub is canonical; Forgejo is a manual
-secondary mirror, never a merge/release source. Track meaningful work in an issue and a short-lived
-`feature/<issue>-<slug>`, `fix/<issue>-<slug>`, or `chore/<issue>-<slug>` branch; merge complete work
-through a linked PR to `main`. Use milestones for release scope and short-lived release branches
+secondary mirror, never a merge/release source. Issues are optional, not a prerequisite for
+implementation. Use existing relevant issues when helpful; do not create upstream issues solely
+to track local or fork-only work. Use short-lived `feature/<slug>`, `fix/<slug>`, or `chore/<slug>`
+branches; an existing issue number is optional. Merge complete work through a PR to `main`, linking
+related issues when they exist. Use milestones for release scope and short-lived release branches
 from accepted `main`. Do not treat unreleased work as available in public documentation.
 
 ### Rapidly changing upstream
@@ -186,7 +188,8 @@ prefer cohesive additions behind existing common contracts and narrow integratio
 minimize touched files and diffs. Avoid unrelated refactors, file moves, renames, formatting churn,
 and dependency changes. Do not duplicate product logic or introduce parallel frameworks just to
 avoid edits; extend the existing shared owner when correctness or architecture requires it.
-Keep local guidance in `AGENTS2.md`; leave `AGENTS.md` upstream-owned apart from its one-line reference.
+Keep local guidance in `AGENTS2.md`; leave `AGENTS.md` upstream-owned apart from its one-line reference
+and explicitly user-requested changes to shared policy.
 
 ## Important Files
 
@@ -266,7 +269,7 @@ open until the real app meets its documented budget.
   publication. Publish an **Announcements** Discussion for each new pushed release, covering new
   capabilities, changes, fixes and upgrade/compatibility notes; never announce unreleased branches.
 - GitHub release entries credit each community contributor's accurate role and link originating
-  issue plus implementation PR (commit if neither exists), using absolute URLs. Track acknowledgments
+  issues and implementation PRs when available (commit if neither exists), using absolute URLs. Track acknowledgments
   across releases; verify first-time status against prior notes and all contribution history, including
   reports/testing/docs/translations, not just commits or GitHub's first-PR list. Credit only shipped work.
 - For community contributions, include consistent, deduplicated **Thanks** in GitHub notes, shared

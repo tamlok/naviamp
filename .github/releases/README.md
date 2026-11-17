@@ -13,6 +13,7 @@ release webhook inactive to avoid duplicate or incorrectly formatted announcemen
 Do not add a versioned file until its release contents and links are known. Remove all template
 instructions and unused sections before publication.
 
-Every substantive bullet should link its accepted GitHub issue and merged pull request. Review the
-generated draft for product-significance ordering and wording before publishing it, then create the
-required Announcements Discussion linking to the release.
+Every substantive bullet should link its merged pull request and any existing related GitHub issue;
+use a commit link when neither exists. Review the generated draft for product-significance ordering
+and wording before publishing it, then create the required Announcements Discussion linking to the
+release.

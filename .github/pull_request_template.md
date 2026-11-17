@@ -1,6 +1,6 @@
-## Related issue
+## Related issue (optional)
 
-Closes #
+<!-- Link an existing related issue if applicable. Use closing keywords only if this PR should close it. -->
 
 ## Summary
 
@@ -22,5 +22,5 @@ Closes #
 - [ ] I tested platform-specific behavior where applicable.
 - [ ] I did not commit secrets, signing files, build artifacts, or local configuration.
 - [ ] I included screenshots for visible UI changes where useful.
-- [ ] I updated the linked issue when implementation changed its scope or acceptance criteria.
+- [ ] If an issue is linked, I updated it when implementation changed its scope or acceptance criteria.
 - [ ] I supplied user-facing release-note wording or marked the change as not user-facing.

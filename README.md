@@ -345,9 +345,10 @@ architecture and platform boundaries are documented in
 
 ## Contributing
 
-GitHub is Naviamp's source of truth. Open or choose a GitHub issue before starting a meaningful
-change, use a short-lived issue branch, and submit the result through a linked pull request. See the
-[development workflow](docs/development-workflow.md) for branch, verification, and release rules.
+GitHub is Naviamp's source of truth. Use a focused, short-lived branch and submit the result through
+a pull request. Issues are optional, and branch names do not require an issue number. Link an
+existing related issue when applicable. See the [development workflow](docs/development-workflow.md)
+for branch, verification, and release rules.
 
 ## Project layout
 

@@ -75,8 +75,8 @@ the release readiness document before publication.
 
 For each GitHub release-note change involving a community contributor, credit the contributor by
 GitHub handle and state their role accurately (for example, reported by, fixed by, or translated by).
-Link the GitHub release-note entry directly to the originating issue and implementation PR; use a
-commit link when there is no issue or PR. Use absolute links in GitHub release notes.
+Link the GitHub release-note entry directly to the originating issue and implementation PR when
+available; use a commit link when neither exists. Use absolute links in GitHub release notes.
 
 Track contributors across releases and explicitly welcome first-time contributors. Verify first-time
 status against earlier releases and repository contribution history, including issue reports,
@@ -110,10 +110,11 @@ Follow [`docs/development-workflow.md`](docs/development-workflow.md). GitHub is
 home for source, issues, pull requests, checks, tags, and releases. Forgejo is a manually maintained
 secondary mirror and must not be used to merge changes or publish releases.
 
-Use a GitHub issue and a dedicated short-lived branch for each feature, bug fix, or meaningful
-update. Merge completed work into `main` through a linked pull request, use milestones to select
-release scope, and cut a short-lived release branch from an accepted `main` commit for final
-stabilization.
+GitHub issues are optional, not a prerequisite for implementation. Use existing relevant issues
+when helpful; do not create upstream issues solely to track local or fork-only work. Use a dedicated
+short-lived branch for each feature, bug fix, or meaningful update. Merge completed work into `main`
+through a pull request, linking related issues when they exist. Use milestones to select release
+scope, and cut a short-lived release branch from an accepted `main` commit for final stabilization.
 
 ## GitHub CLI Authentication on Windows
 
