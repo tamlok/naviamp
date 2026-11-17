@@ -111,9 +111,8 @@ home for source, issues, pull requests, checks, tags, and releases. Forgejo is a
 secondary mirror and must not be used to merge changes or publish releases.
 
 GitHub issues are optional, not a prerequisite for implementation. Use existing relevant issues
-when helpful; do not create upstream issues solely to track local or fork-only work. Use a dedicated
-short-lived branch for each feature, bug fix, or meaningful update. Merge completed work into `main`
-through a pull request, linking related issues when they exist. Use milestones to select release
+when helpful; do not create upstream issues solely to track local or fork-only work. Merge completed
+work into `main` through a pull request, linking related issues when they exist. Use milestones to select release
 scope, and cut a short-lived release branch from an accepted `main` commit for final stabilization.
 
 ## GitHub CLI Authentication on Windows

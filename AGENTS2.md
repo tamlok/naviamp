@@ -176,8 +176,7 @@ migrations solely for experimental local history or alter unrelated user data to
 Follow [development workflow](docs/development-workflow.md): GitHub is canonical; Forgejo is a manual
 secondary mirror, never a merge/release source. Issues are optional, not a prerequisite for
 implementation. Use existing relevant issues when helpful; do not create upstream issues solely
-to track local or fork-only work. Use short-lived `feature/<slug>`, `fix/<slug>`, or `chore/<slug>`
-branches; an existing issue number is optional. Merge complete work through a PR to `main`, linking
+to track local or fork-only work. Merge complete work through a PR to `main`, linking
 related issues when they exist. Use milestones for release scope and short-lived release branches
 from accepted `main`. Do not treat unreleased work as available in public documentation.
 

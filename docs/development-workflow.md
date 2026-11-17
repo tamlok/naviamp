@@ -26,8 +26,6 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 
 ## Branches and pull requests
 
-- Give each focused change its own short-lived branch, normally named `feature/<slug>`,
-  `fix/<slug>`, or `chore/<slug>`. An existing issue number may be included but is not required.
 - Keep a branch limited to its stated scope. Handle unrelated work in a separate branch or pull
   request instead of silently expanding the branch.
 - Open a pull request against `main` and keep acceptance criteria and verification results current
