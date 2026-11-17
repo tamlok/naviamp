@@ -294,12 +294,12 @@ class NaviampMainNavigationUiTest {
     }
 
     @Test
-    fun openAdaptivePlayerRemainsAboveTheSingleFooterThroughResizes() = runDesktopComposeUiTest(1280, 818) {
+    fun adaptivePlayerUsesRemainingHeightWithAnEmptyFooterThroughResizes() = runDesktopComposeUiTest(1280, 818) {
         var size by mutableStateOf(DpSize(1280.dp, 720.dp))
         val track = NowPlayingUi(id = "track", title = "Retained track", subtitle = "Artist", stateLabel = "Paused", isPaused = true)
         setContent {
             Box(Modifier.size(size)) {
-                NavigationFixture(content = {
+                NavigationFixture(showFooter = false, content = {
                     NaviampNowPlayingPanel(
                         nowPlaying = track, colors = NaviampColors.Dark,
                         displaySettings = NowPlayingDisplaySettings(scrollTrackTitle = false),
@@ -314,10 +314,11 @@ class NaviampMainNavigationUiTest {
                 runOnIdle { size = viewport }
                 val player = onNodeWithTag("player-details").fetchSemanticsNode().boundsInRoot
                 val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
-                val footer = onNodeWithTag("main-mini-player").fetchSemanticsNode().boundsInRoot
+                val bottom = onAllNodesWithTag("main-navigation-bottom").fetchSemanticsNodes().singleOrNull()
+                    ?.boundsInRoot?.top ?: viewport.height.value
                 assertEquals(route, player)
-                assertEquals(player.bottom, footer.top, 0.5f)
-                onAllNodesWithTag("main-mini-player").assertCountEquals(1)
+                assertEquals(bottom, player.bottom, 0.5f)
+                onNodeWithTag("footer-action").assertDoesNotExist()
                 onNodeWithText("Retained track").assertExists()
             }
     }
@@ -490,6 +491,7 @@ private fun NavigationFixture(
     systemInsets: WindowInsets = WindowInsets(0),
     keyboardInsets: WindowInsets = WindowInsets(0),
     footerHeight: androidx.compose.ui.unit.Dp = 64.dp,
+    showFooter: Boolean = true,
     content: @Composable () -> Unit = { Text(route.name, modifier = Modifier.testTag("route-${route.name}")) },
 ) {
     CompositionLocalProvider(LocalNaviampTooltipsEnabled provides false) {
@@ -498,7 +500,7 @@ private fun NavigationFixture(
                 selectedRoute = route, colors = NaviampColors.Dark, onRouteSelected = onRouteSelected,
                 systemInsets = systemInsets, keyboardInsets = keyboardInsets,
                 miniPlayer = {
-                    Box(Modifier.fillMaxWidth().height(footerHeight)) {
+                    if (showFooter) Box(Modifier.fillMaxWidth().height(footerHeight)) {
                         Button(onClick = {}, modifier = Modifier.testTag("footer-action")) { Text("Playback") }
                     }
                 },

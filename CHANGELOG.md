@@ -7,7 +7,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Features
 
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
-- Keep one mini-player visible while browsing, editing connections, and viewing player details, including a disabled empty state when nothing is playing.
+- Show the mini-player while browsing or setting up connections, including a disabled empty state when nothing is playing. Expanded Now Playing hides it and uses the freed space; closing details restores it.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
 - Use solid theme backgrounds in the standard app, with artwork-color blending confined to expanded Now Playing. Gradient controls are in Player settings; TV background preferences are unchanged.
 

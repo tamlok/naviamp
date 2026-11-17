@@ -93,11 +93,11 @@ class NaviampCoreAppSmokeTest {
                 val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
                 return pixels[2, 2] to pixels[pixels.width - 3, pixels.height - 3]
             }
-            fun chromeColors(): Pair<Color, Color> {
+            fun railColor(): Color {
                 val rail = onNodeWithTag("main-navigation-rail").captureToImage().toPixelMap()
-                val footer = onNodeWithTag("mini-player").captureToImage().toPixelMap()
-                return rail[2, rail.height - 3] to footer[2, 2]
+                return rail[2, rail.height - 3]
             }
+            fun miniPlayerColor(): Color = onNodeWithTag("mini-player").captureToImage().toPixelMap()[2, 2]
             fun assertSolidApp() {
                 val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
                 assertEquals(NaviampColors.Dark.background, pixels[2, pixels.height - 3])
@@ -110,13 +110,15 @@ class NaviampCoreAppSmokeTest {
             }
             waitUntil(timeoutMillis = 5_000) { loadedPalette != fallback }
             val redPalette = loadedPalette
-            val solidChrome = chromeColors()
+            val solidRail = railColor()
+            val solidMiniPlayer = miniPlayerColor()
             runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = true)) }
             mainClock.advanceTimeBy(500)
             waitForIdle()
             val redCorners = routeCorners()
             assertTrue(redCorners.first != redCorners.second, "Expanded player has an artwork gradient")
-            assertEquals(solidChrome, chromeColors(), "Artwork must not tint navigation or the mini-player")
+            assertEquals(solidRail, railColor(), "Artwork must not tint navigation")
+            onNodeWithTag("mini-player").assertDoesNotExist()
             runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = blueArtwork, trackCoverArtUrl = blueArtwork, albumCoverArtUrl = blueArtwork)) }
             waitUntil(timeoutMillis = 5_000) { loadedPalette != redPalette && loadedPalette != fallback }
             mainClock.advanceTimeBy(500)
@@ -125,8 +127,10 @@ class NaviampCoreAppSmokeTest {
             assertTrue(blueCorners != redCorners, "Settled player background must respond to the loaded artwork")
             mainClock.advanceTimeBy(500)
             assertEquals(blueCorners, routeCorners(), "Compare settled colors, not an intermediate animation frame")
-            assertEquals(solidChrome, chromeColors())
+            assertEquals(solidRail, railColor())
+            onNodeWithTag("mini-player").assertDoesNotExist()
             runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = false)) }
+            assertEquals(solidMiniPlayer, miniPlayerColor())
             assertSolidApp()
             runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = redArtwork, trackCoverArtUrl = redArtwork, albumCoverArtUrl = redArtwork)) }
             assertSolidApp()
@@ -177,7 +181,7 @@ class NaviampCoreAppSmokeTest {
                 )
             }
             onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
-            onAllNodesWithTag("mini-player").assertCountEquals(1)
+            onNodeWithTag("mini-player").assertDoesNotExist()
             onNodeWithContentDescription("Collapse player").assertExists()
             ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
                 connection = ui.value.connectionSettings.connection.copy(editingConnection = true, editingSavedConnection = true),
@@ -192,7 +196,7 @@ class NaviampCoreAppSmokeTest {
             ))
             waitForIdle()
             onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
-            onAllNodesWithTag("mini-player").assertCountEquals(1)
+            onNodeWithTag("mini-player").assertDoesNotExist()
             onNodeWithContentDescription("Collapse player").assertExists()
             onNodeWithTag("connection-name").assertDoesNotExist()
             ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
@@ -202,6 +206,19 @@ class NaviampCoreAppSmokeTest {
             onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
             onAllNodesWithTag("mini-player").assertCountEquals(1)
             onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            ui.value = ui.value.copy(
+                connectionSettings = ui.value.connectionSettings.copy(connection = ui.value.connectionSettings.connection.copy(
+                    connected = false, restoringConnection = false,
+                )),
+                shellChrome = ui.value.shellChrome.copy(selectedRoute = SharedRoute.Home),
+                connect = ui.value.connect.copy(remoteNowPlaying = ui.value.nowPlaying),
+            )
+            onNodeWithTag("connection-name").assertIsDisplayed()
+            onNodeWithTag("mini-player").assertIsDisplayed()
+            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(selectedRoute = SharedRoute.Settings))
+            onNodeWithTag("mini-player").assertDoesNotExist()
+            onNodeWithContentDescription("Collapse player").assertExists()
         } finally { scope.cancel() }
     }
 
@@ -271,33 +288,49 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun detailsAndPrimaryNavigationKeepPlaybackAndBackClosesOnlyDetails() = runDesktopComposeUiTest(1000, 740) {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val provider = FakeCoreMediaProvider()
-        val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
-            connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
-            playback = app.naviamp.app.NaviampLivePlaybackState(currentTrack = provider.track,
-                queue = app.naviamp.domain.queue.PlaybackQueue(listOf(provider.track), currentIndex = 0)),
-        ))
-        val dispatcher = NaviampSystemBackDispatcher()
-        try {
-            setContent { CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) { NaviampCoreApp(core) } }
-            onNodeWithTag("mini-player-identity").performClick()
-            onNodeWithContentDescription("Collapse player").assertIsDisplayed()
-            onNodeWithTag("mini-player-identity").performClick()
-            runOnIdle { assertTrue(core.state.value.shell.shellChrome.nowPlayingOpen) }
-            core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Library)
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
-            onNodeWithTag("mini-player-identity").performClick()
-            runOnIdle { dispatcher.currentHandler?.invoke() }
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
-            runOnIdle {
-                assertEquals(SharedRoute.Library, core.state.value.shell.shellChrome.selectedRoute)
-                assertEquals(provider.track.id.value, core.state.value.shell.nowPlaying?.id)
-                assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
+    fun detailsHideTheMiniPlayerAndEveryExitRestoresItWithoutStoppingPlayback() {
+        for ((width, height) in listOf(1000 to 740, 412 to 818, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val provider = FakeCoreMediaProvider()
+                val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+                    connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
+                    playback = app.naviamp.app.NaviampLivePlaybackState(currentTrack = provider.track,
+                        queue = app.naviamp.domain.queue.PlaybackQueue(listOf(provider.track), currentIndex = 0)),
+                ))
+                val dispatcher = NaviampSystemBackDispatcher()
+                try {
+                    setContent { CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) { NaviampCoreApp(core) } }
+                    fun assertExpandedViewport() {
+                        onNodeWithTag("mini-player").assertDoesNotExist()
+                        val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
+                        val bottom = onAllNodesWithTag("main-navigation-bottom").fetchSemanticsNodes().singleOrNull()
+                            ?.boundsInRoot?.top ?: onRoot().fetchSemanticsNode().boundsInRoot.bottom
+                        assertEquals(bottom, route.bottom, 0.5f, "Expanded player must reclaim the mini-player space")
+                    }
+                    onNodeWithTag("mini-player-identity").performClick()
+                    assertExpandedViewport()
+                    onNodeWithContentDescription("Collapse player").performScrollTo().assertIsDisplayed().performClick()
+                    onNodeWithTag("mini-player").assertIsDisplayed()
+                    onNodeWithTag("mini-player-identity").performClick()
+                    assertExpandedViewport()
+                    if (width < 360) onNodeWithTag("main-navigation-open").performClick()
+                    onNodeWithTag("main-destination-Library").performClick()
+                    onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+                    onNodeWithTag("mini-player").assertIsDisplayed()
+                    onNodeWithTag("mini-player-identity").performClick()
+                    assertExpandedViewport()
+                    runOnIdle { dispatcher.currentHandler?.invoke() }
+                    onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+                    onNodeWithTag("mini-player").assertIsDisplayed()
+                    runOnIdle {
+                        assertEquals(SharedRoute.Library, core.state.value.shell.shellChrome.selectedRoute)
+                        assertEquals(provider.track.id.value, core.state.value.shell.nowPlaying?.id)
+                        assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
+                    }
+                } finally { scope.cancel() }
             }
-            onAllNodesWithTag("mini-player").assertCountEquals(1)
-        } finally { scope.cancel() }
+        }
     }
 
     @Test
@@ -343,7 +376,7 @@ class NaviampCoreAppSmokeTest {
             }
             onNodeWithTag("mini-player-identity").performClick()
             onNodeWithContentDescription("Collapse player").assertIsDisplayed()
-            onAllNodesWithTag("mini-player").assertCountEquals(1)
+            onNodeWithTag("mini-player").assertDoesNotExist()
             runOnIdle { assertTrue(core.state.value.shell.shellChrome.nowPlayingOpen) }
             core.actions.shell.navigationActions.onCloseNowPlaying()
             onNodeWithContentDescription("Collapse player").assertDoesNotExist()

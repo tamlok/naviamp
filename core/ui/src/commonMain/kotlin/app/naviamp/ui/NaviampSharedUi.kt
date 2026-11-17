@@ -217,11 +217,14 @@ private fun NaviampSharedAppShellContent(
         channel = interfaceSettings.applicationUpdateChannel ?: defaultApplicationUpdateChannel(about.version),
         checker = applicationUpdateChecker,
     )
+    val showingDisconnectedConnectionForm = !connected &&
+        selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My
     val canShowNowPlaying = sharedCanShowNowPlaying(
         connected = connected,
         remoteNowPlayingAvailable = remoteNowPlaying != null,
     )
     val showFullNowPlaying = canShowNowPlaying &&
+        !showingDisconnectedConnectionForm &&
         !editingConnection &&
         !restoringConnection &&
         nowPlayingOpen &&
@@ -301,8 +304,10 @@ private fun NaviampSharedAppShellContent(
                 onRouteSelected = navigationActions.onRouteSelected,
                 modifier = modifier,
                 miniPlayer = {
-                    NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-                        NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions)
+                    if (!showFullNowPlaying) {
+                        NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
+                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions)
+                        }
                     }
                 },
             ) {
@@ -338,7 +343,7 @@ private fun NaviampSharedAppShellContent(
 
                     if (restoringConnection && !editingConnection) {
                         RestoringConnectionCard(status = status, colors = colors)
-                    } else if (showingRouteConnectionForm || (!connected && selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My)) {
+                    } else if (showingRouteConnectionForm || showingDisconnectedConnectionForm) {
                         NaviampConnectionForm(
                             form = connectionForm,
                             colors = colors,
