@@ -1,4 +1,13 @@
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">My</string>
+    <string name="navigation_open">Open navigation</string>
+    <string name="navigation_close">Close navigation</string>
+    <string name="navigation_title">Navigation</string>
+    <string name="mini_player_empty_title">Nothing playing</string>
+    <string name="mini_player_empty_subtitle">Choose something to play</string>
+    <string name="mini_player_open">Open player details</string>
+    <string name="my_favorite_artists">Favorite artists</string>
     <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Album sorting</string>
     <string name="tv_album_sort_order_description">Choose how artist releases are ordered</string>
@@ -20,8 +29,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="equalizer_gain_axis">Gain (dB)</string>
     <string name="equalizer_frequency_axis">Frequency (Hz)</string>
-    <string name="player_full_view">Full player</string>
-    <string name="player_split_view">Split view</string>
     <string name="player_queue">Queue</string>
     <string name="settings_title">Settings</string>
     <string name="settings_selected_label">Selected</string>
@@ -840,8 +847,6 @@
     <string name="settings_keep_screen_awake">Keep screen awake</string>
     <string name="settings_keep_screen_awake_description">Prevent automatic display sleep while Naviamp is visible. System sleep, screen locks, and TV power timers may still apply.</string>
     <string name="settings_keep_screen_awake_failed">Could not change display sleep prevention. Turn this setting off and on to retry.</string>
-    <string name="settings_now_playing_split_background_opacity">Split-view background opacity</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Playback device: %1$s</string>
     <string name="now_playing_from_playlist">Playing from playlist: %1$s</string>
     <string name="now_playing_from_album">Playing from album: %1$s</string>

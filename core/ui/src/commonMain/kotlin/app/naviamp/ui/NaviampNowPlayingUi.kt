@@ -166,15 +166,6 @@ enum class NaviampNowPlayingTab {
     Related,
 }
 
-@Composable
-internal fun NaviampQueueContent(nowPlaying: NowPlayingUi, playbackProgress: StateFlow<PlaybackProgress>?,
-    colors: NaviampColors, actions: NaviampNowPlayingActions) {
-    var tab by remember { mutableStateOf(NaviampNowPlayingTab.UpNext) }
-    NowPlayingSidePanel(nowPlaying, playbackProgress, colors, tab, { tab = it },
-        showStationList = nowPlaying.isLive, showLyrics = false, compactQueueRows = true,
-        actions = actions, modifier = Modifier.fillMaxSize())
-}
-
 data class NaviampNowPlayingItemUi(
     val id: String,
     val title: String,
@@ -351,19 +342,18 @@ fun NaviampNowPlayingPanel(
     visualizerBandsProvider: () -> List<Float> = { nowPlaying.visualizerFrame?.bands.orEmpty() },
     selectedVisualizer: NaviampVisualizer = NaviampVisualizer.AudioSphere,
     visualizerColors: NaviampPlayerColors = NaviampPlayerColors.fallback(colors),
-    panelLayout: NaviampPlayerPanelLayout = NaviampPlayerPanelLayout.Adaptive,
     contentInsets: WindowInsets = WindowInsets(0),
 ) {
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val wide = maxWidth >= 780.dp && panelLayout != NaviampPlayerPanelLayout.Standalone
+        val wide = maxWidth >= 780.dp
         val filled = useFilledNowPlayingArtwork(displaySettings.fillArtworkArea,
             nowPlaying.visualizerVisible && nowPlaying.visualizerAvailable,
-            nowPlaying.lyricsVisible && !nowPlaying.isLive, wide, panelLayout)
+            nowPlaying.lyricsVisible && !nowPlaying.isLive, wide)
         NaviampNowPlayingPanelContent(
             nowPlaying, playbackProgress, colors, actions, displaySettings,
-            Modifier.fillMaxSize().then(if (filled) Modifier else
+            Modifier.fillMaxSize().heightIn(min = minOf(300.dp, maxHeight)).then(if (filled) Modifier else
                 Modifier.naviampContentInsets(contentInsets, WindowInsets(0))),
-            visualizerBandsProvider, selectedVisualizer, visualizerColors, panelLayout,
+            visualizerBandsProvider, selectedVisualizer, visualizerColors,
             filled, contentInsets,
         )
     }
@@ -380,7 +370,6 @@ private fun NaviampNowPlayingPanelContent(
     visualizerBandsProvider: () -> List<Float> = { nowPlaying.visualizerFrame?.bands.orEmpty() },
     selectedVisualizer: NaviampVisualizer = NaviampVisualizer.AudioSphere,
     visualizerColors: NaviampPlayerColors = NaviampPlayerColors.fallback(colors),
-    panelLayout: NaviampPlayerPanelLayout = NaviampPlayerPanelLayout.Adaptive,
     filled: Boolean,
     contentInsets: WindowInsets,
 ) {
@@ -395,19 +384,16 @@ private fun NaviampNowPlayingPanelContent(
     }
     val showStationList = nowPlaying.isLive
     val progressStableNowPlaying = rememberProgressStableNowPlaying(nowPlaying)
-    val sidePanelHeight = 340.dp
 
     BoxWithConstraints(
         modifier = modifier
-            .fillMaxSize()
-            .heightIn(min = 300.dp),
+            .fillMaxSize(),
     ) {
-        val wideLayout = maxWidth >= 780.dp && panelLayout != NaviampPlayerPanelLayout.Standalone
-        val artSizeDefault = if (panelLayout == NaviampPlayerPanelLayout.Standalone) {
-            (maxWidth - 48.dp).coerceIn(170.dp, 500.dp)
-        } else 286.dp
+        val wideLayout = maxWidth >= 780.dp
+        val artSizeDefault = 286.dp
         val viewportMaxWidth = maxWidth
         val viewportMaxHeight = maxHeight
+        val sidePanelHeight = minOf(340.dp, viewportMaxHeight)
         val compactStackLayout = !wideLayout && viewportMaxHeight < CompactNowPlayingStackBreakpoint
         val stackedArtSize = ((viewportMaxHeight * 0.48f) - 18.dp)
             .coerceIn(150.dp, artSizeDefault)
@@ -473,70 +459,6 @@ private fun NaviampNowPlayingPanelContent(
                     showLyrics = false, actions = actions,
                     modifier = Modifier.fillMaxWidth().height(sidePanelHeight).padding(horizontal = 14.dp))
             }
-        } else if (wideLayout && panelLayout == NaviampPlayerPanelLayout.Full) {
-            val largeArtSize = minOf(
-                maxWidth * 0.385f - NowPlayingArtShadowMargin * 2,
-                maxHeight - FullNowPlayingControlsReserve,
-            ).coerceAtLeast(210.dp)
-            val largeTypographyScale = fullNowPlayingTypographyScale(largeArtSize)
-            val artCenter = with(LocalDensity.current) { (largeArtSize / 2 + NowPlayingArtShadowMargin).roundToPx() }
-            Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.weight(1f).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(0.82f)
-                        .alignBy { artCenter }
-                        .testTag("full-art-controls").verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Box(Modifier.testTag("full-album-art")) {
-                            NowPlayingArtSurface(
-                                nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
-                                coverArtUrl = nowPlaying.coverArtUrl, colors = colors, size = largeArtSize,
-                                cornerRadius = 12.dp, visualizerVisible = nowPlaying.visualizerVisible,
-                                visualizerAvailable = nowPlaying.visualizerAvailable,
-                                visualizerBandsProvider = visualizerBandsProvider, selectedVisualizer = selectedVisualizer,
-                                visualizerColors = visualizerColors, visualizerActive = nowPlaying.isPlaying,
-                                tempoBpm = nowPlaying.bpm,
-                                onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
-                                onVisualizerSelected = actions::selectVisualizer,
-                                onVisualizerSwiped = actions::cycleVisualizer,
-                            )
-                        }
-                        NowPlayingDetails(
-                            nowPlaying, playbackProgress, colors, visualizerColors, actions, selectedVisualizer,
-                            displaySettings, openPlaylistMembership, { saveQueueDialogOpen = true },
-                            mobileLayout = true, showProgress = false, showIdentity = false,
-                            showCollapse = false,
-                            showWindowFullscreen = true,
-                            matchVolumeToTransportWidth = true,
-                            modifier = Modifier.width(largeArtSize),
-                        )
-                    }
-                    if (nowPlaying.lyricsVisible) {
-                        LyricsPanel(nowPlaying, playbackProgress, colors,
-                            onSeek = actions::seek, onOffsetChanged = actions::changeLyricsOffset,
-                            onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
-                            modifier = Modifier
-                                .weight(1.18f)
-                                .alignBy { artCenter }
-                                .fillMaxHeight()
-                                .padding(start = 12.dp, end = 24.dp, bottom = 24.dp)
-                                .testTag("full-lyrics"),
-                            largePresentation = true)
-                    } else NowPlayingDetails(
-                            nowPlaying, playbackProgress, colors, visualizerColors, actions, selectedVisualizer,
-                            displaySettings, openPlaylistMembership, { saveQueueDialogOpen = true },
-                            mobileLayout = true, showProgress = false, largePresentation = true, showControls = false,
-                        largePresentationScale = largeTypographyScale,
-                        modifier = Modifier.weight(1.18f).alignBy { it.measuredHeight / 2 }
-                            .verticalScroll(rememberScrollState())
-                            .padding(start = 12.dp, end = 24.dp)
-                            .testTag("full-track-info"),
-                    )
-                }
-                NowPlayingProgressRow(nowPlaying, playbackProgress,
-                    nowPlaying.canSeek && !nowPlaying.isLive, colors, colors.copy(accent = visualizerColors.accent),
-                    16.sp, 64.dp, actions::seek)
-            }
         } else if (wideLayout) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -548,7 +470,8 @@ private fun NaviampNowPlayingPanelContent(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .weight(0.9f)
-                        .fillMaxHeight(),
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
                 ) {
                     NowPlayingArtSurface(
                         nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
@@ -585,7 +508,7 @@ private fun NaviampNowPlayingPanelContent(
                             .coerceAtLeast(WideNowPlayingDetailsMinHeight - WideNowPlayingDetailsTopPadding),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(wideDetailsHeight)
+                            .heightIn(min = wideDetailsHeight)
                             .padding(top = WideNowPlayingDetailsTopPadding),
                     )
                 }
@@ -634,7 +557,7 @@ private fun NaviampNowPlayingPanelContent(
                         verticalArrangement = Arrangement.spacedBy(CompactNowPlayingStackGap),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(viewportHeight)
+                            .heightIn(min = maxOf(viewportHeight, compactMediaSlotHeight + CompactNowPlayingStackGap + compactDetailsHeight))
                             .padding(horizontal = 14.dp),
                     ) {
                         if (nowPlaying.lyricsVisible && !showStationList) {
@@ -687,13 +610,11 @@ private fun NaviampNowPlayingPanelContent(
                             onOpenPlaylistDialog = openPlaylistMembership,
                             onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                             compactLayout = true,
-                            showCollapse = panelLayout != NaviampPlayerPanelLayout.Standalone,
-                            showWindowFullscreen = panelLayout != NaviampPlayerPanelLayout.Standalone,
-                            matchVolumeToTransportWidth = panelLayout == NaviampPlayerPanelLayout.Standalone,
+                            showWindowFullscreen = true,
                             availableHeight = compactDetailsHeight,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .heightIn(min = compactDetailsHeight),
                         )
                     }
                 } else {
@@ -750,16 +671,14 @@ private fun NaviampNowPlayingPanelContent(
                         onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                         mobileLayout = true,
                         compactSizing = compactWidthSizing,
-                        showCollapse = panelLayout != NaviampPlayerPanelLayout.Standalone,
-                        showWindowFullscreen = panelLayout != NaviampPlayerPanelLayout.Standalone,
-                        matchVolumeToTransportWidth = panelLayout == NaviampPlayerPanelLayout.Standalone,
+                        showWindowFullscreen = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(viewportHeight / 2)
                             .padding(horizontal = 14.dp),
                     )
                 }
-                if (panelLayout != NaviampPlayerPanelLayout.Standalone) NowPlayingSidePanel(
+                NowPlayingSidePanel(
                     nowPlaying = progressStableNowPlaying,
                     playbackProgress = playbackProgress,
                     colors = colors,
@@ -913,13 +832,7 @@ private fun NowPlayingDetails(
     compactSizing: Boolean = compactLayout,
     availableHeight: Dp? = null,
     modifier: Modifier = Modifier,
-    showProgress: Boolean = true,
-    largePresentation: Boolean = false,
-    largePresentationScale: Float = 1f,
-    showCollapse: Boolean = true,
     showWindowFullscreen: Boolean = false,
-    showIdentity: Boolean = true,
-    showControls: Boolean = true,
     matchVolumeToTransportWidth: Boolean = false,
     filledArtworkLayout: Boolean = false,
 ) {
@@ -938,24 +851,15 @@ private fun NowPlayingDetails(
     val showVolume = !compactLayout || height == Dp.Unspecified || height >= 250.dp
     val showRating = !compactLayout || height == Dp.Unspecified || height >= 150.dp
     val showAudioInfo = displaySettings.showAudioInfo && (!compactLayout || height == Dp.Unspecified || height >= 150.dp)
-    val showTrackIdentity = showIdentity && (!compactLayout || height == Dp.Unspecified || height >= 135.dp)
     val volumeVisible = displaySettings.showVolumeBar && nowPlaying.canChangeVolume && showVolume
     val compactMetadataRow = compactLayout && !mobileLayout
     val controlColors = colors.copy(accent = playerColors.accent)
     val useLargeSizing = mobileLayout && !compactSizing
-    val effectiveLargePresentationScale = largePresentationScale.coerceIn(1f, FullNowPlayingTypographyMaxScale)
-    val titleFontSize = if (largePresentation) {
-        (26f * effectiveLargePresentationScale).roundToInt()
-    } else if (useLargeSizing) 19 else 15
-    val titleTextHeight = if (largePresentation) {
-        with(LocalDensity.current) { (36f * effectiveLargePresentationScale).sp.toDp() }
-    } else if (filledArtworkLayout) {
+    val titleFontSize = if (useLargeSizing) 19 else 15
+    val titleTextHeight = if (filledArtworkLayout) {
         with(LocalDensity.current) { (titleFontSize + 4).sp.toDp() }
     } else if (useLargeSizing) 23.dp else 18.dp
-    val metadataFontSize = if (largePresentation) {
-        (18f * effectiveLargePresentationScale).roundToInt()
-    } else if (useLargeSizing) 16 else 13
-    val largeIdentitySpacing = 8.dp * effectiveLargePresentationScale
+    val metadataFontSize = if (useLargeSizing) 16 else 13
     // Leave room for descenders and honor the user's font scale. Converting the
     // font size's raw numeric value directly to dp clips glyphs such as g, p,
     // and y on Android because scaled text can be taller than its fixed box.
@@ -1015,7 +919,7 @@ private fun NowPlayingDetails(
                     .padding(horizontal = if (useLargeSizing) 14.dp else 11.dp, vertical = 5.dp),
             )
         }
-        if (showProgress) NowPlayingProgressRow(
+        NowPlayingProgressRow(
             nowPlaying = nowPlaying,
             playbackProgress = playbackProgress,
             canSeek = canSeek,
@@ -1025,483 +929,479 @@ private fun NowPlayingDetails(
             timeWidth = scrubberTimeWidth,
             onSeek = actions::seek,
         )
-        if (showTrackIdentity) {
-                Column(
-                    horizontalAlignment = if (largePresentation) Alignment.Start else Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(
-                        if (largePresentation) largeIdentitySpacing else if (filledArtworkLayout) 6.dp else if (mobileLayout) 2.dp else 1.dp,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(
+                if (filledArtworkLayout) 6.dp else if (mobileLayout) 2.dp else 1.dp,
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = if (mobileLayout) 1.dp else 0.dp),
+        ) {
+            NowPlayingIdentityText(
+                text = nowPlaying.title,
+                alignStart = false,
+                color = colors.primaryText,
+                fontSize = titleFontSize,
+                height = titleTextHeight,
+                bold = true,
+                marqueeEnabled = displaySettings.scrollTrackTitle && nowPlaying.id.isNotBlank(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (!nowPlaying.isLive && nowPlaying.artistCredits.isNotEmpty()) {
+                NowPlayingArtistCreditsLine(
+                    credits = nowPlaying.artistCredits,
+                    alignStart = false,
+                    colors = colors,
+                    fontSize = metadataFontSize,
+                    marqueeEnabled = displaySettings.scrollArtistName,
+                    onArtistSelected = { credit ->
+                        actions.currentTrack(
+                            action = NowPlayingCurrentTrackAction.GoToArtist,
+                            artistCredit = credit,
+                        )
+                    },
+                )
+            } else {
+                NowPlayingIdentityText(
+                    text = nowPlaying.subtitle,
+                    alignStart = false,
+                    color = colors.secondaryText,
+                    fontSize = metadataFontSize,
+                    height = metadataTextHeight,
+                    marqueeEnabled = displaySettings.scrollArtistName && !nowPlaying.isLive,
+                    modifier = Modifier.clickable(
+                        enabled = !nowPlaying.isLive,
+                        onClick = {
+                            actions.currentTrack(NowPlayingCurrentTrackAction.GoToArtist)
+                        },
                     ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = if (mobileLayout) 1.dp else 0.dp),
+                )
+            }
+            val albumText = when {
+                nowPlaying.isLive -> "Live stream"
+                nowPlaying.albumTitle.isNotBlank() && displaySettings.showAlbumYear && nowPlaying.albumYear != null ->
+                    "${nowPlaying.albumTitle} (${nowPlaying.albumYear})"
+                nowPlaying.albumTitle.isNotBlank() -> nowPlaying.albumTitle
+                else -> nowPlaying.albumLine.ifBlank { nowPlaying.stateLabel }
+            }
+            NowPlayingIdentityText(
+                text = albumText,
+                alignStart = false,
+                color = colors.secondaryText.copy(alpha = 0.84f),
+                fontSize = metadataFontSize,
+                height = metadataTextHeight,
+                marqueeEnabled = displaySettings.scrollAlbumName && !nowPlaying.isLive,
+                modifier = Modifier.clickable(
+                    enabled = !nowPlaying.isLive &&
+                        (nowPlaying.albumTitle.isNotBlank() || nowPlaying.albumLine.isNotBlank()),
+                    onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.GoToAlbum) },
+                ),
+            )
+            nowPlaying.queueContext?.takeIf { displaySettings.showPlaybackSource }?.let { context ->
+                Text(
+                    text = nowPlayingQueueContextLabel(context),
+                    color = colors.secondaryText,
+                    fontSize = (metadataFontSize - 1).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().testTag("now-playing-queue-context"),
+                )
+            }
+        }
+
+        if (filledArtworkLayout && (showRating || showAudioInfo)) {
+            FilledArtworkMetadataRow(
+                nowPlaying = nowPlaying, colors = colors,
+                showRating = showRating, showAudioInfo = showAudioInfo,
+                largeSizing = useLargeSizing,
+                onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                onRatingSelected = { rating -> actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else if (compactMetadataRow && (showRating || showAudioInfo)) {
+                CompactMetadataRow(
+                    nowPlaying = nowPlaying,
+                    colors = colors,
+                    showRating = showRating,
+                    showAudioInfo = showAudioInfo,
+                    onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                    onRatingSelected = { rating ->
+                        actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+        } else if (showRating || showAudioInfo) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(if (filledArtworkLayout) 4.dp else 1.dp),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    NowPlayingIdentityText(
-                        text = nowPlaying.title,
-                        alignStart = largePresentation,
-                        color = colors.primaryText,
-                        fontSize = titleFontSize,
-                        height = titleTextHeight,
-                        bold = true,
-                        marqueeEnabled = displaySettings.scrollTrackTitle && nowPlaying.id.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (!nowPlaying.isLive && nowPlaying.artistCredits.isNotEmpty()) {
-                        NowPlayingArtistCreditsLine(
-                            credits = nowPlaying.artistCredits,
-                            alignStart = largePresentation,
+                    if (showRating && !nowPlaying.isLive && (nowPlaying.canFavorite || nowPlaying.canRate)) {
+                        RatingRow(
+                            favoriteActive = nowPlaying.favoriteActive,
+                            canFavorite = nowPlaying.canFavorite,
+                            rating = nowPlaying.userRating,
+                            canRate = nowPlaying.canRate,
                             colors = colors,
-                            fontSize = metadataFontSize,
-                            marqueeEnabled = displaySettings.scrollArtistName,
-                            onArtistSelected = { credit ->
-                                actions.currentTrack(
-                                    action = NowPlayingCurrentTrackAction.GoToArtist,
-                                    artistCredit = credit,
-                                )
+                            onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                            onRatingSelected = { rating ->
+                                actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
                             },
-                        )
-                    } else {
-                        NowPlayingIdentityText(
-                            text = nowPlaying.subtitle,
-                            alignStart = largePresentation,
-                            color = colors.secondaryText,
-                            fontSize = metadataFontSize,
-                            height = metadataTextHeight,
-                            marqueeEnabled = displaySettings.scrollArtistName && !nowPlaying.isLive,
-                            modifier = Modifier.clickable(
-                                enabled = !nowPlaying.isLive,
-                                onClick = {
-                                    actions.currentTrack(NowPlayingCurrentTrackAction.GoToArtist)
-                                },
-                            ),
+                            iconSize = ratingIconSize,
+                            favoriteSlotWidth = ratingFavoriteSlotWidth,
+                            starSlotWidth = ratingStarSlotWidth,
+                            starsWidth = ratingStarsWidth,
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
-                    val albumText = when {
-                        nowPlaying.isLive -> "Live stream"
-                        nowPlaying.albumTitle.isNotBlank() && displaySettings.showAlbumYear && nowPlaying.albumYear != null ->
-                            "${nowPlaying.albumTitle} (${nowPlaying.albumYear})"
-                        nowPlaying.albumTitle.isNotBlank() -> nowPlaying.albumTitle
-                        else -> nowPlaying.albumLine.ifBlank { nowPlaying.stateLabel }
-                    }
-                    NowPlayingIdentityText(
-                        text = albumText,
-                        alignStart = largePresentation,
-                        color = colors.secondaryText.copy(alpha = 0.84f),
-                        fontSize = metadataFontSize,
-                        height = metadataTextHeight,
-                        marqueeEnabled = displaySettings.scrollAlbumName && !nowPlaying.isLive,
-                        modifier = Modifier.clickable(
-                            enabled = !nowPlaying.isLive &&
-                                (nowPlaying.albumTitle.isNotBlank() || nowPlaying.albumLine.isNotBlank()),
-                            onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.GoToAlbum) },
-                        ),
-                    )
-                    nowPlaying.queueContext?.takeIf { displaySettings.showPlaybackSource }?.let { context ->
+
+                    if (showAudioInfo && nowPlaying.audioInfo.isNotBlank()) {
                         Text(
-                            text = nowPlayingQueueContextLabel(context),
+                            nowPlaying.audioInfo,
                             color = colors.secondaryText,
-                            fontSize = (metadataFontSize - 1).sp,
+                            fontSize = audioInfoFontSize,
+                            textAlign = TextAlign.Center,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            textAlign = if (largePresentation) TextAlign.Start else TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().testTag("now-playing-queue-context"),
+                            modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
         }
 
-        if (showControls) {
-            if (filledArtworkLayout && (showRating || showAudioInfo)) {
-                FilledArtworkMetadataRow(
-                    nowPlaying = nowPlaying, colors = colors,
-                    showRating = showRating, showAudioInfo = showAudioInfo,
-                    largeSizing = useLargeSizing,
-                    onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
-                    onRatingSelected = { rating -> actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating) },
-                    modifier = Modifier.fillMaxWidth(),
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .testTag("now-playing-transport-row")
+                .padding(
+                    top = if (mobileLayout) 0.dp else 6.dp,
+                    bottom = if (mobileLayout) 0.dp else 4.dp,
+                ),
+        ) {
+            NaviampTransportIconButton(
+                enabled = nowPlaying.shuffleEnabled,
+                icon = NaviampTransportIcons.Shuffle,
+                contentDescription = if (nowPlaying.shuffleActive) "Turn shuffle off" else "Shuffle Up Next",
+                colors = controlColors,
+                selected = nowPlaying.shuffleActive,
+                buttonSize = secondaryTransportButtonSize,
+                iconSize = secondaryTransportIconSize,
+                onClick = { actions.playback(NowPlayingPlaybackAction.ToggleShuffle) },
+            )
+            NaviampTransportIconButton(
+                enabled = nowPlaying.hasPrevious,
+                icon = NaviampTransportIcons.Previous,
+                contentDescription = "Previous",
+                colors = controlColors,
+                buttonSize = transportButtonSize,
+                iconSize = transportIconSize,
+                onClick = { actions.playback(NowPlayingPlaybackAction.Previous) },
+            )
+            NaviampTransportIconButton(
+                enabled = canTogglePlayback,
+                icon = if (nowPlaying.isPlaying) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
+                contentDescription = if (nowPlaying.isPlaying) "Pause" else "Play",
+                colors = controlColors,
+                prominent = true,
+                buttonSize = prominentTransportButtonSize,
+                iconSize = prominentTransportIconSize,
+                onClick = {
+                    when {
+                        nowPlaying.isPlaying -> actions.playback(NowPlayingPlaybackAction.Pause)
+                        nowPlaying.isPaused -> actions.playback(NowPlayingPlaybackAction.Resume)
+                        else -> actions.playback(NowPlayingPlaybackAction.PlayCurrent)
+                    }
+                },
+            )
+            NaviampTransportIconButton(
+                enabled = nowPlaying.hasNext,
+                icon = NaviampTransportIcons.Next,
+                contentDescription = "Next",
+                colors = controlColors,
+                buttonSize = transportButtonSize,
+                iconSize = transportIconSize,
+                onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
+            )
+            NaviampTransportIconButton(
+                enabled = nowPlaying.canRepeat,
+                icon = naviampRepeatIcon(nowPlaying.repeatMode),
+                contentDescription = when (nowPlaying.repeatMode) {
+                    NaviampRepeatMode.Off -> "Repeat off"
+                    NaviampRepeatMode.Queue -> "Repeat queue"
+                    NaviampRepeatMode.Track -> "Repeat current track"
+                },
+                colors = controlColors,
+                selected = nowPlaying.repeatMode != NaviampRepeatMode.Off,
+                buttonSize = secondaryTransportButtonSize,
+                iconSize = secondaryTransportIconSize,
+                inactive = nowPlaying.repeatMode == NaviampRepeatMode.Off,
+                onClick = { actions.playback(NowPlayingPlaybackAction.CycleRepeatMode) },
+            )
+        }
+
+        if (volumeVisible) {
+            VolumeRow(
+                value = volumeValue,
+                isChangingVolume = { isChangingVolume = it },
+                onValueChanged = {
+                    volumeValue = it
+                    actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
+                },
+                colors = controlColors,
+                trackWidth = transportClusterWidth.takeIf { matchVolumeToTransportWidth },
+            )
+        }
+
+        if (compactLayout && mobileLayout) {
+            Box(modifier = Modifier.weight(1f))
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .requiredHeight(if (mobileLayout) 46.dp else 44.dp)
+                .testTag("now-playing-bottom-actions")
+                .padding(horizontal = if (pinBottomActions) 8.dp else 0.dp),
+        ) {
+            val windowController = LocalNaviampWindowController.current
+            val fullscreenInMenu = showWindowFullscreen && windowController != null && !naviampWindowShowsFullscreenIcon()
+            val bottomActionButtonSize = 33.dp
+            val bottomActionIconSize = 20.dp
+            Row(modifier = Modifier.align(Alignment.CenterStart)) {
+                NaviampTransportIconButton(
+                    enabled = nowPlaying.canStartRadio,
+                    icon = NaviampTransportIcons.Radio,
+                    contentDescription = "Start track radio",
+                    colors = colors,
+                    buttonSize = bottomActionButtonSize,
+                    iconSize = bottomActionIconSize,
+                    onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.StartRadio) },
                 )
-            } else if (compactMetadataRow && (showRating || showAudioInfo)) {
-                    CompactMetadataRow(
-                        nowPlaying = nowPlaying,
+                Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
+                    NaviampTransportIconButton(
+                        enabled = true,
+                        icon = NaviampIcons.Turntable,
+                        contentDescription = "DJs",
                         colors = colors,
-                        showRating = showRating,
-                        showAudioInfo = showAudioInfo,
-                        onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
-                        onRatingSelected = { rating ->
-                            actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
+                        selected = nowPlaying.activeRadioDjId != null,
+                        buttonSize = bottomActionButtonSize,
+                        iconSize = bottomActionIconSize,
+                        onClick = { radioDjMenuExpanded = true },
                     )
-            } else if (showRating || showAudioInfo) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(if (filledArtworkLayout) 4.dp else 1.dp),
-                        modifier = Modifier.fillMaxWidth(),
+                    NaviampDropdownMenu(
+                        expanded = radioDjMenuExpanded,
+                        onDismissRequest = { radioDjMenuExpanded = false },
+                        offset = DpOffset(0.dp, 6.dp),
                     ) {
-                        if (showRating && !nowPlaying.isLive && (nowPlaying.canFavorite || nowPlaying.canRate)) {
-                            RatingRow(
-                                favoriteActive = nowPlaying.favoriteActive,
-                                canFavorite = nowPlaying.canFavorite,
-                                rating = nowPlaying.userRating,
-                                canRate = nowPlaying.canRate,
-                                colors = colors,
-                                onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
-                                onRatingSelected = { rating ->
-                                    actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
-                                },
-                                iconSize = ratingIconSize,
-                                favoriteSlotWidth = ratingFavoriteSlotWidth,
-                                starSlotWidth = ratingStarSlotWidth,
-                                starsWidth = ratingStarsWidth,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-
-                        if (showAudioInfo && nowPlaying.audioInfo.isNotBlank()) {
-                            Text(
-                                nowPlaying.audioInfo,
-                                color = colors.secondaryText,
-                                fontSize = audioInfoFontSize,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
-            }
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .testTag("now-playing-transport-row")
-                    .padding(
-                        top = if (mobileLayout) 0.dp else 6.dp,
-                        bottom = if (mobileLayout) 0.dp else 4.dp,
-                    ),
-            ) {
-                NaviampTransportIconButton(
-                    enabled = nowPlaying.shuffleEnabled,
-                    icon = NaviampTransportIcons.Shuffle,
-                    contentDescription = if (nowPlaying.shuffleActive) "Turn shuffle off" else "Shuffle Up Next",
-                    colors = controlColors,
-                    selected = nowPlaying.shuffleActive,
-                    buttonSize = secondaryTransportButtonSize,
-                    iconSize = secondaryTransportIconSize,
-                    onClick = { actions.playback(NowPlayingPlaybackAction.ToggleShuffle) },
-                )
-                NaviampTransportIconButton(
-                    enabled = nowPlaying.hasPrevious,
-                    icon = NaviampTransportIcons.Previous,
-                    contentDescription = "Previous",
-                    colors = controlColors,
-                    buttonSize = transportButtonSize,
-                    iconSize = transportIconSize,
-                    onClick = { actions.playback(NowPlayingPlaybackAction.Previous) },
-                )
-                NaviampTransportIconButton(
-                    enabled = canTogglePlayback,
-                    icon = if (nowPlaying.isPlaying) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
-                    contentDescription = if (nowPlaying.isPlaying) "Pause" else "Play",
-                    colors = controlColors,
-                    prominent = true,
-                    buttonSize = prominentTransportButtonSize,
-                    iconSize = prominentTransportIconSize,
-                    onClick = {
-                        when {
-                            nowPlaying.isPlaying -> actions.playback(NowPlayingPlaybackAction.Pause)
-                            nowPlaying.isPaused -> actions.playback(NowPlayingPlaybackAction.Resume)
-                            else -> actions.playback(NowPlayingPlaybackAction.PlayCurrent)
-                        }
-                    },
-                )
-                NaviampTransportIconButton(
-                    enabled = nowPlaying.hasNext,
-                    icon = NaviampTransportIcons.Next,
-                    contentDescription = "Next",
-                    colors = controlColors,
-                    buttonSize = transportButtonSize,
-                    iconSize = transportIconSize,
-                    onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
-                )
-                NaviampTransportIconButton(
-                    enabled = nowPlaying.canRepeat,
-                    icon = naviampRepeatIcon(nowPlaying.repeatMode),
-                    contentDescription = when (nowPlaying.repeatMode) {
-                        NaviampRepeatMode.Off -> "Repeat off"
-                        NaviampRepeatMode.Queue -> "Repeat queue"
-                        NaviampRepeatMode.Track -> "Repeat current track"
-                    },
-                    colors = controlColors,
-                    selected = nowPlaying.repeatMode != NaviampRepeatMode.Off,
-                    buttonSize = secondaryTransportButtonSize,
-                    iconSize = secondaryTransportIconSize,
-                    inactive = nowPlaying.repeatMode == NaviampRepeatMode.Off,
-                    onClick = { actions.playback(NowPlayingPlaybackAction.CycleRepeatMode) },
-                )
-            }
-
-            if (volumeVisible) {
-                VolumeRow(
-                    value = volumeValue,
-                    isChangingVolume = { isChangingVolume = it },
-                    onValueChanged = {
-                        volumeValue = it
-                        actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
-                    },
-                    colors = controlColors,
-                    trackWidth = transportClusterWidth.takeIf { matchVolumeToTransportWidth },
-                )
-            }
-
-            if (compactLayout && mobileLayout) {
-                Box(modifier = Modifier.weight(1f))
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .requiredHeight(if (mobileLayout) 46.dp else 44.dp)
-                    .testTag("now-playing-bottom-actions")
-                    .padding(horizontal = if (pinBottomActions) 8.dp else 0.dp),
-            ) {
-                val windowController = LocalNaviampWindowController.current
-                val fullscreenInMenu = showWindowFullscreen && windowController != null && !naviampWindowShowsFullscreenIcon()
-                val bottomActionButtonSize = 33.dp
-                val bottomActionIconSize = 20.dp
-                Row(modifier = Modifier.align(Alignment.CenterStart)) {
-                    NaviampTransportIconButton(
-                        enabled = nowPlaying.canStartRadio,
-                        icon = NaviampTransportIcons.Radio,
-                        contentDescription = "Start track radio",
-                        colors = colors,
-                        buttonSize = bottomActionButtonSize,
-                        iconSize = bottomActionIconSize,
-                        onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.StartRadio) },
-                    )
-                    Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
-                        NaviampTransportIconButton(
-                            enabled = true,
+                        NaviampDropdownMenuItem(
+                            label = "Default radio",
                             icon = NaviampIcons.Turntable,
-                            contentDescription = "DJs",
-                            colors = colors,
-                            selected = nowPlaying.activeRadioDjId != null,
-                            buttonSize = bottomActionButtonSize,
-                            iconSize = bottomActionIconSize,
-                            onClick = { radioDjMenuExpanded = true },
-                        )
-                        NaviampDropdownMenu(
-                            expanded = radioDjMenuExpanded,
-                            onDismissRequest = { radioDjMenuExpanded = false },
-                            offset = DpOffset(0.dp, 6.dp),
-                        ) {
-                            NaviampDropdownMenuItem(
-                                label = "Default radio",
-                                icon = NaviampIcons.Turntable,
-                                enabled = true,
-                                selected = nowPlaying.activeRadioDjId == null,
-                                onClick = {
-                                    radioDjMenuExpanded = false
-                                    actions.selectRadioDj(null)
-                                },
-                            )
-                            if (nowPlaying.radioDjs.isEmpty()) {
-                                NaviampDropdownMenuItem(
-                                    label = "No DJs saved",
-                                    icon = NaviampIcons.Turntable,
-                                    enabled = false,
-                                    onClick = {},
-                                )
-                            } else {
-                                nowPlaying.radioDjs.forEach { dj ->
-                                    val selected = dj.id == nowPlaying.activeRadioDjId
-                                    NaviampDropdownMenuItem(
-                                        label = dj.name,
-                                        icon = NaviampIcons.Turntable,
-                                        enabled = true,
-                                        selected = selected,
-                                        onClick = {
-                                            radioDjMenuExpanded = false
-                                            actions.selectRadioDj(if (selected) null else dj.id)
-                                        },
-                                    )
-                                }
-                            }
-                            HorizontalDivider()
-                            NaviampDropdownMenuItem(
-                                label = stringResource(Res.string.settings_radio_create_dj),
-                                icon = NaviampIcons.Plus,
-                                enabled = true,
-                                onClick = {
-                                    radioDjMenuExpanded = false
-                                    actions.onCreateRadioDj()
-                                },
-                            )
-                        }
-                    }
-                }
-                if (showCollapse) Box(modifier = Modifier.align(Alignment.Center)) {
-                    NaviampTooltip("Collapse player", colors) {
-                        IconButton(
-                            onClick = { actions.display(NowPlayingDisplayAction.Collapse) },
-                            modifier = Modifier.requiredSize(bottomActionButtonSize),
-                        ) {
-                            Icon(
-                                imageVector = NaviampIcons.ChevronDown,
-                                contentDescription = "Collapse player",
-                                tint = colors.secondaryText,
-                                modifier = Modifier.requiredSize(bottomActionIconSize),
-                            )
-                        }
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.align(Alignment.CenterEnd),
-                ) {
-                    if (showWindowFullscreen && !fullscreenInMenu) {
-                        NaviampWindowFullscreenButton(colors, bottomActionButtonSize, bottomActionIconSize)
-                    }
-                    if (nowPlaying.castAvailable) {
-                        NaviampTransportIconButton(
                             enabled = true,
-                            icon = NaviampTransportIcons.Cast,
-                            contentDescription = stringResource(Res.string.now_playing_cast_to_device),
-                            colors = colors,
-                            selected = nowPlaying.castSelected,
-                            buttonSize = bottomActionButtonSize,
-                            iconSize = bottomActionIconSize,
-                            onClick = actions.onCastPicker,
+                            selected = nowPlaying.activeRadioDjId == null,
+                            onClick = {
+                                radioDjMenuExpanded = false
+                                actions.selectRadioDj(null)
+                            },
+                        )
+                        if (nowPlaying.radioDjs.isEmpty()) {
+                            NaviampDropdownMenuItem(
+                                label = "No DJs saved",
+                                icon = NaviampIcons.Turntable,
+                                enabled = false,
+                                onClick = {},
+                            )
+                        } else {
+                            nowPlaying.radioDjs.forEach { dj ->
+                                val selected = dj.id == nowPlaying.activeRadioDjId
+                                NaviampDropdownMenuItem(
+                                    label = dj.name,
+                                    icon = NaviampIcons.Turntable,
+                                    enabled = true,
+                                    selected = selected,
+                                    onClick = {
+                                        radioDjMenuExpanded = false
+                                        actions.selectRadioDj(if (selected) null else dj.id)
+                                    },
+                                )
+                            }
+                        }
+                        HorizontalDivider()
+                        NaviampDropdownMenuItem(
+                            label = stringResource(Res.string.settings_radio_create_dj),
+                            icon = NaviampIcons.Plus,
+                            enabled = true,
+                            onClick = {
+                                radioDjMenuExpanded = false
+                                actions.onCreateRadioDj()
+                            },
                         )
                     }
+                }
+            }
+            Box(modifier = Modifier.align(Alignment.Center)) {
+                NaviampTooltip("Collapse player", colors) {
+                    IconButton(
+                        onClick = { actions.display(NowPlayingDisplayAction.Collapse) },
+                        modifier = Modifier.requiredSize(bottomActionButtonSize),
+                    ) {
+                        Icon(
+                            imageVector = NaviampIcons.ChevronDown,
+                            contentDescription = "Collapse player",
+                            tint = colors.secondaryText,
+                            modifier = Modifier.requiredSize(bottomActionIconSize),
+                        )
+                    }
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.align(Alignment.CenterEnd),
+            ) {
+                if (showWindowFullscreen && !fullscreenInMenu) {
+                    NaviampWindowFullscreenButton(colors, bottomActionButtonSize, bottomActionIconSize)
+                }
+                if (nowPlaying.castAvailable) {
                     NaviampTransportIconButton(
-                        enabled = nowPlaying.lyricsAvailable,
-                        icon = NaviampTransportIcons.Lyrics,
-                        contentDescription = if (nowPlaying.lyricsVisible) "Hide lyrics" else "Show lyrics",
+                        enabled = true,
+                        icon = NaviampTransportIcons.Cast,
+                        contentDescription = stringResource(Res.string.now_playing_cast_to_device),
                         colors = colors,
-                        selected = nowPlaying.lyricsVisible,
+                        selected = nowPlaying.castSelected,
                         buttonSize = bottomActionButtonSize,
                         iconSize = bottomActionIconSize,
-                        onClick = { actions.display(NowPlayingDisplayAction.ToggleLyrics) },
+                        onClick = actions.onCastPicker,
                     )
-                    Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
-                        NaviampTransportIconButton(
-                            enabled = nowPlayingActionMenuEnabled(nowPlaying) || fullscreenInMenu,
-                            icon = NaviampTransportIcons.MoreVertical,
-                            contentDescription = if (nowPlaying.isLive) stringResource(Res.string.stream_actions) else "Track actions",
-                            colors = colors,
-                            buttonSize = bottomActionButtonSize,
-                            iconSize = bottomActionIconSize,
-                            onClick = { actionMenuExpanded = true },
-                        )
-                        NaviampDropdownMenu(
-                            expanded = actionMenuExpanded,
-                            onDismissRequest = { actionMenuExpanded = false },
-                            offset = DpOffset(0.dp, 6.dp),
-                        ) {
-                            if (fullscreenInMenu) {
-                                val fullscreen = windowController?.state?.placement == NaviampWindowPlacement.Fullscreen
-                                NaviampDropdownMenuItem(
-                                    label = stringResource(if (fullscreen) Res.string.window_exit_fullscreen else Res.string.window_enter_fullscreen),
-                                    icon = if (fullscreen) NaviampIcons.ExitFullscreen else NaviampIcons.Fullscreen,
-                                    onClick = {
-                                        actionMenuExpanded = false
-                                        windowController?.toggle()
-                                    },
-                                )
-                            }
-                            if (nowPlaying.castAvailable) {
-                                NaviampDropdownMenuItem(
-                                    label = stringResource(Res.string.now_playing_cast_to_device),
-                                    icon = NaviampTransportIcons.Cast,
-                                    onClick = {
-                                        actionMenuExpanded = false
-                                        actions.onCastPicker()
-                                    },
-                                )
-                            }
-                            nowPlaying.remoteOutputDeviceName?.let { deviceName ->
-                                NaviampDropdownMenuItem(
-                                    label = stringResource(Res.string.tv_stop_controlling_named, deviceName),
-                                    onClick = {
-                                        actionMenuExpanded = false
-                                        actions.onRemoteOutputAction()
-                                    },
-                                )
-                            }
-                            if (nowPlaying.isLive && nowPlaying.aurralSourceId != null && nowPlaying.aurralRadioMetadata != null) {
-                                NaviampDropdownMenuItem(label = stringResource(Res.string.discovery_find_in_aurral),
-                                    icon = NaviampIcons.Search, onClick = {
-                                        actionMenuExpanded = false
-                                        actions.onFindInAurral(nowPlaying.aurralSourceId, nowPlaying.id, nowPlaying.aurralRadioMetadata)
-                                    })
-                            }
-                            nowPlayingTrackMenuActions(
-                                canStartRadio = nowPlaying.canStartRadio,
-                                visualizerAvailable = nowPlaying.visualizerAvailable,
-                                isLive = nowPlaying.isLive,
-                                hasDetails = nowPlaying.detailSections.isNotEmpty() || nowPlaying.streamDetailSections.isNotEmpty(),
-                                detailsLabel = stringResource(if (nowPlaying.isLive) Res.string.stream_details else Res.string.playlist_item_details),
-                                canAddToPlaylist = nowPlaying.canAddToPlaylist && nowPlaying.canEditPlaylistMembership,
-                                canSaveQueueAsPlaylist = nowPlaying.canSaveQueueAsPlaylist,
-                                canEmptyQueue = nowPlaying.upNext.isNotEmpty(),
-                                sleepTimerLabel = nowPlaying.sleepTimer.label,
-                            ).forEach { action ->
-                                NaviampDropdownMenuItem(
-                                    label = if (action.action == NaviampAction.StartTrackRadio)
-                                        stringResource(Res.string.tv_start_radio) else action.label,
-                                    icon = action.icon,
-                                    enabled = action.enabled,
-                                    onClick = {
-                                        actionMenuExpanded = false
-                                        when (action.action) {
-                                            NaviampAction.StartTrackRadio ->
-                                                actions.currentTrack(NowPlayingCurrentTrackAction.StartRadio)
-                                            NaviampAction.ChangeVisualizer -> visualizerMenuExpanded = true
-                                            NaviampAction.DownloadTrack ->
-                                                actions.currentTrack(NowPlayingCurrentTrackAction.Download)
-                                            NaviampAction.TrackDetails -> trackDetailsOpen = true
-                                            NaviampAction.GoToAlbum ->
-                                                actions.currentTrack(NowPlayingCurrentTrackAction.GoToAlbum)
-                                            NaviampAction.GoToArtist ->
-                                                actions.currentTrack(NowPlayingCurrentTrackAction.GoToArtist)
-                                            NaviampAction.AddToPlaylist -> {
-                                                if (nowPlaying.useInlinePlaylistPicker) {
-                                                    onOpenPlaylistDialog(
-                                                        NaviampNowPlayingItemUi(
-                                                            id = nowPlaying.id,
-                                                            title = nowPlaying.title,
-                                                            subtitle = nowPlaying.subtitle,
-                                                            coverArtUrl = nowPlaying.coverArtUrl,
-                                                        ),
-                                                    )
-                                                } else {
-                                                    actions.currentTrack(NowPlayingCurrentTrackAction.AddToPlaylist)
-                                                }
-                                            }
-                                            NaviampAction.SaveQueueAsPlaylist -> onOpenSaveQueueDialog()
-                                            NaviampAction.EmptyQueue -> emptyQueueDialogOpen = true
-                                            NaviampAction.SleepTimer -> sleepTimerDialogOpen = true
-                                            else -> Unit
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        NaviampDropdownMenu(
-                            expanded = visualizerMenuExpanded,
-                            onDismissRequest = { visualizerMenuExpanded = false },
-                            offset = DpOffset(0.dp, 6.dp),
-                        ) {
-                            VisualizerDropdownMenuItems(
-                                selectedVisualizer = selectedVisualizer,
-                                onVisualizerSelected = {
-                                    visualizerMenuExpanded = false
-                                    actions.selectVisualizer(it)
+                }
+                NaviampTransportIconButton(
+                    enabled = nowPlaying.lyricsAvailable,
+                    icon = NaviampTransportIcons.Lyrics,
+                    contentDescription = if (nowPlaying.lyricsVisible) "Hide lyrics" else "Show lyrics",
+                    colors = colors,
+                    selected = nowPlaying.lyricsVisible,
+                    buttonSize = bottomActionButtonSize,
+                    iconSize = bottomActionIconSize,
+                    onClick = { actions.display(NowPlayingDisplayAction.ToggleLyrics) },
+                )
+                Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
+                    NaviampTransportIconButton(
+                        enabled = nowPlayingActionMenuEnabled(nowPlaying) || fullscreenInMenu,
+                        icon = NaviampTransportIcons.MoreVertical,
+                        contentDescription = if (nowPlaying.isLive) stringResource(Res.string.stream_actions) else "Track actions",
+                        colors = colors,
+                        buttonSize = bottomActionButtonSize,
+                        iconSize = bottomActionIconSize,
+                        onClick = { actionMenuExpanded = true },
+                    )
+                    NaviampDropdownMenu(
+                        expanded = actionMenuExpanded,
+                        onDismissRequest = { actionMenuExpanded = false },
+                        offset = DpOffset(0.dp, 6.dp),
+                    ) {
+                        if (fullscreenInMenu) {
+                            val fullscreen = windowController?.state?.placement == NaviampWindowPlacement.Fullscreen
+                            NaviampDropdownMenuItem(
+                                label = stringResource(if (fullscreen) Res.string.window_exit_fullscreen else Res.string.window_enter_fullscreen),
+                                icon = if (fullscreen) NaviampIcons.ExitFullscreen else NaviampIcons.Fullscreen,
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    windowController?.toggle()
                                 },
                             )
                         }
+                        if (nowPlaying.castAvailable) {
+                            NaviampDropdownMenuItem(
+                                label = stringResource(Res.string.now_playing_cast_to_device),
+                                icon = NaviampTransportIcons.Cast,
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    actions.onCastPicker()
+                                },
+                            )
+                        }
+                        nowPlaying.remoteOutputDeviceName?.let { deviceName ->
+                            NaviampDropdownMenuItem(
+                                label = stringResource(Res.string.tv_stop_controlling_named, deviceName),
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    actions.onRemoteOutputAction()
+                                },
+                            )
+                        }
+                        if (nowPlaying.isLive && nowPlaying.aurralSourceId != null && nowPlaying.aurralRadioMetadata != null) {
+                            NaviampDropdownMenuItem(label = stringResource(Res.string.discovery_find_in_aurral),
+                                icon = NaviampIcons.Search, onClick = {
+                                    actionMenuExpanded = false
+                                    actions.onFindInAurral(nowPlaying.aurralSourceId, nowPlaying.id, nowPlaying.aurralRadioMetadata)
+                                })
+                        }
+                        nowPlayingTrackMenuActions(
+                            canStartRadio = nowPlaying.canStartRadio,
+                            visualizerAvailable = nowPlaying.visualizerAvailable,
+                            isLive = nowPlaying.isLive,
+                            hasDetails = nowPlaying.detailSections.isNotEmpty() || nowPlaying.streamDetailSections.isNotEmpty(),
+                            detailsLabel = stringResource(if (nowPlaying.isLive) Res.string.stream_details else Res.string.playlist_item_details),
+                            canAddToPlaylist = nowPlaying.canAddToPlaylist && nowPlaying.canEditPlaylistMembership,
+                            canSaveQueueAsPlaylist = nowPlaying.canSaveQueueAsPlaylist,
+                            canEmptyQueue = nowPlaying.upNext.isNotEmpty(),
+                            sleepTimerLabel = nowPlaying.sleepTimer.label,
+                        ).forEach { action ->
+                            NaviampDropdownMenuItem(
+                                label = if (action.action == NaviampAction.StartTrackRadio)
+                                    stringResource(Res.string.tv_start_radio) else action.label,
+                                icon = action.icon,
+                                enabled = action.enabled,
+                                onClick = {
+                                    actionMenuExpanded = false
+                                    when (action.action) {
+                                        NaviampAction.StartTrackRadio ->
+                                            actions.currentTrack(NowPlayingCurrentTrackAction.StartRadio)
+                                        NaviampAction.ChangeVisualizer -> visualizerMenuExpanded = true
+                                        NaviampAction.DownloadTrack ->
+                                            actions.currentTrack(NowPlayingCurrentTrackAction.Download)
+                                        NaviampAction.TrackDetails -> trackDetailsOpen = true
+                                        NaviampAction.GoToAlbum ->
+                                            actions.currentTrack(NowPlayingCurrentTrackAction.GoToAlbum)
+                                        NaviampAction.GoToArtist ->
+                                            actions.currentTrack(NowPlayingCurrentTrackAction.GoToArtist)
+                                        NaviampAction.AddToPlaylist -> {
+                                            if (nowPlaying.useInlinePlaylistPicker) {
+                                                onOpenPlaylistDialog(
+                                                    NaviampNowPlayingItemUi(
+                                                        id = nowPlaying.id,
+                                                        title = nowPlaying.title,
+                                                        subtitle = nowPlaying.subtitle,
+                                                        coverArtUrl = nowPlaying.coverArtUrl,
+                                                    ),
+                                                )
+                                            } else {
+                                                actions.currentTrack(NowPlayingCurrentTrackAction.AddToPlaylist)
+                                            }
+                                        }
+                                        NaviampAction.SaveQueueAsPlaylist -> onOpenSaveQueueDialog()
+                                        NaviampAction.EmptyQueue -> emptyQueueDialogOpen = true
+                                        NaviampAction.SleepTimer -> sleepTimerDialogOpen = true
+                                        else -> Unit
+                                    }
+                                },
+                            )
+                        }
+                    }
+                    NaviampDropdownMenu(
+                        expanded = visualizerMenuExpanded,
+                        onDismissRequest = { visualizerMenuExpanded = false },
+                        offset = DpOffset(0.dp, 6.dp),
+                    ) {
+                        VisualizerDropdownMenuItems(
+                            selectedVisualizer = selectedVisualizer,
+                            onVisualizerSelected = {
+                                visualizerMenuExpanded = false
+                                actions.selectVisualizer(it)
+                            },
+                        )
                     }
                 }
             }
@@ -2368,8 +2268,6 @@ private fun VolumeRow(
 }
 
 private val NowPlayingArtShadowMargin = 12.dp
-private val FullNowPlayingControlsReserve = 236.dp
-private const val FullNowPlayingTypographyMaxScale = 1.35f
 private val CompactNowPlayingStackBreakpoint = 640.dp
 private val CompactNowPlayingStackGap = 3.dp
 private val CompactNowPlayingDetailsMinHeight = 132.dp
@@ -2377,13 +2275,6 @@ private val WideNowPlayingArtMinHeight = 112.dp
 private val WideNowPlayingDetailsMinHeight = 232.dp
 private val WideNowPlayingDetailsTopPadding = 8.dp
 private val VolumeThumbRadius = 6.dp
-
-internal fun fullNowPlayingTypographyScale(artSize: Dp): Float =
-    (
-        1f +
-            ((artSize.value - 330f).coerceAtLeast(0f) / 420f) *
-            (FullNowPlayingTypographyMaxScale - 1f)
-        ).coerceIn(1f, FullNowPlayingTypographyMaxScale)
 
 internal fun waveformVisibleBarCount(amplitudeCount: Int): Int = amplitudeCount.coerceAtLeast(0)
 
@@ -2403,6 +2294,7 @@ private fun NowPlayingSidePanel(
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
+            .testTag("now-playing-side-panel")
             .clip(RoundedCornerShape(8.dp))
             .background(Color.Black.copy(alpha = 0.12f))
             .padding(8.dp),
@@ -2534,7 +2426,6 @@ private fun LyricsPanel(
     onOffsetChanged: (Int) -> Unit,
     onDisplayTimingSelected: (LyricsDisplayPreference) -> Unit,
     modifier: Modifier = Modifier,
-    largePresentation: Boolean = false,
 ) {
     val listState = remember(nowPlaying.id) { LazyListState() }
     val progress = currentPlaybackProgress(nowPlaying, playbackProgress)
@@ -2613,7 +2504,6 @@ private fun LyricsPanel(
                 offsetMillis = nowPlaying.lyricsOffsetMillis,
                 colors = colors,
                 listState = listState,
-                largePresentation = largePresentation,
                 onSeek = onSeek,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2633,7 +2523,6 @@ internal fun CenteredLyricsList(
     listState: LazyListState,
     onSeek: (Double) -> Unit,
     modifier: Modifier = Modifier,
-    largePresentation: Boolean = false,
 ) {
     LaunchedEffect(listState, activeLineIndex, lines, offsetMillis) {
         if (activeLineIndex < 0) return@LaunchedEffect
@@ -2644,7 +2533,7 @@ internal fun CenteredLyricsList(
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(vertical = maxHeight / 2),
-            verticalArrangement = Arrangement.spacedBy(if (largePresentation) 20.dp else 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxSize(),
         ) {
             items(lines.size) { index ->
@@ -2654,7 +2543,6 @@ internal fun CenteredLyricsList(
                     positionMillis = positionMillis,
                     offsetMillis = offsetMillis,
                     colors = colors,
-                    largePresentation = largePresentation,
                     onSeek = onSeek,
                     modifier = Modifier.testTag("lyrics-line-$index"),
                 )
@@ -2670,7 +2558,6 @@ private fun CenteredLyricLine(
     positionMillis: Long?,
     offsetMillis: Int,
     colors: NaviampColors,
-    largePresentation: Boolean,
     onSeek: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -2717,8 +2604,8 @@ private fun CenteredLyricLine(
         Text(
             text = line.text,
             color = inactiveColor,
-            fontSize = (if (largePresentation) 36f else 13f).sp,
-            lineHeight = (if (largePresentation) 48f else 16f).sp,
+            fontSize = 13.sp,
+            lineHeight = 16.sp,
             fontWeight = FontWeight.Normal,
             modifier = Modifier
                 .fillMaxWidth()
@@ -2728,8 +2615,8 @@ private fun CenteredLyricLine(
         Text(
             text = activeText,
             color = colors.primaryText,
-            fontSize = (if (largePresentation) 40f else 15f).sp,
-            lineHeight = (if (largePresentation) 52f else 18f).sp,
+            fontSize = 15.sp,
+            lineHeight = 18.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()

@@ -97,7 +97,6 @@ fun createNaviampCoreActions(
 
     val shell = NaviampAppShellActions(
         navigationActions = NaviampShellNavigationActions(
-            onPlayerDockedChanged = { send(NaviampCoreCommand.Navigation.SetPlayerDocked(it)) },
             onRouteSelected = { send(NaviampCoreCommand.Navigation.SelectRoute(it)) },
             onOpenNowPlaying = { send(NaviampCoreCommand.Navigation.OpenNowPlaying) },
             onCloseNowPlaying = { send(NaviampCoreCommand.Navigation.CloseNowPlaying) },

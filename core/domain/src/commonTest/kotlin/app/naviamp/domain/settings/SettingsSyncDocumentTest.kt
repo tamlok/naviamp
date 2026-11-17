@@ -7,6 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.jsonObject
 
 class SettingsSyncDocumentTest {
     @Test fun everyInterfaceLanguageSurvivesExportImportAndOlderDefaultsRemainCompatible() {
@@ -157,16 +158,36 @@ class SettingsSyncDocumentTest {
     }
 
     @Test
-    fun playerWorkspacePreferenceRoundTripsAndOlderExportsDefaultToSplit() {
-        for (layout in WideNowPlayingLayout.entries) {
-            val document = SettingsSyncDocument(preferences = SettingsSyncPreferences(
-                interfaceSettings = InterfaceSettings(nowPlaying = NowPlayingDisplaySettings(wideLayout = layout)),
-            ))
-            assertEquals(layout, SettingsSyncJson.decode(SettingsSyncJson.encode(document))
-                .preferences.interfaceSettings.nowPlaying.wideLayout)
+    fun legacyPlayerLayoutsAreIgnoredWithoutLosingOtherPreferences() {
+        for (layout in listOf("Full", "Split")) {
+            for (opacity in listOf(-1, 0, 42, 100, 999)) {
+                val document = SettingsSyncJson.decode(
+                    """{"preferences":{"interfaceSettings":{"language":"German","nowPlaying":{
+                        "wideLayout":"$layout","splitPaneBackgroundOpacityPercent":$opacity,
+                        "showPlaybackSource":true,"fillArtworkArea":true,"showVolumeBar":false
+                    }}}}""",
+                )
+                val expected = InterfaceSettings(
+                    language = InterfaceLanguage.German,
+                    nowPlaying = NowPlayingDisplaySettings(
+                        showPlaybackSource = true,
+                        fillArtworkArea = true,
+                        showVolumeBar = false,
+                    ),
+                )
+                assertEquals(expected, document.preferences.interfaceSettings)
+                val exported = SettingsSyncJson.encode(document)
+                val player = SettingsSyncJson.format.parseToJsonElement(exported).jsonObject
+                    .getValue("preferences").jsonObject.getValue("interfaceSettings").jsonObject
+                    .getValue("nowPlaying").jsonObject
+                assertFalse("wideLayout" in player)
+                assertFalse("splitPaneBackgroundOpacityPercent" in player)
+                assertEquals(expected, SettingsSyncJson.decode(exported).preferences.interfaceSettings)
+            }
         }
-        assertEquals(WideNowPlayingLayout.Split, SettingsSyncJson.decode("""{"preferences":{}}""")
-            .preferences.interfaceSettings.nowPlaying.wideLayout)
+        for (older in listOf("{}", """{"preferences":{}}""", """{"preferences":{"interfaceSettings":{}}}""")) {
+            assertEquals(InterfaceSettings(), SettingsSyncJson.decode(older).preferences.interfaceSettings)
+        }
     }
 
     @Test
@@ -218,23 +239,6 @@ class SettingsSyncDocumentTest {
             .preferences.playback
         assertFalse(explicitExport.effectiveSonicSimilarityEnabled())
         assertTrue(explicitExport.sonicSimilarityPreferenceConfigured)
-    }
-
-    @Test
-    fun splitPaneOpacityRoundTripsDefaultsAndNormalizes() {
-        val document = SettingsSyncDocument(preferences = SettingsSyncPreferences(
-            interfaceSettings = InterfaceSettings(
-                nowPlaying = NowPlayingDisplaySettings(splitPaneBackgroundOpacityPercent = 42),
-            ),
-        ))
-        assertEquals(42, SettingsSyncJson.decode(SettingsSyncJson.encode(document))
-            .preferences.interfaceSettings.nowPlaying.splitPaneBackgroundOpacityPercent)
-        assertEquals(DefaultSplitPaneBackgroundOpacityPercent, SettingsSyncJson.decode("{}")
-            .preferences.interfaceSettings.nowPlaying.splitPaneBackgroundOpacityPercent)
-        assertEquals(0, NowPlayingDisplaySettings(splitPaneBackgroundOpacityPercent = -1)
-            .normalized().splitPaneBackgroundOpacityPercent)
-        assertEquals(100, NowPlayingDisplaySettings(splitPaneBackgroundOpacityPercent = 101)
-            .normalized().splitPaneBackgroundOpacityPercent)
     }
 
     @Test

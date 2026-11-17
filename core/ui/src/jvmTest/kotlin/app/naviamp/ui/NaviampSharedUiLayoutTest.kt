@@ -46,6 +46,13 @@ class NaviampSharedUiLayoutTest {
     }
 
     @Test
+    fun myHubOwnsScrollWhenDisconnectedButItsConnectionFormDoesNot() {
+        assertTrue(sharedRouteUsesOwnScroll(connected = false, editingConnection = false, selectedRoute = SharedRoute.My))
+        assertFalse(sharedRouteUsesOwnScroll(connected = false, editingConnection = true, selectedRoute = SharedRoute.My))
+        assertFalse(sharedRouteUsesOwnScroll(connected = true, editingConnection = true, selectedRoute = SharedRoute.My))
+    }
+
+    @Test
     fun remoteNowPlayingRemainsAvailableWithoutALocalProviderConnection() {
         assertTrue(
             sharedCanShowNowPlaying(

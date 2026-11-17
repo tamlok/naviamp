@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">Moje</string>
+    <string name="navigation_open">Otwórz nawigację</string>
+    <string name="navigation_close">Zamknij nawigację</string>
+    <string name="navigation_title">Nawigacja</string>
+    <string name="mini_player_empty_title">Nic nie jest odtwarzane</string>
+    <string name="mini_player_empty_subtitle">Wybierz coś do odtworzenia</string>
+    <string name="mini_player_open">Otwórz szczegóły odtwarzacza</string>
+    <string name="my_favorite_artists">Ulubieni wykonawcy</string>
     <string name="settings_radio_new_dj">Nowy DJ</string>
     <string name="settings_radio_create_dj">Utwórz nowego DJ-a</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -121,8 +130,6 @@
     <string name="settings_keep_screen_awake">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_awake_description">Zapobiega automatycznemu uśpieniu ekranu, gdy Naviamp jest widoczny. Uśpienie systemu, blokady ekranu i wyłączniki czasowe telewizora mogą nadal działać.</string>
     <string name="settings_keep_screen_awake_failed">Nie można zmienić zapobiegania uśpieniu ekranu. Wyłącz i włącz to ustawienie, aby spróbować ponownie.</string>
-    <string name="settings_now_playing_split_background_opacity">Krycie tła widoku podzielonego</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Urządzenie odtwarzające: %1$s</string>
     <string name="now_playing_from_playlist">Z playlisty: %1$s</string>
     <string name="now_playing_from_album">Z albumu: %1$s</string>

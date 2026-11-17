@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">Il mio spazio</string>
+    <string name="navigation_open">Apri navigazione</string>
+    <string name="navigation_close">Chiudi navigazione</string>
+    <string name="navigation_title">Navigazione</string>
+    <string name="mini_player_empty_title">Nessuna riproduzione in corso</string>
+    <string name="mini_player_empty_subtitle">Scegli qualcosa da riprodurre</string>
+    <string name="mini_player_open">Apri i dettagli del lettore</string>
+    <string name="my_favorite_artists">Artisti preferiti</string>
     <string name="settings_radio_new_dj">Nuovo DJ</string>
     <string name="settings_radio_create_dj">Crea nuovo DJ</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Mantieni lo schermo acceso</string>
     <string name="settings_keep_screen_awake_description">Impedisce lo spegnimento automatico dello schermo mentre Naviamp è visibile. Sospensione del sistema, blocchi e timer della TV possono comunque attivarsi.</string>
     <string name="settings_keep_screen_awake_failed">Impossibile modificare la prevenzione dello spegnimento dello schermo. Disattiva e riattiva questa impostazione per riprovare.</string>
-    <string name="settings_now_playing_split_background_opacity">Opacità dello sfondo della vista divisa</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Dispositivo di riproduzione: %1$s</string>
     <string name="now_playing_from_playlist">Dalla playlist: %1$s</string>
     <string name="now_playing_from_album">Dall’album: %1$s</string>

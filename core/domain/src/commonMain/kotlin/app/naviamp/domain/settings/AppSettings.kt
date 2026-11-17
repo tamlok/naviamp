@@ -210,7 +210,6 @@ data class InterfaceSettings(
         auroraAngleDegrees = auroraAngleDegrees.coerceIn(0, 180),
         albumBlurRadiusDp = albumBlurRadiusDp.coerceIn(MinAlbumBlurRadiusDp, MaxAlbumBlurRadiusDp),
         singleColorHex = normalizedSingleColorHex(singleColorHex),
-        nowPlaying = nowPlaying.normalized(),
         albumArtworkOverrides = albumArtworkOverrides.mapNotNull(AlbumArtworkOverride::normalized)
             .distinctBy { it.sourceId to it.albumId },
         homeSectionPresentations = homeSectionPresentations
@@ -432,8 +431,6 @@ val PlaylistEditSwipeActions: List<TrackSwipeAction> = listOf(
 
 @Serializable
 data class NowPlayingDisplaySettings(
-    val wideLayout: WideNowPlayingLayout = WideNowPlayingLayout.Split,
-    val splitPaneBackgroundOpacityPercent: Int = DefaultSplitPaneBackgroundOpacityPercent,
     val showAlbumYear: Boolean = true,
     val albumYearPreference: NowPlayingAlbumYearPreference = NowPlayingAlbumYearPreference.Original,
     val showTrackCover: Boolean = false,
@@ -445,16 +442,7 @@ data class NowPlayingDisplaySettings(
     val scrollAlbumName: Boolean = false,
     val keepTelevisionControlsVisible: Boolean = false,
     val fillArtworkArea: Boolean = false,
-) {
-    fun normalized(): NowPlayingDisplaySettings = copy(
-        splitPaneBackgroundOpacityPercent = splitPaneBackgroundOpacityPercent.coerceIn(0, 100),
-    )
-}
-
-const val DefaultSplitPaneBackgroundOpacityPercent = 88
-
-@Serializable
-enum class WideNowPlayingLayout { Split, Full }
+)
 
 @Serializable
 enum class NowPlayingAlbumYearPreference {

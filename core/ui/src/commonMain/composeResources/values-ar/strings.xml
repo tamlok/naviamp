@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">الراديو</string>
+    <string name="nav_my">حسابي</string>
+    <string name="navigation_open">فتح التنقل</string>
+    <string name="navigation_close">إغلاق التنقل</string>
+    <string name="navigation_title">التنقل</string>
+    <string name="mini_player_empty_title">لا يتم تشغيل أي شيء</string>
+    <string name="mini_player_empty_subtitle">اختر شيئًا لتشغيله</string>
+    <string name="mini_player_open">فتح تفاصيل المشغل</string>
+    <string name="my_favorite_artists">الفنانون المفضلون</string>
     <string name="settings_radio_new_dj">دي جي جديد</string>
     <string name="settings_radio_create_dj">إنشاء دي جي جديد</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">إبقاء الشاشة مضاءة</string>
     <string name="settings_keep_screen_awake_description">يمنع سكون الشاشة التلقائي أثناء ظهور Naviamp. قد يظل سكون النظام وقفل الشاشة ومؤقت طاقة التلفزيون فعالًا.</string>
     <string name="settings_keep_screen_awake_failed">تعذر تغيير منع سكون الشاشة. أوقف هذا الإعداد ثم شغله لإعادة المحاولة.</string>
-    <string name="settings_now_playing_split_background_opacity">عتامة خلفية العرض المنقسم</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">جهاز التشغيل: %1$s</string>
     <string name="now_playing_from_playlist">تشغيل من قائمة التشغيل: %1$s</string>
     <string name="now_playing_from_album">تشغيل من الألبوم: %1$s</string>

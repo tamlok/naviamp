@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">Mijn</string>
+    <string name="navigation_open">Navigatie openen</string>
+    <string name="navigation_close">Navigatie sluiten</string>
+    <string name="navigation_title">Navigatie</string>
+    <string name="mini_player_empty_title">Er wordt niets afgespeeld</string>
+    <string name="mini_player_empty_subtitle">Kies iets om af te spelen</string>
+    <string name="mini_player_open">Spelerdetails openen</string>
+    <string name="my_favorite_artists">Favoriete artiesten</string>
     <string name="settings_radio_new_dj">Nieuwe DJ</string>
     <string name="settings_radio_create_dj">Nieuwe DJ maken</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Scherm aanhouden</string>
     <string name="settings_keep_screen_awake_description">Voorkomt automatische schermslaap zolang Naviamp zichtbaar is. Systeemslaap, schermvergrendeling en tv-timers kunnen nog steeds actief zijn.</string>
     <string name="settings_keep_screen_awake_failed">Het voorkomen van schermslaap kon niet worden gewijzigd. Zet deze instelling uit en weer aan om opnieuw te proberen.</string>
-    <string name="settings_now_playing_split_background_opacity">Dekking van achtergrond in gesplitste weergave</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Afspeelapparaat: %1$s</string>
     <string name="now_playing_from_playlist">Uit afspeellijst: %1$s</string>
     <string name="now_playing_from_album">Uit album: %1$s</string>

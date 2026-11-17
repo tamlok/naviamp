@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Rádio</string>
+    <string name="nav_my">Meu espaço</string>
+    <string name="navigation_open">Abrir navegação</string>
+    <string name="navigation_close">Fechar navegação</string>
+    <string name="navigation_title">Navegação</string>
+    <string name="mini_player_empty_title">Nada em reprodução</string>
+    <string name="mini_player_empty_subtitle">Escolha algo para ouvir</string>
+    <string name="mini_player_open">Abrir detalhes do player</string>
+    <string name="my_favorite_artists">Artistas favoritos</string>
     <string name="settings_radio_new_dj">Novo DJ</string>
     <string name="settings_radio_create_dj">Criar novo DJ</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Manter a tela ligada</string>
     <string name="settings_keep_screen_awake_description">Impede que a tela desligue automaticamente enquanto o Naviamp estiver visível. Suspensão do sistema, bloqueios e temporizadores da TV ainda podem ser aplicados.</string>
     <string name="settings_keep_screen_awake_failed">Não foi possível alterar a prevenção do desligamento da tela. Desative e ative esta opção para tentar novamente.</string>
-    <string name="settings_now_playing_split_background_opacity">Opacidade do fundo da visualização dividida</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Dispositivo de reprodução: %1$s</string>
     <string name="now_playing_from_playlist">Da playlist: %1$s</string>
     <string name="now_playing_from_album">Do álbum: %1$s</string>
@@ -411,8 +418,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="equalizer_gain_axis">Ganho (dB)</string>
     <string name="equalizer_frequency_axis">Frequência (Hz)</string>
-    <string name="player_full_view">Player completo</string>
-    <string name="player_split_view">Visão dividida</string>
     <string name="player_queue">Fila</string>
     <string name="settings_title">Configurações</string>
     <string name="settings_selected_label">Selecionado</string>

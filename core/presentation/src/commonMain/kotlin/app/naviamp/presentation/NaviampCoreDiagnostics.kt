@@ -65,7 +65,7 @@ internal fun naviampCoreDiagnostics(
         listOf(
             "Version" to shell.general.about.version,
             "Build" to shell.general.about.buildNumber,
-            "Route" to shell.shellChrome.selectedRoute.label,
+            "Route" to shell.shellChrome.selectedRoute.name,
             "Now Playing open" to shell.shellChrome.nowPlayingOpen.toString(),
         ) + external.platformRows,
     )

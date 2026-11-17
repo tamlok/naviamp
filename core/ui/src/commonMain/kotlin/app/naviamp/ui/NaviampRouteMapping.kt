@@ -20,6 +20,7 @@ fun NaviampRoute.toSharedRoute(): SharedRoute =
         NaviampRoute.SonicPath -> SharedRoute.SonicPath
         NaviampRoute.SonicMix -> SharedRoute.SonicMix
         NaviampRoute.Radio -> SharedRoute.Radio
+        NaviampRoute.My -> SharedRoute.My
         NaviampRoute.Downloads -> SharedRoute.Downloads
         NaviampRoute.Settings -> SharedRoute.Settings
     }
@@ -36,6 +37,7 @@ fun SharedRoute.toNaviampRoute(): NaviampRoute =
         SharedRoute.SonicPath -> NaviampRoute.SonicPath
         SharedRoute.SonicMix -> NaviampRoute.SonicMix
         SharedRoute.Radio -> NaviampRoute.Radio
+        SharedRoute.My -> NaviampRoute.My
         SharedRoute.Downloads -> NaviampRoute.Downloads
         SharedRoute.Settings -> NaviampRoute.Settings
     }

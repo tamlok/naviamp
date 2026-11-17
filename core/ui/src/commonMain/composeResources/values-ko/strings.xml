@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">라디오</string>
+    <string name="nav_my">마이</string>
+    <string name="navigation_open">탐색 열기</string>
+    <string name="navigation_close">탐색 닫기</string>
+    <string name="navigation_title">탐색</string>
+    <string name="mini_player_empty_title">재생 중인 항목 없음</string>
+    <string name="mini_player_empty_subtitle">재생할 항목을 선택하세요</string>
+    <string name="mini_player_open">플레이어 상세 정보 열기</string>
+    <string name="my_favorite_artists">즐겨찾는 아티스트</string>
     <string name="settings_radio_new_dj">새 DJ</string>
     <string name="settings_radio_create_dj">새 DJ 만들기</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">화면 켜짐 유지</string>
     <string name="settings_keep_screen_awake_description">Naviamp가 표시되는 동안 화면의 자동 절전을 방지합니다. 시스템 절전, 화면 잠금 및 TV 전원 타이머는 계속 작동할 수 있습니다.</string>
     <string name="settings_keep_screen_awake_failed">화면 절전 방지 설정을 변경하지 못했습니다. 이 설정을 껐다가 다시 켜서 재시도하세요.</string>
-    <string name="settings_now_playing_split_background_opacity">분할 보기 배경 불투명도</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">재생 기기: %1$s</string>
     <string name="now_playing_from_playlist">재생목록에서 재생: %1$s</string>
     <string name="now_playing_from_album">앨범에서 재생: %1$s</string>

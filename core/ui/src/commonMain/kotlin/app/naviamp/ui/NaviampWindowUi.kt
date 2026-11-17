@@ -76,7 +76,7 @@ internal fun naviampWindowToggleShortcut(
 internal fun naviampWindowShowsFullscreenIcon(): Boolean {
     val size = LocalWindowInfo.current.containerSize
     val density = LocalDensity.current.density
-    return supportsPlayerWorkspace(size.width / density, size.height / density)
+    return size.width / density >= 900f && size.height / density >= 480f
 }
 
 @Composable

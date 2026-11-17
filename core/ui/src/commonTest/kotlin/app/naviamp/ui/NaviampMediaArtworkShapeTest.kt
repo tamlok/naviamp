@@ -11,8 +11,6 @@ class NaviampMediaArtworkShapeTest {
         assertEquals(false, useFilledNowPlayingArtwork(true, false, true, false))
         assertEquals(false, useFilledNowPlayingArtwork(true, false, true, true))
         assertEquals(false, useFilledNowPlayingArtwork(true, false, false, true))
-        assertEquals(false, useFilledNowPlayingArtwork(true, false, false, false, NaviampPlayerPanelLayout.Standalone))
-        assertEquals(false, useFilledNowPlayingArtwork(true, false, false, false, NaviampPlayerPanelLayout.Full))
         assertEquals(true, useFilledNowPlayingArtwork(true, false, false, false))
     }
     @Test fun squareAlbumPreferencePreservesArtistAndCollectionShapes() {

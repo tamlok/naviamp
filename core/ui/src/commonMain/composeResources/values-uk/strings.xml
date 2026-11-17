@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Радіо</string>
+    <string name="nav_my">Моє</string>
+    <string name="navigation_open">Відкрити навігацію</string>
+    <string name="navigation_close">Закрити навігацію</string>
+    <string name="navigation_title">Навігація</string>
+    <string name="mini_player_empty_title">Нічого не відтворюється</string>
+    <string name="mini_player_empty_subtitle">Виберіть, що послухати</string>
+    <string name="mini_player_open">Відкрити подробиці програвача</string>
+    <string name="my_favorite_artists">Улюблені виконавці</string>
     <string name="settings_radio_new_dj">Новий діджей</string>
     <string name="settings_radio_create_dj">Створити нового діджея</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Не вимикати екран</string>
     <string name="settings_keep_screen_awake_description">Запобігає автоматичному вимкненню екрана, поки Naviamp видимий. Сон системи, блокування екрана й таймери телевізора можуть діяти й надалі.</string>
     <string name="settings_keep_screen_awake_failed">Не вдалося змінити запобігання вимкненню екрана. Вимкніть і знову ввімкніть цей параметр, щоб повторити спробу.</string>
-    <string name="settings_now_playing_split_background_opacity">Непрозорість тла розділеного перегляду</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Пристрій відтворення: %1$s</string>
     <string name="now_playing_from_playlist">З плейлиста: %1$s</string>
     <string name="now_playing_from_album">З альбому: %1$s</string>

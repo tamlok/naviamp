@@ -2,6 +2,7 @@ package app.naviamp.desktop
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -36,7 +37,7 @@ fun main() = application {
             Column(Modifier.fillMaxSize().background(Color.Black).onGloballyPositioned { rootSize = it.size }) {
                 Text("Native fullscreen layout fixture", color = Color.White)
                 Spacer(Modifier.weight(1f))
-                SharedBottomNavigationBar(NaviampColors(), SharedRoute.Home, onRouteSelected = {})
+                Button(onClick = { controller.toggle() }) { Text("Toggle fullscreen") }
                 Box(Modifier.fillMaxWidth().height(8.dp).background(Color.White))
             }
         }

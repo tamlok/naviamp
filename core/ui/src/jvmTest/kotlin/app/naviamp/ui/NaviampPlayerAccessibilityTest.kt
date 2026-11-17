@@ -57,7 +57,7 @@ class NaviampPlayerAccessibilityTest {
                     volumePercent = 50, canChangeVolume = true), colors = NaviampColors(),
                 actions = NaviampNowPlayingActions(onPlaybackAction = { request ->
                     if (request.action == NowPlayingPlaybackAction.ChangeVolume) volumes += checkNotNull(request.volumePercent)
-                }, {}, {}, {}, {}, {}, {}), panelLayout = NaviampPlayerPanelLayout.Full,
+                }, {}, {}, {}, {}, {}, {}),
             )
         }
         val slider = onNodeWithTag("now-playing-volume-slider")
@@ -80,7 +80,7 @@ class NaviampPlayerAccessibilityTest {
                             volumePercent = 50, canChangeVolume = true), colors = NaviampColors(),
                         actions = NaviampNowPlayingActions(onPlaybackAction = { request ->
                             if (request.action == NowPlayingPlaybackAction.ChangeVolume) volumes += checkNotNull(request.volumePercent)
-                        }, {}, {}, {}, {}, {}, {}), panelLayout = NaviampPlayerPanelLayout.Full,
+                        }, {}, {}, {}, {}, {}, {}),
                     )
                 }
             }

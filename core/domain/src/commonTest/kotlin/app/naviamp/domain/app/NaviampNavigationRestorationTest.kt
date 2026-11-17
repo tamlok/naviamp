@@ -17,6 +17,23 @@ class NaviampNavigationRestorationTest {
     }
 
     @Test
+    fun restoredMyRouteRequiresConnectionButNotPlayback() {
+        assertEquals(
+            NaviampRoute.My,
+            restoredNavigationRoute("My", hasConnection = true, hasRestoredTrack = false),
+        )
+        assertEquals(
+            NaviampRoute.Settings,
+            restoredNavigationRoute("My", hasConnection = false, hasRestoredTrack = true),
+        )
+        assertEquals(NaviampRoute.My, restoredLastContentRoute("My"))
+        assertEquals(
+            NaviampRoute.Home,
+            restoredNavigationRoute("Missing", hasConnection = true, hasRestoredTrack = false),
+        )
+    }
+
+    @Test
     fun restoredNavigationRouteKeepsPlayerOnlyWithRestoredTrack() {
         assertEquals(
             NaviampRoute.Player,

@@ -319,6 +319,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     playlistChoices = shellState.playlistChoices,
                     playlistActionStatus = shellState.playlists.status,
                 )
+                NaviampRoute.My -> NaviampMyContent(shellState, shellActions, colors)
                 NaviampRoute.Settings -> settingsContent()
             }
         }

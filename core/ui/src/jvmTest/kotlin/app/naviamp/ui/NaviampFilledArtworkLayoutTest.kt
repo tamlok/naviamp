@@ -122,18 +122,17 @@ class NaviampFilledArtworkLayoutTest {
         }
     }
 
-    @Test fun singlePaneFillAndLegacyWideLayoutsKeepControlsUsableAcrossPlaybackUpdates() {
+    @Test fun adaptiveArtworkKeepsControlsUsableAcrossPlaybackUpdates() {
         val cases = listOf(
-            Triple(320, 720, NaviampPlayerPanelLayout.Adaptive),
-            Triple(412, 818, NaviampPlayerPanelLayout.Adaptive),
-            Triple(400, 760, NaviampPlayerPanelLayout.Standalone),
-            Triple(876, 728, NaviampPlayerPanelLayout.Adaptive),
-            Triple(640, 420, NaviampPlayerPanelLayout.Adaptive),
-            Triple(1200, 760, NaviampPlayerPanelLayout.Adaptive),
-            Triple(1200, 760, NaviampPlayerPanelLayout.Full),
+            320 to 720,
+            412 to 818,
+            400 to 760,
+            876 to 728,
+            640 to 420,
+            1200 to 760,
         )
         val bytes = requireNotNull(jvmGeneratedCoverArtBytes("naviamp-radio-tile://cover?label=ART&from=CC5511&to=1133AA"))
-        for ((width, height, layout) in cases) {
+        for ((width, height) in cases) {
             resetNaviampCoverArtCache()
             val loads = AtomicInteger()
             setJvmPlatformCoverArtByteLoader { loads.incrementAndGet(); bytes }
@@ -153,11 +152,10 @@ class NaviampFilledArtworkLayoutTest {
                                 progress, NaviampColors.Dark,
                                 NaviampNowPlayingActions({ actions += it }, {}, {}, {}, {}, {}, {}),
                                 displaySettings = NowPlayingDisplaySettings(fillArtworkArea = true),
-                                panelLayout = layout,
                             )
                         }
                     }
-                    val shouldFill = width < 780 && layout == NaviampPlayerPanelLayout.Adaptive
+                    val shouldFill = width < 780
                     if (shouldFill) onNodeWithTag("now-playing-filled-artwork").assertIsDisplayed()
                     else onNodeWithTag("now-playing-filled-artwork").assertDoesNotExist()
                     waitUntil(timeoutMillis = 5_000) {
@@ -185,7 +183,7 @@ class NaviampFilledArtworkLayoutTest {
                     assertEquals(before, loads.get(), "Progress must not reload the filled background")
                     System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
                         File(directory).mkdirs()
-                        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(directory, "filled-$width-$height-$layout.png"))
+                        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(directory, "filled-$width-$height.png"))
                     }
                 }
             } finally {

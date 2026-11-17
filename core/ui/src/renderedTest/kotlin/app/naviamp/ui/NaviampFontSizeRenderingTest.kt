@@ -13,6 +13,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
@@ -39,7 +41,7 @@ class NaviampFontSizeRenderingTest {
         val player = mutableStateOf(InterfaceFontSize.Standard)
         val surface = mutableStateOf(0)
         val nowPlaying = NowPlayingUi(
-            title = "Player title", subtitle = "Artist", stateLabel = "Paused",
+            id = "playing", title = "Player title", subtitle = "Artist", stateLabel = "Paused",
             upNext = listOf(NaviampNowPlayingItemUi("next", "Queue title", "Artist")),
         )
         val actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {})
@@ -49,7 +51,7 @@ class NaviampFontSizeRenderingTest {
                     Box(Modifier.size(280.dp, 420.dp)) {
                         when (surface.value) {
                             0 -> NaviampMiniNowPlaying(nowPlaying, NaviampColors(), {}, actions)
-                            1 -> NaviampQueueContent(nowPlaying, null, NaviampColors(), actions)
+                            1 -> NaviampNowPlayingPanel(nowPlaying, colors = NaviampColors(), actions = actions)
                             2 -> CenteredLyricsList(
                                 listOf(NaviampLyricLineUi(0, text = "Lyric line")), 0, null, 0,
                                 NaviampColors(), rememberLazyListState(), {},
@@ -62,6 +64,10 @@ class NaviampFontSizeRenderingTest {
         for ((index, title) in listOf("Player title", "Queue title", "Lyric line").withIndex()) {
             runOnIdle { surface.value = index; general.value = InterfaceFontSize.Standard; player.value = InterfaceFontSize.Standard }
             fun fontPixels(): Float {
+                if (index == 1) {
+                    onNodeWithTag("now-playing-side-panel").performScrollTo().assertIsDisplayed()
+                    onNodeWithText(title).performScrollTo().assertIsDisplayed()
+                }
                 val layouts = mutableListOf<TextLayoutResult>()
                 onNodeWithText(title).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
                 return layouts.single().layoutInput.run { density.run { style.fontSize.toPx() } }

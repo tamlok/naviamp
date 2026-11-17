@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">रेडियो</string>
+    <string name="nav_my">मेरा</string>
+    <string name="navigation_open">नेविगेशन खोलें</string>
+    <string name="navigation_close">नेविगेशन बंद करें</string>
+    <string name="navigation_title">नेविगेशन</string>
+    <string name="mini_player_empty_title">कुछ नहीं चल रहा है</string>
+    <string name="mini_player_empty_subtitle">चलाने के लिए कुछ चुनें</string>
+    <string name="mini_player_open">प्लेयर का विवरण खोलें</string>
+    <string name="my_favorite_artists">पसंदीदा कलाकार</string>
     <string name="settings_radio_new_dj">नया DJ</string>
     <string name="settings_radio_create_dj">नया DJ बनाएँ</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">स्क्रीन चालू रखें</string>
     <string name="settings_keep_screen_awake_description">Naviamp दिखाई देने पर स्क्रीन को अपने आप स्लीप होने से रोकता है। सिस्टम स्लीप, स्क्रीन लॉक और टीवी पावर टाइमर फिर भी लागू हो सकते हैं।</string>
     <string name="settings_keep_screen_awake_failed">स्क्रीन स्लीप रोकने की सेटिंग बदली नहीं जा सकी। फिर से कोशिश करने के लिए इसे बंद करके चालू करें।</string>
-    <string name="settings_now_playing_split_background_opacity">स्प्लिट व्यू पृष्ठभूमि की अपारदर्शिता</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">प्लेबैक डिवाइस: %1$s</string>
     <string name="now_playing_from_playlist">प्लेलिस्ट से: %1$s</string>
     <string name="now_playing_from_album">एल्बम से: %1$s</string>

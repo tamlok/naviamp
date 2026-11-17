@@ -23,6 +23,7 @@ enum class NaviampRoute {
     SonicPath,
     SonicMix,
     Radio,
+    My,
     Downloads,
     Settings,
 }

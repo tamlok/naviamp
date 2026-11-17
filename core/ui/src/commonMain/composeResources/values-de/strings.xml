@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">Mein Bereich</string>
+    <string name="navigation_open">Navigation öffnen</string>
+    <string name="navigation_close">Navigation schließen</string>
+    <string name="navigation_title">Navigation</string>
+    <string name="mini_player_empty_title">Keine Wiedergabe</string>
+    <string name="mini_player_empty_subtitle">Wähle etwas zum Abspielen</string>
+    <string name="mini_player_open">Playerdetails öffnen</string>
+    <string name="my_favorite_artists">Lieblingskünstler</string>
     <string name="settings_radio_new_dj">Neuer DJ</string>
     <string name="settings_radio_create_dj">Neuen DJ erstellen</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Bildschirm wach halten</string>
     <string name="settings_keep_screen_awake_description">Verhindert den automatischen Bildschirmruhezustand, solange Naviamp sichtbar ist. Systemruhe, Bildschirmsperren und TV-Ausschaltzeiten können weiterhin greifen.</string>
     <string name="settings_keep_screen_awake_failed">Der Bildschirmruhezustand konnte nicht angepasst werden. Schalte diese Einstellung aus und wieder ein, um es erneut zu versuchen.</string>
-    <string name="settings_now_playing_split_background_opacity">Deckkraft des Hintergrunds der geteilten Ansicht</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Wiedergabegerät: %1$s</string>
     <string name="now_playing_from_playlist">Aus Playlist: %1$s</string>
     <string name="now_playing_from_album">Aus Album: %1$s</string>
@@ -110,8 +117,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="equalizer_gain_axis">Verstärkung (dB)</string>
     <string name="equalizer_frequency_axis">Frequenz (Hz)</string>
-    <string name="player_full_view">Vollständiger Player</string>
-    <string name="player_split_view">Geteilte Ansicht</string>
     <string name="player_queue">Warteschlange</string>
     <string name="settings_title">Einstellungen</string>
     <string name="settings_selected_label">Ausgewählt</string>

@@ -38,7 +38,6 @@ class NaviampRadioDjEditorTest {
                 nowPlaying = NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Playing"),
                 colors = NaviampColors.Dark,
                 actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {}, onCreateRadioDj = { editorOpen.value = true }),
-                panelLayout = NaviampPlayerPanelLayout.Standalone,
             )
             if (editorOpen.value) {
                 NaviampRadioDjCreationDialog(
@@ -83,7 +82,6 @@ class NaviampRadioDjEditorTest {
                     onQueueItemAction = {},
                     onCreateRadioDj = { editorOpen.value = true },
                 ),
-                panelLayout = NaviampPlayerPanelLayout.Standalone,
             )
             if (editorOpen.value) {
                 NaviampRadioDjCreationDialog(

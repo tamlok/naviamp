@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radio</string>
+    <string name="nav_my">Mi espacio</string>
+    <string name="navigation_open">Abrir navegación</string>
+    <string name="navigation_close">Cerrar navegación</string>
+    <string name="navigation_title">Navegación</string>
+    <string name="mini_player_empty_title">No se está reproduciendo nada</string>
+    <string name="mini_player_empty_subtitle">Elige algo para reproducir</string>
+    <string name="mini_player_open">Abrir detalles del reproductor</string>
+    <string name="my_favorite_artists">Artistas favoritos</string>
     <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Orden de álbumes</string>
     <string name="tv_album_sort_order_description">Elige cómo ordenar los lanzamientos del artista</string>
@@ -21,8 +30,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="equalizer_gain_axis">Ganancia (dB)</string>
     <string name="equalizer_frequency_axis">Frecuencia (Hz)</string>
-    <string name="player_full_view">Reproductor completo</string>
-    <string name="player_split_view">Vista dividida</string>
     <string name="player_queue">Cola</string>
     <string name="settings_title">Configuración</string>
     <string name="settings_selected_label">Seleccionado</string>
@@ -807,8 +814,6 @@
     <string name="settings_keep_screen_awake">Mantener la pantalla encendida</string>
     <string name="settings_keep_screen_awake_description">Evita que la pantalla se apague automáticamente mientras Naviamp esté visible. La suspensión del sistema, los bloqueos y los temporizadores del televisor pueden seguir activos.</string>
     <string name="settings_keep_screen_awake_failed">No se pudo cambiar la prevención del apagado de pantalla. Desactiva y activa este ajuste para reintentar.</string>
-    <string name="settings_now_playing_split_background_opacity">Opacidad del fondo de vista dividida</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Dispositivo de reproducción: %1$s</string>
     <string name="now_playing_from_playlist">De la lista: %1$s</string>
     <string name="now_playing_from_album">Del álbum: %1$s</string>

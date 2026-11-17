@@ -4,7 +4,21 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ## Unreleased
 
-No changes yet.
+### Features
+
+- Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
+- Keep one mini-player visible while browsing, editing connections, and viewing player details, including a disabled empty state when nothing is playing.
+- Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
+
+### Bug fixes
+
+- Keep connection-form Cancel reachable beside Connect in bounded layouts.
+
+### Upgrade notes
+
+- Full player and Split view modes are replaced by one adaptive player-details view. Tap the mini-player to open it; selecting a main destination closes details without stopping playback.
+- Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
+- Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
 
 ## v2.11.2
 

@@ -59,6 +59,4 @@ internal fun useFilledNowPlayingArtwork(
     visualizerVisible: Boolean,
     lyricsVisible: Boolean,
     wideLayout: Boolean,
-    panelLayout: NaviampPlayerPanelLayout = NaviampPlayerPanelLayout.Adaptive,
-): Boolean = enabled && !visualizerVisible && !lyricsVisible && !wideLayout &&
-    panelLayout == NaviampPlayerPanelLayout.Adaptive
+): Boolean = enabled && !visualizerVisible && !lyricsVisible && !wideLayout

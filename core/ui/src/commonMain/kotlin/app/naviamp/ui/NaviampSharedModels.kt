@@ -1126,13 +1126,11 @@ data class NaviampShellNavigationActions(
     val onRouteSelected: (SharedRoute) -> Unit,
     val onOpenNowPlaying: () -> Unit,
     val onCloseNowPlaying: () -> Unit,
-    val onPlayerDockedChanged: (Boolean) -> Unit = {},
 )
 
 data class NaviampShellChromeUi(
     val selectedRoute: SharedRoute = SharedRoute.Home,
     val nowPlayingOpen: Boolean = false,
-    val playerDocked: Boolean = false,
     val supportsDownloads: Boolean = false,
     val supportsApplicationUpdates: Boolean = false,
     val selectedVisualizer: NaviampVisualizer = NaviampVisualizer.AudioSphere,
@@ -1671,19 +1669,20 @@ data class NaviampPlaylistChoiceUi(
     val subtitle: String = "",
 )
 
-enum class SharedRoute(val label: String, val icon: ImageVector) {
-    Home("Home", NaviampIcons.Home),
-    Playlists("Playlists", NaviampIcons.Playlist),
-    Library("Library", NaviampIcons.Library),
-    Search("Search", NaviampIcons.Search),
-    ArtistMix("Artist Mix", NaviampTransportIcons.Radio),
-    AlbumMix("Album Mix", NaviampTransportIcons.Radio),
-    GenreMix("Genre Mix", NaviampTransportIcons.Radio),
-    SonicPath("Sonic Path", NaviampIcons.Brain),
-    SonicMix("Sonic Mix", NaviampIcons.Brain),
-    Radio("Radio", NaviampIcons.InternetRadio),
-    Downloads("Downloads", NaviampIcons.Downloads),
-    Settings("Settings", NaviampIcons.Settings),
+enum class SharedRoute(val icon: ImageVector) {
+    Home(NaviampIcons.Home),
+    Playlists(NaviampIcons.Playlist),
+    Library(NaviampIcons.Library),
+    Search(NaviampIcons.Search),
+    ArtistMix(NaviampTransportIcons.Radio),
+    AlbumMix(NaviampTransportIcons.Radio),
+    GenreMix(NaviampTransportIcons.Radio),
+    SonicPath(NaviampIcons.Brain),
+    SonicMix(NaviampIcons.Brain),
+    Radio(NaviampIcons.InternetRadio),
+    My(NaviampIcons.AccountCircle),
+    Downloads(NaviampIcons.Downloads),
+    Settings(NaviampIcons.Settings),
 }
 
 data class NaviampLibrarySyncStatusUi(

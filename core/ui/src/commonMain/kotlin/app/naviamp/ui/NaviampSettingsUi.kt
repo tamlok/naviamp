@@ -310,8 +310,6 @@ fun NaviampSharedSettingsContent(
     saveWithoutReconnect: Boolean = false,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<NaviampSettingsCategory?>(null) }
-    // Opening an editor can remount Settings when the split player is hidden.
-    // The pending form must select its owning category in that new composition too.
     LaunchedEffect(isConnectionFormOpen) {
         if (isConnectionFormOpen) selectedCategory = NaviampSettingsCategory.Source
     }
@@ -2224,20 +2222,6 @@ private fun NowPlayingDisplaySettings(
             onCheckedChange = { enabled -> update { it.copy(showVolumeBar = enabled) } },
         )
     }
-    CompactBackgroundSlider(
-        label = stringResource(Res.string.settings_now_playing_split_background_opacity),
-        value = settings.splitPaneBackgroundOpacityPercent.toFloat(),
-        valueRange = 0f..100f,
-        valueText = stringResource(
-            Res.string.settings_now_playing_split_background_opacity_value,
-            settings.splitPaneBackgroundOpacityPercent,
-        ),
-        colors = colors,
-        onValueChange = { opacity ->
-            update { it.copy(splitPaneBackgroundOpacityPercent = opacity.roundToInt()) }
-        },
-    )
-
     SettingsCheckboxRow(
         colors = colors,
         checked = settings.scrollTrackTitle,

@@ -510,6 +510,7 @@ fun NaviampConnectionForm(
                 colors = colors,
                 enabled = !isConnecting,
                 modifier = Modifier
+                    .weight(1f)
                     .focusRequester(connectFocusRequester)
                     .onPreviewKeyEvent { event ->
                         if (!advancedVisible && event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {

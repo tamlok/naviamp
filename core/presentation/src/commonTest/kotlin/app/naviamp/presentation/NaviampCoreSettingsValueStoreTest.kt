@@ -3,6 +3,7 @@ package app.naviamp.presentation
 import app.naviamp.domain.Genre
 import app.naviamp.domain.radio.MaxRecentRadioStreams
 import app.naviamp.domain.radio.genreRecentRadioStream
+import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import app.naviamp.domain.settings.PlaybackSettings
@@ -15,6 +16,8 @@ import app.naviamp.domain.settings.SavedTrack
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 
 class NaviampCoreSettingsValueStoreTest {
     @Test fun oldDuplicateStationsAreReconciledDurablyAndOptionsSurviveReopening() {
@@ -127,6 +130,39 @@ class NaviampCoreSettingsValueStoreTest {
     }
 
     @Test
+    fun legacyPlayerLayoutsLoadAndResaveWithoutLosingOtherPreferences() {
+        for (layout in listOf("Full", "Split")) {
+            for (opacity in listOf(-1, 0, 42, 100, 999)) {
+                val values = MemorySettingsValues().apply {
+                    entries[KeyInterface] = """{"language":"German","nowPlaying":{
+                        "wideLayout":"$layout","splitPaneBackgroundOpacityPercent":$opacity,
+                        "showPlaybackSource":true,"fillArtworkArea":true,"showVolumeBar":false
+                    }}"""
+                }
+                val expected = InterfaceSettings(
+                    language = InterfaceLanguage.German,
+                    nowPlaying = NowPlayingDisplaySettings(
+                        showPlaybackSource = true,
+                        fillArtworkArea = true,
+                        showVolumeBar = false,
+                    ),
+                )
+                val settings = naviampCoreSettingsValueCatalog(values).storedSettings
+                val restored = settings.loadInterface()
+                assertEquals(expected, restored)
+                settings.saveInterface(restored)
+                val player = Json.parseToJsonElement(values.entries.getValue(KeyInterface)).jsonObject
+                    .getValue("nowPlaying").jsonObject
+                assertFalse("wideLayout" in player)
+                assertFalse("splitPaneBackgroundOpacityPercent" in player)
+                assertEquals(expected, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+            }
+        }
+        val empty = MemorySettingsValues().apply { entries[KeyInterface] = "{}" }
+        assertEquals(InterfaceSettings(), naviampCoreSettingsValueCatalog(empty).storedSettings.loadInterface())
+    }
+
+    @Test
     fun ownsPortableSerializationDefaultsAndNormalization() {
         val values = MemorySettingsValues()
         val catalog = naviampCoreSettingsValueCatalog(values)
@@ -138,7 +174,6 @@ class NaviampCoreSettingsValueStoreTest {
             keepScreenAwake = true,
             squareAlbumArtwork = true,
             nowPlaying = NowPlayingDisplaySettings(
-                splitPaneBackgroundOpacityPercent = 42,
                 keepTelevisionControlsVisible = true,
                 fillArtworkArea = true,
             ),
@@ -146,7 +181,6 @@ class NaviampCoreSettingsValueStoreTest {
         assertEquals(48, settings.loadInterface().albumBlurRadiusDp)
         assertEquals(true, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface().keepScreenAwake)
         assertEquals(true, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface().squareAlbumArtwork)
-        assertEquals(42, settings.loadInterface().nowPlaying.splitPaneBackgroundOpacityPercent)
         assertEquals(true, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface().nowPlaying.keepTelevisionControlsVisible)
         assertEquals(true, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface().nowPlaying.fillArtworkArea)
         catalog.savePlayback(PlaybackSettings(crossfadeDurationSeconds = 999))

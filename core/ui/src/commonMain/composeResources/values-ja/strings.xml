@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">ラジオ</string>
+    <string name="nav_my">マイページ</string>
+    <string name="navigation_open">ナビゲーションを開く</string>
+    <string name="navigation_close">ナビゲーションを閉じる</string>
+    <string name="navigation_title">ナビゲーション</string>
+    <string name="mini_player_empty_title">再生していません</string>
+    <string name="mini_player_empty_subtitle">再生するものを選んでください</string>
+    <string name="mini_player_open">プレーヤーの詳細を開く</string>
+    <string name="my_favorite_artists">お気に入りのアーティスト</string>
     <string name="settings_radio_new_dj">新しいDJ</string>
     <string name="settings_radio_create_dj">新しいDJを作成</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">画面をオンに保つ</string>
     <string name="settings_keep_screen_awake_description">Naviampの表示中は画面の自動スリープを防ぎます。システムのスリープ、画面ロック、テレビの電源タイマーは引き続き動作する場合があります。</string>
     <string name="settings_keep_screen_awake_failed">画面のスリープ防止設定を変更できませんでした。この設定をオフにしてからオンにし、再試行してください。</string>
-    <string name="settings_now_playing_split_background_opacity">分割表示の背景の不透明度</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">再生デバイス: %1$s</string>
     <string name="now_playing_from_playlist">プレイリストから再生: %1$s</string>
     <string name="now_playing_from_album">アルバムから再生: %1$s</string>

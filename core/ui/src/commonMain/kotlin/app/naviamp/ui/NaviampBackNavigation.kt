@@ -13,7 +13,7 @@ import app.naviamp.domain.provider.DiscoveryBrowseAction
 enum class NaviampBackTarget { NowPlaying, DiscoveryRequests, DiscoveryArtist, DiscoveryBrowser, HomeCollection, Playlist, Album, Artist }
 
 fun naviampBackTarget(shell: NaviampAppShellUiState): NaviampBackTarget? = when {
-    shell.shellChrome.nowPlayingOpen && !shell.shellChrome.playerDocked -> NaviampBackTarget.NowPlaying
+    shell.shellChrome.nowPlayingOpen -> NaviampBackTarget.NowPlaying
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.requestsOpen == true -> NaviampBackTarget.DiscoveryRequests
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.let { it.artistPage && it.artistDetail != null } == true -> NaviampBackTarget.DiscoveryArtist
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.browser != null -> NaviampBackTarget.DiscoveryBrowser
@@ -21,7 +21,6 @@ fun naviampBackTarget(shell: NaviampAppShellUiState): NaviampBackTarget? = when 
     shell.playlistDetail.selectedPlaylist != null -> NaviampBackTarget.Playlist
     shell.albumDetail.selectedAlbum != null -> NaviampBackTarget.Album
     shell.artistDetail.selectedArtist != null -> NaviampBackTarget.Artist
-    shell.shellChrome.nowPlayingOpen -> NaviampBackTarget.NowPlaying
     else -> null
 }
 

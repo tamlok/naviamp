@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_radio">Radyo</string>
+    <string name="nav_my">Benim</string>
+    <string name="navigation_open">Gezinmeyi aç</string>
+    <string name="navigation_close">Gezinmeyi kapat</string>
+    <string name="navigation_title">Gezinme</string>
+    <string name="mini_player_empty_title">Hiçbir şey çalmıyor</string>
+    <string name="mini_player_empty_subtitle">Çalmak için bir şey seçin</string>
+    <string name="mini_player_open">Oynatıcı ayrıntılarını aç</string>
+    <string name="my_favorite_artists">Favori sanatçılar</string>
     <string name="settings_radio_new_dj">Yeni DJ</string>
     <string name="settings_radio_create_dj">Yeni DJ oluştur</string>
     <string name="tv_percentage_value">%1$d%</string>
@@ -16,8 +25,6 @@
     <string name="settings_keep_screen_awake">Ekranı açık tut</string>
     <string name="settings_keep_screen_awake_description">Naviamp görünürken ekranın otomatik uykuya geçmesini önler. Sistem uykusu, ekran kilitleri ve TV zamanlayıcıları yine de devreye girebilir.</string>
     <string name="settings_keep_screen_awake_failed">Ekran uykusunu önleme ayarı değiştirilemedi. Yeniden denemek için bu ayarı kapatıp açın.</string>
-    <string name="settings_now_playing_split_background_opacity">Bölünmüş görünüm arka plan opaklığı</string>
-    <string name="settings_now_playing_split_background_opacity_value">%1$d%</string>
     <string name="now_playing_playback_device">Oynatma cihazı: %1$s</string>
     <string name="now_playing_from_playlist">Çalma listesinden: %1$s</string>
     <string name="now_playing_from_album">Albümden: %1$s</string>

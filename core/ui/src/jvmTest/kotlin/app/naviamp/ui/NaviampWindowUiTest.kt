@@ -2,35 +2,12 @@ package app.naviamp.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import app.naviamp.domain.settings.DesktopShortcutPlatform
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampWindowUiTest {
-    @Test fun narrowNavigationOmitsFullscreenIcon() = runDesktopComposeUiTest(320, 668) {
-        val controller = NaviampWindowController({ true }, NaviampWindowSnapshot())
-        setContent {
-            NaviampWindowEnvironment(controller, DesktopShortcutPlatform.MacOS) {
-                SharedBottomNavigationBar(NaviampColors(), SharedRoute.Home, onRouteSelected = {})
-            }
-        }
-        onNodeWithTag("window-fullscreen").assertDoesNotExist()
-        onNodeWithContentDescription("Settings").assertIsDisplayed()
-    }
-
-    @Test fun wideButShortNavigationOmitsFullscreenIcon() = runDesktopComposeUiTest(1000, 400) {
-        val controller = NaviampWindowController({ true }, NaviampWindowSnapshot())
-        setContent {
-            NaviampWindowEnvironment(controller, DesktopShortcutPlatform.MacOS) {
-                SharedBottomNavigationBar(NaviampColors(), SharedRoute.Home, onRouteSelected = {})
-            }
-        }
-        onNodeWithTag("window-fullscreen").assertDoesNotExist()
-    }
-
     @Test fun narrowPlayerKeepsFullscreenInMenuAndCollapseSeparate() = runDesktopComposeUiTest(320, 668) {
         val controller = NaviampWindowController({ true }, NaviampWindowSnapshot())
         setContent {
@@ -48,31 +25,6 @@ class NaviampWindowUiTest {
         onNodeWithText("Enter fullscreen").assertIsDisplayed().performClick()
         runOnIdle { assertEquals(NaviampWindowPlacement.Fullscreen, controller.state.placement) }
         onNodeWithText("Enter fullscreen").assertDoesNotExist()
-    }
-
-    @Test fun fullscreenIconUsesTheNavigationMutedTintInBothStates() = runDesktopComposeUiTest(1000, 740) {
-        val controller = NaviampWindowController({ true }, NaviampWindowSnapshot())
-        val colors = NaviampColors(primaryText = Color.Red, mutedText = Color.Green)
-        setContent {
-            NaviampWindowEnvironment(controller, DesktopShortcutPlatform.Linux) {
-                SharedBottomNavigationBar(colors, SharedRoute.Home, onRouteSelected = {})
-            }
-        }
-        repeat(2) {
-            val pixels = onNodeWithTag("window-fullscreen").captureToImage().toPixelMap()
-            var mutedPixels = 0
-            var primaryPixels = 0
-            for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
-                val pixel = pixels[x, y]
-                // Thin vector strokes are antialiased; verify the rendered hue rather than
-                // requiring a fully opaque pixel at this icon size.
-                if (pixel.alpha > 0.1f && pixel.green > 0.2f && pixel.green > pixel.red * 3 && pixel.green > pixel.blue * 3) mutedPixels++
-                if (pixel.alpha > 0.1f && pixel.red > 0.2f && pixel.red > pixel.green * 3 && pixel.red > pixel.blue * 3) primaryPixels++
-            }
-            assertTrue(mutedPixels > 0, "Fullscreen glyph must use the muted navigation color")
-            assertEquals(0, primaryPixels, "Fullscreen glyph must not use the selected route color")
-            onNodeWithTag("window-fullscreen").performClick()
-        }
     }
 
     @Test fun buttonAndShortcutsUseTheSameWindowState() = runDesktopComposeUiTest(1000, 740) {

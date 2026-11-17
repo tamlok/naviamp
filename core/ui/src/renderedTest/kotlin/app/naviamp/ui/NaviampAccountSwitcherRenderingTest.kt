@@ -1,11 +1,23 @@
 package app.naviamp.ui
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.InputModeManager
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The same remote navigation checks run in Desktop Compose and an Android TV activity. */
 @OptIn(ExperimentalTestApi::class)
@@ -24,7 +36,7 @@ class NaviampAccountSwitcherRenderingTest {
     @Test
     fun remoteStartsOnCurrentAccountAndSelectsTheNextOne() = runComposeUiTest {
         var selected: String? = null
-        setContent { NaviampAccountSwitcher(settings(), actions(switch = { selected = it.id }), NaviampColors.Dark) }
+        setKeyboardContent { NaviampAccountSwitcher(settings(), actions(switch = { selected = it.id }), NaviampColors.Dark) }
         onNodeWithTag(naviampAccountCardTag("alice")).assertIsFocused().assertIsSelected()
             .performKeyInput { pressKey(Key.DirectionRight) }
         onNodeWithTag(naviampAccountCardTag("bob")).assertIsFocused()
@@ -35,7 +47,7 @@ class NaviampAccountSwitcherRenderingTest {
     @Test
     fun remoteCanReachAddAccountWithoutSelectingAnExistingAccount() = runComposeUiTest {
         var added = 0
-        setContent { NaviampAccountSwitcher(settings(listOf(alice)), actions(add = { added++ }), NaviampColors.Dark) }
+        setKeyboardContent { NaviampAccountSwitcher(settings(listOf(alice)), actions(add = { added++ }), NaviampColors.Dark) }
         onNodeWithTag(naviampAccountCardTag("alice")).performKeyInput { pressKey(Key.DirectionRight) }
         onNodeWithTag(NaviampAccountAddTag).assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         runOnIdle { assertEquals(1, added) }
@@ -45,7 +57,7 @@ class NaviampAccountSwitcherRenderingTest {
     fun failedSwitchRestoresFocusAndAllowsRetryWhileCurrentAccountStaysMarked() = runComposeUiTest {
         val state = mutableStateOf(settings())
         var attempts = 0
-        setContent { NaviampAccountSwitcher(state.value, actions(switch = {
+        setKeyboardContent { NaviampAccountSwitcher(state.value, actions(switch = {
             attempts++
             state.value = state.value.copy(accountSwitcher = state.value.accountSwitcher.copy(connecting = true))
         }), NaviampColors.Dark) }
@@ -67,7 +79,7 @@ class NaviampAccountSwitcherRenderingTest {
 
     @Test
     fun emptyChooserFocusesAddAccount() = runComposeUiTest {
-        setContent { NaviampAccountSwitcher(settings(emptyList()), actions(), NaviampColors.Dark) }
+        setKeyboardContent { NaviampAccountSwitcher(settings(emptyList()), actions(), NaviampColors.Dark) }
         onNodeWithTag(NaviampAccountAddTag).assertIsFocused()
     }
 
@@ -75,11 +87,33 @@ class NaviampAccountSwitcherRenderingTest {
     fun backClosesTheChooserWithoutSelectingAnAccount() = runComposeUiTest {
         val state = mutableStateOf(settings())
         var selections = 0
-        setContent { NaviampAccountSwitcher(state.value, actions(switch = { selections++ }, close = {
+        setKeyboardContent { NaviampAccountSwitcher(state.value, actions(switch = { selections++ }, close = {
             state.value = state.value.copy(accountSwitcher = NaviampAccountSwitcherUi())
         }), NaviampColors.Dark) }
         onNodeWithTag(naviampAccountCardTag("alice")).performKeyInput { pressKey(Key.Back) }
         onNodeWithTag(NaviampAccountChooserTag).assertDoesNotExist()
         runOnIdle { assertEquals(0, selections) }
+    }
+
+    private fun ComposeUiTest.setKeyboardContent(content: @Composable () -> Unit) {
+        lateinit var inputMode: InputModeManager
+        lateinit var windowInfo: WindowInfo
+        val ready = mutableStateOf(false)
+        setContent {
+            inputMode = LocalInputModeManager.current
+            windowInfo = LocalWindowInfo.current
+            DisposableEffect(inputMode) {
+                val previous = inputMode.inputMode
+                onDispose { inputMode.requestInputMode(previous) }
+            }
+            Box(Modifier.fillMaxSize().focusable()) { if (ready.value) content() }
+        }
+        waitUntil(timeoutMillis = 5_000) { windowInfo.isWindowFocused }
+        // Injected keys do not perform Android's native transition out of touch mode.
+        runOnIdle {
+            assertTrue(inputMode.requestInputMode(InputMode.Keyboard))
+            ready.value = true
+        }
+        waitForIdle()
     }
 }
