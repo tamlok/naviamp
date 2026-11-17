@@ -262,14 +262,6 @@ private fun NaviampSharedAppShellContent(
                 selectedRoute == SharedRoute.My ||
                 selectedRoute == SharedRoute.Settings
             )
-    val albumPlayerColors = rememberNaviampCoverArtPlayerColors(nowPlaying?.coverArtUrl, colors)
-    val appBackground = naviampAppBackgroundUi(
-        interfaceSettings = interfaceSettings,
-        coverArtUrl = nowPlaying?.coverArtUrl,
-        albumPlayerColors = albumPlayerColors,
-        colors = colors,
-    )
-    val nowPlayingPlayerColors = animatedNaviampPlayerColors(appBackground.targetPlayerColors)
     MaterialTheme(
         colorScheme = darkColorScheme(
             background = colors.background,
@@ -295,13 +287,8 @@ private fun NaviampSharedAppShellContent(
             }
         }
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().background(colors.background),
         ) {
-            NaviampAppBackground(
-                background = appBackground,
-                colors = colors,
-                playerColors = nowPlayingPlayerColors,
-            )
             NaviampSystemBackHandler(
                 enabled = !nowPlayingOpen &&
                     albumDetail.selectedAlbum == null && artistDetail.selectedArtist == null &&
@@ -329,9 +316,12 @@ private fun NaviampSharedAppShellContent(
                                 Modifier.verticalScroll(outerContentScrollState)
                             },
                         )
-                        .padding(
-                            horizontal = if (showFullNowPlaying || routeUsesOwnScroll) 0.dp else 12.dp,
-                            vertical = if (showFullNowPlaying || routeUsesOwnScroll) 0.dp else 12.dp,
+                        .then(
+                            when {
+                                showFullNowPlaying -> Modifier
+                                routeUsesOwnScroll -> Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp)
+                                else -> Modifier.padding(12.dp)
+                            },
                         ),
                     verticalArrangement = if (showFullNowPlaying) Arrangement.spacedBy(0.dp) else Arrangement.spacedBy(8.dp),
                 ) {
@@ -596,14 +586,6 @@ internal fun ConnectedContent(
     var saveSonicPathDialogOpen by remember { mutableStateOf(false) }
     var saveSonicMixDialogOpen by remember { mutableStateOf(false) }
     val routeStateHolder = rememberSaveableStateHolder()
-    val albumPlayerColors = rememberNaviampCoverArtPlayerColors(nowPlaying?.coverArtUrl, colors)
-    val appBackground = naviampAppBackgroundUi(
-        interfaceSettings = interfaceSettings,
-        coverArtUrl = nowPlaying?.coverArtUrl,
-        albumPlayerColors = albumPlayerColors,
-        colors = colors,
-    )
-    val nowPlayingPlayerColors = animatedNaviampPlayerColors(appBackground.targetPlayerColors)
     val homeScrollState = rememberScrollState()
     val libraryViewportState = rememberNaviampLibraryViewportState()
     val artistDetailScrollState = rememberScrollState()
@@ -860,11 +842,11 @@ internal fun ConnectedContent(
     }
     if (showFullNowPlaying && nowPlaying != null) {
         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-            FullNowPlaying(nowPlaying, effectivePlaybackProgress, colors, nowPlayingPlayerColors,
-                visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings.nowPlaying)
+            FullNowPlaying(nowPlaying, effectivePlaybackProgress, colors,
+                visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings)
         }
     } else {
-        NaviampReadableContent(colors, keepDarkSurface = selectedRoute == SharedRoute.Settings, content = browseContent)
+        browseContent()
     }
     if (saveSonicPathDialogOpen) {
         SaveQueueAsPlaylistDialog(
@@ -990,13 +972,15 @@ private fun FullNowPlaying(
     nowPlaying: NowPlayingUi,
     playbackProgress: StateFlow<PlaybackProgress>?,
     colors: NaviampColors,
-    playerColors: NaviampPlayerColors,
     visualizerBandsProvider: () -> List<Float>,
     selectedVisualizer: NaviampVisualizer,
     actions: NaviampNowPlayingActions,
-    displaySettings: app.naviamp.domain.settings.NowPlayingDisplaySettings,
+    interfaceSettings: InterfaceSettings,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    val albumColors = rememberNaviampCoverArtPlayerColors(nowPlaying.coverArtUrl, colors)
+    val playerColors = animatedNaviampPlayerColors(albumColors.withAuroraTone(interfaceSettings.auroraTone))
+    Box(modifier = Modifier.fillMaxSize()) {
+        NaviampAuroraBackground(playerColors, interfaceSettings.auroraColorSteps, interfaceSettings.auroraAngleDegrees)
         NaviampNowPlayingPanel(
             contentInsets = WindowInsets(0),
             nowPlaying = nowPlaying,
@@ -1006,10 +990,8 @@ private fun FullNowPlaying(
             selectedVisualizer = selectedVisualizer,
             visualizerColors = playerColors,
             actions = actions,
-            displaySettings = displaySettings,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
+            displaySettings = interfaceSettings.nowPlaying,
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }

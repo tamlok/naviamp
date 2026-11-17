@@ -1,18 +1,11 @@
 package app.naviamp.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.luminance
 import app.naviamp.domain.playback.EqualizerSettings
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import kotlin.test.*
@@ -138,49 +131,6 @@ class NaviampNowPlayingLayoutTest {
         onNodeWithTag("now-playing-queue-context").assertDoesNotExist()
     }
 
-    @Test fun readableSurfaceSupportsTransparentAndOpaqueBackgrounds() = runDesktopComposeUiTest(1000, 200) {
-        val opacity = mutableStateOf(0f)
-        setContent {
-            Box(Modifier.fillMaxSize().background(Color.Magenta)) {
-                NaviampReadableContent(
-                    NaviampColors.Dark,
-                    keepDarkSurface = true,
-                    surfaceOpacity = opacity.value,
-                ) {}
-            }
-        }
-        assertEquals(Color.Magenta.toArgb(), onRoot().captureToImage().toPixelMap()[500, 100].toArgb())
-        opacity.value = 1f
-        waitForIdle()
-        assertEquals(
-            NaviampColors.Dark.background.toArgb(),
-            onRoot().captureToImage().toPixelMap()[500, 100].toArgb(),
-        )
-    }
-
-    @Test fun narrowPagesPreserveSelectedBackground() = checkReadingSurface(300, false, false)
-    @Test fun widePagesKeepDarkSurface() = checkReadingSurface(1000, false, true)
-    @Test fun narrowSettingsKeepDarkSurface() = checkReadingSurface(300, true, true)
-
-    private fun checkReadingSurface(width: Int, keepDarkSurface: Boolean, expectDark: Boolean) = runDesktopComposeUiTest(width, 640) {
-        setContent {
-            Box(Modifier.fillMaxSize().background(Color.Magenta)) {
-                NaviampReadableContent(NaviampColors.Dark, keepDarkSurface = keepDarkSurface) {}
-            }
-        }
-        val pixel = onRoot().captureToImage().toPixelMap()[width / 2, 320]
-        val expected = if (expectDark) readableSurfaceColor(NaviampColors.Dark).compositeOver(Color.Magenta) else Color.Magenta
-        assertEquals(expected.red, pixel.red, 0.01f)
-        assertEquals(expected.green, pixel.green, 0.01f)
-        assertEquals(expected.blue, pixel.blue, 0.01f)
-    }
-
-    @Test fun mutedTextHasReadableContrastEvenOverWhiteArtwork() {
-        val colors = NaviampColors.Dark
-        val surface = readableSurfaceColor(colors).compositeOver(Color.White)
-        val contrast = (colors.mutedText.luminance() + 0.05f) / (surface.luminance() + 0.05f)
-        assertTrue(contrast >= 4.5f, "Muted text contrast: $contrast")
-    }
     @Test fun adaptivePlayerTransportControlsReceivePointerInput() = runDesktopComposeUiTest(1280, 720) {
         val actions = mutableListOf<NowPlayingPlaybackAction>()
         setContent {

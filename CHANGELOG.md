@@ -9,10 +9,12 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
 - Keep one mini-player visible while browsing, editing connections, and viewing player details, including a disabled empty state when nothing is playing.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
+- Use solid theme backgrounds in the standard app, with artwork-color blending confined to expanded Now Playing. Gradient controls are in Player settings; TV background preferences are unchanged.
 
 ### Bug fixes
 
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.
+- Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.
 
 ### Upgrade notes
 

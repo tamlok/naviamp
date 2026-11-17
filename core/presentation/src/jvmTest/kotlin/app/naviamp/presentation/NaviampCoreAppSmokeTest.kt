@@ -4,6 +4,14 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.SemanticsProperties
+import app.naviamp.domain.settings.AppBackgroundStyle
+import app.naviamp.domain.settings.AuroraTone
+import app.naviamp.domain.settings.InterfaceSettings
 import androidx.compose.ui.test.*
 import app.naviamp.ui.*
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -32,6 +40,123 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampCoreAppSmokeTest {
+    @Test
+    fun homeScrollViewportUsesSmallInsetsWithoutAWidthCapOrBottomGap() {
+        for ((width, height) in listOf(1280 to 720, 1920 to 1080, 412 to 818, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val provider = FakeCoreMediaProvider()
+                val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+                    connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
+                ))
+                try {
+                    setContent { NaviampCoreApp(core) }
+                    val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
+                    val footer = onNodeWithTag("main-mini-player").fetchSemanticsNode().boundsInRoot
+                    val scroll = onNode(
+                        SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange) and
+                            hasAnyAncestor(hasTestTag("main-route-content")),
+                    ).fetchSemanticsNode().boundsInRoot
+                    val inset = with(onRoot().fetchSemanticsNode().layoutInfo.density) { 8.dp.toPx() }
+                    val title = onNode(hasText("Home") and hasAnyAncestor(hasTestTag("main-route-content")))
+                        .fetchSemanticsNode().boundsInRoot
+                    assertEquals(route.left + inset, scroll.left, 0.5f, "$width x $height left inset")
+                    assertEquals(route.right - inset, scroll.right, 0.5f, "$width x $height right inset")
+                    assertTrue(title.top >= route.top + inset, "$width x $height top inset")
+                    assertEquals(footer.top, scroll.bottom, 0.5f, "$width x $height bottom gap")
+                } finally { scope.cancel() }
+            }
+        }
+    }
+
+    @Test
+    fun artworkBackgroundBelongsOnlyToExpandedPlayerRegardlessOfLegacyStyle() = runDesktopComposeUiTest(1280, 720) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val core = NaviampCore.create(scope, fakeCoreServices())
+        val redArtwork = "naviamp-radio-tile://cover?label=BackgroundRed&from=CC2222&to=CC2222"
+        val blueArtwork = "naviamp-radio-tile://cover?label=BackgroundBlue&from=2222CC&to=2222CC"
+        val ui = mutableStateOf(NaviampAppShellUiState(
+            connectionSettings = NaviampConnectionSettingsUi(connection = NaviampShellConnectionUi(connected = true)),
+            general = NaviampGeneralSettingsUi(interfaceSettings = InterfaceSettings(singleColorHex = "#FFFFFF")),
+            nowPlaying = NowPlayingUi(id = "background-track", title = "Background track", subtitle = "Artist",
+                stateLabel = "Paused", isPaused = true, coverArtUrl = redArtwork),
+        ))
+        val fallback = NaviampPlayerColors.fallback(NaviampColors.Dark)
+        var loadedPalette = fallback
+        try {
+            setContent {
+                val palette = rememberNaviampCoverArtPlayerColors(ui.value.nowPlaying?.coverArtUrl, NaviampColors.Dark)
+                SideEffect { loadedPalette = palette }
+                NaviampSharedAppShell(uiState = ui.value, actions = core.actions.shell, syncActions = core.actions.settingsSync)
+            }
+            fun routeCorners(): Pair<Color, Color> {
+                val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
+                return pixels[2, 2] to pixels[pixels.width - 3, pixels.height - 3]
+            }
+            fun chromeColors(): Pair<Color, Color> {
+                val rail = onNodeWithTag("main-navigation-rail").captureToImage().toPixelMap()
+                val footer = onNodeWithTag("mini-player").captureToImage().toPixelMap()
+                return rail[2, rail.height - 3] to footer[2, 2]
+            }
+            fun assertSolidApp() {
+                val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
+                assertEquals(NaviampColors.Dark.background, pixels[2, pixels.height - 3])
+                assertEquals(NaviampColors.Dark.background, pixels[pixels.width - 3, pixels.height - 3])
+            }
+            for (legacyStyle in AppBackgroundStyle.entries) {
+                runOnIdle { ui.value = ui.value.copy(general = ui.value.general.copy(
+                    interfaceSettings = ui.value.general.interfaceSettings.copy(appBackgroundStyle = legacyStyle))) }
+                assertSolidApp()
+            }
+            waitUntil(timeoutMillis = 5_000) { loadedPalette != fallback }
+            val redPalette = loadedPalette
+            val solidChrome = chromeColors()
+            runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = true)) }
+            mainClock.advanceTimeBy(500)
+            waitForIdle()
+            val redCorners = routeCorners()
+            assertTrue(redCorners.first != redCorners.second, "Expanded player has an artwork gradient")
+            assertEquals(solidChrome, chromeColors(), "Artwork must not tint navigation or the mini-player")
+            runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = blueArtwork, trackCoverArtUrl = blueArtwork, albumCoverArtUrl = blueArtwork)) }
+            waitUntil(timeoutMillis = 5_000) { loadedPalette != redPalette && loadedPalette != fallback }
+            mainClock.advanceTimeBy(500)
+            waitForIdle()
+            val blueCorners = routeCorners()
+            assertTrue(blueCorners != redCorners, "Settled player background must respond to the loaded artwork")
+            mainClock.advanceTimeBy(500)
+            assertEquals(blueCorners, routeCorners(), "Compare settled colors, not an intermediate animation frame")
+            assertEquals(solidChrome, chromeColors())
+            runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = false)) }
+            assertSolidApp()
+            runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = redArtwork, trackCoverArtUrl = redArtwork, albumCoverArtUrl = redArtwork)) }
+            assertSolidApp()
+        } finally { scope.cancel() }
+    }
+
+    @Test
+    fun playerGradientControlsPreserveTelevisionBackgroundPreferences() = runDesktopComposeUiTest(1000, 740) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val settings = InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
+            singleColorHex = "#FFFFFF", albumBlurRadiusDp = 36)
+        val core = NaviampCore.create(scope, fakeCoreServices(), initialState = NaviampCoreInitialState(
+            product = NaviampCoreState(shell = NaviampAppShellUiState(general = NaviampGeneralSettingsUi(interfaceSettings = settings))),
+        ))
+        try {
+            setContent { NaviampCoreApp(core) }
+            core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Settings)
+            onNodeWithText("Experience", substring = false).performClick()
+            onNodeWithText("Player", substring = false).performScrollTo().performClick()
+            onNodeWithText("Light", substring = false).performScrollTo().performClick()
+            runOnIdle {
+                assertEquals(settings.copy(auroraTone = AuroraTone.Light), core.state.value.shell.general.interfaceSettings)
+            }
+            onNodeWithText("Dark", substring = false).performScrollTo().performClick()
+            runOnIdle {
+                assertEquals(settings.copy(auroraTone = AuroraTone.DeepDark), core.state.value.shell.general.interfaceSettings)
+            }
+        } finally { scope.cancel() }
+    }
+
     @Test
     fun connectionEditingUsesOneNavigationBarWhileThePlayerRemainsSelected() = runDesktopComposeUiTest(1000, 740) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)

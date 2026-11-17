@@ -117,11 +117,8 @@ import app.naviamp.domain.radio.RadioFamiliarity
 import app.naviamp.domain.radio.RadioArtistRunMode
 import app.naviamp.domain.radio.RadioTuningSettings
 import app.naviamp.domain.settings.CacheSettings
-import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.ApplicationUpdateChannel
 import app.naviamp.domain.settings.AuroraTone
-import app.naviamp.domain.settings.MaxAlbumBlurRadiusDp
-import app.naviamp.domain.settings.MinAlbumBlurRadiusDp
 import app.naviamp.domain.settings.ConnectionFormMusicFolder
 import app.naviamp.domain.settings.ConnectionFormState
 import app.naviamp.domain.provider.ProviderIdNavidrome
@@ -787,11 +784,6 @@ fun NaviampExperienceSettingsSection(
                 interfaceSettings = interfaceSettings,
                 onInterfaceSettingsChanged = onInterfaceSettingsChanged,
             )
-            ExperienceSettingsPage.AppBackground -> AppBackgroundSettings(
-                colors = colors,
-                interfaceSettings = interfaceSettings,
-                onInterfaceSettingsChanged = onInterfaceSettingsChanged,
-            )
             ExperienceSettingsPage.TextSize -> FontSizeSettings(
                 colors = colors,
                 interfaceSettings = interfaceSettings,
@@ -842,14 +834,6 @@ fun NaviampExperienceSettingsSection(
             ) {
                 selectedSection = ExperienceSettingsPage.Radio
             }
-        }
-        SettingsRow(
-            title = ExperienceSettingsPage.AppBackground.title(),
-            subtitle = ExperienceSettingsPage.AppBackground.subtitle(),
-            colors = colors,
-            value = interfaceSettings.appBackgroundStyle.label,
-        ) {
-            selectedSection = ExperienceSettingsPage.AppBackground
         }
         SettingsRow(
             title = ExperienceSettingsPage.TextSize.title(),
@@ -1044,7 +1028,6 @@ private enum class ExperienceSettingsPage {
     Radio,
     Lyrics,
     TextSize,
-    AppBackground,
     Albums,
     ArtistDetails,
     HomeScreen,
@@ -1060,7 +1043,6 @@ private fun ExperienceSettingsPage.title(): String =
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_title)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_title)
         ExperienceSettingsPage.TextSize -> stringResource(Res.string.settings_font_size_title)
-        ExperienceSettingsPage.AppBackground -> "App Background"
         ExperienceSettingsPage.Albums -> "Albums"
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_title)
         ExperienceSettingsPage.HomeScreen -> "Home Screen"
@@ -1076,7 +1058,6 @@ private fun ExperienceSettingsPage.subtitle(): String =
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_subtitle)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_subtitle)
         ExperienceSettingsPage.TextSize -> stringResource(Res.string.settings_font_size_subtitle)
-        ExperienceSettingsPage.AppBackground -> "Choose the canvas behind Naviamp"
         ExperienceSettingsPage.Albums -> "Choose how album collections are presented"
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_subtitle)
         ExperienceSettingsPage.HomeScreen -> "Choose List, Grid, or Carousel for each Home section"
@@ -1193,164 +1174,44 @@ internal fun FontSizeSettings(
 }
 
 @Composable
-private fun AppBackgroundSettings(
+private fun NowPlayingBackgroundSettings(
     colors: NaviampColors,
     interfaceSettings: InterfaceSettings,
     onInterfaceSettingsChanged: (InterfaceSettings) -> Unit,
 ) {
-    AppBackgroundStyle.entries.forEach { style ->
+    SettingsSectionTitle(stringResource(Res.string.tv_background), colors)
+    CompactBackgroundSlider(
+        label = stringResource(Res.string.aurora_color_steps),
+        value = interfaceSettings.auroraColorSteps.toFloat(), valueRange = 2f..5f,
+        valueText = stringResource(Res.string.aurora_color_count, interfaceSettings.auroraColorSteps),
+        colors = colors, steps = 2,
+        onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraColorSteps = it.roundToInt()).normalized()) },
+    )
+    CompactBackgroundSlider(
+        label = stringResource(Res.string.aurora_gradient_angle),
+        value = interfaceSettings.auroraAngleDegrees.toFloat(), valueRange = 0f..180f,
+        valueText = stringResource(Res.string.aurora_angle_value, interfaceSettings.auroraAngleDegrees),
+        colors = colors,
+        onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraAngleDegrees = it.roundToInt()).normalized()) },
+    )
+    SettingsSectionTitle(stringResource(Res.string.aurora_tone), colors)
+    AuroraTone.entries.forEach { tone ->
         SelectableSettingsRow(
-            title = style.label,
-            subtitle = when (style) {
-                AppBackgroundStyle.Aurora -> "Naviamp's dynamic album-color gradient"
-                AppBackgroundStyle.AlbumBlur -> "Fill the app with heavily blurred current album art"
-                AppBackgroundStyle.SingleColor -> "Use one custom dark color throughout the app"
+            title = stringResource(when (tone) {
+                AuroraTone.Light -> Res.string.aurora_tone_light
+                AuroraTone.Dark -> Res.string.aurora_tone_balanced
+                AuroraTone.DeepDark -> Res.string.aurora_tone_dark
+            }),
+            subtitle = when (tone) {
+                AuroraTone.Dark -> stringResource(Res.string.aurora_tone_balanced_description)
+                AuroraTone.Light -> stringResource(Res.string.aurora_tone_light_description)
+                AuroraTone.DeepDark -> stringResource(Res.string.aurora_tone_dark_description)
             },
-            selected = interfaceSettings.appBackgroundStyle == style,
+            selected = interfaceSettings.auroraTone == tone,
             colors = colors,
         ) {
-            onInterfaceSettingsChanged(interfaceSettings.copy(appBackgroundStyle = style).normalized())
+            onInterfaceSettingsChanged(interfaceSettings.copy(auroraTone = tone).normalized())
         }
-    }
-
-    if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.AlbumBlur) {
-        CompactBackgroundSlider(
-            label = "Blur amount",
-            value = interfaceSettings.albumBlurRadiusDp.toFloat(),
-            valueRange = MinAlbumBlurRadiusDp.toFloat()..MaxAlbumBlurRadiusDp.toFloat(),
-            valueText = "${interfaceSettings.albumBlurRadiusDp}dp",
-            colors = colors,
-            onValueChange = { radius ->
-                onInterfaceSettingsChanged(
-                    interfaceSettings.copy(albumBlurRadiusDp = radius.toInt()).normalized(),
-                )
-            },
-        )
-    }
-
-    if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.Aurora) {
-        CompactBackgroundSlider(
-            label = stringResource(Res.string.aurora_color_steps),
-            value = interfaceSettings.auroraColorSteps.toFloat(), valueRange = 2f..5f,
-            valueText = stringResource(Res.string.aurora_color_count, interfaceSettings.auroraColorSteps),
-            colors = colors, steps = 2,
-            onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraColorSteps = it.roundToInt()).normalized()) },
-        )
-        CompactBackgroundSlider(
-            label = stringResource(Res.string.aurora_gradient_angle),
-            value = interfaceSettings.auroraAngleDegrees.toFloat(), valueRange = 0f..180f,
-            valueText = stringResource(Res.string.aurora_angle_value, interfaceSettings.auroraAngleDegrees),
-            colors = colors,
-            onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraAngleDegrees = it.roundToInt()).normalized()) },
-        )
-        SettingsSectionTitle(stringResource(Res.string.aurora_tone), colors)
-        AuroraTone.entries.forEach { tone ->
-            SelectableSettingsRow(
-                title = stringResource(when (tone) {
-                    AuroraTone.Light -> Res.string.aurora_tone_light
-                    AuroraTone.Dark -> Res.string.aurora_tone_balanced
-                    AuroraTone.DeepDark -> Res.string.aurora_tone_dark
-                }),
-                subtitle = when (tone) {
-                    AuroraTone.Dark -> stringResource(Res.string.aurora_tone_balanced_description)
-                    AuroraTone.Light -> stringResource(Res.string.aurora_tone_light_description)
-                    AuroraTone.DeepDark -> stringResource(Res.string.aurora_tone_dark_description)
-                },
-                selected = interfaceSettings.auroraTone == tone,
-                colors = colors,
-            ) {
-                onInterfaceSettingsChanged(interfaceSettings.copy(auroraTone = tone).normalized())
-            }
-        }
-    }
-
-    if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.SingleColor) {
-        var colorDraft by remember(interfaceSettings.singleColorHex) {
-            mutableStateOf(interfaceSettings.singleColorHex)
-        }
-        val previewColor = naviampColorFromHex(colorDraft)
-            ?: naviampColorFromHex(interfaceSettings.singleColorHex)
-            ?: colors.background
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = SettingsRowHorizontalPadding, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .background(previewColor, RoundedCornerShape(8.dp))
-                    .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
-            )
-            OutlinedTextField(
-                colors = naviampOutlinedTextFieldColors(colors),
-                value = colorDraft,
-                onValueChange = { input ->
-                    colorDraft = input.take(7).uppercase()
-                    if (naviampColorFromHex(colorDraft) != null) {
-                        onInterfaceSettingsChanged(
-                            interfaceSettings.copy(singleColorHex = colorDraft).normalized(),
-                        )
-                    }
-                },
-                singleLine = true,
-                label = { Text("Color (hex)") },
-                supportingText = { Text("Use a dark color to keep text readable") },
-                modifier = Modifier.weight(1f).naviampTextInputFocus(),
-            )
-        }
-        val selectedColor = naviampColorFromHex(interfaceSettings.singleColorHex) ?: colors.background
-        val hsv = naviampColorToHsv(selectedColor)
-        CompactBackgroundSlider(
-            label = "Hue",
-            value = hsv[0] * 360f,
-            valueRange = 0f..360f,
-            valueText = "${(hsv[0] * 360f).toInt()}°",
-            colors = colors,
-            onValueChange = { hue ->
-                onInterfaceSettingsChanged(
-                    interfaceSettings.copy(
-                        singleColorHex = naviampColorToHex(
-                            naviampColorFromHsv(hue / 360f, hsv[1], hsv[2]),
-                        ),
-                    ).normalized(),
-                )
-            },
-        )
-        CompactBackgroundSlider(
-            label = "Saturation",
-            value = hsv[1] * 100f,
-            valueRange = 0f..100f,
-            valueText = "${(hsv[1] * 100f).toInt()}%",
-            colors = colors,
-            onValueChange = { saturation ->
-                onInterfaceSettingsChanged(
-                    interfaceSettings.copy(
-                        singleColorHex = naviampColorToHex(
-                            naviampColorFromHsv(hsv[0], saturation / 100f, hsv[2]),
-                        ),
-                    ).normalized(),
-                )
-            },
-        )
-        CompactBackgroundSlider(
-            label = "Brightness",
-            value = hsv[2] * 100f,
-            valueRange = 8f..70f,
-            valueText = "${(hsv[2] * 100f).toInt()}%",
-            colors = colors,
-            onValueChange = { brightness ->
-                onInterfaceSettingsChanged(
-                    interfaceSettings.copy(
-                        singleColorHex = naviampColorToHex(
-                            naviampColorFromHsv(hsv[0], hsv[1], brightness / 100f),
-                        ),
-                    ).normalized(),
-                )
-            },
-        )
     }
 }
 
@@ -4583,6 +4444,7 @@ private fun PlayerExperienceSettings(
         onAlbumYearPreferenceClick = { selectedPage = PlayerBehaviorPage.AlbumYear },
         onInterfaceSettingsChanged = onInterfaceSettingsChanged,
     )
+    NowPlayingBackgroundSettings(colors, interfaceSettings, onInterfaceSettingsChanged)
     SettingsRow(
         title = PlayerBehaviorPage.Waveforms.title(),
         subtitle = PlayerBehaviorPage.Waveforms.subtitle(),
