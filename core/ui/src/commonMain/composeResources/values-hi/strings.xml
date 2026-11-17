@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">वापस</string>
+    <string name="settings_category_appearance_title">दिखावट</string>
+    <string name="settings_category_appearance_subtitle">थीम और रंग</string>
+    <string name="settings_category_experience_subtitle">ऐप को अपने हिसाब से चलाएँ</string>
+    <string name="settings_themes_mode">रंग मोड</string>
+    <string name="settings_themes_light">हल्का</string>
+    <string name="settings_themes_dark">गहरा</string>
+    <string name="settings_themes_system">सिस्टम</string>
+    <string name="settings_themes_catalog">थीम पैक</string>
+    <string name="settings_themes_builtin">Naviamp (अंतर्निहित)</string>
+    <string name="settings_themes_forest">वन</string>
+    <string name="common_cancel">रद्द करें</string>
+    <string name="common_delete">हटाएँ</string>
+    <string name="settings_selected_label">चुना गया</string>
     <string name="nav_radio">रेडियो</string>
     <string name="nav_my">मेरा</string>
     <string name="navigation_open">नेविगेशन खोलें</string>

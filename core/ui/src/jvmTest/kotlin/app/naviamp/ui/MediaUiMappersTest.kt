@@ -799,7 +799,7 @@ class MediaUiMappersTest {
         )
         var received: DownloadedTrackActionRequest? = null
 
-        downloadedTrackSwipeActionVisual(TrackSwipeAction.Play, download) { received = it }?.onTriggered?.invoke()
+        downloadedTrackSwipeActionVisual(TrackSwipeAction.Play, download, NaviampColors.Dark) { received = it }?.onTriggered?.invoke()
 
         assertEquals(DownloadedTrackAction.Select, received?.action)
         assertEquals(download, received?.download)

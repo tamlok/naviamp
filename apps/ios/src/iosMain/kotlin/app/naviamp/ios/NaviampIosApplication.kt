@@ -86,7 +86,7 @@ class NaviampIosApplication(
     private val database = NaviampStorageDatabase(driver)
     private val settingsValueStore = IosCoreSettingsValueStore()
     private val settings = naviampCoreSettingsValueCatalog(settingsValueStore)
-    private var contentViewController: UIViewController? = null
+    private var contentViewController: IosThemeViewController? = null
     private val settingsSyncPort = IosCoreSettingsSyncPort(
         settingsStore = settingsValueStore,
         presenter = { contentViewController },
@@ -296,21 +296,27 @@ class NaviampIosApplication(
         artworkBytes = ::loadProviderArtwork,
     )
 
-    fun viewController(): UIViewController = contentViewController ?: ComposeUIViewController {
-        NaviampIosRasterHost(rootLayer = { contentViewController?.view?.layer }) {
-            NaviampCoreApp(
-                core = core,
-                screenAwakeEffect = remember { IosScreenAwakeEffect() },
-                applicationUpdateChecker = environment.applicationUpdateChecker,
-            )
-        }
-    }.also { contentViewController = it }
+    fun viewController(): UIViewController = contentViewController
+        ?: IosThemeViewController { setLightSystemBarIcons ->
+            ComposeUIViewController {
+                NaviampIosRasterHost(rootLayer = { contentViewController?.view?.layer }) {
+                    NaviampCoreApp(
+                        core = core,
+                        screenAwakeEffect = remember { IosScreenAwakeEffect() },
+                        applicationUpdateChecker = environment.applicationUpdateChecker,
+                        onThemeChanged = { chrome -> setLightSystemBarIcons(chrome.lightSystemBarIcons) },
+                    )
+                }
+            }
+        }.also { contentViewController = it }
 
     fun close() {
         resetIosPlatformCoverArtByteLoader()
         nativePlayback.close()
         playbackEngine.release()
         scope.cancel()
+        contentViewController?.close()
+        contentViewController = null
         driver.close()
     }
 

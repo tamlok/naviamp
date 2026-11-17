@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">返回</string>
+    <string name="settings_category_appearance_title">外观</string>
+    <string name="settings_category_appearance_subtitle">主题和颜色</string>
+    <string name="settings_category_experience_subtitle">按你的方式运行</string>
+    <string name="settings_themes_mode">颜色模式</string>
+    <string name="settings_themes_light">浅色</string>
+    <string name="settings_themes_dark">深色</string>
+    <string name="settings_themes_system">跟随系统</string>
+    <string name="settings_themes_catalog">主题包</string>
+    <string name="settings_themes_builtin">Naviamp（内置）</string>
+    <string name="settings_themes_forest">森林</string>
+    <string name="common_cancel">取消</string>
+    <string name="common_delete">删除</string>
+    <string name="settings_selected_label">已选中</string>
     <string name="nav_radio">电台</string>
     <string name="nav_my">我的</string>
     <string name="navigation_open">打开导航</string>

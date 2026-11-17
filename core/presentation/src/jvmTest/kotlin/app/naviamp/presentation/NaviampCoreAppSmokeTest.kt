@@ -142,7 +142,9 @@ class NaviampCoreAppSmokeTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val settings = InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
             singleColorHex = "#FFFFFF", albumBlurRadiusDp = 36)
-        val core = NaviampCore.create(scope, fakeCoreServices(), initialState = NaviampCoreInitialState(
+        val provider = FakeCoreMediaProvider()
+        val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+            connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
             product = NaviampCoreState(shell = NaviampAppShellUiState(general = NaviampGeneralSettingsUi(interfaceSettings = settings))),
         ))
         try {
@@ -261,30 +263,61 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun disconnectedMyKeepsEmptyAccountsAndCancelUsableWithoutDownloads() = runDesktopComposeUiTest(412, 818) {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val core = NaviampCore.create(scope, fakeCoreServices())
-        try {
-            setContent { NaviampCoreApp(core) }
-            core.actions.shell.navigationActions.onRouteSelected(SharedRoute.My)
-            onNodeWithTag("my-hub").assertIsDisplayed()
-            onNodeWithTag("my-downloads").assertDoesNotExist()
-            onNodeWithTag("my-favorite-artists").assertDoesNotExist()
-            onNodeWithTag("my-settings").assertIsDisplayed()
-            onNodeWithTag("my-accounts").performClick()
-            onNodeWithTag("account-add").performClick()
-            onNodeWithTag("connection-name").assertIsDisplayed()
-            onNodeWithText("Cancel", substring = false).performScrollTo().assertIsDisplayed().assertIsEnabled().performClick()
-            runOnIdle {
-                assertEquals(false, core.state.value.shell.connectionSettings.connection.editingConnection)
-                assertEquals(true, core.state.value.shell.connectionSettings.accountSwitcher.visible)
+    fun firstConnectionUsesTheWholeViewportAndSavedProfilesRestoreChrome() {
+        for ((width, height) in listOf(1000 to 740, 412 to 818, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val core = NaviampCore.create(scope, fakeCoreServices())
+                val ui = mutableStateOf(NaviampAppShellUiState())
+                fun assertSetupOnly() {
+                    onNodeWithTag("connection-name").performScrollTo().assertIsDisplayed()
+                    for (tag in listOf("main-navigation-rail", "main-navigation-bottom", "main-navigation-open",
+                        "main-navigation-drawer", "main-mini-player", "mini-player", "my-hub")) {
+                        onNodeWithTag(tag).assertDoesNotExist()
+                    }
+                    onNodeWithText("Cancel", substring = false).assertDoesNotExist()
+                    val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
+                    assertEquals(0f, route.left, 0.5f)
+                    assertEquals(onRoot().fetchSemanticsNode().boundsInRoot.width, route.width, 0.5f)
+                }
+                fun assertChrome() {
+                    onNodeWithTag("main-mini-player").assertIsDisplayed()
+                    onNodeWithTag(when {
+                        width < 360 -> "main-navigation-open"
+                        width > height -> "main-navigation-rail"
+                        else -> "main-navigation-bottom"
+                    }).assertIsDisplayed()
+                }
+                try {
+                    setContent { NaviampSharedAppShell(uiState = ui.value, actions = core.actions.shell,
+                        syncActions = core.actions.settingsSync) }
+                    for (route in listOf(SharedRoute.Home, SharedRoute.My, SharedRoute.Settings)) {
+                        runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(selectedRoute = route)) }
+                        assertSetupOnly()
+                    }
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(isConnecting = true))) }
+                    assertSetupOnly()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(isConnecting = false,
+                            status = "Fixture connection error", statusIsError = true))) }
+                    assertSetupOnly()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(savedConnections = listOf(
+                            NaviampSavedConnectionUi("saved", "Saved", "https://example.invalid", "listener"))))) }
+                    assertChrome()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(savedConnections = emptyList(), hasSavedConnection = true))) }
+                    assertChrome()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(hasSavedConnection = false))) }
+                    assertSetupOnly()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(connected = true))) }
+                    assertChrome()
+                } finally { scope.cancel() }
             }
-            waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("account-chooser").fetchSemanticsNodes().size == 1 }
-            onNodeWithTag("account-add").assertIsDisplayed()
-            core.actions.shell.connectionActions.onCloseAccounts()
-            onNodeWithTag("my-hub").assertIsDisplayed()
-            onAllNodesWithTag("mini-player").assertCountEquals(1)
-        } finally { scope.cancel() }
+        }
     }
 
     @Test
@@ -305,7 +338,8 @@ class NaviampCoreAppSmokeTest {
                         onNodeWithTag("mini-player").assertDoesNotExist()
                         val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
                         val bottom = onAllNodesWithTag("main-navigation-bottom").fetchSemanticsNodes().singleOrNull()
-                            ?.boundsInRoot?.top ?: onRoot().fetchSemanticsNode().boundsInRoot.bottom
+                            ?.boundsInRoot?.top ?: onNode(isRoot() and hasAnyDescendant(hasTestTag("main-route-content")))
+                                .fetchSemanticsNode().boundsInRoot.bottom
                         assertEquals(bottom, route.bottom, 0.5f, "Expanded player must reclaim the mini-player space")
                     }
                     onNodeWithTag("mini-player-identity").performClick()

@@ -1,4 +1,13 @@
 <resources>
+    <string name="settings_category_appearance_title">Appearance</string>
+    <string name="settings_category_appearance_subtitle">Themes and colors</string>
+    <string name="settings_themes_mode">Color mode</string>
+    <string name="settings_themes_light">Light</string>
+    <string name="settings_themes_dark">Dark</string>
+    <string name="settings_themes_system">System</string>
+    <string name="settings_themes_catalog">Theme packs</string>
+    <string name="settings_themes_builtin">Naviamp (built-in)</string>
+    <string name="settings_themes_forest">Forest</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">My</string>
     <string name="navigation_open">Open navigation</string>
@@ -47,7 +56,7 @@
     <string name="settings_category_language_title">Language</string>
     <string name="settings_category_language_subtitle">Interface language</string>
     <string name="settings_category_experience_title">Experience</string>
-    <string name="settings_category_experience_subtitle">Appearance and behavior</string>
+    <string name="settings_category_experience_subtitle">Behave the way you want</string>
     <string name="settings_category_playback_title">Playback</string>
     <string name="settings_category_playback_subtitle">Make your ears happy</string>
     <string name="settings_category_downloads_title">Downloads</string>

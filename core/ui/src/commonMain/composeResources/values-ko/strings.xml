@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">뒤로</string>
+    <string name="settings_category_appearance_title">모양</string>
+    <string name="settings_category_appearance_subtitle">테마와 색상</string>
+    <string name="settings_category_experience_subtitle">원하는 방식으로 동작하도록</string>
+    <string name="settings_themes_mode">색상 모드</string>
+    <string name="settings_themes_light">밝게</string>
+    <string name="settings_themes_dark">어둡게</string>
+    <string name="settings_themes_system">시스템</string>
+    <string name="settings_themes_catalog">테마 팩</string>
+    <string name="settings_themes_builtin">Naviamp (기본 제공)</string>
+    <string name="settings_themes_forest">숲</string>
+    <string name="common_cancel">취소</string>
+    <string name="common_delete">삭제</string>
+    <string name="settings_selected_label">선택됨</string>
     <string name="nav_radio">라디오</string>
     <string name="nav_my">마이</string>
     <string name="navigation_open">탐색 열기</string>

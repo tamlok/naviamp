@@ -210,6 +210,7 @@ class SwipeActionUiTest {
                 item = item,
                 queueContext = false,
                 canToggleFavorite = true,
+                colors = NaviampColors.Dark,
                 onAddToPlaylist = {},
                 onAction = {},
             ),
@@ -219,6 +220,7 @@ class SwipeActionUiTest {
             item = item,
             queueContext = true,
             canToggleFavorite = true,
+            colors = NaviampColors.Dark,
             onAddToPlaylist = {},
             onAction = { request = it },
         )

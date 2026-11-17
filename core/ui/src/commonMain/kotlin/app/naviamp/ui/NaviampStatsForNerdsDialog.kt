@@ -12,8 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.State
@@ -51,17 +49,17 @@ fun NaviampStatsForNerdsDialog(
 fun NaviampStatsForNerdsWindowContent(
     diagnostics: State<NaviampDiagnosticsUi>,
     onClose: () -> Unit,
-    darkTheme: Boolean,
-) = NaviampStatsForNerdsWindowContent(diagnostics.value, onClose, darkTheme)
+    theme: NaviampUiTheme,
+) = NaviampStatsForNerdsWindowContent(diagnostics.value, onClose, theme)
 
 /** Shared product content for hosts that supply an independent native diagnostics window. */
 @Composable
 fun NaviampStatsForNerdsWindowContent(
     diagnostics: NaviampDiagnosticsUi,
     onClose: () -> Unit,
-    darkTheme: Boolean,
+    theme: NaviampUiTheme,
 ) {
-    MaterialTheme(colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme()) {
+    NaviampTheme(theme) {
         Surface(Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier.fillMaxSize().padding(16.dp),

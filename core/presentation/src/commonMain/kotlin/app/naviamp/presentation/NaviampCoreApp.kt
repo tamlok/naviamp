@@ -99,6 +99,7 @@ fun NaviampCoreApp(
         core.state.value.shell.nowPlaying?.visualizerFrame?.bands.orEmpty()
     },
     applicationUpdateChecker: NaviampApplicationUpdateChecker? = null,
+    onThemeChanged: ((app.naviamp.ui.NaviampThemeChrome) -> Unit)? = null,
     statsForNerdsPresenter: @Composable (State<NaviampDiagnosticsUi>, () -> Unit) -> Unit = { diagnostics, close ->
         NaviampStatsForNerdsDialog(diagnostics.value, close)
     },
@@ -126,7 +127,11 @@ fun NaviampCoreApp(
     }
     NaviampLocaleEnvironment(state.shell.general.interfaceSettings.language, remember { createNaviampLocaleEffect() }) {
         NaviampScreenAwakeEnvironment(screenAwakeEffect, state.shell.general.interfaceSettings.keepScreenAwake) {
-            CompositionLocalProvider(LocalNaviampApplicationSurface provides applicationSurface) {
+          app.naviamp.ui.NaviampTheme(state.shell.general.interfaceSettings.theme) {
+            CompositionLocalProvider(
+                LocalNaviampApplicationSurface provides applicationSurface,
+                app.naviamp.ui.LocalNaviampThemeChromeChanged provides onThemeChanged,
+            ) {
               Box(Modifier.fillMaxSize()) {
                 app.naviamp.ui.NaviampWindowEnvironment(
                     controller = windowController,
@@ -163,7 +168,7 @@ fun NaviampCoreApp(
                 }
                 state.overlays.radioNotice?.let { notice ->
                     app.naviamp.ui.NaviampRadioNotice(
-                        app.naviamp.ui.NaviampColors.Dark, notice,
+                        app.naviamp.ui.LocalNaviampTheme.current.colors, notice,
                         onDismiss = { core.dispatch(NaviampCoreCommand.Settings.DismissRadioNotice) },
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
@@ -180,6 +185,7 @@ fun NaviampCoreApp(
                 }
               }
             }
+          }
         }
     }
 }

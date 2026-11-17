@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_category_appearance_title">Erscheinungsbild</string>
+    <string name="settings_category_appearance_subtitle">Designs und Farben</string>
+    <string name="settings_themes_mode">Farbmodus</string>
+    <string name="settings_themes_light">Hell</string>
+    <string name="settings_themes_dark">Dunkel</string>
+    <string name="settings_themes_system">System</string>
+    <string name="settings_themes_catalog">Designpakete</string>
+    <string name="settings_themes_builtin">Naviamp (integriert)</string>
+    <string name="settings_themes_forest">Wald</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Mein Bereich</string>
     <string name="navigation_open">Navigation öffnen</string>
@@ -133,7 +142,7 @@
     <string name="settings_category_language_title">Sprache</string>
     <string name="settings_category_language_subtitle">Anzeigesprache</string>
     <string name="settings_category_experience_title">Benutzererlebnis</string>
-    <string name="settings_category_experience_subtitle">Aussehen und Verhalten</string>
+    <string name="settings_category_experience_subtitle">So funktioniert es, wie du es möchtest</string>
     <string name="settings_category_playback_title">Wiedergabe</string>
     <string name="settings_category_playback_subtitle">Freude für die Ohren</string>
     <string name="settings_category_downloads_title">Downloads</string>

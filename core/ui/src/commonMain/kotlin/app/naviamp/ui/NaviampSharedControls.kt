@@ -407,7 +407,7 @@ internal fun PlaceholderTile(text: String, colors: NaviampColors) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.2f))
+            .background(colors.controlSurface)
             .padding(12.dp),
     )
 }
@@ -418,7 +418,7 @@ fun NaviampDropdownMenu(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     offset: DpOffset = DpOffset.Zero,
-    containerColor: Color = MenuBackground,
+    containerColor: Color = LocalNaviampTheme.current.colors.menuSurface,
     properties: PopupProperties = PopupProperties(focusable = true),
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -458,6 +458,7 @@ fun NaviampDropdownMenuItem(
     selected: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val colors = LocalNaviampTheme.current.colors
     DropdownMenuItem(
         text = {
             Text(
@@ -470,18 +471,18 @@ fun NaviampDropdownMenuItem(
                 Icon(
                     imageVector = it,
                     contentDescription = null,
-                    tint = if (it == NaviampTransportIcons.HeartFilled) NaviampColors.Dark.favorite else if (enabled) MenuText else MenuText.copy(alpha = 0.42f),
+                    tint = if (it == NaviampTransportIcons.HeartFilled) colors.favorite else if (enabled) colors.menuText else colors.menuText.copy(alpha = 0.42f),
                     modifier = Modifier.size(17.dp),
                 )
             }
         },
         enabled = enabled,
         modifier = Modifier.background(
-            if (selected) MenuText.copy(alpha = 0.12f) else Color.Transparent,
+            if (selected) colors.menuText.copy(alpha = 0.12f) else Color.Transparent,
         ),
         colors = MenuDefaults.itemColors(
-            textColor = MenuText,
-            disabledTextColor = MenuText.copy(alpha = 0.42f),
+            textColor = colors.menuText,
+            disabledTextColor = colors.menuText.copy(alpha = 0.42f),
         ),
         onClick = onClick,
     )
@@ -600,5 +601,3 @@ fun NaviampRowOverflowMenu(
     }
 }
 
-private val MenuBackground = Color(0xFF292C36)
-private val MenuText = Color(0xFFE7E8EF)

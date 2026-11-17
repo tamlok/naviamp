@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_category_appearance_title">Aparência</string>
+    <string name="settings_category_appearance_subtitle">Temas e cores</string>
+    <string name="settings_themes_mode">Modo de cor</string>
+    <string name="settings_themes_light">Claro</string>
+    <string name="settings_themes_dark">Escuro</string>
+    <string name="settings_themes_system">Sistema</string>
+    <string name="settings_themes_catalog">Pacotes de temas</string>
+    <string name="settings_themes_builtin">Naviamp (integrado)</string>
+    <string name="settings_themes_forest">Floresta</string>
     <string name="nav_radio">Rádio</string>
     <string name="nav_my">Meu espaço</string>
     <string name="navigation_open">Abrir navegação</string>
@@ -434,7 +443,7 @@
     <string name="settings_category_language_title">Idioma</string>
     <string name="settings_category_language_subtitle">Idioma da interface</string>
     <string name="settings_category_experience_title">Experiência</string>
-    <string name="settings_category_experience_subtitle">Aparência e comportamento</string>
+    <string name="settings_category_experience_subtitle">Faça funcionar do seu jeito</string>
     <string name="settings_category_playback_title">Reprodução</string>
     <string name="settings_category_playback_subtitle">Deixe seus ouvidos felizes</string>
     <string name="settings_category_downloads_title">Downloads</string>

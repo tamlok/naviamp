@@ -73,6 +73,7 @@ internal fun NaviampMainScaffold(
     colors: NaviampColors,
     onRouteSelected: (SharedRoute) -> Unit,
     modifier: Modifier = Modifier,
+    showChrome: Boolean = true,
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) = NaviampMainScaffold(
@@ -82,6 +83,7 @@ internal fun NaviampMainScaffold(
     systemInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
     keyboardInsets = WindowInsets.ime,
     modifier = modifier,
+    showChrome = showChrome,
     miniPlayer = miniPlayer,
     content = content,
 )
@@ -95,9 +97,18 @@ internal fun NaviampMainScaffold(
     systemInsets: WindowInsets,
     keyboardInsets: WindowInsets,
     modifier: Modifier = Modifier,
+    showChrome: Boolean = true,
     miniPlayer: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    if (!showChrome) {
+        Box(modifier.fillMaxSize().windowInsetsPadding(systemInsets)
+            .naviampContentInsets(systemInsets = WindowInsets(0), keyboardInsets = keyboardInsets)
+            .testTag("main-route-content")) {
+            content()
+        }
+        return
+    }
     val textDirection = LocalLayoutDirection.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()

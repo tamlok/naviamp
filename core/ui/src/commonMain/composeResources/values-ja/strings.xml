@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">戻る</string>
+    <string name="settings_category_appearance_title">外観</string>
+    <string name="settings_category_appearance_subtitle">テーマと色</string>
+    <string name="settings_category_experience_subtitle">思いどおりの動作に</string>
+    <string name="settings_themes_mode">カラーモード</string>
+    <string name="settings_themes_light">ライト</string>
+    <string name="settings_themes_dark">ダーク</string>
+    <string name="settings_themes_system">システム</string>
+    <string name="settings_themes_catalog">テーマパック</string>
+    <string name="settings_themes_builtin">Naviamp（内蔵）</string>
+    <string name="settings_themes_forest">森</string>
+    <string name="common_cancel">キャンセル</string>
+    <string name="common_delete">削除</string>
+    <string name="settings_selected_label">選択中</string>
     <string name="nav_radio">ラジオ</string>
     <string name="nav_my">マイページ</string>
     <string name="navigation_open">ナビゲーションを開く</string>

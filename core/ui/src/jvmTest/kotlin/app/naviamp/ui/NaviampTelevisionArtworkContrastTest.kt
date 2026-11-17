@@ -12,6 +12,11 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
+import app.naviamp.domain.settings.NaviampBuiltinTheme
+import app.naviamp.domain.settings.NaviampForestTheme
+import app.naviamp.domain.settings.NaviampThemeMode
+import app.naviamp.domain.settings.NaviampThemePack
+import app.naviamp.domain.settings.NaviampThemeSettings
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -22,27 +27,31 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class NaviampTelevisionArtworkContrastTest {
     @Test fun textAndPlayedWaveformMeetContrastAcrossSrgbArtworkPixels() {
-        val colors = NaviampTelevisionColors
         var minimumText = Double.POSITIVE_INFINITY
         var minimumWaveform = Double.POSITIVE_INFINITY
-        // Includes opaque white: the worst-case background under this fixed dark reading surface.
-        for (r in 0..16) for (g in 0..16) for (b in 0..16) {
-            val artwork = Color(r / 16f, g / 16f, b / 16f)
-            val protectedArtwork = Color.Black.copy(alpha = 0.38f).compositeOver(artwork)
-            val surface = televisionReadingSurfaceColor(colors).compositeOver(protectedArtwork)
-            for (foreground in listOf(colors.primaryText, colors.secondaryText, colors.mutedText)) {
-                minimumText = min(minimumText, contrast(foreground.compositeOver(surface), surface))
-            }
-            for (accent in listOf(Color.Black, Color.White, Color.Red, Color.Blue, Color.Green, Color.Yellow, artwork)) {
-                val played = waveformPlayedColor(televisionWaveformColors(colors, accent), enabled = false).compositeOver(surface)
-                minimumWaveform = min(minimumWaveform, contrast(played, surface))
+        // Both variants must protect text from every sampled artwork color, including white.
+        for (pack in listOf(NaviampBuiltinTheme, NaviampForestTheme)) {
+            for (palette in listOf(pack.light, pack.dark)) {
+                val colors = televisionReadingColors(palette.toNaviampColors())
+                for (r in 0..16) for (g in 0..16) for (b in 0..16) {
+                    val artwork = Color(r / 16f, g / 16f, b / 16f)
+                    val protectedArtwork = Color.Black.copy(alpha = 0.38f).compositeOver(artwork)
+                    val surface = televisionReadingSurfaceColor(colors).compositeOver(protectedArtwork)
+                    for (foreground in listOf(colors.primaryText, colors.secondaryText, colors.mutedText)) {
+                        minimumText = min(minimumText, contrast(foreground.compositeOver(surface), surface))
+                    }
+                    for (accent in listOf(Color.Black, Color.White, Color.Red, Color.Blue, Color.Green, Color.Yellow, artwork)) {
+                        val played = waveformPlayedColor(televisionWaveformColors(colors, accent), enabled = false).compositeOver(surface)
+                        minimumWaveform = min(minimumWaveform, contrast(played, surface))
+                    }
+                }
             }
         }
         assertTrue(minimumText >= 4.5, "Text contrast $minimumText")
         assertTrue(minimumWaveform >= 3.0, "Played waveform contrast $minimumWaveform")
         val output = File("build/reports/television-artwork-contrast/ratios.txt")
         output.parentFile.mkdirs()
-        output.writeText("4913 sRGB background samples; minimum text=$minimumText; minimum played waveform=$minimumWaveform\n")
+        output.writeText("19652 sRGB background samples across builtin/custom light/dark; minimum text=$minimumText; minimum played waveform=$minimumWaveform\n")
     }
 
     @Test fun brightWhite720p() = capture("white", 1280, 720, 1f)
@@ -54,9 +63,27 @@ class NaviampTelevisionArtworkContrastTest {
     @Test fun multicolorArtwork720p() = capture("gradient", 1280, 720, 1f)
     @Test fun multicolorArtwork4k() = capture("gradient", 3840, 2160, 3f)
 
-    private fun capture(pattern: String, width: Int, height: Int, density: Float) = runDesktopComposeUiTest(width, height) {
+    @Test fun lightBrightWhite720p() = capture("white", 1280, 720, 1f, dark = false)
+    @Test fun lightMulticolorArtwork4k() = capture("gradient", 3840, 2160, 3f, dark = false)
+
+    @Test fun customLightArtwork720p() = capture("gradient", 1280, 720, 1f, dark = false, pack = NaviampForestTheme)
+    @Test fun customDarkArtwork720p() = capture("white", 1280, 720, 1f, pack = NaviampForestTheme)
+
+    private fun capture(
+        pattern: String,
+        width: Int,
+        height: Int,
+        density: Float,
+        dark: Boolean = true,
+        pack: NaviampThemePack = NaviampBuiltinTheme,
+    ) = runDesktopComposeUiTest(width, height) {
+        val colors = televisionReadingColors((if (dark) pack.dark else pack.light).toNaviampColors())
+        val settings = NaviampThemeSettings(
+            mode = if (dark) NaviampThemeMode.Dark else NaviampThemeMode.Light,
+            selectedPackId = pack.id,
+        )
         mainClock.autoAdvance = false
-        setContent { CompositionLocalProvider(LocalDensity provides Density(density)) {
+        setContent { NaviampTheme(settings) { CompositionLocalProvider(LocalDensity provides Density(density)) {
             Box(Modifier.fillMaxSize()) {
                 Canvas(Modifier.fillMaxSize()) {
                     when (pattern) {
@@ -71,17 +98,17 @@ class NaviampTelevisionArtworkContrastTest {
                     }
                 }
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.38f)))
-                TelevisionReadingSurface(NaviampTelevisionColors)
+                TelevisionReadingSurface(colors)
                 TelevisionNowPlaying(NowPlayingUi(id = pattern, title = "Artwork contrast and readable controls", subtitle = "Artist — long metadata remains readable",
                     stateLabel = "Playing", isPlaying = true, canPlayPause = true, canRepeat = true, repeatMode = NaviampRepeatMode.Queue,
                     lyricsAvailable = true, lyricsVisible = true, positionSeconds = 73.0, durationSeconds = 180.0,
                     lyricsLines = listOf(NaviampLyricLineUi(0, "Previous lyric remains readable"), NaviampLyricLineUi(70000, "Active lyric stands out"),
                         NaviampLyricLineUi(90000, "Upcoming lyric remains readable")),
                     waveform = app.naviamp.domain.waveform.AudioWaveform(List(320) { (it % 17 + 1) / 18f })),
-                    null, NaviampTelevisionColors, playerColors = NaviampPlayerColors.fromSingleColor(Color.Black, NaviampTelevisionColors),
+                    null, colors, playerColors = NaviampPlayerColors.fromSingleColor(Color.Black, colors),
                     actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {}), onClose = {}, onOpenSettings = {})
             }
-        } }
+        } } }
         mainClock.advanceTimeBy(700)
         onNodeWithText("Active lyric stands out").assertIsDisplayed().assertIsSelected()
         onNodeWithContentDescription("Pause").assertIsFocused()
@@ -89,10 +116,10 @@ class NaviampTelevisionArtworkContrastTest {
         val pixels = onRoot().captureToImage().toPixelMap()
         // Check a rendered background pixel, not just the mathematical policy.
         val surface = pixels[2, 2]
-        assertTrue(contrast(NaviampTelevisionColors.mutedText, surface) >= 4.5)
+        assertTrue(contrast(colors.mutedText, surface) >= 4.5)
         val snapshot = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
         for (y in 0 until height) for (x in 0 until width) snapshot.setRGB(x, y, pixels[x, y].toArgb())
-        val output = File("build/reports/television-artwork-contrast/$pattern-${width}x$height.png")
+        val output = File("build/reports/television-artwork-contrast/${pack.id}-${if (dark) "dark" else "light"}-$pattern-${width}x$height.png")
         output.parentFile.mkdirs()
         ImageIO.write(snapshot, "png", output)
     }

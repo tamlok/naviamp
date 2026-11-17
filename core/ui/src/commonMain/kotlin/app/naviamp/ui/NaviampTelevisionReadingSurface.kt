@@ -12,12 +12,9 @@ internal fun TelevisionReadingSurface(colors: NaviampColors) {
     Box(Modifier.fillMaxSize().background(televisionReadingSurfaceColor(colors)))
 }
 
-internal fun televisionReadingSurfaceColor(colors: NaviampColors) =
-    colors.background.copy(alpha = TelevisionReadingSurfaceAlpha)
+internal fun televisionReadingSurfaceColor(colors: NaviampColors) = colors.background
 
-internal const val TelevisionReadingSurfaceAlpha = 0.32f
-
-internal val NaviampTelevisionColors = NaviampColors.Dark.copy(
-    secondaryText = NaviampColors.Dark.primaryText,
-    mutedText = NaviampColors.Dark.primaryText,
+internal fun televisionReadingColors(colors: NaviampColors) = colors.copy(
+    secondaryText = colors.primaryText,
+    mutedText = colors.primaryText,
 )

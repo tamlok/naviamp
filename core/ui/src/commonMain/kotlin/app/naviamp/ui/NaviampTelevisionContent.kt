@@ -790,7 +790,7 @@ private fun TelevisionInternetRadioRow(
             .focusable()
             .televisionFocusEffect(focused, colors, shape)
             .clip(shape)
-            .background(if (focused) colors.accent.copy(alpha = 0.34f) else Color.Black.copy(alpha = 0.22f))
+            .background(if (focused) colors.accent.copy(alpha = 0.34f) else colors.controlSurface)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         NaviampCoverArt(station.item.coverArtUrl, colors, 58.dp, 10.dp, mediaKind = SharedMediaItemKind.RadioStation)
@@ -1752,7 +1752,7 @@ internal fun TelevisionNowPlaying(
                                 selected = nowPlaying.favoriteActive,
                                 whiteHighlight = true,
                                 selectedKeepsDarkBackground = true,
-                                iconTint = Color(0xFFFF4D5A).takeIf { nowPlaying.favoriteActive },
+                                iconTint = colors.favorite.takeIf { nowPlaying.favoriteActive },
                             ) {
                                 actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite)
                             }
@@ -2035,7 +2035,7 @@ private fun TelevisionQueueRow(
                     moving -> colors.accent.copy(alpha = 0.52f)
                     focused -> colors.accent.copy(alpha = 0.34f)
                     current -> colors.controlSurface.copy(alpha = 0.82f)
-                    else -> Color.Black.copy(alpha = 0.22f)
+                    else -> colors.controlSurface
                 },
             )
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -2119,7 +2119,7 @@ internal fun TelevisionMiniPlayer(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.Black.copy(alpha = 0.34f), shape)
+            .background(colors.controlSurface, shape)
             .padding(horizontal = 12.dp, vertical = 5.dp),
     ) {
         NaviampCoverArt(nowPlaying.coverArtUrl, colors, 36.dp, 6.dp, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)

@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">Retour</string>
+    <string name="settings_category_appearance_title">Apparence</string>
+    <string name="settings_category_appearance_subtitle">Thèmes et couleurs</string>
+    <string name="settings_category_experience_subtitle">Un fonctionnement comme vous le souhaitez</string>
+    <string name="settings_themes_mode">Mode de couleur</string>
+    <string name="settings_themes_light">Clair</string>
+    <string name="settings_themes_dark">Sombre</string>
+    <string name="settings_themes_system">Système</string>
+    <string name="settings_themes_catalog">Packs de thèmes</string>
+    <string name="settings_themes_builtin">Naviamp (intégré)</string>
+    <string name="settings_themes_forest">Forêt</string>
+    <string name="common_cancel">Annuler</string>
+    <string name="common_delete">Supprimer</string>
+    <string name="settings_selected_label">Sélectionné</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Mon espace</string>
     <string name="navigation_open">Ouvrir la navigation</string>

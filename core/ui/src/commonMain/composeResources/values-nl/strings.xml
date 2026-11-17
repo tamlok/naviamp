@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">Terug</string>
+    <string name="settings_category_appearance_title">Uiterlijk</string>
+    <string name="settings_category_appearance_subtitle">Thema’s en kleuren</string>
+    <string name="settings_category_experience_subtitle">Laat de app werken zoals jij wilt</string>
+    <string name="settings_themes_mode">Kleurmodus</string>
+    <string name="settings_themes_light">Licht</string>
+    <string name="settings_themes_dark">Donker</string>
+    <string name="settings_themes_system">Systeem</string>
+    <string name="settings_themes_catalog">Themapakketten</string>
+    <string name="settings_themes_builtin">Naviamp (ingebouwd)</string>
+    <string name="settings_themes_forest">Bos</string>
+    <string name="common_cancel">Annuleren</string>
+    <string name="common_delete">Verwijderen</string>
+    <string name="settings_selected_label">Geselecteerd</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Mijn</string>
     <string name="navigation_open">Navigatie openen</string>

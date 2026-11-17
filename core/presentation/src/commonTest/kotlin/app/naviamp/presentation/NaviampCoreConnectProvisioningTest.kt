@@ -1,5 +1,10 @@
 package app.naviamp.presentation
 
+import app.naviamp.domain.settings.NaviampBuiltinTheme
+import app.naviamp.domain.settings.NaviampThemeMode
+import app.naviamp.domain.settings.NaviampThemes
+import app.naviamp.domain.settings.NaviampThemeSettings
+
 import app.naviamp.domain.connect.NaviampConnectProvisioningProfile
 import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.ConnectionFormState
@@ -11,6 +16,43 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class NaviampCoreConnectProvisioningTest {
+    @Test
+    fun themePreferencesTransferThroughConnectAndPreserveTargetHostPolicy() {
+        val ready = assertIs<NaviampCoreConnectProvisioningExport.Ready>(ConnectionFormState(
+            serverUrl = "https://music.example.test", username = "listener", password = "secret"
+        ).toConnectProvisioningExport())
+        for (pack in NaviampThemes.packs) for (mode in NaviampThemeMode.entries) {
+            val offered = InterfaceSettings(checkForUpdates = false, keepScreenAwake = true,
+                theme = NaviampThemeSettings(mode, pack.id))
+            val envelope = app.naviamp.domain.connect.NaviampConnectEnvelope(1, "session", 1,
+                message = app.naviamp.domain.connect.NaviampConnectCommandRequest(
+                    app.naviamp.domain.connect.NaviampConnectOfferConnectionProvisioning(ready.profile,
+                        portableSettings = app.naviamp.domain.connect.NaviampConnectPortableSettings(offered, PlaybackSettings()))))
+            val decoded = app.naviamp.domain.connect.NaviampConnectWireCodec.decode(
+                app.naviamp.domain.connect.NaviampConnectWireCodec.encode(envelope))
+            val offer = ((decoded.message as app.naviamp.domain.connect.NaviampConnectCommandRequest).command as
+                app.naviamp.domain.connect.NaviampConnectOfferConnectionProvisioning)
+            val received = kotlin.test.assertNotNull(offer.portableSettings).interfaceSettings
+            assertEquals(offered, received)
+            val applied = InterfaceSettings(checkForUpdates = true).withConnectPortableValues(received)
+            assertEquals(offered.theme, applied.theme)
+            assertEquals(true, applied.checkForUpdates)
+            assertEquals(true, applied.keepScreenAwake)
+        }
+    }
+
+    @Test
+    fun connectApplyNormalizesThemesWithoutLosingPortableOrHostPreferences() {
+        for (mode in NaviampThemeMode.entries) {
+            val offered = InterfaceSettings(checkForUpdates = false, keepScreenAwake = true,
+                theme = NaviampThemeSettings(mode, "missing"))
+            val applied = InterfaceSettings(checkForUpdates = true).withConnectPortableValues(offered)
+            assertEquals(NaviampThemeSettings(mode, NaviampBuiltinTheme.id), applied.theme)
+            assertEquals(true, applied.checkForUpdates)
+            assertEquals(true, applied.keepScreenAwake)
+        }
+    }
+
     @Test fun companionCredentialsAndDisabledConfigurationSurviveEncryptedProvisioning() {
         val companion = app.naviamp.domain.source.AurralCompanion(true, " https://aurral.example/ ", " secondary ", "companion-secret",
             app.naviamp.domain.source.ConnectionTlsSettings(insecureSkipTlsVerification = true),

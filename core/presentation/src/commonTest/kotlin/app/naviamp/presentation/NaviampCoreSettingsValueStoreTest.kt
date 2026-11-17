@@ -1,5 +1,10 @@
 package app.naviamp.presentation
 
+import app.naviamp.domain.settings.NaviampBuiltinTheme
+import app.naviamp.domain.settings.NaviampThemeMode
+import app.naviamp.domain.settings.NaviampThemes
+import app.naviamp.domain.settings.NaviampThemeSettings
+
 import app.naviamp.domain.Genre
 import app.naviamp.domain.radio.MaxRecentRadioStreams
 import app.naviamp.domain.radio.genreRecentRadioStream
@@ -20,6 +25,40 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 class NaviampCoreSettingsValueStoreTest {
+    @Test
+    fun registeredThemeSelectionsAndEveryModePersistAcrossReopeningTheLocalCatalog() {
+        val values = MemorySettingsValues()
+        for (pack in NaviampThemes.packs) for (mode in NaviampThemeMode.entries) {
+            val expected = InterfaceSettings(language = InterfaceLanguage.German, keepScreenAwake = true,
+                theme = NaviampThemeSettings(mode, pack.id))
+            naviampCoreSettingsValueCatalog(values).storedSettings.saveInterface(expected)
+            assertEquals(expected, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+        }
+        values.entries[KeyInterface] = """{"language":"German"}"""
+        val older = naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface()
+        assertEquals(InterfaceLanguage.German, older.language)
+        assertEquals(NaviampThemeSettings(), older.theme)
+    }
+
+    @Test
+    fun unavailableThemeFallsBackWithoutResettingModeOrUnrelatedLocalPreferences() {
+        for (mode in NaviampThemeMode.entries) {
+            val values = MemorySettingsValues().apply {
+                entries[KeyInterface] = """{"language":"German","keepScreenAwake":true,"theme":{
+                    "mode":"${mode.name}","selectedPackId":"unavailable-theme"
+                }}"""
+            }
+            val expected = InterfaceSettings(language = InterfaceLanguage.German, keepScreenAwake = true,
+                theme = NaviampThemeSettings(mode, NaviampBuiltinTheme.id))
+            val settings = naviampCoreSettingsValueCatalog(values).storedSettings
+            assertEquals(expected, settings.loadInterface())
+            settings.saveInterface(settings.loadInterface())
+            assertEquals(expected, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+            settings.saveInterface(expected.copy(theme = NaviampThemeSettings(mode, "another-missing-theme")))
+            assertEquals(expected, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+        }
+    }
+
     @Test fun oldDuplicateStationsAreReconciledDurablyAndOptionsSurviveReopening() {
         val values = MemorySettingsValues()
         val station = genreRecentRadioStream(Genre("Jazz")).copy(

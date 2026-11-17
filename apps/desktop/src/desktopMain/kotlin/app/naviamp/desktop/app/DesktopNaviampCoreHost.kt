@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.naviamp.ui.LocalNaviampWindowGroupActive
 import app.naviamp.desktop.platform.DesktopMprisService
+import app.naviamp.desktop.platform.configureDesktopWindowAppearance
 import app.naviamp.desktop.platform.desktopGlobalShortcutRegistrar
 import app.naviamp.desktop.platform.desktopScreenAwakeEffect
 import app.naviamp.presentation.NaviampCoreCommand
@@ -177,6 +178,7 @@ internal fun DesktopNaviampCoreHost(
             windowController = windowController,
             screenAwakeEffect = remember(window) { desktopScreenAwakeEffect() },
             applicationUpdateChecker = environment.applicationUpdateChecker,
+            onThemeChanged = { chrome -> configureDesktopWindowAppearance(window, chrome.darkWindow) },
             statsForNerdsPresenter = { diagnostics, close ->
                 DesktopStatsForNerdsWindow(diagnostics, close)
             },

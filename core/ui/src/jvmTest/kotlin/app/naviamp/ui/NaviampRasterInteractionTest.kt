@@ -110,7 +110,7 @@ class NaviampRasterInteractionTest {
         setContent {
             NaviampStatsForNerdsWindowContent(
                 NaviampDiagnosticsUi(listOf(NaviampDiagnosticsSectionUi("Fixture", listOf("Status" to "Ready")))),
-                onClose = { closed = true }, darkTheme = true,
+                onClose = { closed = true }, theme = LocalNaviampTheme.current,
             )
         }
         onNodeWithText("Status: Ready").assertExists()

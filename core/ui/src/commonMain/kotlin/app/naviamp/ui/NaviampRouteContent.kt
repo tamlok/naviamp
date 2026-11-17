@@ -847,7 +847,7 @@ private fun HomeCollectionListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(6.dp),
     ) {
@@ -1159,7 +1159,7 @@ private fun MixBuilderRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1891,7 +1891,7 @@ fun NaviampDownloadsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(7.dp))
-                    .background(Color.Black.copy(alpha = 0.12f))
+                    .background(colors.controlSurface)
                     .clickable { offlineDashboardExpanded = !offlineDashboardExpanded }
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
@@ -1943,12 +1943,12 @@ fun NaviampDownloadsContent(
             key = { item -> item.id },
         ) { download ->
             SwipeActionContainer(
-                swipeRight = downloadedTrackSwipeActionVisual(swipeSettings.downloadsRight, download, handleDownloadAction),
-                swipeLeft = downloadedTrackSwipeActionVisual(swipeSettings.downloadsLeft, download, handleDownloadAction),
+                swipeRight = downloadedTrackSwipeActionVisual(swipeSettings.downloadsRight, download, colors, handleDownloadAction),
+                swipeLeft = downloadedTrackSwipeActionVisual(swipeSettings.downloadsLeft, download, colors, handleDownloadAction),
             ) { swipeModifier ->
                 Row(
                     modifier = swipeModifier
-                        .background(Color.Black.copy(alpha = 0.12f), RoundedCornerShape(5.dp))
+                        .background(colors.controlSurface, RoundedCornerShape(5.dp))
                         .clickable {
                             handleDownloadAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.Select))
                         }
@@ -2062,7 +2062,7 @@ private fun DownloadJobCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.14f))
+            .background(colors.controlSurface)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -2125,7 +2125,7 @@ private fun OfflineDashboardSummary(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.2f))
+            .background(colors.controlSurface)
             .padding(12.dp),
     ) {
         Text(stringResource(Res.string.offline_dashboard_title), color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.Bold)

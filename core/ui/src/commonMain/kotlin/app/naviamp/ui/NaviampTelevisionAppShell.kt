@@ -43,7 +43,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -82,8 +81,10 @@ fun NaviampTelevisionAppShell(
     actions: NaviampAppShellActions,
     syncActions: NaviampSettingsSyncActions,
 ) {
-    NaviampBackNavigation(uiState, actions, modifier) { contentModifier ->
-        NaviampTelevisionAppShellContent(modifier = contentModifier, uiState = uiState, settingsSync = settingsSync, playbackProgress = playbackProgress, visualizerBandsProvider = visualizerBandsProvider, actions = actions, syncActions = syncActions)
+    NaviampTheme(uiState.general.interfaceSettings.theme) {
+        NaviampBackNavigation(uiState, actions, modifier) { contentModifier ->
+            NaviampTelevisionAppShellContent(modifier = contentModifier, uiState = uiState, settingsSync = settingsSync, playbackProgress = playbackProgress, visualizerBandsProvider = visualizerBandsProvider, actions = actions, syncActions = syncActions)
+        }
     }
 }
 
@@ -97,7 +98,9 @@ private fun NaviampTelevisionAppShellContent(
     actions: NaviampAppShellActions,
     syncActions: NaviampSettingsSyncActions,
 ) {
-    val colors = NaviampTelevisionColors
+    val themeColors = LocalNaviampTheme.current.colors
+    val colors = remember(themeColors) { televisionReadingColors(themeColors) }
+    NaviampThemeChromeEffect()
     val connection = uiState.connectionSettings.connection
     val interfaceSettings = uiState.general.interfaceSettings
     val nowPlaying = uiState.nowPlaying?.let { playing ->
@@ -262,14 +265,7 @@ private fun NaviampTelevisionAppShellContent(
         fontSize = interfaceSettings.generalFontSize,
     ) {
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = colors.background,
-            surface = colors.controlSurface,
-            primary = colors.accent,
-            onPrimary = colors.onAccent,
-            onBackground = colors.primaryText,
-            onSurface = colors.primaryText,
-        ),
+        colorScheme = LocalNaviampTheme.current.colorScheme,
         typography = rememberNaviampTypography(),
     ) {
         Box(
@@ -537,12 +533,12 @@ private fun TelevisionNavigationBar(
         modifier = Modifier
             .fillMaxWidth()
             .onFocusChanged { onFocusChanged(it.hasFocus) }
-            .background(Color.Black.copy(alpha = 0.34f))
+            .background(colors.controlSurface)
             .padding(horizontal = 28.dp, vertical = 14.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.requiredSize(44.dp).background(Color.Black, CircleShape),
+            modifier = Modifier.requiredSize(44.dp).background(colors.controlSurface, CircleShape),
         ) {
             Image(
                 painter = naviampAppIconPainter(),

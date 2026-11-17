@@ -45,6 +45,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleIntent(intent)
+        // Startup fallback only; shared Core supplies effective icon contrast after composition.
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
@@ -79,6 +80,18 @@ class MainActivity : FragmentActivity() {
                             applicationSurface = naviampApplicationSurface(),
                             screenAwakeEffect = remember(window) { AndroidScreenAwakeEffect(window) },
                             applicationUpdateChecker = runtime.applicationUpdateChecker,
+                            onThemeChanged = { chrome ->
+                                val transparent = android.graphics.Color.TRANSPARENT
+                                val style = if (chrome.lightSystemBarIcons) {
+                                    SystemBarStyle.dark(transparent)
+                                } else {
+                                    SystemBarStyle.light(transparent, transparent)
+                                }
+                                enableEdgeToEdge(
+                                    statusBarStyle = style,
+                                    navigationBarStyle = style,
+                                )
+                            },
                         )
                         if (runtime.core.castAvailable) {
                             AndroidView(

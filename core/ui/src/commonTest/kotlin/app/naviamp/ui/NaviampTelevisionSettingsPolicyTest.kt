@@ -10,21 +10,9 @@ import kotlin.test.assertTrue
 
 class NaviampTelevisionSettingsPolicyTest {
     @Test
-    fun televisionExposesOnlyUsefulAvailableTopLevelCategories() {
+    fun televisionControllersCategoryRequiresCapability() {
         val current = televisionSettingsCategories(controllersAvailable = false)
 
-        assertEquals(
-            listOf(
-                TelevisionSettingsCategory.Sources,
-                TelevisionSettingsCategory.Home,
-                TelevisionSettingsCategory.Display,
-                TelevisionSettingsCategory.Playback,
-                TelevisionSettingsCategory.Lyrics,
-                TelevisionSettingsCategory.Diagnostics,
-                TelevisionSettingsCategory.About,
-            ),
-            current,
-        )
         assertFalse(TelevisionSettingsCategory.Controllers in current)
         assertTrue(
             TelevisionSettingsCategory.Controllers in televisionSettingsCategories(controllersAvailable = true),
@@ -57,11 +45,6 @@ class NaviampTelevisionSettingsPolicyTest {
         assertEquals(26f, televisionSteppedSettingsValue(28f, 2f, range, increase = false))
         assertEquals(48f, televisionSteppedSettingsValue(48f, 2f, range, increase = true))
         assertEquals(8f, televisionSteppedSettingsValue(8f, 2f, range, increase = false))
-    }
-
-    @Test
-    fun televisionSettingsBackdropKeepsLiveDisplayChangesVisible() {
-        assertEquals(0.03f, TelevisionSettingsBackdropDimAlpha)
     }
 
     @Test

@@ -173,10 +173,10 @@ fun StandardPlaylistEditorDialog(
                     itemsIndexed(tracks, key = { index, track -> "${track.id}:$index" }) { index, track ->
                         val swipeSettings = LocalTrackSwipeSettings.current
                         SwipeActionContainer(
-                            swipeRight = playlistEditSwipeVisual(swipeSettings.playlistEditRight) { action ->
+                            swipeRight = playlistEditSwipeVisual(swipeSettings.playlistEditRight, colors) { action ->
                                 apply(index, action)
                             },
-                            swipeLeft = playlistEditSwipeVisual(swipeSettings.playlistEditLeft) { action ->
+                            swipeLeft = playlistEditSwipeVisual(swipeSettings.playlistEditLeft, colors) { action ->
                                 apply(index, action)
                             },
                         ) { swipeModifier ->
@@ -415,8 +415,8 @@ fun StandardPlaylistManagementList(
                     val isDragging = draggingIndex == index
                     SwipeActionContainer(
                         modifier = Modifier.zIndex(if (isDragging) 2f else 0f),
-                        swipeRight = playlistEditSwipeVisual(swipeSettings.playlistEditRight) { action -> apply(index, action) },
-                        swipeLeft = playlistEditSwipeVisual(swipeSettings.playlistEditLeft) { action -> apply(index, action) },
+                        swipeRight = playlistEditSwipeVisual(swipeSettings.playlistEditRight, colors) { action -> apply(index, action) },
+                        swipeLeft = playlistEditSwipeVisual(swipeSettings.playlistEditLeft, colors) { action -> apply(index, action) },
                     ) { swipeModifier ->
                         PlaylistManagementTrackRow(
                             colors = colors,
@@ -674,6 +674,7 @@ internal const val StandardPlaylistSaveTestTag = "standard-playlist-save"
 
 private fun playlistEditSwipeVisual(
     action: TrackSwipeAction,
+    colors: NaviampColors,
     onTriggered: (TrackSwipeAction) -> Unit,
 ): TrackSwipeActionVisual? {
     if (action !in PlaylistEditSwipeActions) return null
@@ -688,11 +689,8 @@ private fun playlistEditSwipeVisual(
     return TrackSwipeActionVisual(
         label = label,
         icon = icon,
-        background = if (action == TrackSwipeAction.Remove) {
-            androidx.compose.ui.graphics.Color(0xFF9B2C2C)
-        } else {
-            androidx.compose.ui.graphics.Color(0xFF315D9E)
-        },
+        background = if (action == TrackSwipeAction.Remove) colors.error else colors.accent,
+        contentColor = if (action == TrackSwipeAction.Remove) colors.onError else colors.onAccent,
         onTriggered = { onTriggered(action) },
     )
 }

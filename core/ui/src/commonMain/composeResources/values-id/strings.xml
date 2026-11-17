@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">Kembali</string>
+    <string name="settings_category_appearance_title">Tampilan</string>
+    <string name="settings_category_appearance_subtitle">Tema dan warna</string>
+    <string name="settings_category_experience_subtitle">Atur cara kerja sesuai keinginan Anda</string>
+    <string name="settings_themes_mode">Mode warna</string>
+    <string name="settings_themes_light">Terang</string>
+    <string name="settings_themes_dark">Gelap</string>
+    <string name="settings_themes_system">Sistem</string>
+    <string name="settings_themes_catalog">Paket tema</string>
+    <string name="settings_themes_builtin">Naviamp (bawaan)</string>
+    <string name="settings_themes_forest">Hutan</string>
+    <string name="common_cancel">Batal</string>
+    <string name="common_delete">Hapus</string>
+    <string name="settings_selected_label">Dipilih</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Saya</string>
     <string name="navigation_open">Buka navigasi</string>

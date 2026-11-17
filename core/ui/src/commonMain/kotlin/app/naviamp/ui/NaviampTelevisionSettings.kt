@@ -14,6 +14,8 @@ import app.naviamp.ui.generated.resources.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -91,6 +93,7 @@ internal enum class TelevisionSettingsCategory(
 ) {
     Sources(Res.string.tv_sources, Res.string.tv_servers_and_music_libraries, NaviampIcons.Library),
     Home(Res.string.home_music_title, Res.string.tv_sections_visibility_and_order, NaviampIcons.Home),
+    Appearance(Res.string.settings_category_appearance_title, Res.string.settings_category_appearance_subtitle, NaviampIcons.Palette),
     Display(Res.string.tv_display, Res.string.tv_background_and_now_playing, NaviampIcons.Experience),
     Playback(Res.string.settings_category_playback_title, Res.string.tv_audio_and_queue_behavior, NaviampTransportIcons.Play),
     Lyrics(Res.string.settings_lyrics_title, Res.string.tv_sources_and_synchronization, NaviampTransportIcons.Lyrics),
@@ -207,7 +210,7 @@ internal fun TelevisionSettingsSheet(
                     .fillMaxHeight()
                     .fillMaxWidth(0.43f)
                     .widthIn(min = 430.dp)
-                    .background(colors.background.copy(alpha = 0.98f))
+                    .background(colors.background)
                     .padding(horizontal = 22.dp, vertical = 20.dp),
             ) {
                 TelevisionSettingsHeader(
@@ -352,6 +355,17 @@ private fun TelevisionSettingsCategoryPage(
     onHomeMoveCommitted: () -> Unit,
 ) {
     when (category) {
+        TelevisionSettingsCategory.Appearance -> Column(
+            Modifier.fillMaxSize().focusRequester(firstFocusRequester)
+                .verticalScroll(rememberScrollState()).padding(TelevisionSettingsFocusOverflow),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            NaviampThemesSettings(
+                colors = colors,
+                interfaceSettings = uiState.general.interfaceSettings,
+                onInterfaceSettingsChanged = actions.valueActions.onInterfaceSettingsChanged,
+            )
+        }
         TelevisionSettingsCategory.Sources -> TelevisionSourcesSettings(
             uiState,
             colors,
@@ -737,9 +751,9 @@ private fun TelevisionHomeSectionIconButton(
         onClick = onClick,
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) colors.accent.copy(alpha = 0.32f) else Color.Black.copy(alpha = 0.2f),
+            containerColor = if (selected) colors.accent.copy(alpha = 0.32f) else colors.controlSurface,
             contentColor = colors.primaryText,
-            disabledContainerColor = Color.Black.copy(alpha = 0.1f),
+            disabledContainerColor = colors.controlSurface.copy(alpha = 0.5f),
             disabledContentColor = colors.secondaryText.copy(alpha = 0.35f),
         ),
         shape = shape,
@@ -749,7 +763,7 @@ private fun TelevisionHomeSectionIconButton(
             .onFocusChanged { focused = it.isFocused }
             .border(
                 width = if (focused) TelevisionSettingsFocusedBorderWidth else 0.dp,
-                color = if (focused) TelevisionSettingsFocusedBorderColor else Color.Transparent,
+                color = if (focused) colors.primaryText else Color.Transparent,
                 shape = shape,
             ),
     ) {
@@ -1593,7 +1607,7 @@ private fun TelevisionSettingsSliderRow(
             .onFocusChanged { focused = it.isFocused }
             .border(
                 width = if (focused) TelevisionSettingsFocusedBorderWidth else 0.dp,
-                color = if (focused) TelevisionSettingsFocusedBorderColor else Color.Transparent,
+                color = if (focused) colors.primaryText else Color.Transparent,
                 shape = shape,
             ),
     ) {
@@ -1863,7 +1877,7 @@ private fun TelevisionSettingsRow(
             .onFocusChanged { focused = it.isFocused }
             .border(
                 width = if (focused) TelevisionSettingsFocusedBorderWidth else 0.dp,
-                color = if (focused) TelevisionSettingsFocusedBorderColor else Color.Transparent,
+                color = if (focused) colors.primaryText else Color.Transparent,
                 shape = shape,
             ),
     ) {
@@ -1915,6 +1929,7 @@ private fun televisionSettingsCategoryValue(
     category: TelevisionSettingsCategory,
     uiState: NaviampAppShellUiState,
 ): String? = when (category) {
+    TelevisionSettingsCategory.Appearance -> null
     TelevisionSettingsCategory.Sources -> uiState.connectionSettings.connection.savedConnections
         .firstOrNull { it.current }?.displayName
     TelevisionSettingsCategory.Home -> uiState.general.interfaceSettings.let { settings ->
@@ -2045,4 +2060,3 @@ internal fun televisionLyricsDisplayLabel(value: LyricsDisplayPreference): Strin
 
 private val TelevisionSettingsFocusOverflow = 12.dp
 private val TelevisionSettingsFocusedBorderWidth = 3.dp
-private val TelevisionSettingsFocusedBorderColor = Color(0xFFBDEBFF)

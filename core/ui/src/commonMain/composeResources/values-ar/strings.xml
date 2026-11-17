@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">رجوع</string>
+    <string name="settings_category_appearance_title">المظهر</string>
+    <string name="settings_category_appearance_subtitle">السمات والألوان</string>
+    <string name="settings_category_experience_subtitle">اجعل التطبيق يعمل كما تريد</string>
+    <string name="settings_themes_mode">وضع الألوان</string>
+    <string name="settings_themes_light">فاتح</string>
+    <string name="settings_themes_dark">داكن</string>
+    <string name="settings_themes_system">النظام</string>
+    <string name="settings_themes_catalog">حزم السمات</string>
+    <string name="settings_themes_builtin">Naviamp (مدمجة)</string>
+    <string name="settings_themes_forest">الغابة</string>
+    <string name="common_cancel">إلغاء</string>
+    <string name="common_delete">حذف</string>
+    <string name="settings_selected_label">محدد</string>
     <string name="nav_radio">الراديو</string>
     <string name="nav_my">حسابي</string>
     <string name="navigation_open">فتح التنقل</string>

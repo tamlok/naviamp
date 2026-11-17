@@ -1,6 +1,8 @@
 package app.naviamp.ui
 
 import app.naviamp.domain.settings.InterfaceLanguage
+import app.naviamp.ui.generated.resources.settings_category_appearance_subtitle
+import app.naviamp.ui.generated.resources.settings_category_appearance_title
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.settings_category_about_subtitle
 import app.naviamp.ui.generated.resources.settings_category_about_title
@@ -140,6 +142,10 @@ private val NaviampResourceLanguagePack = NaviampLanguagePack(
         NaviampSettingsCategory.Language to NaviampSettingsCategoryText(
             Res.string.settings_category_language_title,
             Res.string.settings_category_language_subtitle,
+        ),
+        NaviampSettingsCategory.Appearance to NaviampSettingsCategoryText(
+            Res.string.settings_category_appearance_title,
+            Res.string.settings_category_appearance_subtitle,
         ),
         NaviampSettingsCategory.Experience to NaviampSettingsCategoryText(
             Res.string.settings_category_experience_title,

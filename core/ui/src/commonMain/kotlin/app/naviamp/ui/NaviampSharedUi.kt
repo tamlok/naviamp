@@ -30,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -84,8 +83,10 @@ fun NaviampSharedAppShell(
     onCastPicker: () -> Unit = {},
     onCastSelectLocal: () -> Unit = {},
 ) {
-    NaviampBackNavigation(uiState, actions, modifier) { contentModifier ->
-        NaviampSharedAppShellContent(modifier = contentModifier, uiState = uiState, settingsSync = settingsSync, playbackProgress = playbackProgress, visualizerBandsProvider = visualizerBandsProvider, actions = actions, syncActions = syncActions, applicationUpdateChecker = applicationUpdateChecker, castOutput = castOutput, onCastPicker = onCastPicker, onCastSelectLocal = onCastSelectLocal)
+    NaviampTheme(uiState.general.interfaceSettings.theme) {
+        NaviampBackNavigation(uiState, actions, modifier) { contentModifier ->
+            NaviampSharedAppShellContent(modifier = contentModifier, uiState = uiState, settingsSync = settingsSync, playbackProgress = playbackProgress, visualizerBandsProvider = visualizerBandsProvider, actions = actions, syncActions = syncActions, applicationUpdateChecker = applicationUpdateChecker, castOutput = castOutput, onCastPicker = onCastPicker, onCastSelectLocal = onCastSelectLocal)
+        }
     }
 }
 
@@ -201,7 +202,7 @@ private fun NaviampSharedAppShellContent(
     val audioCacheLocations = cache.audioCacheLocations
     val selectedDownloadLocationId = cache.selectedDownloadLocationId
     val selectedAudioCacheLocationId = cache.selectedAudioCacheLocationId
-    val colors = NaviampColors.Dark
+    val colors = LocalNaviampTheme.current.colors
     NaviampFontSizeScope(
         fontSize = interfaceSettings.generalFontSize,
         includeStandardScale = true,
@@ -217,8 +218,9 @@ private fun NaviampSharedAppShellContent(
         channel = interfaceSettings.applicationUpdateChannel ?: defaultApplicationUpdateChannel(about.version),
         checker = applicationUpdateChecker,
     )
+    val connectionSetupOnly = !connected && !hasSavedConnection && savedConnections.isEmpty() && remoteNowPlaying == null
     val showingDisconnectedConnectionForm = !connected &&
-        selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My
+        (connectionSetupOnly || (selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My))
     val canShowNowPlaying = sharedCanShowNowPlaying(
         connected = connected,
         remoteNowPlayingAvailable = remoteNowPlaying != null,
@@ -229,6 +231,8 @@ private fun NaviampSharedAppShellContent(
         !restoringConnection &&
         nowPlayingOpen &&
         nowPlaying != null
+    // NaviampMainScaffold keeps even filled artwork inside the system-bar safe area.
+    NaviampThemeChromeEffect()
     val outerContentScrollState = rememberScrollState()
     LaunchedEffect(editingConnection) {
         if (editingConnection) {
@@ -240,7 +244,7 @@ private fun NaviampSharedAppShellContent(
             outerContentScrollState.animateScrollTo(0)
         }
     }
-    val routeUsesOwnScroll = sharedRouteUsesOwnScroll(
+    val routeUsesOwnScroll = !connectionSetupOnly && sharedRouteUsesOwnScroll(
         connected = connected,
         editingConnection = editingConnection,
         selectedRoute = selectedRoute,
@@ -266,14 +270,7 @@ private fun NaviampSharedAppShellContent(
                 selectedRoute == SharedRoute.Settings
             )
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = colors.background,
-            surface = colors.controlSurface,
-            primary = colors.accent,
-            onPrimary = colors.onAccent,
-            onBackground = colors.primaryText,
-            onSurface = colors.primaryText,
-        ),
+        colorScheme = LocalNaviampTheme.current.colorScheme,
         typography = rememberNaviampTypography(),
     ) {
         uiState.playlistMembership?.let { membership ->
@@ -293,7 +290,7 @@ private fun NaviampSharedAppShellContent(
             modifier = Modifier.fillMaxSize().background(colors.background),
         ) {
             NaviampSystemBackHandler(
-                enabled = !nowPlayingOpen &&
+                enabled = !connectionSetupOnly && !nowPlayingOpen &&
                     albumDetail.selectedAlbum == null && artistDetail.selectedArtist == null &&
                     playlistDetail.selectedPlaylist == null &&
                     (selectedRoute == SharedRoute.Settings || selectedRoute == SharedRoute.Downloads),
@@ -303,6 +300,7 @@ private fun NaviampSharedAppShellContent(
                 colors = colors,
                 onRouteSelected = navigationActions.onRouteSelected,
                 modifier = modifier,
+                showChrome = !connectionSetupOnly,
                 miniPlayer = {
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
@@ -363,7 +361,7 @@ private fun NaviampSharedAppShellContent(
                             onChooseClientCertificate = connectionActions.onChooseClientCertificate,
                             onConnect = connectionActions.onConnect,
                             onImportSettingsSyncFile = syncActions.onImportFile,
-                            onCancel = connectionActions.onCancelConnectionForm.takeIf { connected || selectedRoute == SharedRoute.My },
+                            onCancel = connectionActions.onCancelConnectionForm.takeIf { !connectionSetupOnly && (connected || selectedRoute == SharedRoute.My) },
                         )
                     } else {
                         ConnectedContent(

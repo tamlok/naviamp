@@ -25,44 +25,30 @@ import app.naviamp.domain.waveform.AudioWaveform
 import app.naviamp.domain.media.AlbumReleaseSection
 
 data class NaviampColors(
-    val background: Color = Color(0xFF101114),
-    val backgroundWarm: Color = Color(0xFF52231F),
-    val backgroundOlive: Color = Color(0xFF11190B),
-    val primaryText: Color = Color.White,
-    val secondaryText: Color = Color(0xFFD7CADF),
-    val mutedText: Color = Color(0xFF8F96A3),
-    val border: Color = Color(0xFF59606D),
-    val accent: Color = Color(0xFF315D9E),
-    val onAccent: Color = Color.White,
-    val controlSurface: Color = Color(0xFF201921),
-    val albumArtPlaceholder: Color = Color(0xFF43536B),
-    val favorite: Color = Color(0xFFEF5350),
+    val background: Color = Dark.background,
+    val backgroundWarm: Color = Dark.backgroundWarm,
+    val backgroundOlive: Color = Dark.backgroundOlive,
+    val primaryText: Color = Dark.primaryText,
+    val secondaryText: Color = Dark.secondaryText,
+    val mutedText: Color = Dark.mutedText,
+    val border: Color = Dark.border,
+    val accent: Color = Dark.accent,
+    val onAccent: Color = Dark.onAccent,
+    val controlSurface: Color = Dark.controlSurface,
+    val albumArtPlaceholder: Color = Dark.albumArtPlaceholder,
+    val favorite: Color = Dark.favorite,
+    val menuSurface: Color = Dark.menuSurface,
+    val menuText: Color = Dark.menuText,
+    val error: Color = Dark.error,
+    val onError: Color = Dark.onError,
+    val errorContainer: Color = Dark.errorContainer,
+    val onErrorContainer: Color = Dark.onErrorContainer,
+    val success: Color = Dark.success,
+    val onSuccess: Color = Dark.onSuccess,
 ) {
     companion object {
-        val Dark = NaviampColors(
-            background = Color(0xFF101114),
-            primaryText = Color.White,
-            secondaryText = Color(0xFFB9BDC7),
-            mutedText = Color(0xFF8F96A3),
-            border = Color(0xFF59606D),
-            accent = Color(0xFF315D9E),
-            onAccent = Color.White,
-            albumArtPlaceholder = Color(0xFF43536B),
-        )
-
-        val Light = NaviampColors(
-            background = Color(0xFFF8F9FB),
-            backgroundWarm = Color(0xFFEAE1DC),
-            backgroundOlive = Color(0xFFE9EEE4),
-            primaryText = Color(0xFF171A21),
-            secondaryText = Color(0xFF4F5663),
-            mutedText = Color(0xFF727A86),
-            border = Color(0xFFBAC1CC),
-            accent = Color(0xFF315D9E),
-            onAccent = Color.White,
-            controlSurface = Color(0xFFFFFFFF),
-            albumArtPlaceholder = Color(0xFFD3DBE8),
-        )
+        val Dark = app.naviamp.domain.settings.NaviampBuiltinTheme.dark.toNaviampColors()
+        val Light = app.naviamp.domain.settings.NaviampBuiltinTheme.light.toNaviampColors()
     }
 }
 

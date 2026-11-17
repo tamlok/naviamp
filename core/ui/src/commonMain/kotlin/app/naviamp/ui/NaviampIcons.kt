@@ -122,17 +122,54 @@ object NaviampIcons {
         lineTo(7f, 17f)
         close()
     }
-    val Playlist = icon("Playlist") {
-        moveTo(5f, 6.5f)
-        lineTo(14.5f, 6.5f)
-        moveTo(5f, 11.5f)
-        lineTo(14.5f, 11.5f)
-        moveTo(5f, 16.5f)
-        lineTo(11.5f, 16.5f)
-        moveTo(17.5f, 13.5f)
-        lineTo(17.5f, 20f)
-        moveTo(14.3f, 16.7f)
-        lineTo(20.7f, 16.7f)
+    /* Lucide list-music and palette (https://lucide.dev), ISC License.
+     * Copyright (c) 2026 Lucide Icons and Contributors
+     * Permission to use, copy, modify, and/or distribute this software for any purpose with or
+     * without fee is hereby granted, provided that the above copyright notice and this permission
+     * notice appear in all copies.
+     * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS
+     * SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
+     * THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
+     * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF
+     * CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
+     * OR PERFORMANCE OF THIS SOFTWARE.
+     */
+    val Playlist = icon("Playlist", strokeWidth = 2f) {
+        moveTo(16f, 5f); horizontalLineTo(3f)
+        moveTo(11f, 12f); horizontalLineTo(3f)
+        moveTo(11f, 19f); horizontalLineTo(3f)
+        moveTo(21f, 16f); verticalLineTo(5f)
+        moveTo(21f, 16f)
+        arcTo(3f, 3f, 0f, false, true, 15f, 16f)
+        arcTo(3f, 3f, 0f, false, true, 21f, 16f)
+        close()
+    }
+    val Palette = icon("Palette", strokeWidth = 2f) {
+        moveTo(12f, 22f)
+        arcToRelative(1f, 1f, 0f, false, true, 0f, -20f)
+        arcToRelative(10f, 9f, 0f, false, true, 10f, 9f)
+        arcToRelative(5f, 5f, 0f, false, true, -5f, 5f)
+        horizontalLineToRelative(-2.25f)
+        arcToRelative(1.75f, 1.75f, 0f, false, false, -1.4f, 2.8f)
+        lineToRelative(0.3f, 0.4f)
+        arcToRelative(1.75f, 1.75f, 0f, false, true, -1.4f, 2.8f)
+        close()
+        moveTo(14f, 6.5f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, -1f, 0f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, 1f, 0f)
+        close()
+        moveTo(18f, 10.5f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, -1f, 0f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, 1f, 0f)
+        close()
+        moveTo(7f, 12.5f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, -1f, 0f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, 1f, 0f)
+        close()
+        moveTo(9f, 7.5f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, -1f, 0f)
+        arcToRelative(0.5f, 0.5f, 0f, true, true, 1f, 0f)
+        close()
     }
     val Brain = thinIcon("Brain") {
         moveTo(9f, 5.8f)
@@ -595,7 +632,7 @@ object NaviampIcons {
         close()
     }
 
-    private fun icon(name: String, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit): ImageVector =
+    private fun icon(name: String, strokeWidth: Float = 1.9f, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit): ImageVector =
         ImageVector.Builder(
             name = name,
             defaultWidth = IconSize,
@@ -605,7 +642,7 @@ object NaviampIcons {
         ).apply {
             path(
                 stroke = SolidColor(Color.Black),
-                strokeLineWidth = 1.9f,
+                strokeLineWidth = strokeWidth,
                 strokeLineCap = StrokeCap.Round,
                 strokeLineJoin = StrokeJoin.Round,
             ) {

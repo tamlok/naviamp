@@ -219,7 +219,8 @@ enum class NaviampSettingsCategory(
 ) {
     Source("Source", "Servers and libraries", NaviampIcons.Library),
     Language("Language", "Interface language", NaviampIcons.Globe),
-    Experience("Experience", "Appearance and behavior", NaviampIcons.Experience),
+    Appearance("Appearance", "Themes and colors", NaviampIcons.Palette),
+    Experience("Experience", "Behave the way you want", NaviampIcons.Experience),
     Playback("Playback", "Make your ears happy", NaviampTransportIcons.Play),
     Downloads("Downloads", "Music on the go", NaviampIcons.Downloads),
     AudioCache("Audio Cache", "Prefetch and playback cache", NaviampIcons.Cache),
@@ -390,6 +391,11 @@ fun NaviampSharedSettingsContent(
                     colors = colors,
                     interfaceSettings = interfaceSettings,
                     languagePack = languagePack,
+                    onInterfaceSettingsChanged = onInterfaceSettingsChanged,
+                )
+                NaviampSettingsCategory.Appearance -> NaviampThemesSettings(
+                    colors = colors,
+                    interfaceSettings = interfaceSettings,
                     onInterfaceSettingsChanged = onInterfaceSettingsChanged,
                 )
                 NaviampSettingsCategory.Experience -> NaviampExperienceSettingsSection(

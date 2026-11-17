@@ -99,11 +99,12 @@ class NaviampRepeatControlsUiTest {
     @Test
     fun televisionOffIsMutedEvenWithTheHighContrastTextPalette() = runComposeUiTest {
         val selected = mutableStateOf(false)
+        val colors = televisionReadingColors(NaviampColors.Dark)
         setContent {
-            Box(Modifier.size(60.dp).background(NaviampTelevisionColors.background)) {
+            Box(Modifier.size(60.dp).background(colors.background)) {
                 TelevisionIconButton(
                     enabled = true, icon = NaviampTransportIcons.Repeat, description = "Fixture TV repeat",
-                    colors = NaviampTelevisionColors, selected = selected.value,
+                    colors = colors, selected = selected.value,
                     inactive = !selected.value, onClick = { selected.value = !selected.value },
                 )
             }

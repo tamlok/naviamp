@@ -20,7 +20,7 @@ class NaviampTelevisionBackgroundSettingsTest {
             setContent {
                 TelevisionBackgroundSettings(
                     uiState = state.value,
-                    colors = NaviampTelevisionColors,
+                    colors = televisionReadingColors(NaviampColors.Dark),
                     actions = settingsActions { updated ->
                         state.value = state.value.copy(
                             general = state.value.general.copy(interfaceSettings = updated),

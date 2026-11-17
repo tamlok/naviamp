@@ -9,6 +9,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.rememberWindowState
 import app.naviamp.desktop.platform.configureDesktopWindowAppearance
 import app.naviamp.desktop.platform.configureDesktopWindowIcon
+import app.naviamp.ui.LocalNaviampTheme
 import app.naviamp.ui.NaviampStatsForNerdsWindowContent
 import app.naviamp.ui.NaviampDiagnosticsUi
 import app.naviamp.ui.naviampAppIconPainter
@@ -19,17 +20,19 @@ internal fun DesktopStatsForNerdsWindow(
     diagnostics: State<NaviampDiagnosticsUi>,
     onClose: () -> Unit,
 ) {
+    val theme = LocalNaviampTheme.current
     Window(
         state = rememberWindowState(size = DpSize(760.dp, 780.dp)),
         title = "Naviamp - Stats for Nerds",
         onCloseRequest = onClose,
         icon = naviampAppIconPainter(),
     ) {
-        val darkTitleBar = androidx.compose.foundation.isSystemInDarkTheme()
-        LaunchedEffect(window, darkTitleBar) {
+        LaunchedEffect(window) {
             configureDesktopWindowIcon(window)
-            configureDesktopWindowAppearance(window, darkTitleBar)
         }
-        NaviampStatsForNerdsWindowContent(diagnostics, onClose, darkTitleBar)
+        LaunchedEffect(window, theme.isDark) {
+            configureDesktopWindowAppearance(window, theme.isDark)
+        }
+        NaviampStatsForNerdsWindowContent(diagnostics, onClose, theme)
     }
 }

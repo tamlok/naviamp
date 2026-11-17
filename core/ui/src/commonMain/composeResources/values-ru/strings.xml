@@ -1,5 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="common_back">Назад</string>
+    <string name="settings_category_appearance_title">Оформление</string>
+    <string name="settings_category_appearance_subtitle">Темы и цвета</string>
+    <string name="settings_category_experience_subtitle">Настройте поведение по своему вкусу</string>
+    <string name="settings_themes_mode">Цветовой режим</string>
+    <string name="settings_themes_light">Светлый</string>
+    <string name="settings_themes_dark">Тёмный</string>
+    <string name="settings_themes_system">Системный</string>
+    <string name="settings_themes_catalog">Пакеты тем</string>
+    <string name="settings_themes_builtin">Naviamp (встроенная)</string>
+    <string name="settings_themes_forest">Лес</string>
+    <string name="common_cancel">Отмена</string>
+    <string name="common_delete">Удалить</string>
+    <string name="settings_selected_label">Выбрано</string>
     <string name="nav_radio">Радио</string>
     <string name="nav_my">Моё</string>
     <string name="navigation_open">Открыть навигацию</string>

@@ -10,6 +10,34 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.jsonObject
 
 class SettingsSyncDocumentTest {
+    @Test
+    fun allThemeModesAndRegisteredSelectionsRoundTripWithoutChangingOtherPreferences() {
+        for (pack in NaviampThemes.packs) for (mode in NaviampThemeMode.entries) {
+            val settings = InterfaceSettings(language = InterfaceLanguage.German, keepScreenAwake = true,
+                theme = NaviampThemeSettings(mode, pack.id))
+            val exported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(interfaceSettings = settings), 1L, "test")
+            val restored = SettingsSyncJson.decode(SettingsSyncJson.encode(exported)).preferences.interfaceSettings
+            assertEquals(settings, restored)
+            assertEquals(pack, NaviampThemes.selectedPack(restored.theme.selectedPackId))
+        }
+        assertEquals(NaviampThemeSettings(), SettingsSyncJson.decode("{}").preferences.interfaceSettings.theme)
+        assertEquals(NaviampThemeSettings(), SettingsSyncJson.decode(
+            """{"preferences":{"interfaceSettings":{"language":"German"}}}""").preferences.interfaceSettings.theme)
+    }
+
+    @Test
+    fun unknownThemeSelectionFallsBackWithoutDiscardingModeOrUnrelatedPreferences() {
+        for (mode in NaviampThemeMode.entries) {
+            val imported = SettingsSyncJson.decode("""{"preferences":{"interfaceSettings":{
+                "language":"German","keepScreenAwake":true,
+                "theme":{"mode":"${mode.name}","selectedPackId":"unavailable-theme"}
+            }}}""").preferences.interfaceSettings
+            assertEquals(InterfaceLanguage.German, imported.language)
+            assertTrue(imported.keepScreenAwake)
+            assertEquals(NaviampThemeSettings(mode, NaviampBuiltinTheme.id), imported.theme)
+        }
+    }
+
     @Test fun everyInterfaceLanguageSurvivesExportImportAndOlderDefaultsRemainCompatible() {
         for (language in InterfaceLanguage.entries) {
             val settings = InterfaceSettings(language = language)

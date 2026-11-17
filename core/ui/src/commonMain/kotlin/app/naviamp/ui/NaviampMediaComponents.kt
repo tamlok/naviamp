@@ -126,6 +126,7 @@ fun TrackRow(
             canAddToQueue = canAddToQueue,
             canDownload = canDownload,
             canAddToPlaylist = canAddToPlaylist,
+            colors = colors,
             onTrackAction = dispatchTrackAction,
         ),
         swipeLeft = trackSwipeActionVisual(
@@ -135,6 +136,7 @@ fun TrackRow(
             canAddToQueue = canAddToQueue,
             canDownload = canDownload,
             canAddToPlaylist = canAddToPlaylist,
+            colors = colors,
             onTrackAction = dispatchTrackAction,
         ),
     ) { swipeModifier ->
@@ -149,7 +151,7 @@ fun TrackRow(
                 if (background) {
                     Modifier
                         .clip(RoundedCornerShape(5.dp))
-                        .background(Color.Black.copy(alpha = 0.12f))
+                        .background(colors.controlSurface)
                 } else {
                     Modifier
                 },
@@ -426,6 +428,7 @@ private fun trackSwipeActionVisual(
     canAddToQueue: Boolean,
     canDownload: Boolean,
     canAddToPlaylist: Boolean,
+    colors: NaviampColors,
     onTrackAction: (SharedTrackRowActionRequest) -> Unit,
 ): TrackSwipeActionVisual? {
     val rowAction = when (action) {
@@ -469,7 +472,8 @@ private fun trackSwipeActionVisual(
     return TrackSwipeActionVisual(
         label = label,
         icon = icon,
-        background = Color(0xFF2E7D32),
+        background = colors.success,
+        contentColor = colors.onSuccess,
         onTriggered = { onTrackAction(SharedTrackRowActionRequest(track, rowAction)) },
     )
 }
@@ -478,6 +482,7 @@ data class TrackSwipeActionVisual(
     val label: String,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val background: Color,
+    val contentColor: Color = Color.Unspecified,
     val onTriggered: () -> Unit,
 )
 
@@ -494,6 +499,7 @@ fun SwipeActionContainer(
         return
     }
 
+    val colors = LocalNaviampTheme.current.colors
     val density = LocalDensity.current
     val thresholdPx = with(density) { 72.dp.toPx() }
     val maximumOffsetPx = with(density) { 132.dp.toPx() }
@@ -528,8 +534,9 @@ fun SwipeActionContainer(
                     .padding(horizontal = 14.dp),
             ) {
                 if (offsetX < 0f) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                Icon(action.icon, contentDescription = action.label, tint = if (action.icon == NaviampTransportIcons.HeartFilled) NaviampColors.Dark.favorite else Color.White, modifier = Modifier.size(20.dp))
-                Text(action.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                val foreground = if (action.contentColor == Color.Unspecified) colors.onAccent else action.contentColor
+                Icon(action.icon, contentDescription = action.label, tint = foreground, modifier = Modifier.size(20.dp))
+                Text(action.label, color = foreground, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 if (offsetX > 0f) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }
         }
@@ -621,24 +628,28 @@ internal class SwipeGestureIntentLock(
 fun downloadedTrackSwipeActionVisual(
     action: TrackSwipeAction,
     download: NaviampDownloadedTrackUi,
+    colors: NaviampColors,
     onAction: (DownloadedTrackActionRequest) -> Unit,
 ): TrackSwipeActionVisual? = when (action) {
     TrackSwipeAction.Play -> TrackSwipeActionVisual(
         label = "Play",
         icon = NaviampTransportIcons.Play,
-        background = Color(0xFF2E7D32),
+        background = colors.success,
+        contentColor = colors.onSuccess,
         onTriggered = { onAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.Select)) },
     )
     TrackSwipeAction.AddToPlaylist -> TrackSwipeActionVisual(
         label = "Add to playlist",
         icon = NaviampIcons.Playlist,
-        background = Color(0xFF315D9E),
+        background = colors.accent,
+        contentColor = colors.onAccent,
         onTriggered = { onAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.AddToPlaylist)) },
     )
     TrackSwipeAction.Remove -> TrackSwipeActionVisual(
         label = "Remove download",
         icon = NaviampIcons.Trash,
-        background = Color(0xFF9B2C2C),
+        background = colors.error,
+        contentColor = colors.onError,
         onTriggered = { onAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.Remove)) },
     )
     else -> null
@@ -650,6 +661,7 @@ internal fun MixCard(
     colors: NaviampColors,
     onClick: () -> Unit,
 ) {
+    val overlayColors = rememberNaviampArtworkOverlayColors()
     Box(
         modifier = Modifier
             .width(154.dp)
@@ -672,7 +684,7 @@ internal fun MixCard(
         ) {
             Text(
                 "${album.subtitle} Mix",
-                color = colors.primaryText,
+                color = overlayColors.primaryText,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 maxLines = 1,
@@ -680,7 +692,7 @@ internal fun MixCard(
             )
             Text(
                 album.title,
-                color = colors.secondaryText,
+                color = overlayColors.secondaryText,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -721,7 +733,7 @@ private fun StationRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -828,7 +840,7 @@ fun SharedMediaRow(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .let { rowModifier ->
                 if (canSelect) {
                     rowModifier.clickable { onClick?.invoke() }
@@ -1341,7 +1353,7 @@ private fun GenreMixTreeRow(
             .fillMaxWidth()
             .padding(start = (row.depth * 18).dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = if (row.selectableGenreCount > 0) 0.14f else 0.08f))
+            .background(colors.controlSurface.copy(alpha = if (row.selectableGenreCount > 0) 1f else 0.65f))
             .then(if (rowAction != null) Modifier.clickable(onClick = rowAction) else Modifier)
             .padding(end = 12.dp, top = 8.dp, bottom = 8.dp),
     ) {
@@ -1563,7 +1575,7 @@ fun SonicMixBuilderContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.16f))
+                    .background(colors.controlSurface)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 builder.selectedTracks.forEach { track ->
@@ -1623,7 +1635,7 @@ fun SonicMixBuilderContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.Black.copy(alpha = 0.08f))
+                    .background(colors.controlSurface)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 builder.suggestedTracks.forEach { track ->
@@ -1757,7 +1769,7 @@ private fun SonicPathTrackPicker(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .padding(10.dp),
     ) {
         Text(title, color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -1772,7 +1784,7 @@ private fun SonicPathTrackPicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color.Black.copy(alpha = 0.14f))
+                    .background(colors.controlSurface)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 TrackRow(
@@ -1824,7 +1836,7 @@ private fun SonicPathTrackPicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color.Black.copy(alpha = 0.08f))
+                    .background(colors.controlSurface)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 suggestions.forEach { track ->
@@ -1863,11 +1875,12 @@ private fun BuilderRemoveTrackButton(
     contentDescription: String,
     onClick: () -> Unit,
 ) {
+    val colors = LocalNaviampTheme.current.colors
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFF9B2C2C),
-            contentColor = Color.White,
+            containerColor = colors.error,
+            contentColor = colors.onError,
         ),
         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
         modifier = Modifier.height(36.dp),
@@ -1900,7 +1913,7 @@ private fun ArtistMixSelectedArtist(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.18f))
+            .background(colors.controlSurface)
             .clickable(onClick = onRemove)
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1925,7 +1938,7 @@ private fun GenreMixSelectedGenre(
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.18f))
+            .background(colors.controlSurface)
             .clickable(onClick = onRemove)
             .padding(horizontal = 10.dp, vertical = 7.dp),
     )
@@ -1943,7 +1956,7 @@ private fun GenreMixGenreRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.14f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
@@ -1972,7 +1985,7 @@ private fun AlbumMixSelectedAlbum(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.18f))
+            .background(colors.controlSurface)
             .clickable(onClick = onRemove)
             .padding(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1994,7 +2007,7 @@ private fun AlbumMixAlbumTile(
         modifier = modifier
             .height(142.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.14f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -2032,7 +2045,7 @@ private fun ArtistMixArtistTile(
         modifier = modifier
             .height(116.dp)
             .clip(RoundedCornerShape(6.dp))
-            .background(Color.Black.copy(alpha = 0.14f))
+            .background(colors.controlSurface)
             .clickable(onClick = onClick)
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

@@ -397,7 +397,7 @@ private fun PlaylistListRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .clickable {
                 onAction(playlist.playlistRequest(NaviampPlaylistMediaCommand.Select))
             }

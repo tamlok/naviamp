@@ -25,6 +25,23 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineScope
 
 class SettingsSyncMappingTest {
+    @Test
+    fun themePreferencesApplyFromPortableSnapshotAndNormalizeAtTheApplyBoundary() {
+        val settings = InterfaceSettings(language = InterfaceLanguage.German,
+            theme = NaviampThemeSettings(NaviampThemeMode.System, NaviampForestTheme.id))
+        val exported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(interfaceSettings = settings), 1L, "test")
+        val applied = applySettingsSyncDocument(SettingsSyncJson.decode(SettingsSyncJson.encode(exported)),
+            FakePlaybackEngine(false), RecordingProviderMediaSourceRepository(), RecordingRadioDjPresetRepository())
+        assertEquals(settings, applied.interfaceSettings)
+
+        val invalid = exported.copy(preferences = exported.preferences.copy(
+            interfaceSettings = settings.copy(theme = NaviampThemeSettings(NaviampThemeMode.Light, "missing"))))
+        val normalized = applySettingsSyncDocument(invalid, FakePlaybackEngine(false),
+            RecordingProviderMediaSourceRepository(), RecordingRadioDjPresetRepository()).interfaceSettings
+        assertEquals(NaviampThemeSettings(NaviampThemeMode.Light, NaviampBuiltinTheme.id), normalized.theme)
+        assertEquals(InterfaceLanguage.German, normalized.language)
+    }
+
     @Test fun artworkFillAndCornersAreIndependentPortablePreferences() {
         for (square in listOf(false, true)) for (fill in listOf(false, true)) {
             val settings = InterfaceSettings(squareAlbumArtwork = square,

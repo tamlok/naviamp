@@ -34,7 +34,7 @@ class NaviampTelevisionQueuePolicyTest {
 
     @Test
     fun inactiveRepeatRemainsDistinctFromActiveAndUnavailableOnLightAndDarkSurfaces() {
-        for (colors in listOf(NaviampColors.Dark, NaviampColors.Light, NaviampTelevisionColors)) {
+        for (colors in listOf(NaviampColors.Dark, NaviampColors.Light, televisionReadingColors(NaviampColors.Dark), televisionReadingColors(NaviampColors.Light))) {
             for (lightSurface in listOf(false, true)) {
                 val active = naviampTransportIconTint(colors, true, false, lightSurface)
                 val off = naviampTransportIconTint(colors, true, true, lightSurface)

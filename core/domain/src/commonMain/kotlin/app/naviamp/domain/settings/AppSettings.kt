@@ -203,6 +203,7 @@ data class InterfaceSettings(
     val nowPlaying: NowPlayingDisplaySettings = NowPlayingDisplaySettings(),
     val albumArtworkOverrides: List<AlbumArtworkOverride> = emptyList(),
     val trackSwipes: TrackSwipeSettings = TrackSwipeSettings(),
+    val theme: NaviampThemeSettings = NaviampThemeSettings(),
 ) {
     fun normalized(): InterfaceSettings = copy(
         artistTopTracksLimit = normalizedArtistTopTracksLimit(artistTopTracksLimit),
@@ -218,6 +219,7 @@ data class InterfaceSettings(
             .toMap(),
         homeSectionOrder = homeSectionOrder.map(String::trim).filter(String::isNotBlank).distinct(),
         globalKeyboardShortcuts = globalKeyboardShortcuts.normalized(),
+        theme = theme.normalized(),
     )
 }
 

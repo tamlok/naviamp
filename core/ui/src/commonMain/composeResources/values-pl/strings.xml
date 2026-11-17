@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_category_appearance_title">Wygląd</string>
+    <string name="settings_category_appearance_subtitle">Motywy i kolory</string>
+    <string name="settings_themes_mode">Tryb kolorów</string>
+    <string name="settings_themes_light">Jasny</string>
+    <string name="settings_themes_dark">Ciemny</string>
+    <string name="settings_themes_system">Systemowy</string>
+    <string name="settings_themes_catalog">Pakiety motywów</string>
+    <string name="settings_themes_builtin">Naviamp (wbudowany)</string>
+    <string name="settings_themes_forest">Las</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Moje</string>
     <string name="navigation_open">Otwórz nawigację</string>
@@ -34,7 +43,7 @@
     <string name="settings_category_language_title">Język</string>
     <string name="settings_category_language_subtitle">Język interfejsu</string>
     <string name="settings_category_experience_title">Doświadczenie</string>
-    <string name="settings_category_experience_subtitle">Wygląd i zachowanie</string>
+    <string name="settings_category_experience_subtitle">Działanie takie, jak chcesz</string>
     <string name="settings_category_playback_title">Odtwarzanie</string>
     <string name="settings_category_playback_subtitle">Uciesz swoje uszy</string>
     <string name="settings_category_downloads_title">Pobrane</string>

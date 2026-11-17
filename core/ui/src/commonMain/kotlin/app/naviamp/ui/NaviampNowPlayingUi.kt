@@ -427,10 +427,11 @@ private fun NaviampNowPlayingPanelContent(
         }
 
         if (filled) {
+            val overlayColors = rememberNaviampArtworkOverlayColors()
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 NaviampFilledNowPlayingArtwork(
-                    url = nowPlaying.coverArtUrl, colors = colors,
+                    url = nowPlaying.coverArtUrl, colors = overlayColors,
                     mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track,
                     modifier = Modifier.fillMaxWidth().height(viewportMaxHeight),
                     onArtworkClick = if (nowPlaying.visualizerAvailable) {
@@ -441,7 +442,7 @@ private fun NaviampNowPlayingPanelContent(
                         .naviampContentInsets(contentInsets, WindowInsets(0))) {
                         NowPlayingDetails(
                             nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
-                            colors = colors, playerColors = visualizerColors, actions = actions,
+                            colors = overlayColors, playerColors = visualizerColors, actions = actions,
                             selectedVisualizer = selectedVisualizer, displaySettings = displaySettings,
                             onOpenPlaylistDialog = openPlaylistMembership,
                             onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
@@ -896,7 +897,9 @@ private fun NowPlayingDetails(
         } else {
             Arrangement.spacedBy(if (compactLayout) 5.dp else 6.dp)
         },
-        modifier = modifier.padding(
+        modifier = modifier.then(
+            if (filledArtworkLayout) Modifier else Modifier.background(colors.controlSurface, RoundedCornerShape(8.dp)),
+        ).padding(
             bottom = when {
                 pinBottomActions -> 8.dp
                 mobileLayout -> 4.dp
@@ -2296,7 +2299,7 @@ private fun NowPlayingSidePanel(
         modifier = modifier
             .testTag("now-playing-side-panel")
             .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.12f))
+            .background(colors.controlSurface)
             .padding(8.dp),
     ) {
         if (showStationList) {
@@ -2470,7 +2473,7 @@ private fun LyricsPanel(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(7.dp))
-            .background(Color.Black.copy(alpha = 0.18f))
+            .background(colors.controlSurface)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -3314,7 +3317,7 @@ private fun NowPlayingTabButton(label: String, selected: Boolean, colors: Naviam
         fontWeight = FontWeight.Bold,
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+            .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
     )
@@ -3384,6 +3387,7 @@ private fun NowPlayingItemList(
                     item,
                     queueContext,
                     canToggleFavorite,
+                    colors,
                     onAddToPlaylist = {
                         if (useInlinePlaylistPicker) playlistDialogOpen = true
                         else onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.AddToPlaylist))
@@ -3395,6 +3399,7 @@ private fun NowPlayingItemList(
                     item,
                     queueContext,
                     canToggleFavorite,
+                    colors,
                     onAddToPlaylist = {
                         if (useInlinePlaylistPicker) playlistDialogOpen = true
                         else onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.AddToPlaylist))
@@ -3411,7 +3416,7 @@ private fun NowPlayingItemList(
                     modifier = swipeModifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(5.dp))
-                        .background(if (selected) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.10f))
+                        .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.controlSurface)
                         .clickable { onClick(item) }
                         .padding(horizontal = 6.dp, vertical = rowVerticalPadding),
                 ) {
@@ -3559,27 +3564,29 @@ internal fun nowPlayingSwipeActionVisual(
     item: NaviampNowPlayingItemUi,
     queueContext: Boolean,
     canToggleFavorite: Boolean,
+    colors: NaviampColors,
     onAddToPlaylist: () -> Unit,
     onAction: (NowPlayingItemActionRequest) -> Unit,
 ): TrackSwipeActionVisual? = when (action) {
     TrackSwipeAction.None,
     TrackSwipeAction.Play,
     -> null
-    TrackSwipeAction.PlayNext -> swipeVisual("Play next", NaviampIcons.Queue) {
+    TrackSwipeAction.PlayNext -> swipeVisual(colors, "Play next", NaviampIcons.Queue) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.PlayNext))
     }
-    TrackSwipeAction.AddToQueue -> swipeVisual("Add to queue", NaviampIcons.Queue) {
+    TrackSwipeAction.AddToQueue -> swipeVisual(colors, "Add to queue", NaviampIcons.Queue) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.AddToQueue))
     }
-    TrackSwipeAction.AddToPlaylist -> swipeVisual("Add to playlist", NaviampIcons.Playlist, onTriggered = onAddToPlaylist)
-    TrackSwipeAction.Download -> swipeVisual("Download", NaviampIcons.Downloads) {
+    TrackSwipeAction.AddToPlaylist -> swipeVisual(colors, "Add to playlist", NaviampIcons.Playlist, onTriggered = onAddToPlaylist)
+    TrackSwipeAction.Download -> swipeVisual(colors, "Download", NaviampIcons.Downloads) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.Download))
     }
-    TrackSwipeAction.StartRadio -> swipeVisual("Start radio", NaviampTransportIcons.Radio) {
+    TrackSwipeAction.StartRadio -> swipeVisual(colors, "Start radio", NaviampTransportIcons.Radio) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.StartRadio))
     }
     TrackSwipeAction.ToggleFavorite -> if (canToggleFavorite) {
         swipeVisual(
+            colors,
             if (item.favoriteActive) "Unfavorite" else "Favorite",
             if (item.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
         ) {
@@ -3587,12 +3594,12 @@ internal fun nowPlayingSwipeActionVisual(
         }
     } else null
     TrackSwipeAction.GoToAlbum -> if (item.hasAlbum) {
-        swipeVisual("Go to album", NaviampIcons.Album) {
+        swipeVisual(colors, "Go to album", NaviampIcons.Album) {
             onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.GoToAlbum))
         }
     } else null
     TrackSwipeAction.GoToArtist -> if (item.hasArtist) {
-        swipeVisual("Go to artist", NaviampIcons.Artist) {
+        swipeVisual(colors, "Go to artist", NaviampIcons.Artist) {
             onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.GoToArtist))
         }
     } else null
@@ -3601,7 +3608,7 @@ internal fun nowPlayingSwipeActionVisual(
         if (!queueContext || index == null) {
             null
         } else {
-            swipeVisual("Remove", NaviampIcons.Trash, destructive = true) {
+            swipeVisual(colors, "Remove", NaviampIcons.Trash, destructive = true) {
                 onAction(
                     NowPlayingItemActionRequest(
                         item = item,
@@ -3620,6 +3627,7 @@ internal fun nowPlayingSwipeActionVisual(
 }
 
 private fun swipeVisual(
+    colors: NaviampColors,
     label: String,
     icon: ImageVector,
     destructive: Boolean = false,
@@ -3627,7 +3635,8 @@ private fun swipeVisual(
 ): TrackSwipeActionVisual = TrackSwipeActionVisual(
     label = label,
     icon = icon,
-    background = if (destructive) Color(0xFFC62828) else Color(0xFF2E7D32),
+    background = if (destructive) colors.error else colors.success,
+    contentColor = if (destructive) colors.onError else colors.onSuccess,
     onTriggered = onTriggered,
 )
 

@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,16 +32,9 @@ fun NaviampCastPickerDialog(
     onDismiss: () -> Unit,
 ) {
     NaviampPopupPresence()
-    val colors = NaviampColors.Dark
+    val colors = LocalNaviampTheme.current.colors
     MaterialTheme(
-        colorScheme = darkColorScheme(
-            background = colors.background,
-            surface = colors.controlSurface,
-            primary = colors.accent,
-            onPrimary = colors.onAccent,
-            onBackground = colors.primaryText,
-            onSurface = colors.primaryText,
-        ),
+        colorScheme = LocalNaviampTheme.current.colorScheme,
         typography = rememberNaviampTypography(),
     ) {
         AlertDialog(

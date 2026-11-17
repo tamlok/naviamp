@@ -1,6 +1,5 @@
 package app.naviamp.desktop
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -19,7 +18,6 @@ import app.naviamp.desktop.platform.MinDesktopWindowWidthDp
 import app.naviamp.desktop.platform.availableDesktopScreenBounds
 import app.naviamp.desktop.platform.configureDesktopHostAppearance
 import app.naviamp.desktop.platform.configureDesktopApplicationIcon
-import app.naviamp.desktop.platform.configureDesktopWindowAppearance
 import app.naviamp.desktop.platform.configureDesktopWindowIcon
 import app.naviamp.ui.NaviampWindowController
 import app.naviamp.ui.NaviampWindowSnapshot
@@ -73,10 +71,8 @@ fun main() {
                 val observer = windowEffect.attachNativeFullscreenObserver(window, windowController::observe)
                 onDispose { observer.close() }
             }
-            val darkTitleBar = isSystemInDarkTheme()
-            LaunchedEffect(window, darkTitleBar) {
+            LaunchedEffect(window) {
                 configureDesktopWindowIcon(window)
-                configureDesktopWindowAppearance(window, darkTitleBar)
             }
             window.minimumSize = java.awt.Dimension(
                 MinDesktopWindowWidthDp.toInt(),
