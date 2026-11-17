@@ -9,7 +9,7 @@
     <string name="settings_themes_dark">深色</string>
     <string name="settings_themes_system">跟随系统</string>
     <string name="settings_themes_catalog">主题包</string>
-    <string name="settings_themes_builtin">Naviamp（内置）</string>
+    <string name="settings_themes_builtin">Naviamp</string>
     <string name="settings_themes_forest">森林</string>
     <string name="common_cancel">取消</string>
     <string name="common_delete">删除</string>

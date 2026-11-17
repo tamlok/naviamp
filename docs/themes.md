@@ -1,8 +1,8 @@
 # Themes
 
 Appearance controls live directly in **Settings → Appearance**, on both standard and TV surfaces.
-Choose **Light**, **Dark**, or **System**, independently of the selected theme. Naviamp and Forest
-are bundled. Dark remains the default for older settings. System follows live operating-system
+Choose **Light**, **Dark**, or **System**, independently of the selected theme. The bundled choices
+are labeled **Naviamp** and **Forest**. Dark remains the default for older settings. System follows live operating-system
 appearance changes; explicit Light and Dark ignore them.
 
 Themes are bundled definitions, not downloadable or user-installed files. There is no theme-file

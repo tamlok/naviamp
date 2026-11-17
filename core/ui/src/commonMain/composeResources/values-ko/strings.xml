@@ -9,7 +9,7 @@
     <string name="settings_themes_dark">어둡게</string>
     <string name="settings_themes_system">시스템</string>
     <string name="settings_themes_catalog">테마 팩</string>
-    <string name="settings_themes_builtin">Naviamp (기본 제공)</string>
+    <string name="settings_themes_builtin">Naviamp</string>
     <string name="settings_themes_forest">숲</string>
     <string name="common_cancel">취소</string>
     <string name="common_delete">삭제</string>

@@ -9,7 +9,7 @@
     <string name="settings_themes_dark">Тёмный</string>
     <string name="settings_themes_system">Системный</string>
     <string name="settings_themes_catalog">Пакеты тем</string>
-    <string name="settings_themes_builtin">Naviamp (встроенная)</string>
+    <string name="settings_themes_builtin">Naviamp</string>
     <string name="settings_themes_forest">Лес</string>
     <string name="common_cancel">Отмена</string>
     <string name="common_delete">Удалить</string>

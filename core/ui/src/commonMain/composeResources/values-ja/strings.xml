@@ -9,7 +9,7 @@
     <string name="settings_themes_dark">ダーク</string>
     <string name="settings_themes_system">システム</string>
     <string name="settings_themes_catalog">テーマパック</string>
-    <string name="settings_themes_builtin">Naviamp（内蔵）</string>
+    <string name="settings_themes_builtin">Naviamp</string>
     <string name="settings_themes_forest">森</string>
     <string name="common_cancel">キャンセル</string>
     <string name="common_delete">削除</string>
