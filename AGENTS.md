@@ -1,4 +1,5 @@
 # Naviamp Agent Development Rules
+Read and follow [AGENTS2.md](AGENTS2.md) for additional repository guidance and local development rules.
 
 ## Small Animations Must Stay Cheap
 
