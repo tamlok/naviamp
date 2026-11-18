@@ -13,6 +13,8 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 
 - GitHub issues are optional, not a prerequisite for implementation. Use existing relevant issues
   when helpful; do not create upstream issues solely to track local or fork-only work.
+- Handle fixes discovered during implementation or testing that fall within the active feature's
+  scope in the same pull request and, when present, its existing issue and branch.
 - Document the problem, intended behavior, scope, acceptance criteria, platform impact, and relevant
   evidence in the pull request or, when used, the related issue. Keep design decisions and material
   scope changes in that record.
@@ -28,6 +30,9 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 
 - Keep a branch limited to its stated scope. Handle unrelated work in a separate branch or pull
   request instead of silently expanding the branch.
+- Keep implementation, builds, and tests local until the work is ready. Use local checkpoint
+  commits as needed and squash them into one coherent commit before the first push. For later
+  pushes, consolidate unpublished fixups while preserving published history.
 - Open a pull request against `main` and keep acceptance criteria and verification results current
   in the pull request and any linked issue.
 - Merge only complete, reviewed work whose required automated checks and proportionate manual tests
@@ -112,10 +117,14 @@ the matching `CHANGELOG.md` section as a compatibility fallback. Discord publica
 per-change GitHub references. The existing Discord channel webhook is reused through the
 `NAVIAMP_RELEASE_DISCORD_WEBHOOK` Actions secret; its legacy native GitHub release hook must be
 inactive before publication so each release is announced once. Verify this configuration and a
-`send-release-announcement.py --dry-run` result in release readiness. The published-event workflow
+`send-release-announcement.py --dry-run` result in release readiness. To verify the production
+secret and destination, run the **Release announcement** workflow manually on `main`. The manual
+run only reads webhook metadata to verify the Naviamp announcements channel. The sender identifies
+itself using Discord's required User-Agent format. The published-event workflow
 checks out the immutable release tag. Require a matching versioned announcement and keep it within
 the single-message description limit. A failed or uncertain POST is not retried automatically;
-inspect channel delivery before retrying. A template edit alone does not configure delivery.
+inspect channel delivery before retrying. Failure logs report the HTTP status or failure category
+and omit webhook credentials and response bodies.
 
 - Begin with a plain-language summary followed by no more than three highlights. The beginning must
   remain useful if a notification surface shows only part of the body.
