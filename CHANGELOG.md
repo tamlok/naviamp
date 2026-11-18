@@ -10,13 +10,14 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides the mini-player and uses the freed space; closing details restores it.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
 - Keep navigation and browsing backgrounds theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
-- Choose Single Color backgrounds from a 6×6 palette with the selected color highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
+- Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
 - Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 
 ### Bug fixes
 
+- Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.
 - Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.
 

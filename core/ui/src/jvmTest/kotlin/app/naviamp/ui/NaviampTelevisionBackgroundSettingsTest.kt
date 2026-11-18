@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import app.naviamp.domain.settings.AppBackgroundStyle
@@ -68,9 +70,9 @@ class NaviampTelevisionBackgroundSettingsTest {
             onAllNodes(isSelected() and hasAnyAncestor(hasTestTag("player-background-color-palette")))
                 .assertCountEquals(0)
             runOnIdle { assertEquals(initial.singleColorHex, settings.value.singleColorHex) }
-            control("color:#315442").performScrollTo().performClick().assertIsSelected()
+            control("color:#166534").performScrollTo().performClick().assertIsSelected()
             control("color:#32253F").assertIsNotSelected()
-            val selectedHex = "#315442"
+            val selectedHex = "#166534"
             runOnIdle {
                 assertEquals(initial.copy(
                     appBackgroundStyle = AppBackgroundStyle.SingleColor,
@@ -173,19 +175,33 @@ class NaviampTelevisionBackgroundSettingsTest {
                 assertTrue(cell.boundsInRoot.left >= bounds.left && cell.boundsInRoot.right <= bounds.right)
             }
             swatch("#32253F").assertIsSelected()
-            swatch("#141414").performSemanticsAction(SemanticsActions.RequestFocus)
-            swatch("#141414").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
-            swatch("#301A20").assertIsFocused().assertIsNotSelected()
+            swatch("#FFFFFF").performSemanticsAction(SemanticsActions.RequestFocus)
+            swatch("#FFFFFF").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+            swatch("#F3F4F6").assertIsFocused().assertIsNotSelected()
             runOnIdle { assertEquals("32253f", settings.value.singleColorHex) }
-            swatch("#301A20").performKeyInput { pressKey(Key.DirectionDown) }
-            swatch("#482630").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
-            swatch("#482630").assertIsSelected()
+            swatch("#F3F4F6").performKeyInput { pressKey(Key.DirectionDown) }
+            swatch("#EF4444").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+            swatch("#EF4444").assertIsSelected()
             swatch("#32253F").assertIsNotSelected()
             onAllNodes(isSelected() and hasAnyAncestor(paletteTag)).assertCountEquals(1)
-            runOnIdle { assertEquals("#482630", settings.value.singleColorHex) }
-            swatch("#946CB2").performClick().assertIsSelected()
-            swatch("#482630").assertIsNotSelected()
-            runOnIdle { assertEquals("#946CB2", settings.value.singleColorHex) }
+            runOnIdle { assertEquals("#EF4444", settings.value.singleColorHex) }
+            swatch("#E7D5B5").performClick().assertIsSelected()
+            swatch("#EF4444").assertIsNotSelected()
+            runOnIdle { assertEquals("#E7D5B5", settings.value.singleColorHex) }
+            for (hex in listOf("#FFFFFF", "#000000")) {
+                val tile = swatch(hex).performClick().assertIsSelected()
+                val pixels = tile.captureToImage().toPixelMap()
+                val backgroundLuminance = if (hex == "#FFFFFF") 1f else 0f
+                val checkContrast = (pixels.width / 2 - 8..pixels.width / 2 + 8).maxOf { x ->
+                    (pixels.height / 2 - 8..pixels.height / 2 + 8).maxOf { y ->
+                        val luminance = pixels[x, y].luminance()
+                        (luminance.coerceAtLeast(backgroundLuminance) + 0.05f) /
+                            (luminance.coerceAtMost(backgroundLuminance) + 0.05f)
+                    }
+                }
+                assertTrue(checkContrast >= 3f, "Selection checkmark must contrast with $hex by at least 3:1")
+                runOnIdle { assertEquals(hex, settings.value.singleColorHex) }
+            }
         }
     }
 

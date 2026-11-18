@@ -213,13 +213,13 @@ class NaviampCoreAppSmokeTest {
             onNodeWithTag("player-background-angle").performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(135f) }
             onNodeWithTag("player-background-style:SingleColor").performScrollTo().performClick()
-            onNodeWithTag("player-background-color:#315442").performScrollTo().performClick()
+            onNodeWithTag("player-background-color:#166534").performScrollTo().performClick()
             onNodeWithTag("player-background-style:AlbumBlur").performScrollTo().performClick()
             onNodeWithTag("player-background-blur").performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(42f) }
             runOnIdle {
                 assertEquals(settings.copy(auroraTone = AuroraTone.Light, auroraColorSteps = 5,
-                    auroraAngleDegrees = 135, singleColorHex = "#315442", albumBlurRadiusDp = 42),
+                    auroraAngleDegrees = 135, singleColorHex = "#166534", albumBlurRadiusDp = 42),
                     core.state.value.shell.general.interfaceSettings)
             }
             onNodeWithTag("player-background-style:Aurora").performScrollTo().performClick()
@@ -227,7 +227,7 @@ class NaviampCoreAppSmokeTest {
             runOnIdle {
                 val current = core.state.value.shell.general.interfaceSettings
                 assertEquals(AppBackgroundStyle.Aurora, current.appBackgroundStyle)
-                assertEquals("#315442", current.singleColorHex)
+                assertEquals("#166534", current.singleColorHex)
                 assertEquals(42, current.albumBlurRadiusDp)
             }
         } finally { scope.cancel() }

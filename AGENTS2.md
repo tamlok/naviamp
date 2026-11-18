@@ -102,12 +102,12 @@ Android 15/API 35, 1280x720 landscape at 160 dpi, 8192 MB RAM, and 6 virtual CPU
 Emulator 36.6.11 caps an 8-core request to 6, even with `-cores 8`. Always use the explicit
 ADB serial `emulator-5582`; do not install to every connected device.
 
-After every completed change in this workspace, build the current Android debug app, install it
-with `adb -s emulator-5582 install -r`, launch **Naviamp v2 Test**, and verify the changed behavior
-on that AVD before the final handoff. Compilation or desktop-only checks do not replace deployment.
-Preserve the AVD and app data; start the existing AVD with the helper below if needed. If a build,
-installation, or emulator prerequisite blocks deployment, report the exact blocker and never claim
-the AVD is updated.
+For shared changes with the same behavior on PC and Android, local PC runtime verification is
+sufficient; an AVD installation is not required. Android-specific changes, or an explicit request
+to update the AVD, require building the current Android debug app, installing it with
+`adb -s emulator-5582 install -r`, launching **Naviamp v2 Test**, and verifying the changed behavior
+on that AVD before handoff. Preserve the AVD and app data; use the helper below if needed. Report
+any deployment blocker and never claim the AVD is updated when it was not installed.
 
 The ignored `.windows-testing/android-env.ps1` helper reuses Android Studio's JDK 21 and the
 installed SDK, setting environment variables only for the current PowerShell process.

@@ -1272,12 +1272,12 @@ internal fun NaviampPlayerBackgroundSettings(
 }
 
 private val SingleColorPaletteRows = listOf(
-    listOf("#141414", "#301A20", "#302519", "#192C24", "#192635", "#251D30"),
-    listOf("#262626", "#482630", "#483723", "#253F33", "#25384D", "#32253F"),
-    listOf("#3B3B3B", "#633340", "#62492E", "#315442", "#314B66", "#493659"),
-    listOf("#525252", "#7E3E50", "#7D6036", "#3D6B54", "#3F6080", "#604775"),
-    listOf("#696969", "#98475D", "#97733E", "#4B8066", "#507799", "#7A5892"),
-    listOf("#808080", "#B24C63", "#B28547", "#599579", "#628FB2", "#946CB2"),
+    listOf("#FFFFFF", "#F3F4F6", "#9CA3AF", "#4B5563", "#1F2937", "#000000"),
+    listOf("#7F1D1D", "#EF4444", "#FECACA", "#9A3412", "#F97316", "#FED7AA"),
+    listOf("#854D0E", "#FACC15", "#FEF08A", "#166534", "#22C55E", "#BBF7D0"),
+    listOf("#115E59", "#14B8A6", "#99F6E4", "#1E3A8A", "#3B82F6", "#BFDBFE"),
+    listOf("#312E81", "#6366F1", "#C7D2FE", "#32253F", "#A855F7", "#E9D5FF"),
+    listOf("#831843", "#EC4899", "#FBCFE8", "#78350F", "#B7791F", "#E7D5B5"),
 ).map { row -> row.map { hex -> hex to naviampColorFromHex(hex)!! } }
 
 @Composable

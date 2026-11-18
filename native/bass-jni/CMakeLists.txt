@@ -8,6 +8,13 @@ add_library(naviamp_bass SHARED
 
 target_compile_features(naviamp_bass PRIVATE cxx_std_17)
 
+if(MSVC)
+    # The JVM may preload an older MSVC runtime; keep this bridge's CRT self-contained.
+    set_property(TARGET naviamp_bass PROPERTY
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    )
+endif()
+
 target_include_directories(naviamp_bass
     PRIVATE
         include
