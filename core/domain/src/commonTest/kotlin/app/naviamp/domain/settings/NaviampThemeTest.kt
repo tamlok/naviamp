@@ -117,6 +117,8 @@ class NaviampThemeTest {
         palette.copy(onAccent = color),
         palette.copy(controlSurface = color),
         palette.copy(playerSurface = color),
+        palette.copy(playerSecondaryText = color),
+        palette.copy(playerMutedText = color),
         palette.copy(albumArtPlaceholder = color),
         palette.copy(favorite = color),
         palette.copy(menuSurface = color),

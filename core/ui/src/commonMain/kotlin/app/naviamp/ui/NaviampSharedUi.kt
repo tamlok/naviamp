@@ -1143,7 +1143,7 @@ fun NaviampMiniNowPlaying(
                     )
                     Text(
                         playing?.subtitle ?: stringResource(Res.string.mini_player_empty_subtitle),
-                        color = colors.secondaryText,
+                        color = colors.playerSecondaryText,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontSize = 11.sp,

@@ -17,6 +17,17 @@ import kotlin.test.assertTrue
 
 class NaviampThemeColorTest {
     @Test
+    fun lightPlayerMetadataIsReadableOnPaleAuroraBackgrounds() {
+        val player = NaviampBuiltinTheme.light.toNaviampColors().withPlayerTextColors()
+        // Pale rose, warm sand, and cool blue regions; arbitrary dark artwork is not covered.
+        for (surface in listOf(Color(0xFFD0ADAC), Color(0xFFD6C2A0), Color(0xFFC3CBD5))) {
+            assertTrue(contrast(player.secondaryText, surface) >= 4.5)
+            assertTrue(contrast(player.mutedText, surface) >= 4.5)
+            assertTrue(contrast(player.secondaryText.copy(alpha = 0.84f).compositeOver(surface), surface) >= 4.5)
+        }
+    }
+
+    @Test
     fun customArtworkUsesItsDarkPaletteWhileAppRemainsLight() {
         val resolved = resolveNaviampTheme(
             NaviampThemeSettings(mode = NaviampThemeMode.Light, selectedPackId = NaviampForestTheme.id),

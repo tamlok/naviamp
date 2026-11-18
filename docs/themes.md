@@ -86,6 +86,7 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `accent`, `onAccent` | Selected/action background and its foreground. |
 | `controlSurface` | App cards, controls, dialogs and lyrics panels. |
 | `playerSurface` | Standard full-player controller, queue/history/related/station panels and unselected rows; null means transparent. |
+| `playerSecondaryText`, `playerMutedText` | Shared full/mini-player metadata hierarchy, independent of ordinary app text. |
 | `albumArtPlaceholder` | Missing/loading artwork. |
 | `favorite` | Favorite indicator. |
 | `menuSurface`, `menuText` | Menu background and foreground. |
@@ -117,7 +118,7 @@ No role is left on a default Material purple palette:
 ## Adding or generating a theme
 
 1. Create a common-domain definition beside `NaviampForestTheme.kt`, with its own stable ID and
-   **all twenty-one tokens in both variants**. Copy the complete example structure, not a runtime
+   **all twenty-three tokens in both variants**. Copy the complete example structure, not a runtime
    inheritance/override chain.
 2. Register the definition in `NaviampThemes` in `NaviampTheme.kt`. Registration order is UI order.
    Never remove or mutate the Naviamp fallback.
@@ -135,10 +136,27 @@ its controller and queue panels reveal the selected Player Background. Forest re
 player surfaces. Selected-row/tab feedback, lyrics panels, menus and dialogs keep their existing
 fills. This token does not determine the mini-player fill: Player Background does.
 
-Player text colors are deliberately unchanged. Transparent panels and user-selected backgrounds
-can reduce contrast, particularly with custom Single Color choices. Aurora's theme-driven tone
-and Album Blur's light/dark overlay adjust the background, not the foreground; they do not
-guarantee text contrast for every album palette.
+Full and mini players share `playerSecondaryText` and `playerMutedText`. Naviamp Light uses
+`#272C35` for secondary player text and `#353C47` for muted player text; its ordinary app
+`secondaryText` (`#4F5663`) and `mutedText` (`#727A86`) stay unchanged. Naviamp Dark and both Forest
+variants retain their previous player text colors. Navigation, browsing, settings, and Material
+roles do not adopt the player-specific tokens.
+
+Player titles and elapsed/total time still use `primaryText`. Artists, mini-player subtitles
+(including the empty state), and full-player secondary metadata use `playerSecondaryText`; album
+labels retain 84% opacity. Queue durations and muted metadata use `playerMutedText`. The mini-player
+currently has no muted metadata. Filled artwork uses the selected pack's dark player text tokens
+on its fixed black fade, even in Light mode.
+
+The full-player play/pause circle uses opaque theme `accent` with an `onAccent` icon. The volume
+slider's active track and thumb ring use that same accent, matching selected navigation buttons.
+Filled artwork keeps the resolved app accent pair rather than switching to the dark artwork
+palette's accent. Backgrounds, waveform colors, and mini-player transport styling are unchanged.
+
+The darker Naviamp Light player text meets 4.5:1 contrast on the tested pale rose, sand, and blue
+Aurora regions, including the translucent album label. Transparent panels and user-selected
+backgrounds can still reduce contrast, particularly with dark artwork regions or custom Single
+Color choices. Aurora's tone and Album Blur's overlays do not guarantee contrast for every palette.
 
 TV promotes secondary/muted text to the selected primary foreground and keeps its separate opaque
 ten-foot reading background. Visualizer artwork, intentional white artwork labels and modal

@@ -67,6 +67,10 @@ internal fun rememberNaviampArtworkOverlayColors(): NaviampColors {
 
 internal fun naviampArtworkOverlayColors(pack: NaviampThemePack): NaviampColors = pack.dark.toNaviampColors()
 
+internal fun NaviampColors.withPlayerTextColors(): NaviampColors =
+    if (secondaryText == playerSecondaryText && mutedText == playerMutedText) this
+    else copy(secondaryText = playerSecondaryText, mutedText = playerMutedText)
+
 internal fun NaviampThemePalette.toNaviampColors(): NaviampColors = NaviampColors(
     background = background.toThemeColor(),
     backgroundWarm = backgroundWarm.toThemeColor(),
@@ -79,6 +83,8 @@ internal fun NaviampThemePalette.toNaviampColors(): NaviampColors = NaviampColor
     onAccent = onAccent.toThemeColor(),
     controlSurface = controlSurface.toThemeColor(),
     playerSurface = playerSurface?.toThemeColor() ?: Color.Transparent,
+    playerSecondaryText = playerSecondaryText.toThemeColor(),
+    playerMutedText = playerMutedText.toThemeColor(),
     albumArtPlaceholder = albumArtPlaceholder.toThemeColor(),
     favorite = favorite.toThemeColor(),
     menuSurface = menuSurface.toThemeColor(),

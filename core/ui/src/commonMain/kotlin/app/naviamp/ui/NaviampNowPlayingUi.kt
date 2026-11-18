@@ -344,13 +344,14 @@ fun NaviampNowPlayingPanel(
     visualizerColors: NaviampPlayerColors = NaviampPlayerColors.fallback(colors),
     contentInsets: WindowInsets = WindowInsets(0),
 ) {
+    val playerTextColors = remember(colors) { colors.withPlayerTextColors() }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val wide = maxWidth >= 780.dp
         val filled = useFilledNowPlayingArtwork(displaySettings.fillArtworkArea,
             nowPlaying.visualizerVisible && nowPlaying.visualizerAvailable,
             nowPlaying.lyricsVisible && !nowPlaying.isLive, wide)
         NaviampNowPlayingPanelContent(
-            nowPlaying, playbackProgress, colors, actions, displaySettings,
+            nowPlaying, playbackProgress, playerTextColors, actions, displaySettings,
             Modifier.fillMaxSize().heightIn(min = minOf(300.dp, maxHeight)).then(if (filled) Modifier else
                 Modifier.naviampContentInsets(contentInsets, WindowInsets(0))),
             visualizerBandsProvider, selectedVisualizer, visualizerColors,
@@ -427,7 +428,11 @@ private fun NaviampNowPlayingPanelContent(
         }
 
         if (filled) {
-            val overlayColors = rememberNaviampArtworkOverlayColors()
+            val artworkColors = rememberNaviampArtworkOverlayColors()
+            val overlayColors = remember(artworkColors) { artworkColors.withPlayerTextColors() }
+            val actionColors = remember(overlayColors, colors) {
+                overlayColors.copy(accent = colors.accent, onAccent = colors.onAccent)
+            }
             Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 NaviampFilledNowPlayingArtwork(
@@ -443,6 +448,7 @@ private fun NaviampNowPlayingPanelContent(
                         NowPlayingDetails(
                             nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
                             colors = overlayColors, playerColors = visualizerColors, actions = actions,
+                            actionColors = actionColors,
                             selectedVisualizer = selectedVisualizer, displaySettings = displaySettings,
                             onOpenPlaylistDialog = openPlaylistMembership,
                             onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
@@ -828,6 +834,7 @@ private fun NowPlayingDetails(
     displaySettings: NowPlayingDisplaySettings,
     onOpenPlaylistDialog: (NaviampNowPlayingItemUi) -> Unit,
     onOpenSaveQueueDialog: () -> Unit,
+    actionColors: NaviampColors = colors,
     mobileLayout: Boolean = false,
     compactLayout: Boolean = false,
     compactSizing: Boolean = compactLayout,
@@ -1107,7 +1114,7 @@ private fun NowPlayingDetails(
                 enabled = canTogglePlayback,
                 icon = if (nowPlaying.isPlaying) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
                 contentDescription = if (nowPlaying.isPlaying) "Pause" else "Play",
-                colors = controlColors,
+                colors = actionColors,
                 prominent = true,
                 buttonSize = prominentTransportButtonSize,
                 iconSize = prominentTransportIconSize,
@@ -1153,7 +1160,7 @@ private fun NowPlayingDetails(
                     volumeValue = it
                     actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
                 },
-                colors = controlColors,
+                colors = actionColors,
                 trackWidth = transportClusterWidth.takeIf { matchVolumeToTransportWidth },
             )
         }
@@ -2233,7 +2240,7 @@ private fun VolumeRow(
             val startX = thumbRadius
             val trackEndX = (size.width - thumbRadius).coerceAtLeast(startX)
             val endX = startX + (trackEndX - startX) * value.coerceIn(0f, 1f)
-            val volumeColor = colors.accent.copy(alpha = 0.92f)
+            val volumeColor = colors.accent
             drawLine(
                 color = colors.primaryText.copy(alpha = 0.24f),
                 start = Offset(startX, centerY),
@@ -3662,7 +3669,7 @@ fun NaviampTransportIconButton(
                 .clip(RoundedCornerShape(999.dp))
                 .background(
                     when {
-                        prominent -> colors.accent.copy(alpha = if (enabled) 0.28f else 0.10f)
+                        prominent -> colors.accent.copy(alpha = if (enabled) 1f else 0.10f)
                         selected -> colors.accent.copy(alpha = 0.18f)
                         else -> Color.Transparent
                     },
@@ -3677,6 +3684,7 @@ fun NaviampTransportIconButton(
                 imageVector = icon,
                 contentDescription = contentDescription,
                 tint = if (inactive) naviampTransportIconTint(colors, enabled, inactive = true)
+                    else if (enabled && prominent) colors.onAccent
                     else if (enabled) colors.primaryText else colors.mutedText.copy(alpha = 0.55f),
                 modifier = Modifier.requiredSize(iconSize),
             )

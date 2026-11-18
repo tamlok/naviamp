@@ -17,6 +17,8 @@ data class NaviampThemePalette(
     val onAccent: String,
     val controlSurface: String,
     val playerSurface: String?,
+    val playerSecondaryText: String,
+    val playerMutedText: String,
     val albumArtPlaceholder: String,
     val favorite: String,
     val menuSurface: String,
@@ -106,6 +108,8 @@ val NaviampBuiltinTheme = NaviampThemePack(
         onAccent = "#FFFFFF",
         controlSurface = "#FFFFFF",
         playerSurface = null,
+        playerSecondaryText = "#272C35",
+        playerMutedText = "#353C47",
         albumArtPlaceholder = "#D3DBE8",
         favorite = "#EF5350",
         menuSurface = "#FFFFFF",
@@ -129,6 +133,8 @@ val NaviampBuiltinTheme = NaviampThemePack(
         onAccent = "#FFFFFF",
         controlSurface = "#201921",
         playerSurface = null,
+        playerSecondaryText = "#B9BDC7",
+        playerMutedText = "#8F96A3",
         albumArtPlaceholder = "#43536B",
         favorite = "#EF5350",
         menuSurface = "#292C36",
@@ -174,6 +180,8 @@ private fun NaviampThemePalette.validate() {
     onAccent.validateColor()
     controlSurface.validateColor()
     playerSurface?.validateColor()
+    playerSecondaryText.validateColor()
+    playerMutedText.validateColor()
     albumArtPlaceholder.validateColor()
     favorite.validateColor()
     menuSurface.validateColor()
