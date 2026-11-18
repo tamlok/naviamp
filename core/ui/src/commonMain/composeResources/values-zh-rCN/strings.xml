@@ -15,13 +15,6 @@
     <string name="tv_aurora">极光</string>
     <string name="tv_album_blur">专辑模糊</string>
     <string name="tv_single_color_uppercase">纯色</string>
-    <string name="aurora_tone">极光色调</string>
-    <string name="aurora_tone_light">浅色</string>
-    <string name="aurora_tone_balanced">均衡</string>
-    <string name="aurora_tone_dark">深色</string>
-    <string name="aurora_tone_light_description">使用专辑中更明亮的颜色提亮渐变</string>
-    <string name="aurora_tone_balanced_description">保留专辑原有的色彩渐变</string>
-    <string name="aurora_tone_dark_description">加深渐变以获得更暗的背景</string>
     <string name="aurora_color_steps">极光颜色级数</string>
     <string name="aurora_color_count">%1$d 种颜色</string>
     <string name="aurora_gradient_angle">渐变角度</string>

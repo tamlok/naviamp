@@ -13,7 +13,6 @@ import app.naviamp.domain.radio.MaxRecentRadioStreams
 import app.naviamp.domain.settings.AlbumCollectionLayout
 import app.naviamp.domain.settings.AlbumSortOrder
 import app.naviamp.domain.settings.AppBackgroundStyle
-import app.naviamp.domain.settings.AuroraTone
 import app.naviamp.domain.settings.CacheSettings
 import app.naviamp.domain.settings.DownloadedTrackPlayback
 import app.naviamp.domain.settings.InterfaceLanguage
@@ -232,7 +231,6 @@ private fun legacyInterfaceSettings(values: NaviampCoreLegacySettingsValueStore)
         showArtistInformation = values.boolean("show_artist_information", defaults.showArtistInformation),
         showAlbumInformation = values.boolean("show_album_information", defaults.showAlbumInformation),
         appBackgroundStyle = values.enum("app_background_style", defaults.appBackgroundStyle),
-        auroraTone = values.enum("aurora_tone", defaults.auroraTone),
         albumBlurRadiusDp = values.int("album_blur_radius_dp", defaults.albumBlurRadiusDp),
         singleColorHex = values.read("single_color_hex") ?: defaults.singleColorHex,
         albumCollectionLayout = values.enum("album_collection_layout", defaults.albumCollectionLayout),
@@ -407,7 +405,7 @@ private fun <T> NaviampCoreLegacySettingsValueStore.list(
 
 private val LegacyInterfaceKeys = listOf(
     "interface_language", "check_for_updates", "start_playing_on_launch", "show_desktop_tooltips",
-    "app_background_style", "aurora_tone", "album_blur_radius_dp", "single_color_hex",
+    "app_background_style", "album_blur_radius_dp", "single_color_hex",
     "album_collection_layout", "album_sort_order", "group_albums_by_release_type",
     "now_playing_show_album_year", "now_playing_show_audio_info", "now_playing_show_volume_bar",
     "now_playing_scroll_track_title", "now_playing_scroll_artist_name", "now_playing_scroll_album_name",

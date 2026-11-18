@@ -17,15 +17,25 @@ The inline **Player Background** section in Appearance selects **Aurora**, **Alb
 longer lives under Experience. TV Appearance exposes the same controls; the compact TV player card
 also uses the selected background.
 
-Aurora keeps its tone, color-count and gradient-angle controls. Album Blur keeps its blur-radius
-control. Single Color keeps the color preview and hue, saturation and brightness controls. These
-reuse the existing `InterfaceSettings` fields and their settings export/import/sync behavior;
-changing style does not reset the other styles' stored values.
+Aurora automatically uses its Light or Dark treatment from the resolved theme's `isDark` flag;
+there is no separate tone selector. It keeps its color-count and gradient-angle controls. Album
+Blur lightens the artwork in Light mode and darkens it in Dark mode, while keeping its blur-radius
+control. Both update when the active theme changes, including live OS changes in System mode,
+without requiring a new track or artwork load. Single Color keeps its 6×6 color palette and paints
+the selected color unchanged in either mode.
+
+The remaining `InterfaceSettings` fields retain settings export/import/sync behavior; changing
+style does not reset the other styles' stored values. Old exports' `auroraTone` values are ignored
+and no longer exported. The theme's mode and selected pack determine the tone on each device.
 
 Navigation and browsing surfaces remain theme-solid. Both player sizes use the existing shared
 background renderer and artwork cache. Mini-player background layers are clipped to the bar/card
 bounds, and finite palette transitions run in the background composition rather than its controls.
 Single Color paints the selected color directly without an unused color tween.
+
+Main navigation destinations and drawer open/close buttons never show hover tooltips, so they
+cannot cover neighboring navigation controls. Their labels and accessible names remain available;
+the desktop tooltip preference still controls tooltips elsewhere.
 
 ## Shared ownership
 
@@ -126,8 +136,9 @@ player surfaces. Selected-row/tab feedback, lyrics panels, menus and dialogs kee
 fills. This token does not determine the mini-player fill: Player Background does.
 
 Player text colors are deliberately unchanged. Transparent panels and user-selected backgrounds
-can reduce contrast, particularly in Light mode; no automatic foreground adjustment, added scrim
-or gradient modification compensates for that explicit presentation choice.
+can reduce contrast, particularly with custom Single Color choices. Aurora's theme-driven tone
+and Album Blur's light/dark overlay adjust the background, not the foreground; they do not
+guarantee text contrast for every album palette.
 
 TV promotes secondary/muted text to the selected primary foreground and keeps its separate opaque
 ten-foot reading background. Visualizer artwork, intentional white artwork labels and modal
@@ -169,6 +180,12 @@ seams. Small-viewport settings tests exercise unscaled slider geometry, keyboard
 and all three inline styles. Real Android UI checks cover direct Appearance, bundled theme/mode changes,
 Player Background on both surfaces, system-bar contrast, and the requested icons/copy. A captured Windows app window verifies
 the connection-only first-run surface and native titlebar polarity.
+
+Theme-driven player backgrounds additionally have common color-policy and legacy-settings import
+coverage, rendered full/mini-player theme transitions with unchanged artwork, live System-mode
+changes for both bundled packs, and standard/TV tone-selector removal checks. A visible Windows
+shared-UI probe verified both treatments and missing-artwork fallbacks before and after the change.
+Shared UI/presentation compiled for JVM, Android and iOS Arm64 klibs; this is not iOS runtime proof.
 
 Full iOS application linking, Swift/UIKit compilation and on-device status-bar, rotation, reconnect,
 and background-playback runtime checks require macOS/Xcode and were not performed on Windows.

@@ -5,12 +5,11 @@ import androidx.compose.ui.graphics.Color
 import kotlin.test.*
 
 class NaviampAuroraTest {
-    @Test fun balancedPreservesColorsAndOtherTonesAdjustAllFiveStops() {
+    @Test fun themeToneLightensOrDarkensAllFiveStops() {
         val colors = NaviampPlayerColors(Color.Gray, Color.Gray, Color.Gray, Color.Gray,
             listOf(Color.Gray, Color.Gray))
-        assertEquals(colors, colors.withAuroraTone(app.naviamp.domain.settings.AuroraTone.Dark))
-        val light = colors.withAuroraTone(app.naviamp.domain.settings.AuroraTone.Light).auroraColors(5)
-        val dark = colors.withAuroraTone(app.naviamp.domain.settings.AuroraTone.DeepDark).auroraColors(5)
+        val light = colors.withAuroraTheme(isDark = false).auroraColors(5)
+        val dark = colors.withAuroraTheme(isDark = true).auroraColors(5)
         assertTrue(light.all { it.red > Color.Gray.red })
         assertTrue(dark.all { it.red < Color.Gray.red })
     }

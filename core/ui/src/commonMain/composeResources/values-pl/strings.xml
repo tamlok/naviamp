@@ -13,13 +13,6 @@
     <string name="tv_aurora">Zorza</string>
     <string name="tv_album_blur">Rozmyta okładka</string>
     <string name="tv_single_color_uppercase">Jednolity kolor</string>
-    <string name="aurora_tone">Tonacja zorzy</string>
-    <string name="aurora_tone_light">Jasna</string>
-    <string name="aurora_tone_balanced">Zrównoważona</string>
-    <string name="aurora_tone_dark">Ciemna</string>
-    <string name="aurora_tone_light_description">Rozjaśnij gradient jaśniejszymi kolorami albumu</string>
-    <string name="aurora_tone_balanced_description">Zachowaj oryginalny gradient kolorów albumu</string>
-    <string name="aurora_tone_dark_description">Przyciemnij gradient, aby uzyskać ciemniejsze tło</string>
     <string name="aurora_color_steps">Stopnie kolorów zorzy</string>
     <string name="aurora_color_count">%1$d kolorów</string>
     <string name="aurora_gradient_angle">Kąt gradientu</string>

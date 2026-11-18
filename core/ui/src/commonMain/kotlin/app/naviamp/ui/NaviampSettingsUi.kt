@@ -122,7 +122,6 @@ import app.naviamp.domain.radio.RadioArtistRunMode
 import app.naviamp.domain.radio.RadioTuningSettings
 import app.naviamp.domain.settings.CacheSettings
 import app.naviamp.domain.settings.ApplicationUpdateChannel
-import app.naviamp.domain.settings.AuroraTone
 import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.MinAlbumBlurRadiusDp
 import app.naviamp.domain.settings.MaxAlbumBlurRadiusDp
@@ -1212,28 +1211,6 @@ internal fun NaviampPlayerBackgroundSettings(
         }
         when (interfaceSettings.appBackgroundStyle) {
             AppBackgroundStyle.Aurora -> {
-                SettingsSectionTitle(stringResource(Res.string.aurora_tone), colors)
-                Column(Modifier.selectableGroup()) {
-                    AuroraTone.entries.forEach { tone ->
-                        SelectableSettingsRow(
-                            title = stringResource(when (tone) {
-                                AuroraTone.Light -> Res.string.aurora_tone_light
-                                AuroraTone.Dark -> Res.string.aurora_tone_balanced
-                                AuroraTone.DeepDark -> Res.string.aurora_tone_dark
-                            }),
-                            subtitle = stringResource(when (tone) {
-                                AuroraTone.Light -> Res.string.aurora_tone_light_description
-                                AuroraTone.Dark -> Res.string.aurora_tone_balanced_description
-                                AuroraTone.DeepDark -> Res.string.aurora_tone_dark_description
-                            }),
-                            selected = interfaceSettings.auroraTone == tone,
-                            colors = colors,
-                            modifier = Modifier.testTag("player-background-tone:${tone.name}"),
-                        ) {
-                            onInterfaceSettingsChanged(interfaceSettings.copy(auroraTone = tone).normalized())
-                        }
-                    }
-                }
                 CompactBackgroundSlider(
                     label = stringResource(Res.string.aurora_color_steps),
                     value = interfaceSettings.auroraColorSteps.toFloat(), valueRange = 2f..5f,

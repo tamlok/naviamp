@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import app.naviamp.domain.settings.AppBackgroundStyle
-import app.naviamp.domain.settings.AuroraTone
 import app.naviamp.domain.settings.InterfaceSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +28,6 @@ class NaviampTelevisionBackgroundSettingsTest {
         runDesktopComposeUiTest(1920, 1080) {
             val initial = InterfaceSettings(
                 appBackgroundStyle = AppBackgroundStyle.Aurora,
-                auroraTone = AuroraTone.Light,
                 auroraColorSteps = 3,
                 auroraAngleDegrees = 45,
                 albumBlurRadiusDp = 20,
@@ -85,12 +83,13 @@ class NaviampTelevisionBackgroundSettingsTest {
             stylesRemainInline()
             control("color-palette").assertDoesNotExist()
             control("color-preview").assertDoesNotExist()
-            control("tone:DeepDark").performScrollTo().performClick().assertIsSelected()
+            for (tone in listOf("Light", "Dark", "DeepDark")) {
+                control("tone:$tone").assertDoesNotExist()
+            }
             control("color-steps").performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(5f) }
             control("angle").performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(180f) }
             runOnIdle {
                 assertEquals(initial.copy(
-                    auroraTone = AuroraTone.DeepDark,
                     auroraColorSteps = 5,
                     auroraAngleDegrees = 180,
                     albumBlurRadiusDp = 48,

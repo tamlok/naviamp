@@ -15,13 +15,6 @@
     <string name="tv_aurora">الشفق القطبي</string>
     <string name="tv_album_blur">غلاف ألبوم ضبابي</string>
     <string name="tv_single_color_uppercase">لون واحد</string>
-    <string name="aurora_tone">درجة الشفق القطبي</string>
-    <string name="aurora_tone_light">فاتح</string>
-    <string name="aurora_tone_balanced">متوازن</string>
-    <string name="aurora_tone_dark">داكن</string>
-    <string name="aurora_tone_light_description">تفتيح التدرج نحو ألوان الألبوم الأكثر سطوعًا</string>
-    <string name="aurora_tone_balanced_description">الإبقاء على تدرج ألوان الألبوم الأصلي</string>
-    <string name="aurora_tone_dark_description">تعميق التدرج للحصول على خلفية أغمق</string>
     <string name="aurora_color_steps">مراحل ألوان الشفق القطبي</string>
     <string name="aurora_color_count">%1$d ألوان</string>
     <string name="aurora_gradient_angle">زاوية التدرج</string>

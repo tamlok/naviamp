@@ -414,13 +414,6 @@
     <string name="settings_fill_now_playing_artwork">Preencher a área da capa em reprodução</string>
     <string name="settings_fill_now_playing_artwork_description">Recortar a capa para preencher o player, com um degradê escuro atrás dos controles.</string>
     <string name="now_playing_toggle_visualizer">Ativar ou desativar visualizador</string>
-    <string name="aurora_tone">Tom da aurora</string>
-    <string name="aurora_tone_light">Claro</string>
-    <string name="aurora_tone_balanced">Equilibrado</string>
-    <string name="aurora_tone_dark">Escuro</string>
-    <string name="aurora_tone_light_description">Clareia o gradiente com as cores mais vivas do álbum</string>
-    <string name="aurora_tone_balanced_description">Mantém o gradiente original das cores do álbum</string>
-    <string name="aurora_tone_dark_description">Escurece o gradiente para um fundo mais escuro</string>
     <string name="aurora_color_steps">Etapas de cor da aurora</string>
     <string name="aurora_color_count">%1$d cores</string>
     <string name="aurora_gradient_angle">Ângulo do gradiente</string>

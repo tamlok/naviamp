@@ -260,11 +260,9 @@ internal fun NaviampMainScaffold(
 @Composable
 private fun NavigationToggle(open: Boolean, colors: NaviampColors, onClick: () -> Unit, modifier: Modifier) {
     val label = stringResource(if (open) Res.string.navigation_close else Res.string.navigation_open)
-    NaviampTooltip(label, colors) {
-        IconButton(onClick = onClick, modifier = modifier.size(48.dp)
-            .testTag(if (open) "main-navigation-close" else "main-navigation-open")) {
-            Icon(if (open) NaviampIcons.Close else NaviampTransportIcons.Menu, label, tint = colors.primaryText)
-        }
+    IconButton(onClick = onClick, modifier = modifier.size(48.dp)
+        .testTag(if (open) "main-navigation-close" else "main-navigation-open")) {
+        Icon(if (open) NaviampIcons.Close else NaviampTransportIcons.Menu, label, tint = colors.primaryText)
     }
 }
 
@@ -329,26 +327,24 @@ private fun MainNavigationItem(
         }
     }
     val foreground = if (selected) colors.onAccent else colors.primaryText
-    NaviampTooltip(label, colors) {
-        val itemModifier = modifier.heightIn(min = if (horizontal) 48.dp else 64.dp)
-            .bringIntoViewRequester(bringIntoView)
-            .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) colors.accent else colors.controlSurface)
-            .testTag("main-destination-${route.name}")
-            .selectable(selected = selected, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 8.dp)
-        if (horizontal) {
-            Row(itemModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
-                Text(label, color = foreground, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            }
-        } else {
-            Column(itemModifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
-                Text(label, color = foreground, style = MaterialTheme.typography.labelMedium,
-                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            }
+    val itemModifier = modifier.heightIn(min = if (horizontal) 48.dp else 64.dp)
+        .bringIntoViewRequester(bringIntoView)
+        .onFocusChanged { focused = it.isFocused }
+        .clip(RoundedCornerShape(8.dp))
+        .background(if (selected) colors.accent else colors.controlSurface)
+        .testTag("main-destination-${route.name}")
+        .selectable(selected = selected, role = Role.Tab, onClick = onClick)
+        .padding(horizontal = 8.dp, vertical = 8.dp)
+    if (horizontal) {
+        Row(itemModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
+            Text(label, color = foreground, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+        }
+    } else {
+        Column(itemModifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
+            Text(label, color = foreground, style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }

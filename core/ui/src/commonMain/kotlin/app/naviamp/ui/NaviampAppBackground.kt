@@ -34,12 +34,13 @@ internal fun naviampAppBackgroundUi(
     coverArtUrl: String?,
     albumPlayerColors: NaviampPlayerColors,
     colors: NaviampColors,
+    isDark: Boolean,
 ): NaviampAppBackgroundUi {
     val singleColor = naviampColorFromHex(interfaceSettings.singleColorHex)
         ?: naviampColorFromHex(DefaultSingleColorHex)!!
     val playerColors = when (interfaceSettings.appBackgroundStyle) {
         AppBackgroundStyle.SingleColor -> NaviampPlayerColors.fromSingleColor(singleColor, colors)
-        AppBackgroundStyle.Aurora -> albumPlayerColors.withAuroraTone(interfaceSettings.auroraTone)
+        AppBackgroundStyle.Aurora -> albumPlayerColors.withAuroraTheme(isDark)
         AppBackgroundStyle.AlbumBlur -> albumPlayerColors
     }
     return NaviampAppBackgroundUi(
@@ -59,13 +60,14 @@ internal fun rememberNaviampPlayerBackground(
     coverArtUrl: String?,
     colors: NaviampColors,
 ): NaviampAppBackgroundUi {
+    val isDark = LocalNaviampTheme.current.isDark
     val albumColors = if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.SingleColor) {
         remember(colors) { NaviampPlayerColors.solid(colors.background) }
     } else {
         rememberNaviampCoverArtPlayerColors(coverArtUrl, colors)
     }
-    return remember(interfaceSettings, coverArtUrl, albumColors, colors) {
-        naviampAppBackgroundUi(interfaceSettings, coverArtUrl, albumColors, colors)
+    return remember(interfaceSettings, coverArtUrl, albumColors, colors, isDark) {
+        naviampAppBackgroundUi(interfaceSettings, coverArtUrl, albumColors, colors, isDark)
     }
 }
 
@@ -118,6 +120,7 @@ fun NaviampAlbumBlurBackground(
     blurRadiusDp: Int,
     modifier: Modifier = Modifier,
 ) {
+    val scrim = if (LocalNaviampTheme.current.isDark) Color.Black else Color.White
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val blurFraction =
             (blurRadiusDp.coerceIn(MinAlbumBlurRadiusDp, MaxAlbumBlurRadiusDp) - MinAlbumBlurRadiusDp).toFloat() /
@@ -147,7 +150,7 @@ fun NaviampAlbumBlurBackground(
                         playerColors.gradientColors.map { it.copy(alpha = 0.34f) },
                     ),
                 )
-                .background(Color.Black.copy(alpha = 0.38f)),
+                .background(scrim.copy(alpha = 0.38f)),
         )
     }
 }

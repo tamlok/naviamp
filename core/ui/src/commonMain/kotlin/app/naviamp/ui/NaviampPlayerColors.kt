@@ -8,7 +8,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import app.naviamp.domain.settings.AuroraTone
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -34,17 +33,17 @@ data class NaviampPlayerColors(
     val gradientColors: List<Color>
         get() = listOf(backgroundStart, backgroundMid, backgroundEnd)
 
-    fun withAuroraTone(tone: AuroraTone): NaviampPlayerColors =
-        when (tone) {
-            AuroraTone.Dark -> this
-            AuroraTone.DeepDark -> copy(
+    internal fun withAuroraTheme(isDark: Boolean): NaviampPlayerColors =
+        if (isDark) {
+            copy(
                 backgroundStart = backgroundStart.mix(Color.Black, 0.24f),
                 backgroundMid = backgroundMid.mix(Color.Black, 0.30f),
                 backgroundEnd = backgroundEnd.mix(Color.Black, 0.36f),
                 accent = accent.mix(Color.Black, 0.10f),
                 additionalBackgroundColors = additionalBackgroundColors.map { it.mix(Color.Black, 0.30f) },
             )
-            AuroraTone.Light -> copy(
+        } else {
+            copy(
                 backgroundStart = backgroundStart.mix(Color.White, 0.18f),
                 backgroundMid = backgroundMid.mix(Color.White, 0.22f),
                 backgroundEnd = backgroundEnd.mix(Color.White, 0.26f),

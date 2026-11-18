@@ -270,27 +270,69 @@ class SettingsSyncDocumentTest {
     }
 
     @Test
-    fun auroraTonesRoundTripAndKeepExistingSerializedNames() {
-        for (tone in AuroraTone.entries) {
-            val document = SettingsSyncDocument(preferences = SettingsSyncPreferences(
-                interfaceSettings = InterfaceSettings(auroraTone = tone),
-            ))
-            assertEquals(tone, SettingsSyncJson.decode(SettingsSyncJson.encode(document))
-                .preferences.interfaceSettings.auroraTone)
+    fun legacyAuroraTonesAreIgnoredWithoutLosingBackgroundOrThemePreferences() {
+        for (tone in listOf("Light", "Dark", "DeepDark")) {
+            for (style in AppBackgroundStyle.entries) {
+                for (pack in NaviampThemes.packs) for (mode in NaviampThemeMode.entries) {
+                    val document = SettingsSyncJson.decode(
+                        """{"preferences":{"interfaceSettings":{
+                            "auroraTone":"$tone","appBackgroundStyle":"${style.name}",
+                            "auroraColorSteps":4,"auroraAngleDegrees":135,
+                            "albumBlurRadiusDp":40,"singleColorHex":"#123456",
+                            "language":"German","keepScreenAwake":true,
+                            "theme":{"mode":"${mode.name}","selectedPackId":"${pack.id}"}
+                        }}}""",
+                    )
+                    val expected = InterfaceSettings(
+                        appBackgroundStyle = style,
+                        auroraColorSteps = 4,
+                        auroraAngleDegrees = 135,
+                        albumBlurRadiusDp = 40,
+                        singleColorHex = "#123456",
+                        language = InterfaceLanguage.German,
+                        keepScreenAwake = true,
+                        theme = NaviampThemeSettings(mode, pack.id),
+                    )
+                    assertEquals(expected, document.preferences.interfaceSettings)
+                    val exported = SettingsSyncJson.encode(document)
+                    val settings = SettingsSyncJson.format.parseToJsonElement(exported).jsonObject
+                        .getValue("preferences").jsonObject.getValue("interfaceSettings").jsonObject
+                    assertFalse("auroraTone" in settings)
+                    assertEquals(expected, SettingsSyncJson.decode(exported).preferences.interfaceSettings)
+                }
+            }
         }
-        val existing = SettingsSyncJson.decode("""{"preferences":{"interfaceSettings":{"auroraTone":"Dark"}}}""")
-        assertEquals(AuroraTone.Dark, existing.preferences.interfaceSettings.auroraTone)
-        assertEquals("Balanced", existing.preferences.interfaceSettings.auroraTone.label)
     }
 
     @Test
-    fun olderExportsUseAuroraDefaultsAndImportedValuesAreBounded() {
-        val older = SettingsSyncJson.decode("""{"preferences":{"interfaceSettings":{"auroraTone":"Light"}}}""")
-        assertEquals(3, older.preferences.interfaceSettings.auroraColorSteps)
-        assertEquals(45, older.preferences.interfaceSettings.auroraAngleDegrees)
-        val invalid = SettingsSyncJson.decode("""{"preferences":{"interfaceSettings":{"auroraColorSteps":20,"auroraAngleDegrees":-45}}}""")
-        assertEquals(5, invalid.preferences.interfaceSettings.auroraColorSteps)
-        assertEquals(0, invalid.preferences.interfaceSettings.auroraAngleDegrees)
+    fun olderExportsUseBackgroundDefaultsAndImportedValuesAreBounded() {
+        for (older in listOf("{}", """{"preferences":{"interfaceSettings":{}}}""")) {
+            val document = SettingsSyncJson.decode(older)
+            assertEquals(InterfaceSettings(), document.preferences.interfaceSettings)
+            assertEquals(InterfaceSettings(), SettingsSyncJson.decode(SettingsSyncJson.encode(document))
+                .preferences.interfaceSettings)
+        }
+        for (tone in listOf("Light", "Dark", "DeepDark")) {
+            val defaults = SettingsSyncJson.decode(
+                """{"preferences":{"interfaceSettings":{"auroraTone":"$tone"}}}""",
+            )
+            assertEquals(InterfaceSettings(), defaults.preferences.interfaceSettings)
+            val invalid = SettingsSyncJson.decode(
+                """{"preferences":{"interfaceSettings":{
+                    "auroraTone":"$tone","auroraColorSteps":20,"auroraAngleDegrees":-45,
+                    "albumBlurRadiusDp":999,"singleColorHex":" a1b2c3 "
+                }}}""",
+            )
+            val expected = InterfaceSettings(
+                auroraColorSteps = 5,
+                auroraAngleDegrees = 0,
+                albumBlurRadiusDp = MaxAlbumBlurRadiusDp,
+                singleColorHex = "#A1B2C3",
+            )
+            assertEquals(expected, invalid.preferences.interfaceSettings)
+            assertEquals(expected, SettingsSyncJson.decode(SettingsSyncJson.encode(invalid))
+                .preferences.interfaceSettings)
+        }
     }
 
     @Test
@@ -353,7 +395,6 @@ class SettingsSyncDocumentTest {
                     showArtistInformation = false,
                     showAlbumInformation = false,
                     appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
-                    auroraTone = AuroraTone.Light,
                     auroraColorSteps = 5,
                     auroraAngleDegrees = 135,
                     albumBlurRadiusDp = 40,
@@ -489,7 +530,6 @@ class SettingsSyncDocumentTest {
         assertFalse(decoded.preferences.interfaceSettings.showArtistInformation)
         assertFalse(decoded.preferences.interfaceSettings.showAlbumInformation)
         assertEquals(AppBackgroundStyle.AlbumBlur, decoded.preferences.interfaceSettings.appBackgroundStyle)
-        assertEquals(AuroraTone.Light, decoded.preferences.interfaceSettings.auroraTone)
         assertEquals(5, decoded.preferences.interfaceSettings.auroraColorSteps)
         assertEquals(135, decoded.preferences.interfaceSettings.auroraAngleDegrees)
         assertEquals(40, decoded.preferences.interfaceSettings.albumBlurRadiusDp)
@@ -517,8 +557,6 @@ class SettingsSyncDocumentTest {
     @Test
     fun interfaceBackgroundDefaultsAndNormalizesHexColor() {
         assertEquals(AppBackgroundStyle.Aurora, InterfaceSettings().appBackgroundStyle)
-        assertEquals(AuroraTone.Dark, InterfaceSettings().auroraTone)
-        assertEquals("Balanced", InterfaceSettings().auroraTone.label)
         assertEquals(3, InterfaceSettings().auroraColorSteps)
         assertEquals(45, InterfaceSettings().auroraAngleDegrees)
         assertEquals(2, InterfaceSettings(auroraColorSteps = 1).normalized().auroraColorSteps)
@@ -532,28 +570,6 @@ class SettingsSyncDocumentTest {
         assertEquals(DefaultSingleColorHex, InterfaceSettings(singleColorHex = "not-a-color").normalized().singleColorHex)
         assertEquals(NowPlayingAlbumYearPreference.Original, NowPlayingDisplaySettings().albumYearPreference)
         assertEquals(false, NowPlayingDisplaySettings().showTrackCover)
-    }
-
-    @Test
-    fun auroraToneKeepsOldDarkValueBalancedAndRoundTripsNewDark() {
-        val existing = SettingsSyncDocument(
-            preferences = SettingsSyncPreferences(
-                interfaceSettings = InterfaceSettings(auroraTone = AuroraTone.Dark),
-            ),
-        )
-        val existingJson = SettingsSyncJson.encode(existing)
-        assertTrue(existingJson.contains("\"auroraTone\": \"Dark\""))
-        assertEquals("Balanced", SettingsSyncJson.decode(existingJson).preferences.interfaceSettings.auroraTone.label)
-
-        val newDark = existing.copy(
-            preferences = existing.preferences.copy(
-                interfaceSettings = existing.preferences.interfaceSettings.copy(auroraTone = AuroraTone.DeepDark),
-            ),
-        )
-        assertEquals(
-            AuroraTone.DeepDark,
-            SettingsSyncJson.decode(SettingsSyncJson.encode(newDark)).preferences.interfaceSettings.auroraTone,
-        )
     }
 
     @Test

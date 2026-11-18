@@ -16,6 +16,12 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.platform.WindowInfo
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.window.PopupProperties
+import kotlin.time.TestTimeSource
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -100,6 +106,61 @@ class NaviampMainNavigationUiTest {
                         if (drawer) assertDrawerClosed()
                         else onNodeWithTag("main-destination-${route.name}").assertIsSelected()
                     }
+            }
+        }
+    }
+
+    @Test
+    fun navigationHoverNeverOpensATooltipAndAdjacentButtonsRemainClickable() {
+        for ((width, height) in listOf(1280 to 720, 412 to 818, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                mainClock.autoAdvance = false
+                val timeSource = TestTimeSource()
+                var tooltipSurfaces = 0
+                var selected by mutableStateOf(SharedRoute.Home)
+                val surface = object : NaviampOwnedDialogSurface {
+                    @Composable override fun Render(size: DpSize, properties: PopupProperties,
+                        onCloseRequest: () -> Unit, content: @Composable () -> Unit) = error("Unexpected dialog")
+                    @Composable override fun RenderPositioned(size: DpSize, offset: DpOffset, properties: PopupProperties,
+                        onCloseRequest: () -> Unit, content: @Composable () -> Unit) {
+                        tooltipSurfaces++
+                        NaviampPositionedTooltipPopup(size, offset, properties, onCloseRequest, content)
+                    }
+                }
+                setContent {
+                    val native = LocalWindowInfo.current
+                    val focused = remember(native) { object : WindowInfo by native {
+                        override val isWindowFocused = true
+                    } }
+                    CompositionLocalProvider(LocalWindowInfo provides focused,
+                        LocalNaviampTooltipTimeSource provides timeSource,
+                        LocalNaviampOwnedDialogSurface provides surface) {
+                        NavigationFixture(selected, { selected = it }, tooltipsEnabled = true)
+                    }
+                }
+                fun hoverWithoutTooltip(tag: String) {
+                    onNodeWithTag(tag).performMouseInput { moveTo(center) }
+                    mainClock.advanceTimeBy(48)
+                    timeSource += 600.milliseconds
+                    mainClock.advanceTimeBy(600)
+                    mainClock.advanceTimeByFrame()
+                    waitForIdle()
+                    assertEquals(0, tooltipSurfaces, "$tag must not obscure another navigation control")
+                }
+                if (width < 360) {
+                    hoverWithoutTooltip("main-navigation-open")
+                    onNodeWithTag("main-navigation-open").assertContentDescriptionEquals("Open navigation")
+                        .performMouseInput { click() }
+                    mainClock.advanceTimeBy(500)
+                    hoverWithoutTooltip("main-navigation-close")
+                }
+                hoverWithoutTooltip("main-destination-Home")
+                onNodeWithTag("main-destination-Playlists").assertHasClickAction()
+                    .performMouseInput { click(Offset(center.x, 4f)) }
+                mainClock.advanceTimeBy(500)
+                runOnIdle { assertEquals(SharedRoute.Playlists, selected) }
+                if (width < 360) assertDrawerClosed()
+                else onNodeWithTag("main-destination-Playlists").assertIsSelected()
             }
         }
     }
@@ -492,9 +553,10 @@ private fun NavigationFixture(
     keyboardInsets: WindowInsets = WindowInsets(0),
     footerHeight: androidx.compose.ui.unit.Dp = 64.dp,
     showFooter: Boolean = true,
+    tooltipsEnabled: Boolean = false,
     content: @Composable () -> Unit = { Text(route.name, modifier = Modifier.testTag("route-${route.name}")) },
 ) {
-    CompositionLocalProvider(LocalNaviampTooltipsEnabled provides false) {
+    CompositionLocalProvider(LocalNaviampTooltipsEnabled provides tooltipsEnabled) {
         MaterialTheme {
             NaviampMainScaffold(
                 selectedRoute = route, colors = NaviampColors.Dark, onRouteSelected = onRouteSelected,

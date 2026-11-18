@@ -15,13 +15,6 @@
     <string name="tv_aurora">Aurora</string>
     <string name="tv_album_blur">Copertina sfocata</string>
     <string name="tv_single_color_uppercase">Colore unico</string>
-    <string name="aurora_tone">Tonalità aurora</string>
-    <string name="aurora_tone_light">Chiara</string>
-    <string name="aurora_tone_balanced">Bilanciata</string>
-    <string name="aurora_tone_dark">Scura</string>
-    <string name="aurora_tone_light_description">Schiarisci il gradiente con i colori più luminosi dell’album</string>
-    <string name="aurora_tone_balanced_description">Mantieni il gradiente originale dei colori dell’album</string>
-    <string name="aurora_tone_dark_description">Intensifica il gradiente per uno sfondo più scuro</string>
     <string name="aurora_color_steps">Livelli di colore aurora</string>
     <string name="aurora_color_count">%1$d colori</string>
     <string name="aurora_gradient_angle">Angolo del gradiente</string>

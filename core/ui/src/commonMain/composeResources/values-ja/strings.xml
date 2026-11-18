@@ -15,13 +15,6 @@
     <string name="tv_aurora">オーロラ</string>
     <string name="tv_album_blur">アルバムのぼかし</string>
     <string name="tv_single_color_uppercase">単色</string>
-    <string name="aurora_tone">オーロラの明るさ</string>
-    <string name="aurora_tone_light">明るい</string>
-    <string name="aurora_tone_balanced">バランス</string>
-    <string name="aurora_tone_dark">暗い</string>
-    <string name="aurora_tone_light_description">アルバムの明るい色に合わせてグラデーションを明るくします</string>
-    <string name="aurora_tone_balanced_description">アルバムの元の色のグラデーションを保ちます</string>
-    <string name="aurora_tone_dark_description">グラデーションを深めて背景を暗くします</string>
     <string name="aurora_color_steps">オーロラの色数</string>
     <string name="aurora_color_count">%1$d 色</string>
     <string name="aurora_gradient_angle">グラデーションの角度</string>

@@ -15,13 +15,6 @@
     <string name="tv_aurora">Сяйво</string>
     <string name="tv_album_blur">Розмита обкладинка</string>
     <string name="tv_single_color_uppercase">Один колір</string>
-    <string name="aurora_tone">Тон сяйва</string>
-    <string name="aurora_tone_light">Світлий</string>
-    <string name="aurora_tone_balanced">Збалансований</string>
-    <string name="aurora_tone_dark">Темний</string>
-    <string name="aurora_tone_light_description">Освітлити градієнт яскравішими кольорами альбому</string>
-    <string name="aurora_tone_balanced_description">Зберегти початковий градієнт кольорів альбому</string>
-    <string name="aurora_tone_dark_description">Поглибити градієнт для темнішого тла</string>
     <string name="aurora_color_steps">Колірні ступені сяйва</string>
     <string name="aurora_color_count">%1$d кольорів</string>
     <string name="aurora_gradient_angle">Кут градієнта</string>

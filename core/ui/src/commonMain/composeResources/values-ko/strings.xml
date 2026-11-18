@@ -15,13 +15,6 @@
     <string name="tv_aurora">오로라</string>
     <string name="tv_album_blur">앨범 흐림</string>
     <string name="tv_single_color_uppercase">단색</string>
-    <string name="aurora_tone">오로라 톤</string>
-    <string name="aurora_tone_light">밝게</string>
-    <string name="aurora_tone_balanced">균형</string>
-    <string name="aurora_tone_dark">어둡게</string>
-    <string name="aurora_tone_light_description">앨범의 밝은 색상에 맞춰 그라데이션을 밝게 합니다</string>
-    <string name="aurora_tone_balanced_description">앨범 색상의 원래 그라데이션을 유지합니다</string>
-    <string name="aurora_tone_dark_description">배경이 더 어두워지도록 그라데이션을 깊게 합니다</string>
     <string name="aurora_color_steps">오로라 색상 단계</string>
     <string name="aurora_color_count">색상 %1$d개</string>
     <string name="aurora_gradient_angle">그라데이션 각도</string>

@@ -15,13 +15,6 @@
     <string name="tv_aurora">ऑरोरा</string>
     <string name="tv_album_blur">धुँधला एल्बम कवर</string>
     <string name="tv_single_color_uppercase">एक रंग</string>
-    <string name="aurora_tone">ऑरोरा टोन</string>
-    <string name="aurora_tone_light">हल्का</string>
-    <string name="aurora_tone_balanced">संतुलित</string>
-    <string name="aurora_tone_dark">गहरा</string>
-    <string name="aurora_tone_light_description">ग्रेडिएंट को एल्बम के अधिक चमकीले रंगों की ओर हल्का करें</string>
-    <string name="aurora_tone_balanced_description">एल्बम के रंगों का मूल ग्रेडिएंट बनाए रखें</string>
-    <string name="aurora_tone_dark_description">अधिक गहरी पृष्ठभूमि के लिए ग्रेडिएंट गहरा करें</string>
     <string name="aurora_color_steps">ऑरोरा रंग चरण</string>
     <string name="aurora_color_count">%1$d रंग</string>
     <string name="aurora_gradient_angle">ग्रेडिएंट का कोण</string>

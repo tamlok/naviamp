@@ -113,13 +113,6 @@
     <string name="album_artwork_inherit">Übernehmen</string>
     <string name="album_artwork_track">Titelcover</string>
     <string name="album_artwork_album">Albumcover</string>
-    <string name="aurora_tone">Aurora-Ton</string>
-    <string name="aurora_tone_light">Hell</string>
-    <string name="aurora_tone_balanced">Ausgewogen</string>
-    <string name="aurora_tone_dark">Dunkel</string>
-    <string name="aurora_tone_light_description">Verlauf auf hellere Albumfarben abstimmen</string>
-    <string name="aurora_tone_balanced_description">Behalten Sie den ursprünglichen Farbverlauf des Albums bei</string>
-    <string name="aurora_tone_dark_description">Verlauf für dunkleren Hintergrund verstärken</string>
     <string name="aurora_color_steps">Aurora-Farbstufen</string>
     <string name="aurora_color_count">%1$d Farben</string>
     <string name="aurora_gradient_angle">Verlaufsrichtung</string>

@@ -116,6 +116,7 @@ private fun NaviampTelevisionAppShellContent(
         coverArtUrl = nowPlaying?.coverArtUrl,
         albumPlayerColors = albumPlayerColors,
         colors = colors,
+        isDark = LocalNaviampTheme.current.isDark,
     )
     val backgroundPlayerColors = animatedNaviampPlayerColors(appBackground.targetPlayerColors)
     var nowPlayingPreview by rememberSaveable { mutableStateOf(false) }

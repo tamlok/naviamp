@@ -1,7 +1,6 @@
 package app.naviamp.ui
 
 import androidx.compose.ui.graphics.Color
-import app.naviamp.domain.settings.AuroraTone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -62,20 +61,6 @@ class NaviampPlayerColorsTest {
         assertTrue(palette.accent.channelAverage() > selected.channelAverage())
         assertTrue(palette.gradientColors.distinct().size > 1)
         assertEquals(null, naviampColorFromHex("#xyzxyz"))
-    }
-
-    @Test
-    fun auroraTonesBracketBalancedGradient() {
-        val balanced = NaviampPlayerColors.fromSingleColor(Color(0xFF24364A), NaviampColors.Dark)
-        val light = balanced.withAuroraTone(AuroraTone.Light)
-        val dark = balanced.withAuroraTone(AuroraTone.DeepDark)
-
-        assertEquals(balanced, balanced.withAuroraTone(AuroraTone.Dark))
-        assertTrue(light.backgroundStart.channelAverage() > balanced.backgroundStart.channelAverage())
-        assertTrue(light.backgroundMid.channelAverage() > balanced.backgroundMid.channelAverage())
-        assertTrue(dark.backgroundStart.channelAverage() < balanced.backgroundStart.channelAverage())
-        assertTrue(dark.backgroundMid.channelAverage() < balanced.backgroundMid.channelAverage())
-        assertTrue(dark.backgroundEnd.channelAverage() < balanced.backgroundEnd.channelAverage())
     }
 }
 

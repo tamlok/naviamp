@@ -26,13 +26,6 @@
     <string name="tv_album_sort_title">Título</string>
     <string name="tv_group_albums_by_release_type">Agrupar álbumes por tipo de lanzamiento</string>
     <string name="tv_group_albums_by_release_type_description">Mostrar álbumes, EP, sencillos y otros lanzamientos en secciones separadas</string>
-    <string name="aurora_tone">Tono de Aurora</string>
-    <string name="aurora_tone_light">Claro</string>
-    <string name="aurora_tone_balanced">Equilibrado</string>
-    <string name="aurora_tone_dark">Oscuro</string>
-    <string name="aurora_tone_light_description">Aclara el degradado con colores más brillantes del álbum</string>
-    <string name="aurora_tone_balanced_description">Mantiene el degradado original de colores del álbum</string>
-    <string name="aurora_tone_dark_description">Intensifica el degradado para un fondo más oscuro</string>
     <string name="aurora_color_steps">Pasos de color de Aurora</string>
     <string name="aurora_color_count">%1$d colores</string>
     <string name="aurora_gradient_angle">Ángulo del degradado</string>

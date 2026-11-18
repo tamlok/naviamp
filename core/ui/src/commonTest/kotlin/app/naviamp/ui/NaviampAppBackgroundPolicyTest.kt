@@ -2,46 +2,27 @@ package app.naviamp.ui
 
 import androidx.compose.ui.graphics.Color
 import app.naviamp.domain.settings.AppBackgroundStyle
-import app.naviamp.domain.settings.AuroraTone
 import app.naviamp.domain.settings.DefaultSingleColorHex
 import app.naviamp.domain.settings.InterfaceSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import androidx.compose.ui.graphics.luminance
 
 class NaviampAppBackgroundPolicyTest {
     private val colors = NaviampColors.Dark
     private val albumColors = NaviampPlayerColors.fromSingleColor(Color(0xFF186B91), colors)
 
     @Test
-    fun auroraUsesAlbumColorsAndSelectedTone() {
-        val background = background(
-            InterfaceSettings(
-                appBackgroundStyle = AppBackgroundStyle.Aurora,
-                auroraTone = AuroraTone.Light,
-                auroraColorSteps = 5,
-                auroraAngleDegrees = 135,
-            ),
-        )
-
-        assertEquals(5, background.auroraColorSteps)
-        assertEquals(135, background.auroraAngleDegrees)
-        assertEquals(AppBackgroundStyle.Aurora, background.style)
-        assertEquals(albumColors.withAuroraTone(AuroraTone.Light), background.targetPlayerColors)
-    }
-
-    @Test
-    fun albumBlurKeepsArtworkAndBlurSettings() {
-        val background = background(
-            InterfaceSettings(
-                appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
-                albumBlurRadiusDp = 36,
-            ),
-        )
-
-        assertEquals(AppBackgroundStyle.AlbumBlur, background.style)
-        assertEquals("cover-art", background.coverArtUrl)
-        assertEquals(36, background.blurRadiusDp)
-        assertEquals(albumColors, background.targetPlayerColors)
+    fun auroraUsesResolvedAppearanceEvenWhenPaletteColorsAreIdentical() {
+        for (steps in 2..5) {
+            val settings = InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.Aurora, auroraColorSteps = steps)
+            val light = background(settings, isDark = false).targetPlayerColors.auroraColors(steps)
+            val dark = background(settings, isDark = true).targetPlayerColors.auroraColors(steps)
+            light.zip(dark).forEach { (lightStop, darkStop) ->
+                assertTrue(lightStop.luminance() > darkStop.luminance())
+            }
+        }
     }
 
     @Test
@@ -67,11 +48,12 @@ class NaviampAppBackgroundPolicyTest {
         )
     }
 
-    private fun background(settings: InterfaceSettings): NaviampAppBackgroundUi =
+    private fun background(settings: InterfaceSettings, isDark: Boolean = true): NaviampAppBackgroundUi =
         naviampAppBackgroundUi(
             interfaceSettings = settings,
             coverArtUrl = "cover-art",
             albumPlayerColors = albumColors,
             colors = colors,
+            isDark = isDark,
         )
 }

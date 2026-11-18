@@ -15,7 +15,9 @@ import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.AppBackgroundStyle
-import app.naviamp.domain.settings.AuroraTone
+import app.naviamp.domain.settings.NaviampThemeMode
+import app.naviamp.domain.settings.NaviampThemeSettings
+import androidx.compose.ui.graphics.luminance
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -29,12 +31,14 @@ class NaviampMiniPlayerUiTest {
     fun emptyPlayerBackgroundTransitionsRemainLiveAcrossStyles() = runComposeUiTest {
         val settings = mutableStateOf(InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
             albumBlurRadiusDp = 36, singleColorHex = "#315577"))
-        setContent { Box(Modifier.width(1000.dp)) {
-            NaviampMiniNowPlaying(null, NaviampColors.Dark, {}, actions(), settings.value)
+        setContent { NaviampTheme(settings.value.theme) {
+            Box(Modifier.width(1000.dp)) {
+                NaviampMiniNowPlaying(null, LocalNaviampTheme.current.colors, {}, actions(), settings.value)
+            }
         } }
         runOnIdle { settings.value = settings.value.copy(appBackgroundStyle = AppBackgroundStyle.Aurora) }
         mainClock.advanceTimeBy(500)
-        runOnIdle { settings.value = settings.value.copy(auroraTone = AuroraTone.Light) }
+        runOnIdle { settings.value = settings.value.copy(theme = NaviampThemeSettings(NaviampThemeMode.Light)) }
         mainClock.advanceTimeBy(500)
         runOnIdle { settings.value = settings.value.copy(auroraColorSteps = 5) }
         mainClock.advanceTimeBy(500)
@@ -46,6 +50,47 @@ class NaviampMiniPlayerUiTest {
         assertEquals(Color(0xFF315577), solid[solid.width - 3, 2])
         onNodeWithText("Nothing playing").assertIsDisplayed()
         onNodeWithContentDescription("Play").assertIsNotEnabled()
+    }
+
+    @Test
+    fun backgroundsFollowLiveSystemAppearanceAndExplicitModesWithUnchangedArtwork() = runComposeUiTest {
+        val settings = mutableStateOf(InterfaceSettings())
+        val systemDark = mutableStateOf(true)
+        val track = NowPlayingUi(id = "theme-track", title = "Theme track", subtitle = "Artist", stateLabel = "Paused",
+            isPaused = true, coverArtUrl = "naviamp-radio-tile://cover?label=Theme&from=884422&to=224488")
+        setContent { NaviampTheme(settings.value.theme, systemDark.value) {
+            Box(Modifier.width(1000.dp)) {
+                NaviampMiniNowPlaying(track, LocalNaviampTheme.current.colors, {}, actions(), settings.value)
+            }
+        } }
+        fun pixel(): Color = onNodeWithTag("mini-player-background").captureToImage().toPixelMap()[2, 2]
+        fun settle() { mainClock.advanceTimeBy(1000); waitForIdle() }
+        for (pack in listOf("naviamp", "forest")) {
+            for (style in listOf(AppBackgroundStyle.Aurora, AppBackgroundStyle.AlbumBlur)) {
+                runOnIdle {
+                    settings.value = settings.value.copy(appBackgroundStyle = style,
+                        theme = NaviampThemeSettings(NaviampThemeMode.System, pack))
+                    systemDark.value = true
+                }
+                // Palette/image loading is asynchronous; wait for the same cached artwork before comparing themes.
+                waitUntil(timeoutMillis = 5_000) { pixel().red > pixel().blue }
+                settle()
+                val dark = pixel().luminance()
+                runOnIdle { systemDark.value = false }
+                settle()
+                val light = pixel().luminance()
+                assertTrue(light > dark + 0.05f, "$pack $style must follow System without a settings or artwork change")
+                runOnIdle { systemDark.value = true }
+                settle()
+                assertEquals(dark, pixel().luminance(), 0.01f)
+                runOnIdle { settings.value = settings.value.copy(theme = settings.value.theme.copy(mode = NaviampThemeMode.Light)) }
+                settle()
+                assertEquals(light, pixel().luminance(), 0.01f)
+                runOnIdle { systemDark.value = false }
+                settle()
+                assertEquals(light, pixel().luminance(), 0.01f, "Explicit Light must ignore System")
+            }
+        }
     }
 
     @Test

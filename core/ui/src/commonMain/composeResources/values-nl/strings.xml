@@ -15,13 +15,6 @@
     <string name="tv_aurora">Aurora</string>
     <string name="tv_album_blur">Vervaagde albumhoes</string>
     <string name="tv_single_color_uppercase">Effen kleur</string>
-    <string name="aurora_tone">Auroratint</string>
-    <string name="aurora_tone_light">Licht</string>
-    <string name="aurora_tone_balanced">Gebalanceerd</string>
-    <string name="aurora_tone_dark">Donker</string>
-    <string name="aurora_tone_light_description">Maak het kleurverloop lichter met helderdere albumkleuren</string>
-    <string name="aurora_tone_balanced_description">Behoud het oorspronkelijke kleurverloop van het album</string>
-    <string name="aurora_tone_dark_description">Verdiep het kleurverloop voor een donkerdere achtergrond</string>
     <string name="aurora_color_steps">Aurorakleurstappen</string>
     <string name="aurora_color_count">%1$d kleuren</string>
     <string name="aurora_gradient_angle">Hoek van het kleurverloop</string>

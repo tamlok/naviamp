@@ -186,7 +186,6 @@ data class InterfaceSettings(
     val showAlbumInformation: Boolean = true,
     val squareAlbumArtwork: Boolean = false,
     val appBackgroundStyle: AppBackgroundStyle = AppBackgroundStyle.Aurora,
-    val auroraTone: AuroraTone = AuroraTone.Dark,
     val auroraColorSteps: Int = 3,
     val auroraAngleDegrees: Int = 45,
     val albumBlurRadiusDp: Int = DefaultAlbumBlurRadiusDp,
@@ -346,14 +345,6 @@ enum class AppBackgroundStyle(val label: String) {
     Aurora("Aurora"),
     AlbumBlur("Album Blur"),
     SingleColor("Single Color"),
-}
-
-@Serializable
-enum class AuroraTone(val label: String) {
-    Light("Light"),
-    // Preserve the serialized name and original appearance of existing settings.
-    Dark("Balanced"),
-    DeepDark("Dark"),
 }
 
 const val DefaultSingleColorHex = "#32253F"

@@ -10,7 +10,8 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
 import app.naviamp.domain.settings.AppBackgroundStyle
-import app.naviamp.domain.settings.AuroraTone
+import app.naviamp.domain.settings.NaviampThemeMode
+import androidx.compose.ui.graphics.luminance
 import app.naviamp.domain.settings.InterfaceSettings
 import androidx.compose.ui.test.*
 import app.naviamp.ui.*
@@ -145,6 +146,27 @@ class NaviampCoreAppSmokeTest {
                 expand(false)
                 assertTrue(miniPixel() != redMini, "$style player-bar background must follow artwork")
                 assertSolidBrowsing()
+                val darkMini = miniPixel()
+                expand(true)
+                val darkFull = fullPixels()
+                runOnIdle { ui.value = ui.value.copy(general = ui.value.general.copy(
+                    interfaceSettings = ui.value.general.interfaceSettings.copy(
+                        theme = ui.value.general.interfaceSettings.theme.copy(mode = NaviampThemeMode.Light)))) }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+                val lightFull = fullPixels()
+                assertTrue(lightFull.first.luminance() > darkFull.first.luminance() + 0.05f,
+                    "$style expanded background must lighten without changing the track")
+                expand(false)
+                assertTrue(miniPixel().luminance() > darkMini.luminance() + 0.05f,
+                    "$style mini background must lighten without changing the track")
+                runOnIdle { ui.value = ui.value.copy(general = ui.value.general.copy(
+                    interfaceSettings = ui.value.general.interfaceSettings.copy(
+                        theme = ui.value.general.interfaceSettings.theme.copy(mode = NaviampThemeMode.Dark)))) }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+                assertEquals(darkMini.luminance(), miniPixel().luminance(), 0.01f)
+                assertSolidBrowsing()
             }
         } finally { scope.cancel() }
     }
@@ -207,7 +229,9 @@ class NaviampCoreAppSmokeTest {
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Settings)
             onNodeWithText("Appearance", substring = false).performClick()
             onNodeWithTag("player-background-style:Aurora").performScrollTo().performClick()
-            onNodeWithTag("player-background-tone:Light").performScrollTo().performClick()
+            for (tone in listOf("Light", "Dark", "DeepDark")) {
+                onNodeWithTag("player-background-tone:$tone").assertDoesNotExist()
+            }
             onNodeWithTag("player-background-color-steps").performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(5f) }
             onNodeWithTag("player-background-angle").performScrollTo()
@@ -218,7 +242,7 @@ class NaviampCoreAppSmokeTest {
             onNodeWithTag("player-background-blur").performScrollTo()
                 .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(42f) }
             runOnIdle {
-                assertEquals(settings.copy(auroraTone = AuroraTone.Light, auroraColorSteps = 5,
+                assertEquals(settings.copy(auroraColorSteps = 5,
                     auroraAngleDegrees = 135, singleColorHex = "#166534", albumBlurRadiusDp = 42),
                     core.state.value.shell.general.interfaceSettings)
             }

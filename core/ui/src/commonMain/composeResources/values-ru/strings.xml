@@ -15,13 +15,6 @@
     <string name="tv_aurora">Сияние</string>
     <string name="tv_album_blur">Размытая обложка</string>
     <string name="tv_single_color_uppercase">Один цвет</string>
-    <string name="aurora_tone">Тон сияния</string>
-    <string name="aurora_tone_light">Светлый</string>
-    <string name="aurora_tone_balanced">Сбалансированный</string>
-    <string name="aurora_tone_dark">Тёмный</string>
-    <string name="aurora_tone_light_description">Осветлить градиент яркими цветами альбома</string>
-    <string name="aurora_tone_balanced_description">Сохранить исходный градиент цветов альбома</string>
-    <string name="aurora_tone_dark_description">Углубить градиент для более тёмного фона</string>
     <string name="aurora_color_steps">Цветовые ступени сияния</string>
     <string name="aurora_color_count">%1$d цветов</string>
     <string name="aurora_gradient_angle">Угол градиента</string>

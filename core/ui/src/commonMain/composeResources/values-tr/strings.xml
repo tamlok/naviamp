@@ -15,13 +15,6 @@
     <string name="tv_aurora">Aurora</string>
     <string name="tv_album_blur">Bulanık albüm kapağı</string>
     <string name="tv_single_color_uppercase">Tek renk</string>
-    <string name="aurora_tone">Aurora tonu</string>
-    <string name="aurora_tone_light">Açık</string>
-    <string name="aurora_tone_balanced">Dengeli</string>
-    <string name="aurora_tone_dark">Koyu</string>
-    <string name="aurora_tone_light_description">Gradyanı albümün daha parlak renklerine doğru açın</string>
-    <string name="aurora_tone_balanced_description">Albüm renklerinin orijinal gradyanını koruyun</string>
-    <string name="aurora_tone_dark_description">Daha koyu bir arka plan için gradyanı derinleştirin</string>
     <string name="aurora_color_steps">Aurora renk adımları</string>
     <string name="aurora_color_count">%1$d renk</string>
     <string name="aurora_gradient_angle">Gradyan açısı</string>
