@@ -825,7 +825,7 @@ data class CacheSettings(
     val audioCachingEnabled: Boolean = true,
     val offlineModeEnabled: Boolean = false,
     val audioPrefetchDepth: Int = DefaultAudioPrefetchDepth,
-    val waveformsEnabled: Boolean = true,
+    val waveformsEnabled: Boolean = false,
     val waveformBucketCount: Int = DefaultWaveformBucketCount,
     val maxAudioCacheBytes: Long = DefaultAudioCacheBytes,
     val maxDownloadBytes: Long = DefaultDownloadStorageBytes,

@@ -2,8 +2,32 @@ package app.naviamp.domain.settings
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlinx.serialization.json.Json
 
 class CacheSettingsTest {
+    @Test
+    fun missingWaveformPreferenceDefaultsOffWithoutResettingOtherSettings() {
+        val settings = Json.decodeFromString<CacheSettings>("""{"audioPrefetchDepth":4}""").normalized()
+
+        assertFalse(settings.waveformsEnabled)
+        assertEquals(4, settings.audioPrefetchDepth)
+    }
+
+    @Test
+    fun explicitWaveformChoicesSurviveNormalizationAndSerialization() {
+        for (enabled in listOf(false, true)) {
+            val settings = Json.decodeFromString<CacheSettings>(
+                """{"waveformsEnabled":$enabled}""",
+            ).normalized()
+            val reopened = Json.decodeFromString<CacheSettings>(
+                Json.encodeToString(CacheSettings.serializer(), settings),
+            ).normalized()
+
+            assertEquals(enabled, reopened.waveformsEnabled)
+        }
+    }
+
     @Test
     fun defaultsUseTheSmallestActiveCacheAndDownloadChoices() {
         val settings = CacheSettings()

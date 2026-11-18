@@ -26,6 +26,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Full player and Split view modes are replaced by one adaptive player-details view. Tap the mini-player to open it; selecting a main destination closes details without stopping playback.
 - Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
 - Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
+- Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.
 
 ## v2.11.2
 
