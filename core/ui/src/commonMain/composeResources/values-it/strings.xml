@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">Intensità della sfocatura</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">Tonalità</string>
-    <string name="tv_saturation">Saturazione</string>
-    <string name="tv_brightness">Luminosità</string>
-    <string name="tv_selected_color">Colore selezionato</string>
     <string name="common_cancel">Annulla</string>
     <string name="common_delete">Elimina</string>
     <string name="settings_selected_label">Selezionato</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">Artisti preferiti</string>
     <string name="settings_radio_new_dj">Nuovo DJ</string>
     <string name="settings_radio_create_dj">Crea nuovo DJ</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Ordinamento album</string>
     <string name="tv_album_sort_order_description">Scegli l’ordine delle pubblicazioni dell’artista</string>
     <string name="tv_album_sort_oldest_first">Meno recenti prima</string>

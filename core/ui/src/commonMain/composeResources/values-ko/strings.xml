@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">흐림 강도</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">색조</string>
-    <string name="tv_saturation">채도</string>
-    <string name="tv_brightness">명도</string>
-    <string name="tv_selected_color">선택한 색상</string>
     <string name="common_cancel">취소</string>
     <string name="common_delete">삭제</string>
     <string name="settings_selected_label">선택됨</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">즐겨찾는 아티스트</string>
     <string name="settings_radio_new_dj">새 DJ</string>
     <string name="settings_radio_create_dj">새 DJ 만들기</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">앨범 정렬</string>
     <string name="tv_album_sort_order_description">아티스트 발매작의 정렬 방식을 선택하세요</string>
     <string name="tv_album_sort_oldest_first">오래된 순</string>

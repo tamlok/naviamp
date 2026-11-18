@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">ぼかしの強さ</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">色相</string>
-    <string name="tv_saturation">彩度</string>
-    <string name="tv_brightness">明度</string>
-    <string name="tv_selected_color">選択した色</string>
     <string name="common_cancel">キャンセル</string>
     <string name="common_delete">削除</string>
     <string name="settings_selected_label">選択中</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">お気に入りのアーティスト</string>
     <string name="settings_radio_new_dj">新しいDJ</string>
     <string name="settings_radio_create_dj">新しいDJを作成</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">アルバムの並び順</string>
     <string name="tv_album_sort_order_description">アーティストのリリースの並び順を選択</string>
     <string name="tv_album_sort_oldest_first">古い順</string>

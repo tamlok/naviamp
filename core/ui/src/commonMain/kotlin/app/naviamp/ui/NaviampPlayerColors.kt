@@ -13,7 +13,6 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.roundToInt
 
 data class NaviampPlayerColors(
     val backgroundStart: Color,
@@ -157,29 +156,6 @@ fun naviampColorFromHex(value: String): Color? {
         blue = rgb and 0xFF,
     )
 }
-
-fun naviampColorToHex(color: Color): String =
-    buildString {
-        append('#')
-        listOf(color.red, color.green, color.blue).forEach { channel ->
-            append((channel * 255f).roundToInt().coerceIn(0, 255).toString(16).padStart(2, '0').uppercase())
-        }
-    }
-
-fun naviampColorToHsv(color: Color): FloatArray =
-    rgbToHsv(
-        red = (color.red * 255f).roundToInt(),
-        green = (color.green * 255f).roundToInt(),
-        blue = (color.blue * 255f).roundToInt(),
-    )
-
-fun naviampColorFromHsv(hue: Float, saturation: Float, value: Float): Color =
-    hsvToColor(
-        hue = ((hue % 1f) + 1f) % 1f,
-        saturation = saturation.coerceIn(0f, 1f),
-        value = value.coerceIn(0f, 1f),
-        alpha = 1f,
-    )
 
 private fun Color.vibrantVariant(hueShift: Float, minimumValue: Float): Color {
     val hsv = rgbToHsv((red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt())

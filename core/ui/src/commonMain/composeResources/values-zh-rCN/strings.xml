@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">模糊程度</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">色相</string>
-    <string name="tv_saturation">饱和度</string>
-    <string name="tv_brightness">亮度</string>
-    <string name="tv_selected_color">所选颜色</string>
     <string name="common_cancel">取消</string>
     <string name="common_delete">删除</string>
     <string name="settings_selected_label">已选中</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">收藏的艺人</string>
     <string name="settings_radio_new_dj">新建 DJ</string>
     <string name="settings_radio_create_dj">创建新 DJ</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">专辑排序</string>
     <string name="tv_album_sort_order_description">选择艺人发行作品的排序方式</string>
     <string name="tv_album_sort_oldest_first">最早优先</string>

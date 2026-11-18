@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">धुँधलेपन की मात्रा</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">रंगत</string>
-    <string name="tv_saturation">संतृप्ति</string>
-    <string name="tv_brightness">चमक</string>
-    <string name="tv_selected_color">चुना गया रंग</string>
     <string name="common_cancel">रद्द करें</string>
     <string name="common_delete">हटाएँ</string>
     <string name="settings_selected_label">चुना गया</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">पसंदीदा कलाकार</string>
     <string name="settings_radio_new_dj">नया DJ</string>
     <string name="settings_radio_create_dj">नया DJ बनाएँ</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">एल्बम क्रम</string>
     <string name="tv_album_sort_order_description">कलाकार की रिलीज़ का क्रम चुनें</string>
     <string name="tv_album_sort_oldest_first">सबसे पुराने पहले</string>

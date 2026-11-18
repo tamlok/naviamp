@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">مقدار التمويه</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">درجة اللون</string>
-    <string name="tv_saturation">التشبع</string>
-    <string name="tv_brightness">السطوع</string>
-    <string name="tv_selected_color">اللون المحدد</string>
     <string name="common_cancel">إلغاء</string>
     <string name="common_delete">حذف</string>
     <string name="settings_selected_label">محدد</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">الفنانون المفضلون</string>
     <string name="settings_radio_new_dj">دي جي جديد</string>
     <string name="settings_radio_create_dj">إنشاء دي جي جديد</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">ترتيب الألبومات</string>
     <string name="tv_album_sort_order_description">اختر كيفية ترتيب إصدارات الفنان</string>
     <string name="tv_album_sort_oldest_first">الأقدم أولاً</string>

@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">Mate van vervaging</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">Tint</string>
-    <string name="tv_saturation">Verzadiging</string>
-    <string name="tv_brightness">Helderheid</string>
-    <string name="tv_selected_color">Geselecteerde kleur</string>
     <string name="common_cancel">Annuleren</string>
     <string name="common_delete">Verwijderen</string>
     <string name="settings_selected_label">Geselecteerd</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">Favoriete artiesten</string>
     <string name="settings_radio_new_dj">Nieuwe DJ</string>
     <string name="settings_radio_create_dj">Nieuwe DJ maken</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Albumvolgorde</string>
     <string name="tv_album_sort_order_description">Kies hoe releases van de artiest worden gesorteerd</string>
     <string name="tv_album_sort_oldest_first">Oudste eerst</string>

@@ -26,10 +26,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">Stopień rozmycia</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">Odcień</string>
-    <string name="tv_saturation">Nasycenie</string>
-    <string name="tv_brightness">Jasność</string>
-    <string name="tv_selected_color">Wybrany kolor</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Moje</string>
     <string name="navigation_open">Otwórz nawigację</string>
@@ -41,7 +37,6 @@
     <string name="my_favorite_artists">Ulubieni wykonawcy</string>
     <string name="settings_radio_new_dj">Nowy DJ</string>
     <string name="settings_radio_create_dj">Utwórz nowego DJ-a</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Sortowanie albumów</string>
     <string name="tv_album_sort_order_description">Wybierz kolejność wydań wykonawcy</string>
     <string name="tv_album_sort_oldest_first">Najstarsze najpierw</string>

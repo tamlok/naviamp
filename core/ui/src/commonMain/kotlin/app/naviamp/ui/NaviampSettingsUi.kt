@@ -2,6 +2,7 @@ package app.naviamp.ui
 import app.naviamp.domain.radio.RadioSimilarityMethod
 import app.naviamp.domain.radio.radioSimilarityMethod
 import app.naviamp.domain.radio.withRadioSimilarityMethod
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.selected
 
@@ -77,6 +78,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
@@ -93,6 +96,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1256,52 +1260,82 @@ internal fun NaviampPlayerBackgroundSettings(
                 testTag = "player-background-blur",
                 onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(albumBlurRadiusDp = it.roundToInt()).normalized()) },
             )
-            AppBackgroundStyle.SingleColor -> {
-                val selectedColor = naviampColorFromHex(interfaceSettings.singleColorHex) ?: colors.background
-                val hsv = naviampColorToHsv(selectedColor)
-                val updateColor: (Float, Float, Float) -> Unit = { hue, saturation, brightness ->
-                    onInterfaceSettingsChanged(interfaceSettings.copy(
-                        singleColorHex = naviampColorToHex(naviampColorFromHsv(hue, saturation, brightness)),
-                    ).normalized())
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(SettingsRowHorizontalPadding)
-                        .testTag("player-background-color-preview"),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(46.dp)
-                        .background(selectedColor, RoundedCornerShape(10.dp))
-                        .border(1.dp, colors.border, RoundedCornerShape(10.dp)))
-                    Column {
-                        Text(stringResource(Res.string.tv_selected_color), color = colors.primaryText, fontSize = SettingsDetailRowTitleSize)
-                        Text(interfaceSettings.singleColorHex, color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
+            AppBackgroundStyle.SingleColor -> SingleColorPalette(
+                colors = colors,
+                selectedColor = naviampColorFromHex(interfaceSettings.singleColorHex),
+                onColorSelected = { hex ->
+                    onInterfaceSettingsChanged(interfaceSettings.copy(singleColorHex = hex).normalized())
+                },
+            )
+        }
+    }
+}
+
+private val SingleColorPaletteRows = listOf(
+    listOf("#141414", "#301A20", "#302519", "#192C24", "#192635", "#251D30"),
+    listOf("#262626", "#482630", "#483723", "#253F33", "#25384D", "#32253F"),
+    listOf("#3B3B3B", "#633340", "#62492E", "#315442", "#314B66", "#493659"),
+    listOf("#525252", "#7E3E50", "#7D6036", "#3D6B54", "#3F6080", "#604775"),
+    listOf("#696969", "#98475D", "#97733E", "#4B8066", "#507799", "#7A5892"),
+    listOf("#808080", "#B24C63", "#B28547", "#599579", "#628FB2", "#946CB2"),
+).map { row -> row.map { hex -> hex to naviampColorFromHex(hex)!! } }
+
+@Composable
+private fun SingleColorPalette(
+    colors: NaviampColors,
+    selectedColor: Color?,
+    onColorSelected: (String) -> Unit,
+) {
+    val shape = RoundedCornerShape(8.dp)
+    val focusManager = LocalFocusManager.current
+    Column(
+        modifier = Modifier
+            .padding(horizontal = SettingsRowHorizontalPadding, vertical = 8.dp)
+            .widthIn(max = 336.dp)
+            .fillMaxWidth()
+            .selectableGroup()
+            .testTag("player-background-color-palette"),
+    ) {
+        SingleColorPaletteRows.forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { (hex, color) ->
+                    val selected = selectedColor == color
+                    var focused by remember { mutableStateOf(false) }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .onFocusChanged { focused = it.isFocused }
+                            .border(2.dp, if (focused) colors.primaryText else Color.Transparent, shape)
+                            .semantics { contentDescription = hex }
+                            .testTag("player-background-color:$hex")
+                            .onPreviewKeyEvent { event ->
+                                val direction = when (event.key) {
+                                    Key.DirectionLeft -> FocusDirection.Left
+                                    Key.DirectionRight -> FocusDirection.Right
+                                    Key.DirectionUp -> FocusDirection.Up
+                                    Key.DirectionDown -> FocusDirection.Down
+                                    else -> return@onPreviewKeyEvent false
+                                }
+                                if (event.type == KeyEventType.KeyDown) focusManager.moveFocus(direction) else true
+                            }
+                            .selectable(selected = selected, role = Role.RadioButton) { onColorSelected(hex) }
+                            .padding(4.dp)
+                            .border(if (selected) 3.dp else 1.dp, if (selected) colors.accent else colors.border, shape)
+                            .padding(3.dp)
+                            .background(color, RoundedCornerShape(5.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) {
+                            Icon(
+                                NaviampIcons.Check,
+                                contentDescription = null,
+                                tint = if (color.luminance() > 0.179f) Color.Black else Color.White,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
                 }
-                CompactBackgroundSlider(
-                    label = stringResource(Res.string.tv_hue),
-                    value = hsv[0] * 360f, valueRange = 0f..360f,
-                    valueText = stringResource(Res.string.aurora_angle_value, (hsv[0] * 360f).toInt()),
-                    colors = colors, keyStep = 10f,
-                    testTag = "player-background-hue",
-                    onValueChange = { updateColor(it / 360f, hsv[1], hsv[2]) },
-                )
-                CompactBackgroundSlider(
-                    label = stringResource(Res.string.tv_saturation),
-                    value = hsv[1] * 100f, valueRange = 0f..100f,
-                    valueText = stringResource(Res.string.tv_percentage_value, (hsv[1] * 100f).toInt()),
-                    colors = colors, keyStep = 5f,
-                    testTag = "player-background-saturation",
-                    onValueChange = { updateColor(hsv[0], it / 100f, hsv[2]) },
-                )
-                CompactBackgroundSlider(
-                    label = stringResource(Res.string.tv_brightness),
-                    value = hsv[2] * 100f, valueRange = 8f..70f,
-                    valueText = stringResource(Res.string.tv_percentage_value, (hsv[2] * 100f).toInt()),
-                    colors = colors, keyStep = 5f,
-                    testTag = "player-background-brightness",
-                    onValueChange = { updateColor(hsv[0], hsv[1], it / 100f) },
-                )
             }
         }
     }

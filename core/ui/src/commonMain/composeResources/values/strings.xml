@@ -18,7 +18,6 @@
     <string name="mini_player_empty_subtitle">Choose something to play</string>
     <string name="mini_player_open">Open player details</string>
     <string name="my_favorite_artists">Favorite artists</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Album sorting</string>
     <string name="tv_album_sort_order_description">Choose how artist releases are ordered</string>
     <string name="tv_album_sort_oldest_first">Oldest first</string>
@@ -666,10 +665,6 @@
     <string name="tv_shared_music_player_for_every_screen">Shared music player for every screen</string>
     <string name="tv_build">Build</string>
     <string name="tv_open_source_libraries">Open-source libraries</string>
-    <string name="tv_hue">Hue</string>
-    <string name="tv_saturation">Saturation</string>
-    <string name="tv_brightness">Brightness</string>
-    <string name="tv_selected_color">Selected color</string>
     <string name="tv_on">On</string>
     <string name="tv_online_on">Online on</string>
     <string name="tv_server_tags">Server + tags</string>

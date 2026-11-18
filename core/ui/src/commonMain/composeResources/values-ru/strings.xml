@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">Степень размытия</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">Цветовой тон</string>
-    <string name="tv_saturation">Насыщенность</string>
-    <string name="tv_brightness">Яркость</string>
-    <string name="tv_selected_color">Выбранный цвет</string>
     <string name="common_cancel">Отмена</string>
     <string name="common_delete">Удалить</string>
     <string name="settings_selected_label">Выбрано</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">Любимые исполнители</string>
     <string name="settings_radio_new_dj">Новый диджей</string>
     <string name="settings_radio_create_dj">Создать нового диджея</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Сортировка альбомов</string>
     <string name="tv_album_sort_order_description">Выберите порядок релизов исполнителя</string>
     <string name="tv_album_sort_oldest_first">Сначала старые</string>

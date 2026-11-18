@@ -21,7 +21,6 @@
     <string name="my_favorite_artists">Artistas favoritos</string>
     <string name="settings_radio_new_dj">Novo DJ</string>
     <string name="settings_radio_create_dj">Criar novo DJ</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Ordenação de álbuns</string>
     <string name="tv_album_sort_order_description">Escolha a ordem dos lançamentos do artista</string>
     <string name="tv_album_sort_oldest_first">Mais antigos primeiro</string>
@@ -1005,10 +1004,6 @@
     <string name="tv_shared_music_player_for_every_screen">Player de música compartilhado para todas as telas</string>
     <string name="tv_build">Build</string>
     <string name="tv_open_source_libraries">Bibliotecas de código aberto</string>
-    <string name="tv_hue">Matiz</string>
-    <string name="tv_saturation">Saturação</string>
-    <string name="tv_brightness">Brilho</string>
-    <string name="tv_selected_color">Cor selecionada</string>
     <string name="tv_on">Ativado</string>
     <string name="tv_online_on">Online ativado</string>
     <string name="tv_server_tags">Servidor + tags</string>

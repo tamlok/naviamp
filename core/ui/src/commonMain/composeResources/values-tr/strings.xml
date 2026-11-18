@@ -28,10 +28,6 @@
     <string name="aurora_angle_value">%1$d°</string>
     <string name="tv_blur_amount">Bulanıklık miktarı</string>
     <string name="tv_blur_value">%1$d dp</string>
-    <string name="tv_hue">Renk tonu</string>
-    <string name="tv_saturation">Doygunluk</string>
-    <string name="tv_brightness">Parlaklık</string>
-    <string name="tv_selected_color">Seçilen renk</string>
     <string name="common_cancel">İptal</string>
     <string name="common_delete">Sil</string>
     <string name="settings_selected_label">Seçili</string>
@@ -46,7 +42,6 @@
     <string name="my_favorite_artists">Favori sanatçılar</string>
     <string name="settings_radio_new_dj">Yeni DJ</string>
     <string name="settings_radio_create_dj">Yeni DJ oluştur</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Albüm sıralaması</string>
     <string name="tv_album_sort_order_description">Sanatçı yayınlarının sırasını seçin</string>
     <string name="tv_album_sort_oldest_first">Önce en eskiler</string>

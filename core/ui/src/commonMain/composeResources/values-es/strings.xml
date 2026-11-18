@@ -19,7 +19,6 @@
     <string name="mini_player_empty_subtitle">Elige algo para reproducir</string>
     <string name="mini_player_open">Abrir detalles del reproductor</string>
     <string name="my_favorite_artists">Artistas favoritos</string>
-    <string name="tv_percentage_value">%1$d%</string>
     <string name="tv_album_sort_order">Orden de álbumes</string>
     <string name="tv_album_sort_order_description">Elige cómo ordenar los lanzamientos del artista</string>
     <string name="tv_album_sort_oldest_first">Más antiguos primero</string>
@@ -633,10 +632,6 @@
     <string name="tv_shared_music_player_for_every_screen">Reproductor de música compartido para todas las pantallas</string>
     <string name="tv_build">Compilación</string>
     <string name="tv_open_source_libraries">Bibliotecas de código abierto</string>
-    <string name="tv_hue">Tono</string>
-    <string name="tv_saturation">Saturación</string>
-    <string name="tv_brightness">Brillo</string>
-    <string name="tv_selected_color">Color seleccionado</string>
     <string name="tv_on">Activado</string>
     <string name="tv_online_on">En línea activado</string>
     <string name="tv_server_tags">Servidor + etiquetas</string>
