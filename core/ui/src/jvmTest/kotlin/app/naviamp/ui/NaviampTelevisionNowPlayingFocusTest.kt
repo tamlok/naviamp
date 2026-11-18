@@ -2,6 +2,9 @@ package app.naviamp.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -18,6 +21,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.CompositionLocalProvider
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.domain.settings.InterfaceSettings
+import app.naviamp.domain.settings.AppBackgroundStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -580,6 +585,8 @@ class NaviampTelevisionNowPlayingFocusTest {
 
     @Test
     fun miniPlayerIsStatusOnlyWithoutPlaybackOrOpenActions() = runComposeUiTest {
+        val settings = mutableStateOf(InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.SingleColor,
+            singleColorHex = "#224466"))
         setContent {
             TelevisionMiniPlayer(
                 nowPlaying = NowPlayingUi(
@@ -593,11 +600,19 @@ class NaviampTelevisionNowPlayingFocusTest {
                     canPlayPause = true,
                 ),
                 colors = NaviampColors.Dark,
+                interfaceSettings = settings.value,
             )
         }
 
         onNodeWithText("Status Track").assertExists()
         onNodeWithText("Status Artist").assertExists()
+        fun backgroundPixel(): Color {
+            val pixels = onNodeWithTag("tv-mini-player").captureToImage().toPixelMap()
+            return pixels[4, pixels.height / 2]
+        }
+        assertEquals(Color(0xFF224466), backgroundPixel())
+        runOnIdle { settings.value = settings.value.copy(singleColorHex = "#663322") }
+        assertEquals(Color(0xFF663322), backgroundPixel())
         onNodeWithContentDescription("Previous").assertDoesNotExist()
         onNodeWithContentDescription("Pause").assertDoesNotExist()
         onNodeWithContentDescription("Next").assertDoesNotExist()

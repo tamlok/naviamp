@@ -78,6 +78,7 @@ internal fun NaviampThemePalette.toNaviampColors(): NaviampColors = NaviampColor
     accent = accent.toThemeColor(),
     onAccent = onAccent.toThemeColor(),
     controlSurface = controlSurface.toThemeColor(),
+    playerSurface = playerSurface?.toThemeColor() ?: Color.Transparent,
     albumArtPlaceholder = albumArtPlaceholder.toThemeColor(),
     favorite = favorite.toThemeColor(),
     menuSurface = menuSurface.toThemeColor(),

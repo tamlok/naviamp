@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -304,7 +305,7 @@ private fun NaviampSharedAppShellContent(
                 miniPlayer = {
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions)
+                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, interfaceSettings)
                         }
                     }
                 },
@@ -980,10 +981,11 @@ private fun FullNowPlaying(
     actions: NaviampNowPlayingActions,
     interfaceSettings: InterfaceSettings,
 ) {
-    val albumColors = rememberNaviampCoverArtPlayerColors(nowPlaying.coverArtUrl, colors)
-    val playerColors = animatedNaviampPlayerColors(albumColors.withAuroraTone(interfaceSettings.auroraTone))
-    Box(modifier = Modifier.fillMaxSize()) {
-        NaviampAuroraBackground(playerColors, interfaceSettings.auroraColorSteps, interfaceSettings.auroraAngleDegrees)
+    val background = rememberNaviampPlayerBackground(interfaceSettings, nowPlaying.coverArtUrl, colors)
+    val playerColors = animatedNaviampPlayerColors(background.targetPlayerColors)
+    Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
+        NaviampAppBackground(background, colors, playerColors,
+            Modifier.matchParentSize().testTag("full-player-background"))
         NaviampNowPlayingPanel(
             contentInsets = WindowInsets(0),
             nowPlaying = nowPlaying,
@@ -1103,17 +1105,20 @@ fun NaviampMiniNowPlaying(
     colors: NaviampColors,
     onOpen: () -> Unit,
     actions: NaviampNowPlayingActions,
+    interfaceSettings: InterfaceSettings,
     modifier: Modifier = Modifier,
 ) {
     val playing = nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }
     val openLabel = stringResource(Res.string.mini_player_open)
+    val background = rememberNaviampPlayerBackground(interfaceSettings, playing?.coverArtUrl, colors)
     BoxWithConstraints(modifier.fillMaxWidth().testTag("mini-player")) {
+        NaviampPlayerBackground(background, colors,
+            Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))
         val compact = maxWidth < 360.dp
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
-                .background(colors.controlSurface)
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             Row(

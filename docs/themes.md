@@ -10,6 +10,23 @@ import/export UI or native theme-document adapter. General settings backup, rest
 Connect provisioning still preserve `InterfaceSettings.theme.mode` and `selectedPackId`. A theme ID
 unavailable in the receiving build falls back to Naviamp without changing the selected mode.
 
+## Player Background
+
+The inline **Player Background** section in Appearance selects **Aurora**, **Album Blur**, or
+**Single Color** for both the expanded player and the mini-player bar. It is not a submenu and no
+longer lives under Experience. TV Appearance exposes the same controls; the compact TV player card
+also uses the selected background.
+
+Aurora keeps its tone, color-count and gradient-angle controls. Album Blur keeps its blur-radius
+control. Single Color keeps the color preview and hue, saturation and brightness controls. These
+reuse the existing `InterfaceSettings` fields and their settings export/import/sync behavior;
+changing style does not reset the other styles' stored values.
+
+Navigation and browsing surfaces remain theme-solid. Both player sizes use the existing shared
+background renderer and artwork cache. Mini-player background layers are clipped to the bar/card
+bounds, and finite palette transitions run in the background composition rather than its controls.
+Single Color paints the selected color directly without an unused color tween.
+
 ## Shared ownership
 
 - `core/domain/src/commonMain/kotlin/app/naviamp/domain/settings/NaviampTheme.kt` defines palettes,
@@ -21,7 +38,10 @@ unavailable in the receiving build falls back to Naviamp without changing the se
   dialogs, and separately mounted diagnostics content. Typography continues to use existing font
   size preferences.
 - `core/ui/src/commonMain/kotlin/app/naviamp/ui/NaviampThemesSettings.kt` contains the shared
-  Appearance controls. Hosts neither select themes nor interpret their definitions.
+  Appearance controls, including the inline Player Background section. Hosts neither select themes
+  nor interpret their definitions.
+- `core/ui/src/commonMain/kotlin/app/naviamp/ui/NaviampAppBackground.kt` owns the shared background
+  model/rendering used by expanded players and compact player bars.
 
 Catalog validation happens once at construction. The catalog snapshots its registrations, exposes
 an immutable list, and rejects duplicate IDs or a missing/modified Naviamp fallback. Rendering
@@ -40,8 +60,10 @@ A `NaviampThemePack` contains:
 | `author` | Optional nonblank attribution, at most 120 characters, no control characters. |
 | `light`, `dark` | Complete `NaviampThemePalette` values; every token is required. |
 
-Colors are opaque `#RRGGBB` strings. Hex digits may use either case. Definitions contain no code
-execution hooks, URLs, external assets, fonts, widget overrides, or references to other themes.
+Color values are opaque `#RRGGBB` strings; hex digits may use either case. The required
+`playerSurface` token additionally accepts `null`, explicitly meaning transparent. Other color
+tokens cannot be null. Definitions contain no code execution hooks, URLs, external assets, fonts,
+widget overrides, or references to other themes.
 Kotlin type checking enforces required tokens; catalog validation checks version, identity,
 metadata, and color syntax. It does not certify accessibility: authors must verify contrast.
 
@@ -52,7 +74,8 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `primaryText`, `secondaryText`, `mutedText` | Foreground hierarchy. |
 | `border` | Outlines and separators. |
 | `accent`, `onAccent` | Selected/action background and its foreground. |
-| `controlSurface` | Cards, controls, and readable player panels. |
+| `controlSurface` | App cards, controls, dialogs and lyrics panels. |
+| `playerSurface` | Standard full-player controller, queue/history/related/station panels and unselected rows; null means transparent. |
 | `albumArtPlaceholder` | Missing/loading artwork. |
 | `favorite` | Favorite indicator. |
 | `menuSurface`, `menuText` | Menu background and foreground. |
@@ -84,7 +107,7 @@ No role is left on a default Material purple palette:
 ## Adding or generating a theme
 
 1. Create a common-domain definition beside `NaviampForestTheme.kt`, with its own stable ID and
-   **all twenty tokens in both variants**. Copy the complete example structure, not a runtime
+   **all twenty-one tokens in both variants**. Copy the complete example structure, not a runtime
    inheritance/override chain.
 2. Register the definition in `NaviampThemes` in `NaviampTheme.kt`. Registration order is UI order.
    Never remove or mutate the Naviamp fallback.
@@ -97,10 +120,18 @@ No role is left on a default Material purple palette:
    unknown-ID fallback. A new theme should require no host changes.
 
 Artwork color extraction is separate from application theming. Fixed black artwork fades use the
-selected pack's dark foreground palette; ordinary player panels use the selected application
-surface. TV promotes secondary/muted text to the selected primary foreground and provides an
-opaque reading background, preserving readability over arbitrary artwork. Visualizer artwork,
-intentional white artwork labels, and modal dimming are not recolored as ordinary app chrome.
+selected pack's dark foreground palette. Naviamp sets `playerSurface = null` in both variants, so
+its controller and queue panels reveal the selected Player Background. Forest retains its opaque
+player surfaces. Selected-row/tab feedback, lyrics panels, menus and dialogs keep their existing
+fills. This token does not determine the mini-player fill: Player Background does.
+
+Player text colors are deliberately unchanged. Transparent panels and user-selected backgrounds
+can reduce contrast, particularly in Light mode; no automatic foreground adjustment, added scrim
+or gradient modification compensates for that explicit presentation choice.
+
+TV promotes secondary/muted text to the selected primary foreground and keeps its separate opaque
+ten-foot reading background. Visualizer artwork, intentional white artwork labels and modal
+dimming are not recolored as ordinary app chrome.
 
 ## Native boundary inventory
 
@@ -132,8 +163,11 @@ profiles and active remote playback retain the normal shell.
 
 Local validation includes Android debug packaging, Windows packaged-app staging, shared iOS Arm64
 klib compilation, a standalone typecheck of the UIKit status-bar container, translation validation,
-and the architecture guard. Real Android UI checks cover direct Appearance, bundled theme/mode
-changes, system-bar contrast, and the requested icons/copy. A captured Windows app window verifies
+and the architecture guard. Rendered player tests verify transparent/opaque panels, live style
+changes with and without media, both player sizes, and Album Blur clipping at route/navigation
+seams. Small-viewport settings tests exercise unscaled slider geometry, keyboard focus/stepping,
+and all three inline styles. Real Android UI checks cover direct Appearance, bundled theme/mode changes,
+Player Background on both surfaces, system-bar contrast, and the requested icons/copy. A captured Windows app window verifies
 the connection-only first-run surface and native titlebar polarity.
 
 Full iOS application linking, Swift/UIKit compilation and on-device status-bar, rotation, reconnect,

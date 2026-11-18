@@ -465,6 +465,7 @@ private fun NaviampTelevisionAppShellContent(
                                         TelevisionMiniPlayer(
                                             nowPlaying = nowPlaying,
                                             colors = colors,
+                                            interfaceSettings = interfaceSettings,
                                             modifier = Modifier.padding(horizontal = 36.dp, vertical = 4.dp),
                                         )
                                     }

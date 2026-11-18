@@ -7,20 +7,6 @@ import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun televisionBackgroundLabel(value: AppBackgroundStyle): String = when (value) {
-    AppBackgroundStyle.Aurora -> stringResource(Res.string.tv_aurora)
-    AppBackgroundStyle.AlbumBlur -> stringResource(Res.string.tv_album_blur)
-    AppBackgroundStyle.SingleColor -> stringResource(Res.string.tv_single_color_uppercase)
-}
-
-@Composable
-internal fun televisionAuroraToneLabel(value: AuroraTone): String = when (value) {
-    AuroraTone.Light -> stringResource(Res.string.aurora_tone_light)
-    AuroraTone.Dark -> stringResource(Res.string.mix_bias_balanced)
-    AuroraTone.DeepDark -> stringResource(Res.string.aurora_tone_dark)
-}
-
-@Composable
 internal fun televisionReplayGainLabel(value: ReplayGainMode): String = when (value) {
     ReplayGainMode.Off -> stringResource(Res.string.common_off)
     ReplayGainMode.Track -> stringResource(Res.string.tv_track)

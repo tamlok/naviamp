@@ -1,5 +1,6 @@
 package app.naviamp.ui
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.domain.settings.InterfaceSettings
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import app.naviamp.ui.generated.resources.*
@@ -2111,34 +2112,36 @@ private fun TelevisionQueueActionsDialog(
 internal fun TelevisionMiniPlayer(
     nowPlaying: NowPlayingUi,
     colors: NaviampColors,
+    interfaceSettings: InterfaceSettings,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .background(colors.controlSurface, shape)
-            .padding(horizontal = 12.dp, vertical = 5.dp),
-    ) {
-        NaviampCoverArt(nowPlaying.coverArtUrl, colors, 36.dp, 6.dp, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                nowPlaying.title,
-                color = colors.primaryText,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                nowPlaying.subtitle,
-                color = colors.secondaryText,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+    val background = rememberNaviampPlayerBackground(interfaceSettings, nowPlaying.coverArtUrl, colors)
+    Box(modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).testTag("tv-mini-player")) {
+        NaviampPlayerBackground(background, colors, Modifier.matchParentSize())
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 5.dp),
+        ) {
+            NaviampCoverArt(nowPlaying.coverArtUrl, colors, 36.dp, 6.dp, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    nowPlaying.title,
+                    color = colors.primaryText,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    nowPlaying.subtitle,
+                    color = colors.secondaryText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }

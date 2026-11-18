@@ -35,6 +35,7 @@ data class NaviampColors(
     val accent: Color = Dark.accent,
     val onAccent: Color = Dark.onAccent,
     val controlSurface: Color = Dark.controlSurface,
+    val playerSurface: Color = Dark.playerSurface,
     val albumArtPlaceholder: Color = Dark.albumArtPlaceholder,
     val favorite: Color = Dark.favorite,
     val menuSurface: Color = Dark.menuSurface,

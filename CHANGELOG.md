@@ -9,7 +9,8 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
 - Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides the mini-player and uses the freed space; closing details restores it.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
-- Use solid theme backgrounds in the standard app, with artwork-color blending confined to expanded Now Playing. Gradient controls are in Player settings; TV background preferences are unchanged.
+- Keep navigation and browsing backgrounds theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
+- Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 

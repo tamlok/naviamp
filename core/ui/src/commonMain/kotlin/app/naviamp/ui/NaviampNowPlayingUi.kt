@@ -897,8 +897,8 @@ private fun NowPlayingDetails(
         } else {
             Arrangement.spacedBy(if (compactLayout) 5.dp else 6.dp)
         },
-        modifier = modifier.then(
-            if (filledArtworkLayout) Modifier else Modifier.background(colors.controlSurface, RoundedCornerShape(8.dp)),
+        modifier = modifier.testTag("now-playing-controller").then(
+            if (filledArtworkLayout) Modifier else Modifier.background(colors.playerSurface, RoundedCornerShape(8.dp)),
         ).padding(
             bottom = when {
                 pinBottomActions -> 8.dp
@@ -2299,7 +2299,7 @@ private fun NowPlayingSidePanel(
         modifier = modifier
             .testTag("now-playing-side-panel")
             .clip(RoundedCornerShape(8.dp))
-            .background(colors.controlSurface)
+            .background(colors.playerSurface)
             .padding(8.dp),
     ) {
         if (showStationList) {
@@ -3416,7 +3416,7 @@ private fun NowPlayingItemList(
                     modifier = swipeModifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(5.dp))
-                        .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.controlSurface)
+                        .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.playerSurface)
                         .clickable { onClick(item) }
                         .padding(horizontal = 6.dp, vertical = rowVerticalPadding),
                 ) {

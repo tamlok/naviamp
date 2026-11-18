@@ -21,6 +21,7 @@ import app.naviamp.domain.queue.groupAt
 import app.naviamp.domain.queue.RepeatMode
 import app.naviamp.domain.radio.RadioDjPreset
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.waveform.AudioWaveform
 import kotlinx.coroutines.flow.StateFlow
 
@@ -274,6 +275,7 @@ fun NaviampMiniPlayerContent(
     colors: NaviampColors,
     actions: NaviampNowPlayingActions,
     onOpen: () -> Unit,
+    interfaceSettings: InterfaceSettings,
     modifier: Modifier = Modifier,
 ) {
     NaviampMiniNowPlaying(
@@ -281,6 +283,7 @@ fun NaviampMiniPlayerContent(
         colors = colors,
         actions = actions,
         onOpen = onOpen,
+        interfaceSettings = interfaceSettings,
         modifier = modifier,
     )
 }

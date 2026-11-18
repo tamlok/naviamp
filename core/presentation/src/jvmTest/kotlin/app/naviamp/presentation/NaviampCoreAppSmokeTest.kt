@@ -70,14 +70,15 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun artworkBackgroundBelongsOnlyToExpandedPlayerRegardlessOfLegacyStyle() = runDesktopComposeUiTest(1280, 720) {
+    fun selectedBackgroundStyleReachesBothPlayersWithoutTintingNavigationOrBrowsing() = runDesktopComposeUiTest(1280, 720) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val core = NaviampCore.create(scope, fakeCoreServices())
         val redArtwork = "naviamp-radio-tile://cover?label=BackgroundRed&from=CC2222&to=CC2222"
         val blueArtwork = "naviamp-radio-tile://cover?label=BackgroundBlue&from=2222CC&to=2222CC"
         val ui = mutableStateOf(NaviampAppShellUiState(
             connectionSettings = NaviampConnectionSettingsUi(connection = NaviampShellConnectionUi(connected = true)),
-            general = NaviampGeneralSettingsUi(interfaceSettings = InterfaceSettings(singleColorHex = "#FFFFFF")),
+            general = NaviampGeneralSettingsUi(interfaceSettings = InterfaceSettings(
+                appBackgroundStyle = AppBackgroundStyle.SingleColor, singleColorHex = "#224466")),
             nowPlaying = NowPlayingUi(id = "background-track", title = "Background track", subtitle = "Artist",
                 stateLabel = "Paused", isPaused = true, coverArtUrl = redArtwork),
         ))
@@ -89,59 +90,113 @@ class NaviampCoreAppSmokeTest {
                 SideEffect { loadedPalette = palette }
                 NaviampSharedAppShell(uiState = ui.value, actions = core.actions.shell, syncActions = core.actions.settingsSync)
             }
-            fun routeCorners(): Pair<Color, Color> {
-                val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
+            fun miniPixel(): Color = onNodeWithTag("mini-player").captureToImage().toPixelMap()[2, 2]
+            fun fullPixels(): Pair<Color, Color> {
+                val pixels = onNodeWithTag("full-player-background").captureToImage().toPixelMap()
                 return pixels[2, 2] to pixels[pixels.width - 3, pixels.height - 3]
             }
-            fun railColor(): Color {
-                val rail = onNodeWithTag("main-navigation-rail").captureToImage().toPixelMap()
-                return rail[2, rail.height - 3]
+            fun assertSolidNavigation() {
+                val pixels = onNodeWithTag("main-navigation-rail").captureToImage().toPixelMap()
+                assertEquals(NaviampColors.Dark.controlSurface, pixels[2, pixels.height - 3])
             }
-            fun miniPlayerColor(): Color = onNodeWithTag("mini-player").captureToImage().toPixelMap()[2, 2]
-            fun assertSolidApp() {
+            fun assertSolidBrowsing() {
                 val pixels = onNodeWithTag("main-route-content").captureToImage().toPixelMap()
                 assertEquals(NaviampColors.Dark.background, pixels[2, pixels.height - 3])
                 assertEquals(NaviampColors.Dark.background, pixels[pixels.width - 3, pixels.height - 3])
+                assertSolidNavigation()
             }
-            for (legacyStyle in AppBackgroundStyle.entries) {
+            fun expand(expanded: Boolean) {
+                runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = expanded)) }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+            }
+            fun artwork(url: String) {
+                runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(
+                    coverArtUrl = url, trackCoverArtUrl = url, albumCoverArtUrl = url)) }
+            }
+            assertEquals(Color(0xFF224466), miniPixel())
+            assertSolidBrowsing()
+            expand(true)
+            assertEquals(Color(0xFF224466) to Color(0xFF224466), fullPixels())
+            runOnIdle { ui.value = ui.value.copy(general = ui.value.general.copy(
+                interfaceSettings = ui.value.general.interfaceSettings.copy(singleColorHex = "#663322"))) }
+            assertEquals(Color(0xFF663322) to Color(0xFF663322), fullPixels())
+            expand(false)
+            assertEquals(Color(0xFF663322), miniPixel())
+            for (style in listOf(AppBackgroundStyle.Aurora, AppBackgroundStyle.AlbumBlur)) {
+                artwork(redArtwork)
                 runOnIdle { ui.value = ui.value.copy(general = ui.value.general.copy(
-                    interfaceSettings = ui.value.general.interfaceSettings.copy(appBackgroundStyle = legacyStyle))) }
-                assertSolidApp()
+                    interfaceSettings = ui.value.general.interfaceSettings.copy(appBackgroundStyle = style))) }
+                waitUntil(timeoutMillis = 5_000) { loadedPalette != fallback && loadedPalette.backgroundStart.red > loadedPalette.backgroundStart.blue }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+                val redMini = miniPixel()
+                assertSolidBrowsing()
+                expand(true)
+                val redFull = fullPixels()
+                assertSolidNavigation()
+                onNodeWithTag("mini-player").assertDoesNotExist()
+                artwork(blueArtwork)
+                waitUntil(timeoutMillis = 5_000) { loadedPalette.backgroundStart.blue > loadedPalette.backgroundStart.red }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+                assertTrue(fullPixels() != redFull, "$style full-player background must follow artwork")
+                assertSolidNavigation()
+                expand(false)
+                assertTrue(miniPixel() != redMini, "$style player-bar background must follow artwork")
+                assertSolidBrowsing()
             }
-            waitUntil(timeoutMillis = 5_000) { loadedPalette != fallback }
-            val redPalette = loadedPalette
-            val solidRail = railColor()
-            val solidMiniPlayer = miniPlayerColor()
-            runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = true)) }
-            mainClock.advanceTimeBy(500)
-            waitForIdle()
-            val redCorners = routeCorners()
-            assertTrue(redCorners.first != redCorners.second, "Expanded player has an artwork gradient")
-            assertEquals(solidRail, railColor(), "Artwork must not tint navigation")
-            onNodeWithTag("mini-player").assertDoesNotExist()
-            runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = blueArtwork, trackCoverArtUrl = blueArtwork, albumCoverArtUrl = blueArtwork)) }
-            waitUntil(timeoutMillis = 5_000) { loadedPalette != redPalette && loadedPalette != fallback }
-            mainClock.advanceTimeBy(500)
-            waitForIdle()
-            val blueCorners = routeCorners()
-            assertTrue(blueCorners != redCorners, "Settled player background must respond to the loaded artwork")
-            mainClock.advanceTimeBy(500)
-            assertEquals(blueCorners, routeCorners(), "Compare settled colors, not an intermediate animation frame")
-            assertEquals(solidRail, railColor())
-            onNodeWithTag("mini-player").assertDoesNotExist()
-            runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = false)) }
-            assertEquals(solidMiniPlayer, miniPlayerColor())
-            assertSolidApp()
-            runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(coverArtUrl = redArtwork, trackCoverArtUrl = redArtwork, albumCoverArtUrl = redArtwork)) }
-            assertSolidApp()
         } finally { scope.cancel() }
     }
 
     @Test
-    fun playerGradientControlsPreserveTelevisionBackgroundPreferences() = runDesktopComposeUiTest(1000, 740) {
+    fun albumBlurCannotBleedAboveOrBelowThePlayerBar() = runDesktopComposeUiTest(412, 818) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        val core = NaviampCore.create(scope, fakeCoreServices())
+        val firstArt = "naviamp-radio-tile://cover?label=ClipRed&from=FF1111&to=FF1111"
+        val secondArt = "naviamp-radio-tile://cover?label=ClipBlue&from=1111FF&to=1111FF"
+        val ui = mutableStateOf(NaviampAppShellUiState(
+            connectionSettings = NaviampConnectionSettingsUi(connection = NaviampShellConnectionUi(connected = true)),
+            general = NaviampGeneralSettingsUi(interfaceSettings = InterfaceSettings(
+                appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
+                albumBlurRadiusDp = app.naviamp.domain.settings.MaxAlbumBlurRadiusDp)),
+            nowPlaying = NowPlayingUi(id = "clip-track", title = "Clip track", subtitle = "Artist",
+                stateLabel = "Paused", isPaused = true, coverArtUrl = firstArt),
+        ))
+        try {
+            setContent {
+                NaviampSharedAppShell(uiState = ui.value, actions = core.actions.shell, syncActions = core.actions.settingsSync)
+            }
+            var priorMini: Color? = null
+            for (art in listOf(firstArt, secondArt)) {
+                runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(
+                    coverArtUrl = art, trackCoverArtUrl = art, albumCoverArtUrl = art)) }
+                waitUntil(timeoutMillis = 5_000) {
+                    val pixel = onNodeWithTag("mini-player").captureToImage().toPixelMap()[2, 2]
+                    if (art == firstArt) pixel.red > pixel.blue + 0.15f
+                    else pixel.blue > pixel.red + 0.15f
+                }
+                mainClock.advanceTimeBy(500)
+                waitForIdle()
+                val player = onNodeWithTag("main-mini-player").fetchSemanticsNode().boundsInRoot
+                val navigation = onNodeWithTag("main-navigation-bottom").fetchSemanticsNode().boundsInRoot
+                val image = onNode(isRoot() and hasAnyDescendant(hasTestTag("main-route-content")))
+                    .captureToImage().toPixelMap()
+                val x = image.width - 3
+                assertEquals(NaviampColors.Dark.background, image[x, player.top.toInt() - 2], "Blur leaked into route")
+                assertEquals(NaviampColors.Dark.controlSurface, image[x, navigation.top.toInt() + 2], "Blur leaked into navigation")
+                val mini = image[2, player.top.toInt() + 2]
+                priorMini?.let { assertTrue(it != mini, "The clipped bar must still render the changed artwork") }
+                priorMini = mini
+            }
+        } finally { scope.cancel() }
+    }
+
+    @Test
+    fun appearancePlayerBackgroundControlsApplyInlineWithoutResettingOtherStyles() = runDesktopComposeUiTest(1000, 740) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val settings = InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
-            singleColorHex = "#FFFFFF", albumBlurRadiusDp = 36)
+            singleColorHex = "#224466", albumBlurRadiusDp = 36)
         val provider = FakeCoreMediaProvider()
         val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
             connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
@@ -150,15 +205,31 @@ class NaviampCoreAppSmokeTest {
         try {
             setContent { NaviampCoreApp(core) }
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Settings)
-            onNodeWithText("Experience", substring = false).performClick()
-            onNodeWithText("Player", substring = false).performScrollTo().performClick()
-            onNodeWithText("Light", substring = false).performScrollTo().performClick()
+            onNodeWithText("Appearance", substring = false).performClick()
+            onNodeWithTag("player-background-style:Aurora").performScrollTo().performClick()
+            onNodeWithTag("player-background-tone:Light").performScrollTo().performClick()
+            onNodeWithTag("player-background-color-steps").performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(5f) }
+            onNodeWithTag("player-background-angle").performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(135f) }
+            onNodeWithTag("player-background-style:SingleColor").performScrollTo().performClick()
+            onNodeWithTag("player-background-hue").performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(180f) }
+            onNodeWithTag("player-background-style:AlbumBlur").performScrollTo().performClick()
+            onNodeWithTag("player-background-blur").performScrollTo()
+                .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.SetProgress) { it(42f) }
             runOnIdle {
-                assertEquals(settings.copy(auroraTone = AuroraTone.Light), core.state.value.shell.general.interfaceSettings)
+                assertEquals(settings.copy(auroraTone = AuroraTone.Light, auroraColorSteps = 5,
+                    auroraAngleDegrees = 135, singleColorHex = "#226666", albumBlurRadiusDp = 42),
+                    core.state.value.shell.general.interfaceSettings)
             }
-            onNodeWithText("Dark", substring = false).performScrollTo().performClick()
+            onNodeWithTag("player-background-style:Aurora").performScrollTo().performClick()
+            onNodeWithTag("player-background-settings").assertExists()
             runOnIdle {
-                assertEquals(settings.copy(auroraTone = AuroraTone.DeepDark), core.state.value.shell.general.interfaceSettings)
+                val current = core.state.value.shell.general.interfaceSettings
+                assertEquals(AppBackgroundStyle.Aurora, current.appBackgroundStyle)
+                assertEquals("#226666", current.singleColorHex)
+                assertEquals(42, current.albumBlurRadiusDp)
             }
         } finally { scope.cancel() }
     }

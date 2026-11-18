@@ -90,7 +90,7 @@ class NaviampThemeTest {
     }
 
     @Test
-    fun everySemanticColorInBothVariantsMustBeCompleteAndOpaque() {
+    fun everyNonNullSemanticColorInBothVariantsMustBeCompleteAndOpaque() {
         for (color in listOf("", "#FFF", "#FFFFFFFF", "transparent", "123456", "#GG0000", " #123456")) {
             for (palette in invalidPalettes(NaviampForestTheme.light, color)) {
                 assertInvalid(NaviampForestTheme.copy(light = palette))
@@ -116,6 +116,7 @@ class NaviampThemeTest {
         palette.copy(accent = color),
         palette.copy(onAccent = color),
         palette.copy(controlSurface = color),
+        palette.copy(playerSurface = color),
         palette.copy(albumArtPlaceholder = color),
         palette.copy(favorite = color),
         palette.copy(menuSurface = color),

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -50,6 +51,37 @@ internal fun naviampAppBackgroundUi(
         auroraColorSteps = interfaceSettings.auroraColorSteps,
         auroraAngleDegrees = interfaceSettings.auroraAngleDegrees,
     )
+}
+
+@Composable
+internal fun rememberNaviampPlayerBackground(
+    interfaceSettings: InterfaceSettings,
+    coverArtUrl: String?,
+    colors: NaviampColors,
+): NaviampAppBackgroundUi {
+    val albumColors = if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.SingleColor) {
+        remember(colors) { NaviampPlayerColors.solid(colors.background) }
+    } else {
+        rememberNaviampCoverArtPlayerColors(coverArtUrl, colors)
+    }
+    return remember(interfaceSettings, coverArtUrl, albumColors, colors) {
+        naviampAppBackgroundUi(interfaceSettings, coverArtUrl, albumColors, colors)
+    }
+}
+
+/** Keep finite palette transitions in the background layer, outside player controls/navigation. */
+@Composable
+internal fun NaviampPlayerBackground(
+    background: NaviampAppBackgroundUi,
+    colors: NaviampColors,
+    modifier: Modifier = Modifier,
+) {
+    val playerColors = if (background.style == AppBackgroundStyle.SingleColor) {
+        background.targetPlayerColors
+    } else {
+        animatedNaviampPlayerColors(background.targetPlayerColors)
+    }
+    NaviampAppBackground(background, colors, playerColors, modifier)
 }
 
 @Composable

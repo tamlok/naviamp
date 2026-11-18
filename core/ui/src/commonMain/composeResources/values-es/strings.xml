@@ -9,6 +9,7 @@
     <string name="settings_themes_catalog">Paquetes de temas</string>
     <string name="settings_themes_builtin">Naviamp</string>
     <string name="settings_themes_forest">Bosque</string>
+    <string name="settings_player_background">Fondo del reproductor</string>
     <string name="nav_radio">Radio</string>
     <string name="nav_my">Mi espacio</string>
     <string name="navigation_open">Abrir navegación</string>

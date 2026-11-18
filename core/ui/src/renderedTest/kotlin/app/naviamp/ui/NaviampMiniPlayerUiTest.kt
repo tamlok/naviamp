@@ -5,12 +5,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.InterfaceFontSize
+import app.naviamp.domain.settings.InterfaceSettings
+import app.naviamp.domain.settings.AppBackgroundStyle
+import app.naviamp.domain.settings.AuroraTone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -21,11 +26,34 @@ class NaviampMiniPlayerUiTest {
         NaviampNowPlayingActions({ playback(it.action) }, {}, {}, {}, {}, {}, {})
 
     @Test
+    fun emptyPlayerBackgroundTransitionsRemainLiveAcrossStyles() = runComposeUiTest {
+        val settings = mutableStateOf(InterfaceSettings(appBackgroundStyle = AppBackgroundStyle.AlbumBlur,
+            albumBlurRadiusDp = 36, singleColorHex = "#315577"))
+        setContent { Box(Modifier.width(1000.dp)) {
+            NaviampMiniNowPlaying(null, NaviampColors.Dark, {}, actions(), settings.value)
+        } }
+        runOnIdle { settings.value = settings.value.copy(appBackgroundStyle = AppBackgroundStyle.Aurora) }
+        mainClock.advanceTimeBy(500)
+        runOnIdle { settings.value = settings.value.copy(auroraTone = AuroraTone.Light) }
+        mainClock.advanceTimeBy(500)
+        runOnIdle { settings.value = settings.value.copy(auroraColorSteps = 5) }
+        mainClock.advanceTimeBy(500)
+        val gradient = onNodeWithTag("mini-player").captureToImage().toPixelMap()
+        assertTrue(gradient[2, 2] != gradient[gradient.width - 3, 2], "Empty player retains its fallback artwork gradient")
+        runOnIdle { settings.value = settings.value.copy(appBackgroundStyle = AppBackgroundStyle.SingleColor) }
+        val solid = onNodeWithTag("mini-player").captureToImage().toPixelMap()
+        assertEquals(Color(0xFF315577), solid[2, 2])
+        assertEquals(Color(0xFF315577), solid[solid.width - 3, 2])
+        onNodeWithText("Nothing playing").assertIsDisplayed()
+        onNodeWithContentDescription("Play").assertIsNotEnabled()
+    }
+
+    @Test
     fun emptyAndSyntheticPlayersStayVisibleWithoutPlayableActions() = runComposeUiTest {
         val state = mutableStateOf<NowPlayingUi?>(null)
         var opened = false
         setContent { Box(Modifier.width(412.dp)) {
-            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened = true }, actions())
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened = true }, actions(), InterfaceSettings())
         } }
         fun assertEmpty() {
             onNodeWithText("Nothing playing").assertIsDisplayed()
@@ -59,7 +87,7 @@ class NaviampMiniPlayerUiTest {
                     NowPlayingPlaybackAction.Resume, NowPlayingPlaybackAction.PlayCurrent -> state.value.copy(isPlaying = true, isPaused = false)
                     else -> state.value
                 }
-            })
+            }, InterfaceSettings())
         } }
         onNodeWithContentDescription("Pause").assertIsEnabled().performClick()
         onNodeWithContentDescription("Play").performClick()
@@ -90,7 +118,7 @@ class NaviampMiniPlayerUiTest {
                     Box(Modifier.width(320.dp)) {
                         NaviampMiniNowPlaying(NowPlayingUi(id = "track", title = "A long current track title",
                             subtitle = "Artist", stateLabel = "Paused", isPaused = true, hasNext = true),
-                            NaviampColors.Dark, {}, actions())
+                            NaviampColors.Dark, {}, actions(), InterfaceSettings())
                     }
                 }
             }
@@ -110,7 +138,7 @@ class NaviampMiniPlayerUiTest {
         setContent { Box(Modifier.width(412.dp)) {
             NaviampMiniNowPlaying(NowPlayingUi(title = "Fixture radio", subtitle = "Live station", stateLabel = "Live",
                 isLive = true, isPlaying = true, hasPrevious = false, hasNext = true, canSeek = false),
-                NaviampColors.Dark, {}, actions())
+                NaviampColors.Dark, {}, actions(), InterfaceSettings())
         } }
         onNodeWithText("Fixture radio", useUnmergedTree = true).assertIsDisplayed()
         onNodeWithText("Live station", useUnmergedTree = true).assertIsDisplayed()

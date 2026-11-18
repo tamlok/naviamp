@@ -119,6 +119,9 @@ import app.naviamp.domain.radio.RadioTuningSettings
 import app.naviamp.domain.settings.CacheSettings
 import app.naviamp.domain.settings.ApplicationUpdateChannel
 import app.naviamp.domain.settings.AuroraTone
+import app.naviamp.domain.settings.AppBackgroundStyle
+import app.naviamp.domain.settings.MinAlbumBlurRadiusDp
+import app.naviamp.domain.settings.MaxAlbumBlurRadiusDp
 import app.naviamp.domain.settings.ConnectionFormMusicFolder
 import app.naviamp.domain.settings.ConnectionFormState
 import app.naviamp.domain.provider.ProviderIdNavidrome
@@ -1180,43 +1183,126 @@ internal fun FontSizeSettings(
 }
 
 @Composable
-private fun NowPlayingBackgroundSettings(
+internal fun NaviampPlayerBackgroundSettings(
     colors: NaviampColors,
     interfaceSettings: InterfaceSettings,
     onInterfaceSettingsChanged: (InterfaceSettings) -> Unit,
 ) {
-    SettingsSectionTitle(stringResource(Res.string.tv_background), colors)
-    CompactBackgroundSlider(
-        label = stringResource(Res.string.aurora_color_steps),
-        value = interfaceSettings.auroraColorSteps.toFloat(), valueRange = 2f..5f,
-        valueText = stringResource(Res.string.aurora_color_count, interfaceSettings.auroraColorSteps),
-        colors = colors, steps = 2,
-        onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraColorSteps = it.roundToInt()).normalized()) },
-    )
-    CompactBackgroundSlider(
-        label = stringResource(Res.string.aurora_gradient_angle),
-        value = interfaceSettings.auroraAngleDegrees.toFloat(), valueRange = 0f..180f,
-        valueText = stringResource(Res.string.aurora_angle_value, interfaceSettings.auroraAngleDegrees),
-        colors = colors,
-        onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraAngleDegrees = it.roundToInt()).normalized()) },
-    )
-    SettingsSectionTitle(stringResource(Res.string.aurora_tone), colors)
-    AuroraTone.entries.forEach { tone ->
-        SelectableSettingsRow(
-            title = stringResource(when (tone) {
-                AuroraTone.Light -> Res.string.aurora_tone_light
-                AuroraTone.Dark -> Res.string.aurora_tone_balanced
-                AuroraTone.DeepDark -> Res.string.aurora_tone_dark
-            }),
-            subtitle = when (tone) {
-                AuroraTone.Dark -> stringResource(Res.string.aurora_tone_balanced_description)
-                AuroraTone.Light -> stringResource(Res.string.aurora_tone_light_description)
-                AuroraTone.DeepDark -> stringResource(Res.string.aurora_tone_dark_description)
-            },
-            selected = interfaceSettings.auroraTone == tone,
-            colors = colors,
-        ) {
-            onInterfaceSettingsChanged(interfaceSettings.copy(auroraTone = tone).normalized())
+    Column(Modifier.fillMaxWidth().testTag("player-background-settings")) {
+        SettingsSectionTitle(stringResource(Res.string.settings_player_background), colors)
+        Column(Modifier.selectableGroup()) {
+            AppBackgroundStyle.entries.forEach { style ->
+                SelectableSettingsRow(
+                    title = stringResource(when (style) {
+                        AppBackgroundStyle.Aurora -> Res.string.tv_aurora
+                        AppBackgroundStyle.AlbumBlur -> Res.string.tv_album_blur
+                        AppBackgroundStyle.SingleColor -> Res.string.tv_single_color_uppercase
+                    }),
+                    selected = interfaceSettings.appBackgroundStyle == style,
+                    colors = colors,
+                    modifier = Modifier.testTag("player-background-style:${style.name}"),
+                ) {
+                    onInterfaceSettingsChanged(interfaceSettings.copy(appBackgroundStyle = style).normalized())
+                }
+            }
+        }
+        when (interfaceSettings.appBackgroundStyle) {
+            AppBackgroundStyle.Aurora -> {
+                SettingsSectionTitle(stringResource(Res.string.aurora_tone), colors)
+                Column(Modifier.selectableGroup()) {
+                    AuroraTone.entries.forEach { tone ->
+                        SelectableSettingsRow(
+                            title = stringResource(when (tone) {
+                                AuroraTone.Light -> Res.string.aurora_tone_light
+                                AuroraTone.Dark -> Res.string.aurora_tone_balanced
+                                AuroraTone.DeepDark -> Res.string.aurora_tone_dark
+                            }),
+                            subtitle = stringResource(when (tone) {
+                                AuroraTone.Light -> Res.string.aurora_tone_light_description
+                                AuroraTone.Dark -> Res.string.aurora_tone_balanced_description
+                                AuroraTone.DeepDark -> Res.string.aurora_tone_dark_description
+                            }),
+                            selected = interfaceSettings.auroraTone == tone,
+                            colors = colors,
+                            modifier = Modifier.testTag("player-background-tone:${tone.name}"),
+                        ) {
+                            onInterfaceSettingsChanged(interfaceSettings.copy(auroraTone = tone).normalized())
+                        }
+                    }
+                }
+                CompactBackgroundSlider(
+                    label = stringResource(Res.string.aurora_color_steps),
+                    value = interfaceSettings.auroraColorSteps.toFloat(), valueRange = 2f..5f,
+                    valueText = stringResource(Res.string.aurora_color_count, interfaceSettings.auroraColorSteps),
+                    colors = colors, steps = 2, keyStep = 1f,
+                    testTag = "player-background-color-steps",
+                    onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraColorSteps = it.roundToInt()).normalized()) },
+                )
+                CompactBackgroundSlider(
+                    label = stringResource(Res.string.aurora_gradient_angle),
+                    value = interfaceSettings.auroraAngleDegrees.toFloat(), valueRange = 0f..180f,
+                    valueText = stringResource(Res.string.aurora_angle_value, interfaceSettings.auroraAngleDegrees),
+                    colors = colors, keyStep = 15f,
+                    testTag = "player-background-angle",
+                    onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(auroraAngleDegrees = it.roundToInt()).normalized()) },
+                )
+            }
+            AppBackgroundStyle.AlbumBlur -> CompactBackgroundSlider(
+                label = stringResource(Res.string.tv_blur_amount),
+                value = interfaceSettings.albumBlurRadiusDp.toFloat(),
+                valueRange = MinAlbumBlurRadiusDp.toFloat()..MaxAlbumBlurRadiusDp.toFloat(),
+                valueText = stringResource(Res.string.tv_blur_value, interfaceSettings.albumBlurRadiusDp),
+                colors = colors, keyStep = 2f,
+                testTag = "player-background-blur",
+                onValueChange = { onInterfaceSettingsChanged(interfaceSettings.copy(albumBlurRadiusDp = it.roundToInt()).normalized()) },
+            )
+            AppBackgroundStyle.SingleColor -> {
+                val selectedColor = naviampColorFromHex(interfaceSettings.singleColorHex) ?: colors.background
+                val hsv = naviampColorToHsv(selectedColor)
+                val updateColor: (Float, Float, Float) -> Unit = { hue, saturation, brightness ->
+                    onInterfaceSettingsChanged(interfaceSettings.copy(
+                        singleColorHex = naviampColorToHex(naviampColorFromHsv(hue, saturation, brightness)),
+                    ).normalized())
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(SettingsRowHorizontalPadding)
+                        .testTag("player-background-color-preview"),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(46.dp)
+                        .background(selectedColor, RoundedCornerShape(10.dp))
+                        .border(1.dp, colors.border, RoundedCornerShape(10.dp)))
+                    Column {
+                        Text(stringResource(Res.string.tv_selected_color), color = colors.primaryText, fontSize = SettingsDetailRowTitleSize)
+                        Text(interfaceSettings.singleColorHex, color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
+                    }
+                }
+                CompactBackgroundSlider(
+                    label = stringResource(Res.string.tv_hue),
+                    value = hsv[0] * 360f, valueRange = 0f..360f,
+                    valueText = stringResource(Res.string.aurora_angle_value, (hsv[0] * 360f).toInt()),
+                    colors = colors, keyStep = 10f,
+                    testTag = "player-background-hue",
+                    onValueChange = { updateColor(it / 360f, hsv[1], hsv[2]) },
+                )
+                CompactBackgroundSlider(
+                    label = stringResource(Res.string.tv_saturation),
+                    value = hsv[1] * 100f, valueRange = 0f..100f,
+                    valueText = stringResource(Res.string.tv_percentage_value, (hsv[1] * 100f).toInt()),
+                    colors = colors, keyStep = 5f,
+                    testTag = "player-background-saturation",
+                    onValueChange = { updateColor(hsv[0], it / 100f, hsv[2]) },
+                )
+                CompactBackgroundSlider(
+                    label = stringResource(Res.string.tv_brightness),
+                    value = hsv[2] * 100f, valueRange = 8f..70f,
+                    valueText = stringResource(Res.string.tv_percentage_value, (hsv[2] * 100f).toInt()),
+                    colors = colors, keyStep = 5f,
+                    testTag = "player-background-brightness",
+                    onValueChange = { updateColor(hsv[0], hsv[1], it / 100f) },
+                )
+            }
         }
     }
 }
@@ -1230,7 +1316,10 @@ private fun CompactBackgroundSlider(
     colors: NaviampColors,
     onValueChange: (Float) -> Unit,
     steps: Int = 0,
+    keyStep: Float,
+    testTag: String,
 ) {
+    val focusManager = LocalFocusManager.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1247,8 +1336,26 @@ private fun CompactBackgroundSlider(
             steps = steps,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(26.dp)
-                .graphicsLayer(scaleY = 0.72f),
+                .heightIn(min = 48.dp)
+                .testTag(testTag)
+                .semantics { contentDescription = label }
+                .onPreviewKeyEvent { event ->
+                    if (event.key == Key.DirectionUp || event.key == Key.DirectionDown) {
+                        if (event.type == KeyEventType.KeyDown) {
+                            focusManager.moveFocus(if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down)
+                        }
+                        return@onPreviewKeyEvent true
+                    }
+                    val increase = when (event.key) {
+                        Key.DirectionLeft -> false
+                        Key.DirectionRight -> true
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    if (event.type == KeyEventType.KeyDown) {
+                        onValueChange(televisionSteppedSettingsValue(value, keyStep, valueRange, increase))
+                    }
+                    true
+                },
         )
     }
 }
@@ -3957,10 +4064,11 @@ internal fun SelectableSettingsRow(
     subtitle: String? = null,
     selected: Boolean,
     enabled: Boolean = true,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .padding(horizontal = SettingsRowHorizontalPadding)
             .fillMaxWidth()
             .background(
@@ -4450,7 +4558,6 @@ private fun PlayerExperienceSettings(
         onAlbumYearPreferenceClick = { selectedPage = PlayerBehaviorPage.AlbumYear },
         onInterfaceSettingsChanged = onInterfaceSettingsChanged,
     )
-    NowPlayingBackgroundSettings(colors, interfaceSettings, onInterfaceSettingsChanged)
     SettingsRow(
         title = PlayerBehaviorPage.Waveforms.title(),
         subtitle = PlayerBehaviorPage.Waveforms.subtitle(),

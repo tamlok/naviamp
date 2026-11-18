@@ -88,6 +88,7 @@ fun NaviampThemesSettings(
                 }
             }
         }
+        NaviampPlayerBackgroundSettings(colors, interfaceSettings, onInterfaceSettingsChanged)
     }
 }
 
