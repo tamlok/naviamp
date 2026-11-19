@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +30,9 @@ import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +48,12 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.isPrimaryPressed
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -551,6 +562,59 @@ fun NaviampResponsiveActionRow(
     }
 }
 
+private val LocalNaviampItemMenuExpanded = compositionLocalOf<MutableState<Boolean>?> { null }
+
+/** Share one menu between the row's secondary click and its nested overflow button. */
+@Composable
+internal fun NaviampItemMenuRow(
+    itemKey: Any,
+    occurrenceIndex: Int = 0,
+    modifier: Modifier = Modifier,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
+    verticalAlignment: Alignment.Vertical = Alignment.Top,
+    content: @Composable RowScope.() -> Unit,
+) {
+    val expanded = remember(itemKey, occurrenceIndex) { mutableStateOf(false) }
+    val openMenu = remember(expanded) { { expanded.value = true } }
+    CompositionLocalProvider(LocalNaviampItemMenuExpanded provides expanded) {
+        Row(
+            modifier = Modifier.naviampSecondaryClick(onClick = openMenu).then(modifier),
+            horizontalArrangement = horizontalArrangement,
+            verticalAlignment = verticalAlignment,
+            content = content,
+        )
+    }
+}
+
+internal fun Modifier.naviampSecondaryClick(enabled: Boolean = true, onClick: () -> Unit): Modifier =
+    if (!enabled) this else pointerInput(onClick) {
+        awaitEachGesture {
+            // awaitFirstDown filters out secondary mouse buttons on Desktop.
+            val down = awaitPointerEvent(PointerEventPass.Initial).changes
+                .firstOrNull { it.changedToDownIgnoreConsumed() } ?: return@awaitEachGesture
+            if (down.type != PointerType.Mouse || !currentEvent.buttons.isSecondaryPressed ||
+                currentEvent.buttons.isPrimaryPressed) return@awaitEachGesture
+            down.consume()
+            var cancelled = false
+            // Consume the entire secondary gesture before swipe, click and drag handlers see it.
+            // Open on release so the opening click cannot dismiss its own popup.
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (event.buttons.isPrimaryPressed ||
+                    (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                    cancelled = true
+                }
+                event.changes.forEach { it.consume() }
+                if (!event.buttons.isSecondaryPressed) {
+                    if (!cancelled && change.position.x >= 0 && change.position.x < size.width &&
+                        change.position.y >= 0 && change.position.y < size.height) onClick()
+                    break
+                }
+            }
+        }
+    }
+
 @Composable
 fun NaviampRowOverflowMenu(
     colors: NaviampColors,
@@ -563,7 +627,8 @@ fun NaviampRowOverflowMenu(
 ) {
     if (items.isEmpty()) return
 
-    var expanded by remember { mutableStateOf(false) }
+    val menuExpanded = LocalNaviampItemMenuExpanded.current ?: remember { mutableStateOf(false) }
+    var expanded by menuExpanded
     Box(modifier = modifier) {
         NaviampTooltip(contentDescription, colors) {
             IconButton(

@@ -52,6 +52,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
@@ -140,7 +142,8 @@ fun TrackRow(
             onTrackAction = dispatchTrackAction,
         ),
     ) { swipeModifier ->
-    Row(
+    NaviampItemMenuRow(
+        itemKey = track.id,
         modifier = swipeModifier
             .fillMaxWidth()
             .semantics {
@@ -546,6 +549,9 @@ fun SwipeActionContainer(
                 .pointerInput(swipeRight != null, swipeLeft != null, thresholdPx, intentDeadZonePx) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        if (down.type == PointerType.Mouse && currentEvent.buttons.isSecondaryPressed) {
+                            return@awaitEachGesture
+                        }
                         val intentLock = SwipeGestureIntentLock(intentDeadZonePx)
                         var horizontalDistance = 0f
                         var verticalDistance = 0f
@@ -836,7 +842,8 @@ fun SharedMediaRow(
     modifier: Modifier = Modifier,
     mediaKind: SharedMediaItemKind,
 ) {
-    Row(
+    NaviampItemMenuRow(
+        itemKey = item.id,
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))

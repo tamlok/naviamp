@@ -3370,6 +3370,7 @@ private fun NowPlayingItemList(
             }
             val selected = item.id == currentId
             var menuExpanded by remember { mutableStateOf(false) }
+            val openMenu = remember { { menuExpanded = true } }
             var playlistDialogOpen by remember { mutableStateOf(false) }
             val visibleRowActions = rowActions.filter { action ->
                 when (action.action) {
@@ -3424,6 +3425,10 @@ private fun NowPlayingItemList(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(5.dp))
                         .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.playerSurface)
+                        .naviampSecondaryClick(
+                            enabled = showActions && visibleRowActions.isNotEmpty(),
+                            onClick = openMenu,
+                        )
                         .clickable { onClick(item) }
                         .padding(horizontal = 6.dp, vertical = rowVerticalPadding),
                 ) {

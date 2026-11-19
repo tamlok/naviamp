@@ -393,7 +393,8 @@ private fun PlaylistListRow(
     onDelete: () -> Unit,
     onAddToPlaylist: () -> Unit,
 ) {
-    Row(
+    NaviampItemMenuRow(
+        itemKey = playlist.id,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(5.dp))

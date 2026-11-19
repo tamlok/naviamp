@@ -521,7 +521,9 @@ fun SmartPlaylistTrackList(
             fontSize = 12.sp,
         )
         tracks.forEachIndexed { index, track ->
-            Row(
+            NaviampItemMenuRow(
+                itemKey = track.id,
+                occurrenceIndex = index,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onTrackSelected(track) }
@@ -560,7 +562,8 @@ private fun PlaylistManagementTrackRow(
     onDragCancel: () -> Unit,
 ) {
     var dragHandleCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
-    Row(
+    NaviampItemMenuRow(
+        itemKey = track.id,
         modifier = modifier
             .fillMaxWidth()
             .zIndex(if (isDragging) 1f else 0f)

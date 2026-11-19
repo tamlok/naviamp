@@ -21,7 +21,8 @@ class NaviampPlaylistTrackMenuUiTest {
                 capabilities = PlaylistTrackCapabilities(canAddToQueue = true, canAddToPlaylist = true),
             )
         }
-        onAllNodesWithContentDescription("More actions")[2].performClick()
+        onAllNodesWithText("Duplicate")[1].performMouseInput { click(button = MouseButton.Secondary) }
+        onAllNodesWithText("Move to Top").assertCountEquals(1)
         onNodeWithText("Move to Top").performClick()
         assertEquals(0, selected)
         onNodeWithText("Save changes").performClick()
@@ -64,7 +65,7 @@ class NaviampPlaylistTrackMenuUiTest {
                 isSmartPlaylist = smart.value,
             )
         }
-        onNodeWithContentDescription("More actions").performClick()
+        onNodeWithText("Duplicate").performMouseInput { click(button = MouseButton.Secondary) }
         onNodeWithText("Move to Top").assertDoesNotExist()
         onNodeWithText("Remove from This Playlist").assertDoesNotExist()
         onNodeWithContentDescription("Drag to reorder").assertDoesNotExist()
@@ -144,6 +145,31 @@ class NaviampPlaylistTrackMenuUiTest {
             java.io.File("build/playlist-item-menu-compact.png").writeBytes(png.bytes)
         }
         image.close()
+    }
+
+    @Test
+    fun secondaryDragOnHandleDoesNotReorderOrSelect() = runComposeUiTest {
+        var selected = 0
+        setContent {
+            StandardPlaylistManagementList(
+                colors = NaviampColors(), initialTracks = rows(),
+                onTrackSelected = { selected++ }, onSave = {},
+            )
+        }
+        val before = onAllNodesWithText("Duplicate").fetchSemanticsNodes().map { it.boundsInRoot }
+        onAllNodesWithContentDescription("Drag to reorder")[0].performMouseInput {
+            moveTo(center)
+            press(MouseButton.Secondary)
+            moveTo(center + androidx.compose.ui.geometry.Offset(0f, 120f), delayMillis = 200)
+            release(MouseButton.Secondary)
+        }
+        onNodeWithText("Save changes").assertIsNotEnabled()
+        onNodeWithText("Move to Top").assertDoesNotExist()
+        assertEquals(before, onAllNodesWithText("Duplicate").fetchSemanticsNodes().map { it.boundsInRoot })
+        assertEquals(0, selected)
+        onAllNodesWithContentDescription("Drag to reorder")[1].performMouseInput { click(button = MouseButton.Secondary) }
+        onNodeWithText("Move to Top").assertIsDisplayed().performClick()
+        onNodeWithText("Save changes").assertIsEnabled()
     }
 
     private fun rows() = listOf(

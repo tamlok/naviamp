@@ -1946,7 +1946,8 @@ fun NaviampDownloadsContent(
                 swipeRight = downloadedTrackSwipeActionVisual(swipeSettings.downloadsRight, download, colors, handleDownloadAction),
                 swipeLeft = downloadedTrackSwipeActionVisual(swipeSettings.downloadsLeft, download, colors, handleDownloadAction),
             ) { swipeModifier ->
-                Row(
+                NaviampItemMenuRow(
+                    itemKey = download.id,
                     modifier = swipeModifier
                         .background(colors.controlSurface, RoundedCornerShape(5.dp))
                         .clickable {
