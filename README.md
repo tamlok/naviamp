@@ -344,11 +344,14 @@ In PowerShell 7, build the current checkout and launch the staged app:
 pwsh -NoProfile -File ./scripts/windows-dev.ps1
 ```
 
-Set up JDK 21 (`JAVA_HOME` or `java` on `PATH`), Android SDK platform 36
-(`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`), and CMake
-3.22+ (`cmake` on `PATH` or `CMAKE_EXE`) with a Windows C++ toolchain such as Visual
-Studio Build Tools with MSVC and the Windows SDK. The shared Gradle project needs
-the Android SDK even for this Desktop build. GNU Make and WiX are not required.
+Set up a full JDK 21 with `jpackage` (`JAVA_HOME` or `java` on `PATH`), Android SDK
+platform 36 (`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`),
+and CMake 3.22+ (`cmake` on `PATH` or `CMAKE_EXE`) with Visual Studio Build Tools,
+MSVC, and the Windows SDK. The script initializes the x64 compiler and SDK
+environment, including native library search paths, so an ordinary PowerShell 7
+session works. It uses the active Visual Studio installation or discovers the
+latest installation with MSVC x64 tools. The shared Gradle project needs the
+Android SDK even for this Desktop build. GNU Make and WiX are not required.
 
 The script runs `:apps:desktop:stageLocalTestApp` for Windows x64, then opens
 `build/local-test/Naviamp/Naviamp.exe` using the existing development data profile,

@@ -44,6 +44,26 @@ foreach ($process in Get-Process -Name Naviamp -ErrorAction SilentlyContinue) {
 
 Push-Location -LiteralPath $repositoryRoot
 try {
+    $visualStudioPath = $env:VSINSTALLDIR
+    if (-not $visualStudioPath) {
+        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        if (-not (Test-Path -LiteralPath $vswhere -PathType Leaf)) {
+            throw 'Install Visual Studio Build Tools with MSVC and the Windows SDK; vswhere.exe was not found.'
+        }
+        $visualStudioPath = & $vswhere -latest -products '*' `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($visualStudioPath)) {
+            throw 'No Visual Studio installation with MSVC x64 tools was found. Install Build Tools with MSVC and the Windows SDK.'
+        }
+    }
+    $developerShellModule = Join-Path $visualStudioPath 'Common7/Tools/Microsoft.VisualStudio.DevShell.dll'
+    if (-not (Test-Path -LiteralPath $developerShellModule -PathType Leaf)) {
+        throw "Visual Studio Developer PowerShell is missing: $developerShellModule. Repair the Build Tools installation."
+    }
+    Write-Host 'Initializing the Windows x64 compiler and SDK environment...'
+    Import-Module $developerShellModule
+    Enter-VsDevShell -VsInstallPath $visualStudioPath -Arch amd64 -HostArch amd64 -SkipAutomaticLocation
+
     Write-Host 'Building and staging the current checkout for Windows x64...'
     & .\gradlew.bat `
         '-Pkotlin.native.enableKlibsCrossCompilation=false' `
