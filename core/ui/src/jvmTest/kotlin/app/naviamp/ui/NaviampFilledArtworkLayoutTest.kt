@@ -17,14 +17,21 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class NaviampFilledArtworkLayoutTest {
     @Test fun filledArtworkUsesTheWholeWindowWhileControlsAvoidSystemBars() = runDesktopComposeUiTest(412, 818) {
+        val display = mutableListOf<NowPlayingDisplayAction>()
+        val playback = mutableListOf<NowPlayingPlaybackAction>()
+        val selections = mutableListOf<String>()
         setContent {
             NaviampNowPlayingPanel(
                 NowPlayingUi(id = "track", title = "Full window", subtitle = "Artist",
-                    stateLabel = "Paused", isPaused = true, canPlayPause = true),
+                    stateLabel = "Paused", isPaused = true, canPlayPause = true, visualizerAvailable = true,
+                    upNext = listOf(NaviampNowPlayingItemUi("next", "Next song", "Artist"))),
                 colors = NaviampColors.Dark,
-                actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {}),
+                actions = NaviampNowPlayingActions(
+                    { playback += it.action }, { display += it.action }, {}, {}, {},
+                    { selections += it.item.id }, {},
+                ),
                 displaySettings = NowPlayingDisplaySettings(fillArtworkArea = true),
-                contentInsets = WindowInsets(top = 24, bottom = 32),
+                contentInsets = WindowInsets(left = 16, top = 24, right = 8, bottom = 32),
             )
         }
         val window = onRoot().fetchSemanticsNode().boundsInRoot
@@ -33,6 +40,34 @@ class NaviampFilledArtworkLayoutTest {
         val controls = onNodeWithTag("now-playing-bottom-actions").fetchSemanticsNode().boundsInRoot
         assertTrue(controls.bottom <= window.bottom - 32)
         assertTrue(controls.top >= window.top + 24)
+        onAllNodesWithContentDescription("Back").assertCountEquals(1)
+        onAllNodesWithTag("now-playing-back").assertCountEquals(1)
+        val back = onNodeWithTag("now-playing-back").assertIsDisplayed().assertContentDescriptionEquals("Back")
+        val backBounds = back.fetchSemanticsNode().boundsInRoot
+        val density = onRoot().fetchSemanticsNode().layoutInfo.density.density
+        assertEquals(window.top + 24f, backBounds.top, 0.5f)
+        assertEquals(window.left + 16f, backBounds.left, 0.5f)
+        assertTrue(backBounds.right <= window.right - 8)
+        assertEquals(48f * density, backBounds.width, 0.5f)
+        assertEquals(48f * density, backBounds.height, 0.5f)
+        onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+        onNodeWithContentDescription("Enter fullscreen").assertDoesNotExist()
+        onNodeWithContentDescription("Exit fullscreen").assertDoesNotExist()
+        back.performMouseInput { click() }
+        runOnIdle {
+            assertEquals(listOf(NowPlayingDisplayAction.Collapse), display)
+            assertTrue(playback.isEmpty())
+        }
+        onNodeWithTag("now-playing-side-panel").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Next song").performScrollTo().assertIsDisplayed().performClick()
+        back.assertIsDisplayed()
+        assertEquals(backBounds, back.fetchSemanticsNode().boundsInRoot)
+        back.performMouseInput { click() }
+        runOnIdle {
+            assertEquals(listOf(NowPlayingDisplayAction.Collapse, NowPlayingDisplayAction.Collapse), display)
+            assertTrue(playback.isEmpty())
+            assertEquals(listOf("next"), selections)
+        }
     }
 
     @Test fun televisionKeepsItsExistingPresentationWhenFillIsEnabled() = runComposeUiTest {
@@ -140,6 +175,7 @@ class NaviampFilledArtworkLayoutTest {
                 runDesktopComposeUiTest(width = width, height = height) {
                     val progress = MutableStateFlow(PlaybackProgress(8.0, 180.0))
                     val actions = mutableListOf<NowPlayingPlaybackActionRequest>()
+                    val display = mutableListOf<NowPlayingDisplayAction>()
                     setContent {
                         CompositionLocalProvider(LocalSquareAlbumArtwork provides true,
                             LocalDensity provides Density(LocalDensity.current.density, if (width == 320) 1.4f else 1f)) {
@@ -150,7 +186,7 @@ class NaviampFilledArtworkLayoutTest {
                                     isPaused = true, canPlayPause = true, canSeek = true,
                                     canFavorite = true, canRate = true, audioInfo = "MP3 320 kbps"),
                                 progress, NaviampColors.Dark,
-                                NaviampNowPlayingActions({ actions += it }, {}, {}, {}, {}, {}, {}),
+                                NaviampNowPlayingActions({ actions += it }, { display += it.action }, {}, {}, {}, {}, {}),
                                 displaySettings = NowPlayingDisplaySettings(fillArtworkArea = true),
                             )
                         }
@@ -161,6 +197,9 @@ class NaviampFilledArtworkLayoutTest {
                     waitUntil(timeoutMillis = 5_000) {
                         onAllNodesWithTag("cover-art-image", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
                     }
+                    onAllNodesWithTag("now-playing-back").assertCountEquals(1)
+                    val back = onNodeWithTag("now-playing-back").assertIsDisplayed()
+                    val backBounds = back.fetchSemanticsNode().boundsInRoot
                     val play = onNodeWithContentDescription("Play")
                     if (shouldFill) play.performScrollTo()
                     play.assertIsDisplayed().performClick()
@@ -181,6 +220,10 @@ class NaviampFilledArtworkLayoutTest {
                     repeat(60) { tick -> runOnIdle { progress.value = PlaybackProgress(8.0 + tick / 10.0, 180.0) } }
                     waitForIdle()
                     assertEquals(before, loads.get(), "Progress must not reload the filled background")
+                    back.assertIsDisplayed()
+                    assertEquals(backBounds, back.fetchSemanticsNode().boundsInRoot)
+                    back.performMouseInput { click() }
+                    assertEquals(listOf(NowPlayingDisplayAction.Collapse), display)
                     System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
                         File(directory).mkdirs()
                         ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File(directory, "filled-$width-$height.png"))

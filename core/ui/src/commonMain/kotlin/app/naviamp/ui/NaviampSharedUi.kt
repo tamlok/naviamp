@@ -301,7 +301,7 @@ private fun NaviampSharedAppShellContent(
                 colors = colors,
                 onRouteSelected = navigationActions.onRouteSelected,
                 modifier = modifier,
-                showChrome = !connectionSetupOnly,
+                showChrome = !connectionSetupOnly && !showFullNowPlaying,
                 miniPlayer = {
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {

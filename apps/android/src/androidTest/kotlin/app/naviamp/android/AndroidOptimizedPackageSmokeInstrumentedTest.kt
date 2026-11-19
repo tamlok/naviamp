@@ -51,7 +51,7 @@ class AndroidOptimizedPackageSmokeInstrumentedTest {
         shell("am force-stop $packageName")
         launch()
         await("optimized app accessibility window") { nodes().isNotEmpty() }
-        if (has("Collapse player")) click("Collapse player")
+        if (hasFullPlayerBack()) click("Back")
         if (has("Connection Details")) {
             fill("Server URL", "http://127.0.0.1:18080")
             fill("Username", "fixture")
@@ -82,7 +82,7 @@ class AndroidOptimizedPackageSmokeInstrumentedTest {
         await("moving progress after seek") { progress() > sought + 0.001f }
         click("Pause")
         record("original audio advanced, paused, sought to midpoint and resumed")
-        if (has("Collapse player")) click("Collapse player")
+        if (hasFullPlayerBack()) click("Back")
         else if (!has("Settings")) automation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
         click("Settings")
         click("About", exact = false)
@@ -126,6 +126,9 @@ class AndroidOptimizedPackageSmokeInstrumentedTest {
         labels(node).any { if (exact) it == label else it.contains(label) }
 
     private fun has(label: String, exact: Boolean = true) = nodes().any { matches(it, label, exact) }
+
+    private fun hasFullPlayerBack(): Boolean = has("Back") && !has("Connection Details") &&
+        listOf("Home", "Playlists", "Library", "Radio", "My", "Open navigation", "Close navigation").none { has(it) }
 
     private fun click(label: String, exact: Boolean = true) {
         fun target(node: AccessibilityNodeInfo): AccessibilityNodeInfo? =

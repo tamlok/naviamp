@@ -7,7 +7,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Features
 
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
-- Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides the mini-player and uses the freed space; closing details restores it.
+- Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides application navigation and the mini-player; its pinned Back arrow restores the preceding screen and navigation without interrupting playback.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
 - Keep navigation and browsing backgrounds theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
@@ -25,7 +25,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Upgrade notes
 
-- Full player and Split view modes are replaced by one adaptive player-details view. Tap the mini-player to open it; selecting a main destination closes details without stopping playback.
+- Full player and Split view modes are replaced by one adaptive player-details view. Tap the mini-player to open it and use Back to close it. Player collapse and fullscreen buttons are removed; native window fullscreen keyboard shortcuts remain available.
 - Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
 - Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
 - Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.

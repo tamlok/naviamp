@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.NaviampThemeMode
 import androidx.compose.ui.graphics.luminance
@@ -110,6 +111,10 @@ class NaviampCoreAppSmokeTest {
                 runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = expanded)) }
                 mainClock.advanceTimeBy(500)
                 waitForIdle()
+                if (expanded) {
+                    onNodeWithTag("now-playing-back").assertIsDisplayed()
+                    onNodeWithTag("main-navigation-rail").assertDoesNotExist()
+                }
             }
             fun artwork(url: String) {
                 runOnIdle { ui.value = ui.value.copy(nowPlaying = ui.value.nowPlaying!!.copy(
@@ -135,14 +140,14 @@ class NaviampCoreAppSmokeTest {
                 assertSolidBrowsing()
                 expand(true)
                 val redFull = fullPixels()
-                assertSolidNavigation()
+                onNodeWithTag("main-navigation-rail").assertDoesNotExist()
                 onNodeWithTag("mini-player").assertDoesNotExist()
                 artwork(blueArtwork)
                 waitUntil(timeoutMillis = 5_000) { loadedPalette.backgroundStart.blue > loadedPalette.backgroundStart.red }
                 mainClock.advanceTimeBy(500)
                 waitForIdle()
                 assertTrue(fullPixels() != redFull, "$style full-player background must follow artwork")
-                assertSolidNavigation()
+                onNodeWithTag("main-navigation-rail").assertDoesNotExist()
                 expand(false)
                 assertTrue(miniPixel() != redMini, "$style player-bar background must follow artwork")
                 assertSolidBrowsing()
@@ -276,24 +281,24 @@ class NaviampCoreAppSmokeTest {
                     uiState = ui.value, actions = core.actions.shell, syncActions = core.actions.settingsSync,
                 )
             }
-            onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
+            onAllNodesWithTag("main-destination-Home").assertCountEquals(0)
             onNodeWithTag("mini-player").assertDoesNotExist()
-            onNodeWithContentDescription("Collapse player").assertExists()
+            onNodeWithTag("now-playing-back").assertExists()
             ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
                 connection = ui.value.connectionSettings.connection.copy(editingConnection = true, editingSavedConnection = true),
             ))
             waitForIdle()
             onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
             onAllNodesWithTag("mini-player").assertCountEquals(1)
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            onNodeWithTag("now-playing-back").assertDoesNotExist()
             onNodeWithTag("connection-name").assertExists()
             ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
                 connection = ui.value.connectionSettings.connection.copy(editingConnection = false),
             ))
             waitForIdle()
-            onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
+            onAllNodesWithTag("main-destination-Home").assertCountEquals(0)
             onNodeWithTag("mini-player").assertDoesNotExist()
-            onNodeWithContentDescription("Collapse player").assertExists()
+            onNodeWithTag("now-playing-back").assertExists()
             onNodeWithTag("connection-name").assertDoesNotExist()
             ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
                 connection = ui.value.connectionSettings.connection.copy(restoringConnection = true),
@@ -301,7 +306,7 @@ class NaviampCoreAppSmokeTest {
             waitForIdle()
             onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
             onAllNodesWithTag("mini-player").assertCountEquals(1)
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            onNodeWithTag("now-playing-back").assertDoesNotExist()
             ui.value = ui.value.copy(
                 connectionSettings = ui.value.connectionSettings.copy(connection = ui.value.connectionSettings.connection.copy(
                     connected = false, restoringConnection = false,
@@ -311,10 +316,12 @@ class NaviampCoreAppSmokeTest {
             )
             onNodeWithTag("connection-name").assertIsDisplayed()
             onNodeWithTag("mini-player").assertIsDisplayed()
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            onNodeWithTag("now-playing-back").assertDoesNotExist()
+            onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
             ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(selectedRoute = SharedRoute.Settings))
             onNodeWithTag("mini-player").assertDoesNotExist()
-            onNodeWithContentDescription("Collapse player").assertExists()
+            onNodeWithTag("now-playing-back").assertExists()
+            onAllNodesWithTag("main-destination-Home").assertCountEquals(0)
         } finally { scope.cancel() }
     }
 
@@ -418,44 +425,73 @@ class NaviampCoreAppSmokeTest {
     fun detailsHideTheMiniPlayerAndEveryExitRestoresItWithoutStoppingPlayback() {
         for ((width, height) in listOf(1000 to 740, 412 to 818, 320 to 640)) {
             runDesktopComposeUiTest(width, height) {
+                // Active playback animates continuously; advance frames explicitly for navigation.
+                mainClock.autoAdvance = false
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
                 val provider = FakeCoreMediaProvider()
                 val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
                     connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
-                    playback = app.naviamp.app.NaviampLivePlaybackState(currentTrack = provider.track,
-                        queue = app.naviamp.domain.queue.PlaybackQueue(listOf(provider.track), currentIndex = 0)),
                 ))
+                kotlinx.coroutines.runBlocking {
+                    core.execute(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Songs))
+                    core.execute(NaviampCoreCommand.Library.TrackAction(SharedTrackRowActionRequest(
+                        core.state.value.shell.library.songs.tracks.single(), SharedTrackRowAction.Select)))
+                    core.execute(NaviampCoreCommand.Navigation.CloseNowPlaying)
+                }
+                core.updateLivePlayback { it.copy(playbackState = app.naviamp.domain.playback.PlaybackState.Playing) }
                 val dispatcher = NaviampSystemBackDispatcher()
                 try {
                     setContent { CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) { NaviampCoreApp(core) } }
+                    mainClock.advanceTimeBy(300)
+                    val playing = assertNotNull(core.state.value.shell.nowPlaying)
+                    val playback = core.state.value.shell.playback
+                    assertEquals(provider.track.id.value, playing.id)
+                    assertEquals(false, playing.isPaused)
                     fun assertExpandedViewport() {
-                        onNodeWithTag("mini-player").assertDoesNotExist()
+                        mainClock.advanceTimeBy(300)
+                        onNodeWithTag("now-playing-back").assertIsDisplayed()
+                        for (tag in listOf("mini-player", "main-mini-player", "main-navigation-rail",
+                            "main-navigation-bottom", "main-navigation-open", "main-navigation-drawer")) {
+                            onNodeWithTag(tag).assertDoesNotExist()
+                        }
+                        onAllNodes(SemanticsMatcher("main destinations") {
+                            it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("main-destination-") == true
+                        }).assertCountEquals(0)
                         val route = onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot
-                        val bottom = onAllNodesWithTag("main-navigation-bottom").fetchSemanticsNodes().singleOrNull()
-                            ?.boundsInRoot?.top ?: onNode(isRoot() and hasAnyDescendant(hasTestTag("main-route-content")))
-                                .fetchSemanticsNode().boundsInRoot.bottom
-                        assertEquals(bottom, route.bottom, 0.5f, "Expanded player must reclaim the mini-player space")
+                        assertEquals(onRoot().fetchSemanticsNode().boundsInRoot, route,
+                            "$width x $height expanded player must reclaim the whole viewport")
                     }
+                    fun assertRestored(route: SharedRoute) {
+                        mainClock.advanceTimeBy(300)
+                        onNodeWithTag("now-playing-back").assertDoesNotExist()
+                        onNodeWithTag("mini-player").assertIsDisplayed()
+                        onNodeWithTag(when {
+                            width < 360 -> "main-navigation-open"
+                            width > height -> "main-navigation-rail"
+                            else -> "main-navigation-bottom"
+                        }).assertIsDisplayed()
+                        runOnIdle {
+                            assertEquals(route, core.state.value.shell.shellChrome.selectedRoute)
+                            assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
+                            assertEquals(playing, core.state.value.shell.nowPlaying, "Track, queue and playback must survive exit")
+                            assertEquals(playback, core.state.value.shell.playback)
+                        }
+                    }
+                    val initialRoute = core.state.value.shell.shellChrome.selectedRoute
                     onNodeWithTag("mini-player-identity").performClick()
                     assertExpandedViewport()
-                    onNodeWithContentDescription("Collapse player").performScrollTo().assertIsDisplayed().performClick()
-                    onNodeWithTag("mini-player").assertIsDisplayed()
-                    onNodeWithTag("mini-player-identity").performClick()
-                    assertExpandedViewport()
-                    if (width < 360) onNodeWithTag("main-navigation-open").performClick()
+                    onNodeWithTag("now-playing-back").performClick()
+                    assertRestored(initialRoute)
+                    if (width < 360) {
+                        onNodeWithTag("main-navigation-open").performClick()
+                        mainClock.advanceTimeBy(300)
+                    }
                     onNodeWithTag("main-destination-Library").performClick()
-                    onNodeWithContentDescription("Collapse player").assertDoesNotExist()
-                    onNodeWithTag("mini-player").assertIsDisplayed()
+                    mainClock.advanceTimeBy(300)
                     onNodeWithTag("mini-player-identity").performClick()
                     assertExpandedViewport()
-                    runOnIdle { dispatcher.currentHandler?.invoke() }
-                    onNodeWithContentDescription("Collapse player").assertDoesNotExist()
-                    onNodeWithTag("mini-player").assertIsDisplayed()
-                    runOnIdle {
-                        assertEquals(SharedRoute.Library, core.state.value.shell.shellChrome.selectedRoute)
-                        assertEquals(provider.track.id.value, core.state.value.shell.nowPlaying?.id)
-                        assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
-                    }
+                    runOnIdle { assertNotNull(dispatcher.currentHandler).invoke() }
+                    assertRestored(SharedRoute.Library)
                 } finally { scope.cancel() }
             }
         }
@@ -502,13 +538,32 @@ class NaviampCoreAppSmokeTest {
                 NaviampSharedAppShell(uiState = shell.copy(connect = shell.connect.copy(remoteNowPlaying = remote)),
                     actions = core.actions.shell, syncActions = core.actions.settingsSync)
             }
+            val playback = core.state.value.shell.playback
+            val localNowPlaying = core.state.value.shell.nowPlaying
             onNodeWithTag("mini-player-identity").performClick()
-            onNodeWithContentDescription("Collapse player").assertIsDisplayed()
+            onNodeWithTag("now-playing-back").assertIsDisplayed()
             onNodeWithTag("mini-player").assertDoesNotExist()
+            for (tag in listOf("main-navigation-rail", "main-navigation-bottom", "main-navigation-open", "main-navigation-drawer")) {
+                onNodeWithTag(tag).assertDoesNotExist()
+            }
+            onAllNodes(SemanticsMatcher("main destinations") {
+                it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("main-destination-") == true
+            }).assertCountEquals(0)
+            assertEquals(onRoot().fetchSemanticsNode().boundsInRoot,
+                onNodeWithTag("main-route-content").fetchSemanticsNode().boundsInRoot)
             runOnIdle { assertTrue(core.state.value.shell.shellChrome.nowPlayingOpen) }
-            core.actions.shell.navigationActions.onCloseNowPlaying()
-            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
-            onNodeWithTag("mini-player-identity").assertHasClickAction()
+            onNodeWithTag("now-playing-back").performClick()
+            onNodeWithTag("now-playing-back").assertDoesNotExist()
+            onNodeWithTag("mini-player-identity").assertIsDisplayed().assertHasClickAction()
+            onNodeWithText(remote.title).assertIsDisplayed()
+            onNodeWithTag("main-navigation-rail").assertIsDisplayed()
+            onAllNodesWithTag("main-destination-Home").assertCountEquals(1)
+            runOnIdle {
+                assertEquals(SharedRoute.Settings, core.state.value.shell.shellChrome.selectedRoute)
+                assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
+                assertEquals(playback, core.state.value.shell.playback)
+                assertEquals(localNowPlaying, core.state.value.shell.nowPlaying)
+            }
         } finally { scope.cancel() }
     }
 

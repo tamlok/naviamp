@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -350,13 +351,38 @@ fun NaviampNowPlayingPanel(
         val filled = useFilledNowPlayingArtwork(displaySettings.fillArtworkArea,
             nowPlaying.visualizerVisible && nowPlaying.visualizerAvailable,
             nowPlaying.lyricsVisible && !nowPlaying.isLive, wide)
-        NaviampNowPlayingPanelContent(
-            nowPlaying, playbackProgress, playerTextColors, actions, displaySettings,
+        Box(
             Modifier.fillMaxSize().heightIn(min = minOf(300.dp, maxHeight)).then(if (filled) Modifier else
                 Modifier.naviampContentInsets(contentInsets, WindowInsets(0))),
-            visualizerBandsProvider, selectedVisualizer, visualizerColors,
-            filled, contentInsets,
-        )
+        ) {
+            NaviampNowPlayingPanelContent(
+                nowPlaying, playbackProgress, playerTextColors, actions, displaySettings,
+                Modifier.fillMaxSize().then(if (filled) Modifier else Modifier.padding(top = 48.dp)),
+                visualizerBandsProvider, selectedVisualizer, visualizerColors,
+                filled, contentInsets,
+            )
+            val backColors = if (filled) rememberNaviampArtworkOverlayColors() else playerTextColors
+            val backLabel = stringResource(Res.string.common_back)
+            Box(
+                Modifier.align(Alignment.TopStart).then(if (filled)
+                    Modifier.naviampContentInsets(contentInsets, WindowInsets(0)) else Modifier),
+            ) {
+                NaviampTooltip(backLabel, backColors) {
+                    IconButton(
+                        onClick = { actions.display(NowPlayingDisplayAction.Collapse) },
+                        modifier = Modifier.size(48.dp).testTag("now-playing-back")
+                            .then(if (filled) Modifier.background(backColors.controlSurface, CircleShape) else Modifier),
+                    ) {
+                        Icon(
+                            imageVector = NaviampIcons.Back,
+                            contentDescription = backLabel,
+                            tint = backColors.secondaryText,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -444,7 +470,7 @@ private fun NaviampNowPlayingPanelContent(
                     } else null,
                 ) {
                     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                        .naviampContentInsets(contentInsets, WindowInsets(0))) {
+                        .naviampContentInsets(contentInsets, WindowInsets(0)).padding(top = 48.dp)) {
                         NowPlayingDetails(
                             nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
                             colors = overlayColors, playerColors = visualizerColors, actions = actions,
@@ -509,7 +535,6 @@ private fun NaviampNowPlayingPanelContent(
                         onOpenPlaylistDialog = openPlaylistMembership,
                         onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                         compactLayout = viewportMaxHeight < 640.dp,
-                        showWindowFullscreen = true,
                         matchVolumeToTransportWidth = true,
                         availableHeight = (wideDetailsHeight - WideNowPlayingDetailsTopPadding)
                             .coerceAtLeast(WideNowPlayingDetailsMinHeight - WideNowPlayingDetailsTopPadding),
@@ -617,7 +642,6 @@ private fun NaviampNowPlayingPanelContent(
                             onOpenPlaylistDialog = openPlaylistMembership,
                             onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                             compactLayout = true,
-                            showWindowFullscreen = true,
                             availableHeight = compactDetailsHeight,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -678,7 +702,6 @@ private fun NaviampNowPlayingPanelContent(
                         onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                         mobileLayout = true,
                         compactSizing = compactWidthSizing,
-                        showWindowFullscreen = true,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(viewportHeight / 2)
@@ -840,7 +863,6 @@ private fun NowPlayingDetails(
     compactSizing: Boolean = compactLayout,
     availableHeight: Dp? = null,
     modifier: Modifier = Modifier,
-    showWindowFullscreen: Boolean = false,
     matchVolumeToTransportWidth: Boolean = false,
     filledArtworkLayout: Boolean = false,
 ) {
@@ -1176,8 +1198,6 @@ private fun NowPlayingDetails(
                 .testTag("now-playing-bottom-actions")
                 .padding(horizontal = if (pinBottomActions) 8.dp else 0.dp),
         ) {
-            val windowController = LocalNaviampWindowController.current
-            val fullscreenInMenu = showWindowFullscreen && windowController != null && !naviampWindowShowsFullscreenIcon()
             val bottomActionButtonSize = 33.dp
             val bottomActionIconSize = 20.dp
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
@@ -1251,29 +1271,11 @@ private fun NowPlayingDetails(
                     }
                 }
             }
-            Box(modifier = Modifier.align(Alignment.Center)) {
-                NaviampTooltip("Collapse player", colors) {
-                    IconButton(
-                        onClick = { actions.display(NowPlayingDisplayAction.Collapse) },
-                        modifier = Modifier.requiredSize(bottomActionButtonSize),
-                    ) {
-                        Icon(
-                            imageVector = NaviampIcons.ChevronDown,
-                            contentDescription = "Collapse player",
-                            tint = colors.secondaryText,
-                            modifier = Modifier.requiredSize(bottomActionIconSize),
-                        )
-                    }
-                }
-            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
-                if (showWindowFullscreen && !fullscreenInMenu) {
-                    NaviampWindowFullscreenButton(colors, bottomActionButtonSize, bottomActionIconSize)
-                }
                 if (nowPlaying.castAvailable) {
                     NaviampTransportIconButton(
                         enabled = true,
@@ -1298,7 +1300,7 @@ private fun NowPlayingDetails(
                 )
                 Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
                     NaviampTransportIconButton(
-                        enabled = nowPlayingActionMenuEnabled(nowPlaying) || fullscreenInMenu,
+                        enabled = nowPlayingActionMenuEnabled(nowPlaying),
                         icon = NaviampTransportIcons.MoreVertical,
                         contentDescription = if (nowPlaying.isLive) stringResource(Res.string.stream_actions) else "Track actions",
                         colors = colors,
@@ -1311,17 +1313,6 @@ private fun NowPlayingDetails(
                         onDismissRequest = { actionMenuExpanded = false },
                         offset = DpOffset(0.dp, 6.dp),
                     ) {
-                        if (fullscreenInMenu) {
-                            val fullscreen = windowController?.state?.placement == NaviampWindowPlacement.Fullscreen
-                            NaviampDropdownMenuItem(
-                                label = stringResource(if (fullscreen) Res.string.window_exit_fullscreen else Res.string.window_enter_fullscreen),
-                                icon = if (fullscreen) NaviampIcons.ExitFullscreen else NaviampIcons.Fullscreen,
-                                onClick = {
-                                    actionMenuExpanded = false
-                                    windowController?.toggle()
-                                },
-                            )
-                        }
                         if (nowPlaying.castAvailable) {
                             NaviampDropdownMenuItem(
                                 label = stringResource(Res.string.now_playing_cast_to_device),

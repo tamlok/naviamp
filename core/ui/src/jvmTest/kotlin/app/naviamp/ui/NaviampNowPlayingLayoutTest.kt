@@ -2,6 +2,7 @@ package app.naviamp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.mutableStateOf
@@ -105,7 +106,7 @@ class NaviampNowPlayingLayoutTest {
                     onNodeWithText("Current artist", useUnmergedTree = true).assertIsDisplayed()
                     for ((text, expected) in listOf(
                         title to colors.primaryText,
-                        subtitle to colors.secondaryText,
+                        subtitle to colors.playerSecondaryText,
                     )) {
                         val layouts = mutableListOf<TextLayoutResult>()
                         onNodeWithText(text, useUnmergedTree = true)
@@ -116,22 +117,58 @@ class NaviampNowPlayingLayoutTest {
             }
         }
 
-    @Test fun adaptivePlayerHasOneWorkingFullscreenControl() = runDesktopComposeUiTest(1000, 740) {
-        val controller = NaviampWindowController({ true }, NaviampWindowSnapshot())
-        setContent {
-            NaviampWindowEnvironment(controller, app.naviamp.domain.settings.DesktopShortcutPlatform.Linux) {
-                NaviampNowPlayingPanel(
-                    nowPlaying = NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused"),
-                    colors = NaviampColors(),
-                    actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {}),
-                )
+    @Test fun adaptivePlayerHasOnePinnedBackWithoutChangingPlaybackOrWindowState() {
+        val cases = listOf(
+            420 to null,
+            1000 to NaviampWindowPlacement.Floating,
+            420 to NaviampWindowPlacement.Fullscreen,
+            1000 to NaviampWindowPlacement.Fullscreen,
+        )
+        for ((width, placement) in cases) runDesktopComposeUiTest(width, 740) {
+            val requests = mutableListOf<NaviampWindowSnapshot>()
+            val initial = placement?.let { NaviampWindowSnapshot(placement = it) }
+            val controller = initial?.let { NaviampWindowController({ requests += it; true }, it) }
+            val windowedSnapshot = controller?.windowedSnapshot
+            val playback = mutableListOf<NowPlayingPlaybackAction>()
+            val display = mutableListOf<NowPlayingDisplayAction>()
+            setContent {
+                NaviampWindowEnvironment(controller, app.naviamp.domain.settings.DesktopShortcutPlatform.Linux) {
+                    NaviampNowPlayingPanel(
+                        nowPlaying = NowPlayingUi(
+                            id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
+                            visualizerAvailable = true,
+                            visualizerVisible = width == 1000 && placement == NaviampWindowPlacement.Fullscreen,
+                        ),
+                        colors = NaviampColors(),
+                        actions = NaviampNowPlayingActions(
+                            { playback += it.action }, { display += it.action }, {}, {}, {}, {}, {},
+                        ),
+                        contentInsets = WindowInsets(left = 16, top = 24, right = 8, bottom = 32),
+                    )
+                }
+            }
+            onAllNodesWithContentDescription("Back").assertCountEquals(1)
+            onAllNodesWithTag("now-playing-back").assertCountEquals(1)
+            val back = onNodeWithTag("now-playing-back").assertIsDisplayed().assertContentDescriptionEquals("Back")
+            val bounds = back.fetchSemanticsNode().boundsInRoot
+            val root = onRoot().fetchSemanticsNode()
+            val density = root.layoutInfo.density.density
+            assertEquals(root.boundsInRoot.left + 16f, bounds.left, 0.5f)
+            assertEquals(root.boundsInRoot.top + 24f, bounds.top, 0.5f)
+            assertEquals(48f * density, bounds.width, 0.5f)
+            assertEquals(48f * density, bounds.height, 0.5f)
+            onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+            onNodeWithContentDescription("Enter fullscreen").assertDoesNotExist()
+            onNodeWithContentDescription("Exit fullscreen").assertDoesNotExist()
+            back.performClick()
+            runOnIdle {
+                assertEquals(listOf(NowPlayingDisplayAction.Collapse), display)
+                assertTrue(playback.isEmpty())
+                assertTrue(requests.isEmpty())
+                assertEquals(initial, controller?.state)
+                assertEquals(windowedSnapshot, controller?.windowedSnapshot)
             }
         }
-        onAllNodesWithTag("window-fullscreen").assertCountEquals(1)
-        onNodeWithContentDescription("Enter fullscreen").assertIsDisplayed().performClick()
-        runOnIdle { assertEquals(NaviampWindowPlacement.Fullscreen, controller.state.placement) }
-        onNodeWithContentDescription("Exit fullscreen").assertIsDisplayed().performClick()
-        runOnIdle { assertEquals(NaviampWindowPlacement.Floating, controller.state.placement) }
     }
 
     @Test fun adaptiveWidePlayerTogglesLyricsWithoutRemovingQueueOrTransport() = runDesktopComposeUiTest(1280, 720) {
@@ -153,20 +190,26 @@ class NaviampNowPlayingLayoutTest {
                 ),
             )
         }
+        val back = onNodeWithTag("now-playing-back").assertIsDisplayed()
+        val backBounds = back.fetchSemanticsNode().boundsInRoot
         onNodeWithContentDescription("Show lyrics").performClick()
         onNodeWithText("Current lyric").assertIsDisplayed()
         onNodeWithText("Current song").assertIsDisplayed()
         onNodeWithContentDescription("Play").assertIsDisplayed()
         onNodeWithText("Next song").assertIsDisplayed().performClick()
+        back.assertIsDisplayed()
+        assertEquals(backBounds, back.fetchSemanticsNode().boundsInRoot)
         runOnIdle { assertEquals(listOf("next"), selections) }
         onNodeWithContentDescription("Hide lyrics").performClick()
         onNodeWithText("Current lyric").assertDoesNotExist()
         onNodeWithText("Next song").assertIsDisplayed()
+        back.assertIsDisplayed()
+        assertEquals(backBounds, back.fetchSemanticsNode().boundsInRoot)
     }
 
-    @Test fun shortCompactPlayerKeepsTransportCollapseAndQueueReachable() = checkShortPlayer(420)
+    @Test fun shortCompactPlayerKeepsTransportBackAndQueueReachable() = checkShortPlayer(420)
 
-    @Test fun shortWidePlayerKeepsTransportCollapseAndQueueReachable() = checkShortPlayer(1000)
+    @Test fun shortWidePlayerKeepsTransportBackAndQueueReachable() = checkShortPlayer(1000)
 
     private fun checkShortPlayer(width: Int) = runDesktopComposeUiTest(width, 240) {
         val playback = mutableListOf<NowPlayingPlaybackAction>()
@@ -189,15 +232,25 @@ class NaviampNowPlayingLayoutTest {
         }
         val panel = onNodeWithTag("detail-panel").fetchSemanticsNode().boundsInRoot
         assertTrue(panel.bottom <= onRoot().fetchSemanticsNode().boundsInRoot.bottom)
+        onAllNodesWithContentDescription("Back").assertCountEquals(1)
+        val back = onNodeWithTag("now-playing-back").assertIsDisplayed()
+        val backBounds = back.fetchSemanticsNode().boundsInRoot
+        assertEquals(panel.top, backBounds.top, 0.5f)
+        assertEquals(panel.left, backBounds.left, 0.5f)
+        onNodeWithContentDescription("Collapse player").assertDoesNotExist()
+        onNodeWithContentDescription("Enter fullscreen").assertDoesNotExist()
+        onNodeWithContentDescription("Exit fullscreen").assertDoesNotExist()
         onNodeWithText("Current song").performScrollTo().assertIsDisplayed()
         onNodeWithContentDescription("Pause").performScrollTo().assertIsDisplayed().performClick()
-        onNodeWithContentDescription("Collapse player").performScrollTo().assertIsDisplayed().performClick()
         if (width < 780) {
             val queue = onNodeWithTag("now-playing-side-panel").performScrollTo().assertIsDisplayed()
             val bounds = queue.fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.top >= panel.top && bounds.bottom <= panel.bottom)
         }
         onNodeWithText("Next song").performScrollTo().assertIsDisplayed().performClick()
+        back.assertIsDisplayed()
+        assertEquals(backBounds, back.fetchSemanticsNode().boundsInRoot)
+        back.performClick()
         runOnIdle {
             assertEquals(listOf(NowPlayingPlaybackAction.Pause), playback)
             assertEquals(listOf(NowPlayingDisplayAction.Collapse), display)
