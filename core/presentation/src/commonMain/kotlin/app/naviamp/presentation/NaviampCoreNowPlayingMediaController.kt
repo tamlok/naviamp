@@ -3,6 +3,8 @@ package app.naviamp.presentation
 import app.naviamp.app.NaviampLivePlaybackController
 import app.naviamp.app.NaviampPlaybackQueueCoordinator
 import app.naviamp.domain.Track
+import app.naviamp.domain.isInternetRadioTrack
+import app.naviamp.domain.provider.isDiscoveryPreview
 import app.naviamp.domain.media.resolveTrackArtistNavigation
 import app.naviamp.domain.media.favoriteTrackUpdate
 import app.naviamp.domain.media.ratedTrackUpdate
@@ -121,6 +123,17 @@ class NaviampCoreNowPlayingMediaController(
 
     private suspend fun display(request: NowPlayingDisplayActionRequest) {
         when (request.action) {
+            NowPlayingDisplayAction.EnsureLyrics -> {
+                if (stateStore.state.value.shell.connect.remotePlaybackAuthorityActive) return
+                val track = currentTrack() ?: return
+                if (track.id.value != request.lyricsTrackId || track.isInternetRadioTrack() || track.id.isDiscoveryPreview()) return
+                playbackController.updateDisplay { it.copy(lyricsVisible = true) }
+                val sidecar = sidecars.snapshot()
+                // A pending track-sidecar load will observe lyricsVisible after it finishes.
+                if (sidecar.trackId == track.id && sidecar.lyrics == null && sidecar.lyricsStatus == null) {
+                    sidecars.loadLyrics(track)
+                }
+            }
             NowPlayingDisplayAction.ToggleLyrics -> {
                 val track = currentTrackOrPublish() ?: return
                 val visible = !playbackController.currentDisplay().lyricsVisible

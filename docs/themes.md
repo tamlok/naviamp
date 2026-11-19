@@ -84,8 +84,8 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `primaryText`, `secondaryText`, `mutedText` | Foreground hierarchy. |
 | `border` | Outlines and separators. |
 | `accent`, `onAccent` | Selected/action background and its foreground. |
-| `controlSurface` | Navigation, app cards, controls, dialogs and lyrics panels. Naviamp Dark uses `#393E46`. |
-| `playerSurface` | Standard full-player controller, queue/history/related/station panels and unselected rows; null means transparent. |
+| `controlSurface` | Navigation, app cards, controls and dialogs. Naviamp Dark uses `#393E46`. |
+| `playerSurface` | Standard full-player controller, lyrics, queue/history/related/station cards and unselected rows; null means transparent. |
 | `playerSecondaryText`, `playerMutedText` | Shared full/mini-player metadata hierarchy, independent of ordinary app text. |
 | `albumArtPlaceholder` | Missing/loading artwork. |
 | `favorite` | Favorite indicator. |
@@ -132,9 +132,20 @@ No role is left on a default Material purple palette:
 
 Artwork color extraction is separate from application theming. Fixed black artwork fades use the
 selected pack's dark foreground palette. Naviamp sets `playerSurface = null` in both variants, so
-its controller and queue panels reveal the selected Player Background. Forest retains its opaque
-player surfaces. Selected-row/tab feedback, lyrics panels, menus and dialogs keep their existing
-fills. This token does not determine the mini-player fill: Player Background does.
+its controller, lyrics and queue cards reveal the selected Player Background. Forest retains its
+opaque player surfaces. Lyrics and queue are separate rounded cards with the same padding as the
+controller. Wide layouts split the available height equally between artwork and controls, separated by
+an 8 dp gap; an odd physical pixel goes to the lower row. Artwork fills the upper row's height while
+remaining square and fitting the left column. Pinned lyrics/queue cards use those same rows and edges.
+Short windows scroll both columns together; 14 dp outer bottom padding remains.
+**Queue** opens a drawer covering the whole right viewport, even if the queue was pinned.
+The drawer uses opaque `controlSurface` so covered lyrics cannot show through or receive input.
+The Queue header exposes only **Pin queue** or **Unpin queue**, switching between the card below
+lyrics and drawer mode. Clicking outside an open drawer dismisses it without activating controls
+underneath; pinned cards remain visible. Back/Escape dismiss an open drawer before leaving the player.
+Narrow and filled-artwork layouts use a full-width drawer and stack pinned cards below the controls.
+Queue presentation is transient view state, not an exported setting. Selected-row/tab feedback, menus and
+dialogs keep their existing fills. This token does not determine the mini-player fill: Player Background does.
 
 Full and mini players share `playerSecondaryText` and `playerMutedText`. Naviamp Light uses
 `#272C35` for secondary player text and `#353C47` for muted player text; its ordinary app

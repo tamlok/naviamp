@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +62,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -75,6 +77,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -87,7 +90,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -105,6 +112,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -334,6 +342,16 @@ data class NaviampNowPlayingActions(
     }
 }
 
+private enum class NowPlayingQueuePresentation { Hidden, Drawer, Pinned }
+
+private class NowPlayingQueueUiState {
+    var selectedTab by mutableStateOf(NaviampNowPlayingTab.UpNext)
+    val backTo = LazyListState()
+    val upNext = LazyListState()
+    val related = LazyListState()
+    val stations = LazyListState()
+}
+
 @Composable
 fun NaviampNowPlayingPanel(
     nowPlaying: NowPlayingUi,
@@ -348,18 +366,58 @@ fun NaviampNowPlayingPanel(
     contentInsets: WindowInsets = WindowInsets(0),
 ) {
     val playerTextColors = remember(colors) { colors.withPlayerTextColors() }
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    var queuePresentation by rememberSaveable { mutableStateOf(NowPlayingQueuePresentation.Hidden) }
+    var playerWindowPosition by remember { mutableStateOf(Offset.Zero) }
+    var queueDrawerBounds by remember { mutableStateOf<Rect?>(null) }
+    NaviampSystemBackHandler(queuePresentation == NowPlayingQueuePresentation.Drawer) {
+        queuePresentation = NowPlayingQueuePresentation.Hidden
+    }
+    if (queuePresentation == NowPlayingQueuePresentation.Drawer) NaviampPopupPresence()
+    LaunchedEffect(nowPlaying.id, nowPlaying.lyricsAvailable) {
+        if (nowPlaying.lyricsAvailable) {
+            actions.onDisplayAction(NowPlayingDisplayActionRequest(
+                NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = nowPlaying.id,
+            ))
+        }
+    }
+    BoxWithConstraints(modifier.fillMaxSize()
+        .onGloballyPositioned { playerWindowPosition = it.positionInWindow() }
+        .then(if (queuePresentation == NowPlayingQueuePresentation.Drawer) Modifier.pointerInput(Unit) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val bounds = queueDrawerBounds
+                if (bounds != null && !bounds.contains(playerWindowPosition + down.position)) {
+                    down.consume()
+                    val up = waitForUpOrCancellation(pass = PointerEventPass.Initial)
+                    if (up != null) {
+                        up.consume()
+                        queuePresentation = NowPlayingQueuePresentation.Hidden
+                    }
+                }
+            }
+        } else Modifier)
+        .onKeyEvent { event ->
+            if (queuePresentation == NowPlayingQueuePresentation.Drawer && event.type == KeyEventType.KeyDown &&
+                (event.key == Key.Escape || event.key == Key.Back)) {
+                queuePresentation = NowPlayingQueuePresentation.Hidden
+                true
+            } else false
+        },
+    ) {
         val wide = maxWidth >= 780.dp
         val filled = useFilledNowPlayingArtwork(displaySettings.fillArtworkArea,
-            nowPlaying.visualizerVisible && nowPlaying.visualizerAvailable,
-            nowPlaying.lyricsVisible && !nowPlaying.isLive, wide)
+            nowPlaying.visualizerVisible && nowPlaying.visualizerAvailable, wide)
         Box(
             Modifier.fillMaxSize().heightIn(min = minOf(300.dp, maxHeight)).then(if (filled) Modifier else
                 Modifier.naviampContentInsets(contentInsets, WindowInsets(0))),
         ) {
             NaviampNowPlayingPanelContent(
-                nowPlaying, playbackProgress, playerTextColors, actions, displaySettings,
-                Modifier.fillMaxSize().then(if (filled) Modifier else Modifier.padding(top = 48.dp)),
+                nowPlaying, playbackProgress, playerTextColors, actions,
+                queuePresentation, {
+                    if (queuePresentation != it) queueDrawerBounds = null
+                    queuePresentation = it
+                }, { queueDrawerBounds = it }, displaySettings,
+                Modifier.fillMaxSize().then(if (filled) Modifier else Modifier.padding(top = 48.dp, bottom = 14.dp)),
                 visualizerBandsProvider, selectedVisualizer, visualizerColors,
                 filled, contentInsets,
             )
@@ -371,7 +429,11 @@ fun NaviampNowPlayingPanel(
             ) {
                 NaviampTooltip(backLabel, backColors) {
                     IconButton(
-                        onClick = { actions.display(NowPlayingDisplayAction.Collapse) },
+                        onClick = {
+                            if (queuePresentation == NowPlayingQueuePresentation.Drawer) {
+                                queuePresentation = NowPlayingQueuePresentation.Hidden
+                            } else actions.display(NowPlayingDisplayAction.Collapse)
+                        },
                         modifier = Modifier.size(48.dp).testTag("now-playing-back")
                             .then(if (filled) Modifier.background(backColors.controlSurface, CircleShape) else Modifier),
                     ) {
@@ -394,6 +456,9 @@ private fun NaviampNowPlayingPanelContent(
     playbackProgress: StateFlow<PlaybackProgress>? = null,
     colors: NaviampColors,
     actions: NaviampNowPlayingActions,
+    queuePresentation: NowPlayingQueuePresentation,
+    onQueuePresentationChanged: (NowPlayingQueuePresentation) -> Unit,
+    onQueueDrawerBoundsChanged: (Rect) -> Unit,
     displaySettings: NowPlayingDisplaySettings = NowPlayingDisplaySettings(),
     modifier: Modifier = Modifier,
     visualizerBandsProvider: () -> List<Float> = { nowPlaying.visualizerFrame?.bands.orEmpty() },
@@ -402,7 +467,15 @@ private fun NaviampNowPlayingPanelContent(
     filled: Boolean,
     contentInsets: WindowInsets,
 ) {
-    var selectedTab by remember(nowPlaying.id, nowPlaying.isLive) { mutableStateOf(NaviampNowPlayingTab.UpNext) }
+    val queueState = remember(nowPlaying.id, nowPlaying.isLive) { NowPlayingQueueUiState() }
+    val queuePinned = queuePresentation == NowPlayingQueuePresentation.Pinned
+    val queueDrawerOpen = queuePresentation == NowPlayingQueuePresentation.Drawer
+    val openQueue = { onQueuePresentationChanged(NowPlayingQueuePresentation.Drawer) }
+    val queueButtonFocus = remember { FocusRequester() }
+    val queuePinFocus = remember { FocusRequester() }
+    var previousQueuePresentation by remember { mutableStateOf(queuePresentation) }
+    val playerScrollState = rememberScrollState()
+
     var saveQueueDialogOpen by remember { mutableStateOf(false) }
     val openPlaylistMembership: (NaviampNowPlayingItemUi) -> Unit = { item ->
         if (item.id == nowPlaying.id) {
@@ -420,48 +493,23 @@ private fun NaviampNowPlayingPanelContent(
     ) {
         val wideLayout = maxWidth >= 780.dp
         val artSizeDefault = 286.dp
-        val viewportMaxWidth = maxWidth
         val viewportMaxHeight = maxHeight
-        val sidePanelHeight = minOf(340.dp, viewportMaxHeight)
+        val sideCardHeight = minOf(340.dp, viewportMaxHeight).coerceAtLeast(180.dp)
+        val stackedSidePanelHeight = if (queuePinned) sideCardHeight * 2 + NowPlayingRowGap else sideCardHeight
         val compactStackLayout = !wideLayout && viewportMaxHeight < CompactNowPlayingStackBreakpoint
         val stackedArtSize = ((viewportMaxHeight * 0.48f) - 18.dp)
             .coerceIn(150.dp, artSizeDefault)
         val splitArtSize = ((viewportMaxHeight / 2f) - 28.dp)
             .coerceIn(170.dp, artSizeDefault)
-        val artSize = when {
-            wideLayout -> {
-                val preferredArtSize = ((viewportMaxHeight / 2f) - 28.dp).coerceIn(170.dp, artSizeDefault)
-                val maximumArtSize = (
-                    viewportMaxHeight -
-                        WideNowPlayingDetailsMinHeight -
-                        NowPlayingArtShadowMargin * 2 -
-                        WideNowPlayingDetailsTopPadding
-                    ).coerceAtLeast(WideNowPlayingArtMinHeight)
-                preferredArtSize.coerceAtMost(maximumArtSize)
-            }
-            compactStackLayout -> stackedArtSize
-            maxWidth < 380.dp -> splitArtSize
-            !wideLayout -> splitArtSize
-            else -> artSizeDefault
-        }
-        val wideDetailsHeight = if (wideLayout) {
-            (
-                viewportMaxHeight -
-                    artSize -
-                    NowPlayingArtShadowMargin * 2 -
-                    WideNowPlayingDetailsTopPadding
-                ).coerceAtLeast(WideNowPlayingDetailsMinHeight)
-        } else {
-            Dp.Unspecified
-        }
+        val artSize = if (compactStackLayout) stackedArtSize else splitArtSize
 
-        if (filled) {
+        if (filled && !queueDrawerOpen) {
             val artworkColors = rememberNaviampArtworkOverlayColors()
             val overlayColors = remember(artworkColors) { artworkColors.withPlayerTextColors() }
             val actionColors = remember(overlayColors, colors) {
                 overlayColors.copy(accent = colors.accent, onAccent = colors.onAccent)
             }
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            Column(Modifier.fillMaxSize().verticalScroll(playerScrollState).padding(bottom = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 NaviampFilledNowPlayingArtwork(
                     url = nowPlaying.coverArtUrl, colors = overlayColors,
@@ -477,6 +525,8 @@ private fun NaviampNowPlayingPanelContent(
                             nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
                             colors = overlayColors, playerColors = visualizerColors, actions = actions,
                             actionColors = actionColors,
+                            queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
+                            onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
                             selectedVisualizer = selectedVisualizer, displaySettings = displaySettings,
                             onOpenPlaylistDialog = openPlaylistMembership,
                             onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
@@ -488,84 +538,109 @@ private fun NaviampNowPlayingPanelContent(
                         )
                     }
                 }
-                NowPlayingSidePanel(progressStableNowPlaying, playbackProgress, colors,
-                    selectedTab, { selectedTab = it }, showStationList = showStationList,
-                    showLyrics = false, actions = actions,
-                    modifier = Modifier.fillMaxWidth().height(sidePanelHeight).padding(horizontal = 14.dp))
+                NowPlayingSidePanel(
+                    nowPlaying, progressStableNowPlaying, playbackProgress, colors, queueState,
+                    showStationList = showStationList, queuePinned = queuePinned,
+                    onQueuePresentationChanged = onQueuePresentationChanged,
+                    pinFocusRequester = queuePinFocus,
+                    actions = actions,
+                    modifier = Modifier.fillMaxWidth().height(stackedSidePanelHeight).padding(horizontal = 14.dp),
+                )
             }
         } else if (wideLayout) {
+            val density = LocalDensity.current
+            val gapPx = with(density) { NowPlayingRowGap.roundToPx() }
+            val minimumRowPx = with(density) { WideNowPlayingRowMinHeight.roundToPx() }
+            val contentHeightPx = with(density) { viewportMaxHeight.roundToPx() }
+                .coerceAtLeast(minimumRowPx * 2 + gapPx)
+            val rowsHeightPx = contentHeightPx - gapPx
+            val topRowHeight = with(density) { (rowsHeightPx / 2).toDp() }
+            val bottomRowHeight = with(density) { (rowsHeightPx - rowsHeightPx / 2).toDp() }
+            val wideContentHeight = with(density) { contentHeightPx.toDp() }
+            val rowGap = with(density) { gapPx.toDp() }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().verticalScroll(playerScrollState),
             ) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(rowGap),
                     modifier = Modifier
                         .weight(0.9f)
-                        .fillMaxHeight()
-                        .verticalScroll(rememberScrollState()),
+                        .height(wideContentHeight),
                 ) {
-                    NowPlayingArtSurface(
-                        nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
-                        playbackProgress = playbackProgress,
-                        coverArtUrl = nowPlaying.coverArtUrl,
-                        colors = colors,
-                        size = artSize,
-                        cornerRadius = 8.dp,
-                        visualizerVisible = nowPlaying.visualizerVisible,
-                        visualizerAvailable = nowPlaying.visualizerAvailable,
-                        visualizerBandsProvider = visualizerBandsProvider,
-                        selectedVisualizer = selectedVisualizer,
-                        visualizerColors = visualizerColors,
-                        visualizerActive = nowPlaying.isPlaying,
-                        tempoBpm = nowPlaying.bpm,
-                        onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
-                        onVisualizerSelected = actions::selectVisualizer,
-                        onVisualizerSwiped = actions::cycleVisualizer,
-                    )
+                    BoxWithConstraints(
+                        Modifier.fillMaxWidth().height(topRowHeight).testTag("now-playing-artwork-slot"),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        NowPlayingArtSurface(
+                            nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
+                            playbackProgress = playbackProgress,
+                            coverArtUrl = nowPlaying.coverArtUrl,
+                            colors = colors,
+                            size = minOf(topRowHeight, maxWidth - 28.dp),
+                            cornerRadius = 8.dp,
+                            visualizerVisible = nowPlaying.visualizerVisible,
+                            visualizerAvailable = nowPlaying.visualizerAvailable,
+                            visualizerBandsProvider = visualizerBandsProvider,
+                            selectedVisualizer = selectedVisualizer,
+                            visualizerColors = visualizerColors,
+                            visualizerActive = nowPlaying.isPlaying,
+                            tempoBpm = nowPlaying.bpm,
+                            onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
+                            onVisualizerSelected = actions::selectVisualizer,
+                            onVisualizerSwiped = actions::cycleVisualizer,
+                            shadowMargin = 0.dp,
+                        )
+                    }
                     NowPlayingDetails(
                         nowPlaying = nowPlaying,
                         playbackProgress = playbackProgress,
                         colors = colors,
                         playerColors = visualizerColors,
                         actions = actions,
+                        queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
+                        onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
                         selectedVisualizer = selectedVisualizer,
                         displaySettings = displaySettings,
                         onOpenPlaylistDialog = openPlaylistMembership,
                         onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                         compactLayout = viewportMaxHeight < 640.dp,
-                        availableHeight = (wideDetailsHeight - WideNowPlayingDetailsTopPadding)
-                            .coerceAtLeast(WideNowPlayingDetailsMinHeight - WideNowPlayingDetailsTopPadding),
+                        availableHeight = bottomRowHeight,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = wideDetailsHeight)
-                            .padding(top = WideNowPlayingDetailsTopPadding),
+                            .height(bottomRowHeight)
+                            .padding(horizontal = 14.dp),
                     )
                 }
-                NowPlayingSidePanel(
-                    nowPlaying = if (nowPlaying.lyricsVisible) nowPlaying else progressStableNowPlaying,
-                    playbackProgress = playbackProgress,
-                    colors = colors,
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                    showStationList = showStationList,
-                    showLyrics = nowPlaying.lyricsVisible,
-                    compactQueueRows = true,
-                    actions = actions,
-                    modifier = Modifier
-                        .weight(1.1f)
-                        .fillMaxHeight(),
-                )
+                if (queueDrawerOpen) {
+                    Spacer(Modifier.weight(1.1f).height(wideContentHeight).padding(end = 14.dp))
+                } else {
+                    NowPlayingSidePanel(
+                        nowPlaying = nowPlaying,
+                        queueNowPlaying = progressStableNowPlaying,
+                        playbackProgress = playbackProgress,
+                        colors = colors,
+                        queueState = queueState,
+                        showStationList = showStationList,
+                        queuePinned = queuePinned,
+                        onQueuePresentationChanged = onQueuePresentationChanged,
+                        pinFocusRequester = queuePinFocus,
+                        compactQueueRows = true,
+                        queueCardHeight = bottomRowHeight,
+                        lyricsCardHeight = topRowHeight,
+                        actions = actions,
+                        modifier = Modifier.weight(1.1f).height(wideContentHeight).padding(end = 14.dp),
+                    )
+                }
             }
-        } else {
+        } else if (!queueDrawerOpen) {
             val viewportHeight = maxHeight
             val compactWidthSizing = maxWidth < 380.dp
-            val scrollState = rememberScrollState()
             val coroutineScope = rememberCoroutineScope()
             fun scrollToPlayer() {
-                coroutineScope.launch { scrollState.animateScrollTo(0) }
+                coroutineScope.launch { playerScrollState.animateScrollTo(0) }
             }
             val itemActions = actions.copy(
                 onSelectionAction = {
@@ -578,7 +653,7 @@ private fun NaviampNowPlayingPanelContent(
                 verticalArrangement = if (compactStackLayout) Arrangement.spacedBy(3.dp) else Arrangement.Top,
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState),
+                    .verticalScroll(playerScrollState),
             ) {
                 if (compactStackLayout) {
                     val compactMediaSlotHeight = artSize + NowPlayingArtShadowMargin * 2
@@ -592,51 +667,32 @@ private fun NaviampNowPlayingPanelContent(
                             .heightIn(min = maxOf(viewportHeight, compactMediaSlotHeight + CompactNowPlayingStackGap + compactDetailsHeight))
                             .padding(horizontal = 14.dp),
                     ) {
-                        if (nowPlaying.lyricsVisible && !showStationList) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(compactMediaSlotHeight),
-                            ) {
-                                LyricsPanel(
-                                    nowPlaying = nowPlaying,
-                                    playbackProgress = playbackProgress,
-                                    colors = colors,
-                                    onSeek = actions::seek,
-                                    onOffsetChanged = actions::changeLyricsOffset,
-                                    onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(artSize),
-                                )
-                            }
-                        } else {
-                            NowPlayingArtSurface(
-                                nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
-                                playbackProgress = playbackProgress,
-                                coverArtUrl = nowPlaying.coverArtUrl,
-                                colors = colors,
-                                size = artSize,
-                                cornerRadius = 8.dp,
-                                visualizerVisible = nowPlaying.visualizerVisible,
-                                visualizerAvailable = nowPlaying.visualizerAvailable,
-                                visualizerBandsProvider = visualizerBandsProvider,
-                                selectedVisualizer = selectedVisualizer,
-                                visualizerColors = visualizerColors,
-                                visualizerActive = nowPlaying.isPlaying,
-                                tempoBpm = nowPlaying.bpm,
-                                onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
-                                onVisualizerSelected = actions::selectVisualizer,
-                                onVisualizerSwiped = actions::cycleVisualizer,
-                            )
-                        }
+                        NowPlayingArtSurface(
+                            nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
+                            playbackProgress = playbackProgress,
+                            coverArtUrl = nowPlaying.coverArtUrl,
+                            colors = colors,
+                            size = artSize,
+                            cornerRadius = 8.dp,
+                            visualizerVisible = nowPlaying.visualizerVisible,
+                            visualizerAvailable = nowPlaying.visualizerAvailable,
+                            visualizerBandsProvider = visualizerBandsProvider,
+                            selectedVisualizer = selectedVisualizer,
+                            visualizerColors = visualizerColors,
+                            visualizerActive = nowPlaying.isPlaying,
+                            tempoBpm = nowPlaying.bpm,
+                            onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
+                            onVisualizerSelected = actions::selectVisualizer,
+                            onVisualizerSwiped = actions::cycleVisualizer,
+                        )
                         NowPlayingDetails(
                             nowPlaying = nowPlaying,
                             playbackProgress = playbackProgress,
                             colors = colors,
                             playerColors = visualizerColors,
                             actions = actions,
+                            queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
+                            onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
                             selectedVisualizer = selectedVisualizer,
                             displaySettings = displaySettings,
                             onOpenPlaylistDialog = openPlaylistMembership,
@@ -657,38 +713,24 @@ private fun NaviampNowPlayingPanelContent(
                             .height(viewportHeight / 2)
                             .padding(horizontal = 14.dp),
                     ) {
-                        if (nowPlaying.lyricsVisible && !showStationList) {
-                            LyricsPanel(
-                                nowPlaying = nowPlaying,
-                                playbackProgress = playbackProgress,
+                        NowPlayingArtSurface(
+                            nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
+                            playbackProgress = playbackProgress,
+                            coverArtUrl = nowPlaying.coverArtUrl,
                             colors = colors,
-                            onSeek = actions::seek,
-                            onOffsetChanged = actions::changeLyricsOffset,
-                            onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(artSize),
-                            )
-                        } else {
-                            NowPlayingArtSurface(
-                                nowPlaying = if (nowPlaying.visualizerVisible) nowPlaying else progressStableNowPlaying,
-                                playbackProgress = playbackProgress,
-                                coverArtUrl = nowPlaying.coverArtUrl,
-                                colors = colors,
-                                size = artSize,
-                                cornerRadius = 8.dp,
-                                visualizerVisible = nowPlaying.visualizerVisible,
-                                visualizerAvailable = nowPlaying.visualizerAvailable,
-                                visualizerBandsProvider = visualizerBandsProvider,
-                                selectedVisualizer = selectedVisualizer,
-                                visualizerColors = visualizerColors,
-                                visualizerActive = nowPlaying.isPlaying,
-                                tempoBpm = nowPlaying.bpm,
-                                onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
-                                onVisualizerSelected = actions::selectVisualizer,
-                                onVisualizerSwiped = actions::cycleVisualizer,
-                            )
-                        }
+                            size = artSize,
+                            cornerRadius = 8.dp,
+                            visualizerVisible = nowPlaying.visualizerVisible,
+                            visualizerAvailable = nowPlaying.visualizerAvailable,
+                            visualizerBandsProvider = visualizerBandsProvider,
+                            selectedVisualizer = selectedVisualizer,
+                            visualizerColors = visualizerColors,
+                            visualizerActive = nowPlaying.isPlaying,
+                            tempoBpm = nowPlaying.bpm,
+                            onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
+                            onVisualizerSelected = actions::selectVisualizer,
+                            onVisualizerSwiped = actions::cycleVisualizer,
+                        )
                     }
                     NowPlayingDetails(
                         nowPlaying = nowPlaying,
@@ -696,6 +738,8 @@ private fun NaviampNowPlayingPanelContent(
                         colors = colors,
                         playerColors = visualizerColors,
                         actions = actions,
+                        queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
+                        onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
                         selectedVisualizer = selectedVisualizer,
                         displaySettings = displaySettings,
                         onOpenPlaylistDialog = openPlaylistMembership,
@@ -708,21 +752,59 @@ private fun NaviampNowPlayingPanelContent(
                             .padding(horizontal = 14.dp),
                     )
                 }
+                Spacer(Modifier.height(8.dp))
                 NowPlayingSidePanel(
-                    nowPlaying = progressStableNowPlaying,
+                    nowPlaying = nowPlaying,
+                    queueNowPlaying = progressStableNowPlaying,
                     playbackProgress = playbackProgress,
                     colors = colors,
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
+                    queueState = queueState,
                     showStationList = showStationList,
-                    showLyrics = false,
+                    queuePinned = queuePinned,
+                    onQueuePresentationChanged = onQueuePresentationChanged,
+                    pinFocusRequester = queuePinFocus,
                     actions = itemActions,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(sidePanelHeight)
+                        .height(stackedSidePanelHeight)
                         .padding(horizontal = 14.dp),
                 )
             }
+        }
+        if (queueDrawerOpen) {
+            if (wideLayout) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(Modifier.weight(0.9f))
+                    NowPlayingQueuePanel(
+                        progressStableNowPlaying, colors, queueState, showStationList,
+                        compactQueueRows = true, actions = actions,
+                        presentation = queuePresentation, onPresentationChanged = onQueuePresentationChanged,
+                        pinFocusRequester = queuePinFocus,
+                        modifier = Modifier.weight(1.1f).fillMaxHeight().padding(end = 14.dp)
+                            .onGloballyPositioned { onQueueDrawerBoundsChanged(it.boundsInWindow()) },
+                    )
+                }
+            } else {
+                NowPlayingQueuePanel(
+                    progressStableNowPlaying, colors, queueState, showStationList,
+                    compactQueueRows = false, actions = actions,
+                    presentation = queuePresentation, onPresentationChanged = onQueuePresentationChanged,
+                    pinFocusRequester = queuePinFocus,
+                    modifier = Modifier.fillMaxSize().then(if (filled) {
+                        Modifier.naviampContentInsets(contentInsets, WindowInsets(0)).padding(top = 48.dp, bottom = 14.dp)
+                    } else Modifier).padding(horizontal = 14.dp)
+                        .onGloballyPositioned { onQueueDrawerBoundsChanged(it.boundsInWindow()) },
+                )
+            }
+        }
+        LaunchedEffect(queuePresentation, wideLayout, filled) {
+            if (queueDrawerOpen || previousQueuePresentation != queuePresentation) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (queuePresentation == NowPlayingQueuePresentation.Hidden) {
+                    queueButtonFocus.requestFocus()
+                } else queuePinFocus.requestFocus()
+            }
+            previousQueuePresentation = queuePresentation
         }
     }
 
@@ -767,6 +849,7 @@ private fun NowPlayingArtSurface(
     onToggleVisualizer: () -> Unit,
     onVisualizerSelected: (NaviampVisualizer) -> Unit,
     onVisualizerSwiped: (VisualizerCycleDirection) -> Unit,
+    shadowMargin: Dp = NowPlayingArtShadowMargin,
 ) {
     val shape = RoundedCornerShape(resolvedMediaArtworkCornerRadius(SharedMediaItemKind.Track, size, cornerRadius))
     val toggleModifier = Modifier.clickable(enabled = visualizerAvailable, onClick = onToggleVisualizer)
@@ -782,7 +865,7 @@ private fun NowPlayingArtSurface(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(size + NowPlayingArtShadowMargin * 2)
+                .height(size + shadowMargin * 2)
                 .visualizerContextMenu { visualizerMenuExpanded = true }
                 .visualizerSwipe(onVisualizerSwiped)
                 .then(toggleModifier),
@@ -816,11 +899,12 @@ private fun NowPlayingArtSurface(
     } else {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.size(size + NowPlayingArtShadowMargin * 2),
+            modifier = Modifier.size(size + shadowMargin * 2),
         ) {
             Box(
                 modifier = Modifier
                     .size(size)
+                    .testTag("now-playing-artwork")
                     .shadow(24.dp, shape, clip = false)
                     .shadow(7.dp, shape, clip = false),
             ) {
@@ -853,6 +937,9 @@ private fun NowPlayingDetails(
     colors: NaviampColors,
     playerColors: NaviampPlayerColors,
     actions: NaviampNowPlayingActions,
+    queueActive: Boolean,
+    onOpenQueue: () -> Unit,
+    queueFocusRequester: FocusRequester,
     selectedVisualizer: NaviampVisualizer,
     displaySettings: NowPlayingDisplaySettings,
     onOpenPlaylistDialog: (NaviampNowPlayingItemUi) -> Unit,
@@ -918,11 +1005,10 @@ private fun NowPlayingDetails(
         modifier = modifier.testTag("now-playing-controller").then(
             if (filledArtworkLayout) Modifier else Modifier.background(colors.playerSurface, RoundedCornerShape(8.dp)),
         ).padding(
-            bottom = when {
-                pinBottomActions -> 8.dp
-                mobileLayout -> 4.dp
-                else -> 0.dp
-            },
+            start = if (filledArtworkLayout) 0.dp else 16.dp,
+            top = if (filledArtworkLayout) 0.dp else 16.dp,
+            end = if (filledArtworkLayout) 0.dp else 16.dp,
+            bottom = if (filledArtworkLayout) 4.dp else 16.dp,
         ),
     ) {
         nowPlaying.selectedRemotePlaybackOutputName()?.let { deviceName ->
@@ -1175,8 +1261,7 @@ private fun NowPlayingDetails(
             modifier = Modifier
                 .fillMaxWidth()
                 .requiredHeight(if (mobileLayout) 46.dp else 44.dp)
-                .testTag("now-playing-bottom-actions")
-                .padding(horizontal = if (pinBottomActions) 8.dp else 0.dp),
+                .testTag("now-playing-bottom-actions"),
         ) {
             val bottomActionButtonSize = 33.dp
             val bottomActionIconSize = 20.dp
@@ -1269,14 +1354,15 @@ private fun NowPlayingDetails(
                     )
                 }
                 NaviampTransportIconButton(
-                    enabled = nowPlaying.lyricsAvailable,
-                    icon = NaviampTransportIcons.Lyrics,
-                    contentDescription = if (nowPlaying.lyricsVisible) "Hide lyrics" else "Show lyrics",
+                    enabled = true,
+                    icon = NaviampIcons.Queue,
+                    contentDescription = stringResource(Res.string.player_queue),
                     colors = colors,
-                    selected = nowPlaying.lyricsVisible,
+                    selected = queueActive,
+                    modifier = Modifier.focusRequester(queueFocusRequester).semantics { selected = queueActive },
                     buttonSize = bottomActionButtonSize,
                     iconSize = bottomActionIconSize,
-                    onClick = { actions.display(NowPlayingDisplayAction.ToggleLyrics) },
+                    onClick = onOpenQueue,
                 )
                 Box(modifier = Modifier.requiredSize(bottomActionButtonSize), contentAlignment = Alignment.Center) {
                     NaviampTransportIconButton(
@@ -1712,7 +1798,7 @@ internal fun Modifier.visualizerSwipe(onSwiped: (VisualizerCycleDirection) -> Un
         val thresholdPx = maxOf(64.dp.toPx(), size.width * 0.15f)
         val edgeExclusionPx = 24.dp.toPx()
         awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            val down = awaitFirstDown(requireUnconsumed = true, pass = PointerEventPass.Initial)
             if (down.type != PointerType.Touch && down.type != PointerType.Stylus) return@awaitEachGesture
             if (down.position.x < edgeExclusionPx || down.position.x > size.width - edgeExclusionPx) {
                 return@awaitEachGesture
@@ -1978,7 +2064,7 @@ internal fun WaveformScrubber(
             .pointerInput(enabled, progressIdentity) {
                 if (!enabled) return@pointerInput
                 awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = true)
                     fun fractionForX(x: Float): Float =
                         waveformSeekFraction(
                             x = x,
@@ -2174,37 +2260,110 @@ private val NowPlayingArtShadowMargin = 12.dp
 private val CompactNowPlayingStackBreakpoint = 640.dp
 private val CompactNowPlayingStackGap = 3.dp
 private val CompactNowPlayingDetailsMinHeight = 132.dp
-private val WideNowPlayingArtMinHeight = 112.dp
-private val WideNowPlayingDetailsMinHeight = 232.dp
-private val WideNowPlayingDetailsTopPadding = 8.dp
+private val WideNowPlayingRowMinHeight = 224.dp
+private val NowPlayingRowGap = 8.dp
 
 internal fun waveformVisibleBarCount(amplitudeCount: Int): Int = amplitudeCount.coerceAtLeast(0)
 
 @Composable
 private fun NowPlayingSidePanel(
     nowPlaying: NowPlayingUi,
+    queueNowPlaying: NowPlayingUi,
     playbackProgress: StateFlow<PlaybackProgress>?,
     colors: NaviampColors,
-    selectedTab: NaviampNowPlayingTab,
-    onTabSelected: (NaviampNowPlayingTab) -> Unit,
+    queueState: NowPlayingQueueUiState,
     showStationList: Boolean,
-    showLyrics: Boolean,
+    queuePinned: Boolean,
+    onQueuePresentationChanged: (NowPlayingQueuePresentation) -> Unit,
+    pinFocusRequester: FocusRequester,
     compactQueueRows: Boolean = false,
+    queueCardHeight: Dp? = null,
+    lyricsCardHeight: Dp? = null,
     actions: NaviampNowPlayingActions,
     modifier: Modifier = Modifier,
 ) {
+    BoxWithConstraints(modifier.testTag("now-playing-side-panel")) {
+        val density = LocalDensity.current
+        val gap = with(density) { NowPlayingRowGap.roundToPx().toDp() }
+        val queueHeight = queueCardHeight ?: ((maxHeight - gap) / 2).coerceAtLeast(180.dp)
+        val lyricsHeight = if (queuePinned) {
+            lyricsCardHeight ?: (maxHeight - queueHeight - gap).coerceAtLeast(180.dp)
+        } else maxHeight.coerceAtLeast(180.dp)
+        val contentHeight = lyricsHeight + if (queuePinned) queueHeight + gap else 0.dp
+        Column(
+            modifier = Modifier.fillMaxSize().then(
+                if (with(density) { contentHeight.roundToPx() > maxHeight.roundToPx() }) {
+                    Modifier.verticalScroll(rememberScrollState())
+                } else Modifier,
+            ),
+            verticalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            LyricsPanel(
+                nowPlaying = nowPlaying,
+                playbackProgress = playbackProgress,
+                colors = colors,
+                onSeek = actions::seek,
+                onOffsetChanged = actions::changeLyricsOffset,
+                onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
+                modifier = Modifier.fillMaxWidth().height(lyricsHeight),
+            )
+            if (queuePinned) {
+                NowPlayingQueuePanel(
+                    nowPlaying = queueNowPlaying,
+                    colors = colors,
+                    queueState = queueState,
+                    presentation = NowPlayingQueuePresentation.Pinned,
+                    onPresentationChanged = onQueuePresentationChanged,
+                    pinFocusRequester = pinFocusRequester,
+                    showStationList = showStationList,
+                    compactQueueRows = compactQueueRows,
+                    actions = actions,
+                    modifier = Modifier.fillMaxWidth().height(queueHeight),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NowPlayingQueuePanel(
+    nowPlaying: NowPlayingUi,
+    colors: NaviampColors,
+    queueState: NowPlayingQueueUiState,
+    showStationList: Boolean,
+    compactQueueRows: Boolean,
+    actions: NaviampNowPlayingActions,
+    presentation: NowPlayingQueuePresentation,
+    onPresentationChanged: (NowPlayingQueuePresentation) -> Unit,
+    pinFocusRequester: FocusRequester,
+    modifier: Modifier = Modifier,
+) {
+    val pinned = presentation == NowPlayingQueuePresentation.Pinned
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
-            .testTag("now-playing-side-panel")
+            .testTag(if (pinned) "now-playing-queue-card" else "now-playing-queue-drawer")
             .clip(RoundedCornerShape(8.dp))
-            .background(colors.playerSurface)
-            .padding(8.dp),
+            .background(if (pinned) colors.playerSurface else colors.controlSurface)
+            .padding(16.dp),
     ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.player_queue), color = colors.primaryText,
+                fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            NaviampTransportIconButton(
+                enabled = true, icon = NaviampIcons.Pin,
+                contentDescription = stringResource(if (pinned) Res.string.now_playing_unpin_queue else Res.string.now_playing_pin_queue),
+                colors = colors, selected = pinned, buttonSize = 40.dp, iconSize = 20.dp,
+                modifier = Modifier.testTag("now-playing-queue-pin").focusRequester(pinFocusRequester)
+                    .semantics { selected = pinned },
+                onClick = { onPresentationChanged(if (pinned) NowPlayingQueuePresentation.Drawer else NowPlayingQueuePresentation.Pinned) },
+            )
+        }
         if (showStationList) {
             Text("STATIONS", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             NowPlayingItemList(
                 items = nowPlaying.radioStations,
+                listState = queueState.stations,
                 colors = colors,
                 currentId = nowPlaying.id,
                 showActions = false,
@@ -2217,26 +2376,24 @@ private fun NowPlayingSidePanel(
             return@Column
         }
 
-        val backToListState = remember(nowPlaying.id, nowPlaying.isLive) { LazyListState() }
-        val upNextListState = remember(nowPlaying.id, nowPlaying.isLive) { LazyListState() }
-        val relatedListState = remember(nowPlaying.id, nowPlaying.isLive) { LazyListState() }
+        val selectedTab = queueState.selectedTab
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 NowPlayingTabButton("BACK TO", selectedTab == NaviampNowPlayingTab.BackTo, colors) {
-                    onTabSelected(NaviampNowPlayingTab.BackTo)
+                    queueState.selectedTab = NaviampNowPlayingTab.BackTo
                 }
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 NowPlayingTabButton("UP NEXT", selectedTab == NaviampNowPlayingTab.UpNext, colors) {
-                    onTabSelected(NaviampNowPlayingTab.UpNext)
+                    queueState.selectedTab = NaviampNowPlayingTab.UpNext
                 }
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                 NowPlayingTabButton(nowPlaying.relatedTabLabel, selectedTab == NaviampNowPlayingTab.Related, colors) {
-                    onTabSelected(NaviampNowPlayingTab.Related)
+                    queueState.selectedTab = NaviampNowPlayingTab.Related
                 }
             }
         }
@@ -2270,9 +2427,9 @@ private fun NowPlayingSidePanel(
             else -> if (nowPlaying.queueManagementActionsOnly) emptyList() else queueRowActions(playAfterCurrentGroupLabel, playImmediatelyNextLabel)
         }
         val listState = when (selectedTab) {
-            NaviampNowPlayingTab.BackTo -> backToListState
-            NaviampNowPlayingTab.UpNext -> upNextListState
-            NaviampNowPlayingTab.Related -> relatedListState
+            NaviampNowPlayingTab.BackTo -> queueState.backTo
+            NaviampNowPlayingTab.UpNext -> queueState.upNext
+            NaviampNowPlayingTab.Related -> queueState.related
         }
         val swipeSettings = LocalTrackSwipeSettings.current
         NowPlayingItemList(
@@ -2303,19 +2460,8 @@ private fun NowPlayingSidePanel(
             },
             queueContext = selectedTab != NaviampNowPlayingTab.Related,
             compactRows = compactQueueRows,
-            modifier = Modifier.weight(if (showLyrics) 0.62f else 1f),
+            modifier = Modifier.weight(1f),
         )
-        if (showLyrics) {
-            LyricsPanel(
-                nowPlaying = nowPlaying,
-                playbackProgress = playbackProgress,
-                colors = colors,
-                onSeek = actions::seek,
-                onOffsetChanged = actions::changeLyricsOffset,
-                onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
-                modifier = Modifier.weight(0.38f),
-            )
-        }
     }
 }
 
@@ -2371,11 +2517,19 @@ private fun LyricsPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(7.dp))
-            .background(colors.controlSurface)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .testTag("now-playing-lyrics-card")
+            .clip(RoundedCornerShape(8.dp))
+            .background(colors.playerSurface)
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (!nowPlaying.lyricsAvailable && nowPlaying.lyricsLines.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(stringResource(Res.string.now_playing_lyrics_unavailable),
+                    color = colors.mutedText, fontSize = 13.sp, textAlign = TextAlign.Center)
+            }
+            return@Column
+        }
         LyricsDisplayTimingControls(
             availableTiming = nowPlaying.lyricsAvailableTiming,
             selectedTiming = nowPlaying.lyricsDisplayTiming,
@@ -2398,7 +2552,10 @@ private fun LyricsPanel(
                     .fillMaxWidth()
                     .weight(1f),
             )
-            nowPlaying.lyricsLines.isEmpty() -> Spacer(Modifier.weight(1f))
+            nowPlaying.lyricsLines.isEmpty() -> Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                Text(stringResource(Res.string.now_playing_lyrics_unavailable),
+                    color = colors.mutedText, fontSize = 13.sp, textAlign = TextAlign.Center)
+            }
             else -> CenteredLyricsList(
                 lines = nowPlaying.lyricsLines,
                 activeLineIndex = activeLineIndex,

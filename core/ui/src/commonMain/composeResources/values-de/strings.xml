@@ -110,6 +110,9 @@
     <string name="connect_manual_rejected">Adresse erreicht, aber das vertrauenswürdige Gerät konnte nicht bestätigt werden. Identität prüfen oder erneut koppeln.</string>
     <string name="connect_manual_reconnect">%1$s über Adresse erneut verbinden</string>
     <string name="now_playing_cast_to_device">Auf Gerät streamen</string>
+    <string name="now_playing_pin_queue">Warteschlange anheften</string>
+    <string name="now_playing_unpin_queue">Warteschlange lösen</string>
+    <string name="now_playing_lyrics_unavailable">Liedtext nicht verfügbar</string>
     <string name="album_artwork_preference">Albumcover-Einstellung</string>
     <string name="album_artwork_inherit">Übernehmen</string>
     <string name="album_artwork_track">Titelcover</string>

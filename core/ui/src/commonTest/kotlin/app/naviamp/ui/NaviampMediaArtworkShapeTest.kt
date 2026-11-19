@@ -5,13 +5,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class NaviampMediaArtworkShapeTest {
-    @Test fun filledArtworkHonorsLyricsVisualizerAndDefaultPresentation() {
-        assertEquals(false, useFilledNowPlayingArtwork(false, false, false, true))
-        assertEquals(false, useFilledNowPlayingArtwork(true, true, false, true))
-        assertEquals(false, useFilledNowPlayingArtwork(true, false, true, false))
-        assertEquals(false, useFilledNowPlayingArtwork(true, false, true, true))
-        assertEquals(false, useFilledNowPlayingArtwork(true, false, false, true))
-        assertEquals(true, useFilledNowPlayingArtwork(true, false, false, false))
+    @Test fun filledArtworkHonorsVisualizerAndDefaultPresentation() {
+        assertEquals(false, useFilledNowPlayingArtwork(false, false, false))
+        assertEquals(false, useFilledNowPlayingArtwork(true, true, false))
+        assertEquals(false, useFilledNowPlayingArtwork(true, false, true))
+        assertEquals(true, useFilledNowPlayingArtwork(true, false, false))
     }
     @Test fun squareAlbumPreferencePreservesArtistAndCollectionShapes() {
         for (square in listOf(false, true)) {

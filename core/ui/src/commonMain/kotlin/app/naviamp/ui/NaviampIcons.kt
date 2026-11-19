@@ -233,6 +233,20 @@ object NaviampIcons {
         moveTo(14.5f, 16.5f)
         lineTo(19.2f, 16.5f)
     }
+    val Pin = icon("Pin") {
+        moveTo(9f, 3f)
+        lineTo(15f, 3f)
+        moveTo(10f, 3f)
+        lineTo(10f, 9f)
+        lineTo(7f, 12f)
+        lineTo(7f, 15f)
+        lineTo(17f, 15f)
+        lineTo(17f, 12f)
+        lineTo(14f, 9f)
+        lineTo(14f, 3f)
+        moveTo(12f, 15f)
+        lineTo(12f, 22f)
+    }
     val Library = icon("Library") {
         moveTo(8f, 5f)
         lineTo(8f, 16.2f)

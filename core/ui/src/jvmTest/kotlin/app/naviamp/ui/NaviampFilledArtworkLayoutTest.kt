@@ -58,6 +58,9 @@ class NaviampFilledArtworkLayoutTest {
             assertEquals(listOf(NowPlayingDisplayAction.Collapse), display)
             assertTrue(playback.isEmpty())
         }
+        onNodeWithContentDescription("Queue").performClick()
+        onNodeWithTag("now-playing-queue-drawer").assertIsDisplayed()
+        onNodeWithContentDescription("Pin queue").performClick()
         onNodeWithTag("now-playing-side-panel").performScrollTo().assertIsDisplayed()
         onNodeWithText("Next song").performScrollTo().assertIsDisplayed().performClick()
         back.assertIsDisplayed()

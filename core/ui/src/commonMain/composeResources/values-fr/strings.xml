@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">Adresse atteinte, mais l’appareil de confiance n’a pas pu être vérifié. Vérifiez son identité ou associez-le à nouveau.</string>
     <string name="connect_manual_reconnect">Reconnecter %1$s par adresse</string>
     <string name="now_playing_cast_to_device">Caster sur un appareil</string>
+    <string name="now_playing_pin_queue">Épingler la file</string>
+    <string name="now_playing_unpin_queue">Désépingler la file</string>
+    <string name="now_playing_lyrics_unavailable">Paroles indisponibles</string>
     <string name="album_artwork_preference">Préférence de pochette de l’album</string>
     <string name="album_artwork_inherit">Hériter</string>
     <string name="album_artwork_track">Pochette du titre</string>

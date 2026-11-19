@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">पते तक पहुँचे, लेकिन विश्वसनीय डिवाइस की पुष्टि नहीं हो सकी। उसकी पहचान जाँचें या फिर से पेयर करें।</string>
     <string name="connect_manual_reconnect">%1$s से पते द्वारा फिर कनेक्ट करें</string>
     <string name="now_playing_cast_to_device">डिवाइस पर कास्ट करें</string>
+    <string name="now_playing_pin_queue">कतार पिन करें</string>
+    <string name="now_playing_unpin_queue">कतार अनपिन करें</string>
+    <string name="now_playing_lyrics_unavailable">गीत के बोल उपलब्ध नहीं हैं</string>
     <string name="album_artwork_preference">एल्बम कवर की प्राथमिकता</string>
     <string name="album_artwork_inherit">विरासत में लें</string>
     <string name="album_artwork_track">ट्रैक कवर</string>

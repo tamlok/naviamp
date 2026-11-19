@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">Adrese ulaşıldı ancak güvenilir cihaz doğrulanamadı. Kimliğini kontrol edin veya yeniden eşleştirin.</string>
     <string name="connect_manual_reconnect">%1$s cihazına adresle yeniden bağlan</string>
     <string name="now_playing_cast_to_device">Cihaza yayınla</string>
+    <string name="now_playing_pin_queue">Sırayı sabitle</string>
+    <string name="now_playing_unpin_queue">Sıranın sabitlemesini kaldır</string>
+    <string name="now_playing_lyrics_unavailable">Şarkı sözleri mevcut değil</string>
     <string name="album_artwork_preference">Albüm kapağı tercihi</string>
     <string name="album_artwork_inherit">Devral</string>
     <string name="album_artwork_track">Parça kapağı</string>

@@ -602,6 +602,49 @@ class NaviampCoreNowPlayingMediaControllerTest {
     }
 
     @Test
+    fun fullPlayerRequestsLyricsWithoutRetogglingOrReloadingCompletedSidecars() = runTest {
+        val fixture = mediaFixture(this)
+        val request = NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
+            NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = "current",
+        ))
+        fixture.controller.execute(request)
+        fixture.controller.execute(request)
+        assertTrue(fixture.store.state.value.shell.nowPlaying?.lyricsVisible == true)
+        assertEquals(listOf("current"), fixture.sidecars.lyricsLoads)
+
+        fixture.controller.onTrackChanged(nowPlayingTrack("next"))
+        assertEquals(listOf("current", "next"), fixture.sidecars.lyricsLoads)
+        fixture.controller.execute(NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
+            NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = "next",
+        )))
+        assertEquals(listOf("current", "next"), fixture.sidecars.lyricsLoads)
+    }
+
+    @Test
+    fun lyricsDemandSurvivesPendingSidecarsAndSkipsRemoteOrStaleRequests() = runTest {
+        val fixture = mediaFixture(this)
+        val request = NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
+            NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = "current",
+        ))
+        fixture.store.updateShell { it.copy(connect = it.connect.copy(remotePlaybackAuthorityActive = true)) }
+        fixture.controller.execute(request)
+        assertTrue(fixture.sidecars.lyricsLoads.isEmpty())
+        assertFalse(fixture.store.state.value.shell.nowPlaying!!.lyricsVisible)
+        fixture.store.updateShell { it.copy(connect = it.connect.copy(remotePlaybackAuthorityActive = false)) }
+        fixture.controller.execute(NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
+            NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = "stale",
+        )))
+        assertTrue(fixture.sidecars.lyricsLoads.isEmpty())
+
+        fixture.sidecars.state = fixture.sidecars.state.copy(trackId = TrackId("previous"))
+        fixture.controller.execute(request)
+        assertTrue(fixture.sidecars.lyricsLoads.isEmpty())
+        assertTrue(fixture.store.state.value.shell.nowPlaying!!.lyricsVisible)
+        fixture.controller.onTrackChanged(nowPlayingTrack("current"))
+        assertEquals(listOf("current"), fixture.sidecars.lyricsLoads)
+    }
+
+    @Test
     fun displayPlaylistMetadataAndDownloadActionsAreOwnedByCore() = runTest {
         val fixture = mediaFixture(this)
 
@@ -1216,14 +1259,21 @@ private class NowPlayingTestEffects : NaviampCorePlaybackEffectPort {
 
 private class NowPlayingTestSidecars : NaviampCoreNowPlayingSidecarPort {
     val lyricsLoads = mutableListOf<String>()
-    override fun snapshot() = NaviampCoreNowPlayingSidecars(
+    var state = NaviampCoreNowPlayingSidecars(
+        trackId = TrackId("current"),
         visualizerFrame = PlaybackVisualizerFrame(listOf(0.25f, 0.75f), 1L),
         relatedTracks = listOf(nowPlayingTrack("related")),
         relatedTracksSource = RelatedTracksSource.ProviderRadio,
         internetRadioStations = listOf(InternetRadioStation("station", "Station", "https://radio")),
     )
-    override suspend fun loadForTrack(track: Track) = Unit
-    override suspend fun loadLyrics(track: Track) { lyricsLoads += track.id.value }
+    override fun snapshot() = state
+    override suspend fun loadForTrack(track: Track) {
+        state = state.copy(trackId = track.id, lyrics = null, lyricsStatus = null)
+    }
+    override suspend fun loadLyrics(track: Track) {
+        lyricsLoads += track.id.value
+        state = state.copy(lyricsStatus = "Lyrics unavailable")
+    }
     override suspend fun changeLyricsOffset(track: Track, offsetMillis: Int) = Unit
 }
 

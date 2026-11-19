@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">Адрес доступен, но не удалось проверить доверенное устройство. Проверьте его идентификатор или выполните сопряжение снова.</string>
     <string name="connect_manual_reconnect">Подключиться к %1$s по адресу снова</string>
     <string name="now_playing_cast_to_device">Трансляция на устройство</string>
+    <string name="now_playing_pin_queue">Закрепить очередь</string>
+    <string name="now_playing_unpin_queue">Открепить очередь</string>
+    <string name="now_playing_lyrics_unavailable">Текст песни недоступен</string>
     <string name="album_artwork_preference">Настройка обложки альбома</string>
     <string name="album_artwork_inherit">Наследовать</string>
     <string name="album_artwork_track">Обложка трека</string>

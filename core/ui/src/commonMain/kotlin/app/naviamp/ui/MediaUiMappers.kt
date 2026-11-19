@@ -800,6 +800,7 @@ data class NowPlayingPlaybackActionRequest(
 
 enum class NowPlayingDisplayAction {
     ToggleLyrics,
+    EnsureLyrics,
     ChangeLyricsOffset,
     SelectLyricsDisplayTiming,
     ToggleVisualizer,
@@ -816,6 +817,7 @@ data class NowPlayingDisplayActionRequest(
     val visualizer: NaviampVisualizer? = null,
     val visualizerDirection: VisualizerCycleDirection? = null,
     val radioDjId: String? = null,
+    val lyricsTrackId: String? = null,
 )
 
 enum class NowPlayingQueueAction {

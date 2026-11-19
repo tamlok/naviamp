@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">已到达该地址，但无法验证受信任的设备。请检查其身份或重新配对。</string>
     <string name="connect_manual_reconnect">按地址重新连接到%1$s</string>
     <string name="now_playing_cast_to_device">投放到设备</string>
+    <string name="now_playing_pin_queue">固定队列</string>
+    <string name="now_playing_unpin_queue">取消固定队列</string>
+    <string name="now_playing_lyrics_unavailable">暂无歌词</string>
     <string name="album_artwork_preference">专辑封面偏好</string>
     <string name="album_artwork_inherit">继承</string>
     <string name="album_artwork_track">曲目封面</string>

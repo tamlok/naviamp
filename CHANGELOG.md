@@ -16,6 +16,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Keep navigation and browsing backgrounds theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
 - Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
+- Open Queue as a full-height drawer over the lyrics, or pin it as a separate card below lyrics aligned with the playback controls. Queue reopens drawer mode when pinned; outside clicks dismiss the drawer without activating controls underneath. Wide players share height equally between artwork and controls, with matching card styling and outer padding; narrow layouts stack pinned cards below the controls.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
@@ -28,6 +29,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.
 - Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.
 - Keep the current Aurora colors when opening or closing the full player, including while new artwork loads or a track-color transition is in progress.
+- Keep full-player cards inset from the app edges, including bottom outer padding matching the side insets, with consistent inner padding so progress, track details, and actions stay clear of the card edges.
 
 ### Upgrade notes
 

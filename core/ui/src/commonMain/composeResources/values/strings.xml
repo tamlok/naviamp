@@ -911,6 +911,9 @@
     <string name="connect_manual_rejected">Reached the address, but the trusted device could not be verified. Check its identity or pair again.</string>
     <string name="connect_manual_reconnect">Reconnect to %1$s at address</string>
     <string name="now_playing_cast_to_device">Cast to a device</string>
+    <string name="now_playing_pin_queue">Pin queue</string>
+    <string name="now_playing_unpin_queue">Unpin queue</string>
+    <string name="now_playing_lyrics_unavailable">Lyrics unavailable</string>
     <string name="album_artwork_preference">Album artwork preference</string>
     <string name="album_artwork_inherit">Inherit</string>
     <string name="album_artwork_track">Track cover</string>

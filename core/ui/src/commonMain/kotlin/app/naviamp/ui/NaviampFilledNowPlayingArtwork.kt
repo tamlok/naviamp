@@ -57,6 +57,5 @@ internal fun NaviampFilledNowPlayingArtwork(
 internal fun useFilledNowPlayingArtwork(
     enabled: Boolean,
     visualizerVisible: Boolean,
-    lyricsVisible: Boolean,
     wideLayout: Boolean,
-): Boolean = enabled && !visualizerVisible && !lyricsVisible && !wideLayout
+): Boolean = enabled && !visualizerVisible && !wideLayout

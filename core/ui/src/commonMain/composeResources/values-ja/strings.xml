@@ -124,6 +124,9 @@
     <string name="connect_manual_rejected">アドレスには接続できましたが、信頼済みデバイスを確認できませんでした。IDを確認するか、再度ペアリングしてください。</string>
     <string name="connect_manual_reconnect">アドレスで%1$sに再接続</string>
     <string name="now_playing_cast_to_device">デバイスにキャスト</string>
+    <string name="now_playing_pin_queue">キューを固定</string>
+    <string name="now_playing_unpin_queue">キューの固定を解除</string>
+    <string name="now_playing_lyrics_unavailable">歌詞を利用できません</string>
     <string name="album_artwork_preference">アルバムアートワークの設定</string>
     <string name="album_artwork_inherit">引き継ぐ</string>
     <string name="album_artwork_track">曲のカバー</string>
