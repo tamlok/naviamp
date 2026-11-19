@@ -14,6 +14,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
+- Check for updates from tamlok/naviamp releases instead of the upstream repository.
 
 ### Bug fixes
 

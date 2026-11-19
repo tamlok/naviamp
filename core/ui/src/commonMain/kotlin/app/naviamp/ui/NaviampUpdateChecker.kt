@@ -200,6 +200,6 @@ private fun String.naviampVersion(): NaviampVersion? {
     return NaviampVersion(numbers, prerelease)
 }
 
-const val NaviampReleasesUrl = "https://github.com/goosepod/naviamp/releases"
-private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/goosepod/naviamp/releases?per_page=30"
+const val NaviampReleasesUrl = "https://github.com/tamlok/naviamp/releases"
+private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/tamlok/naviamp/releases?per_page=30"
 private const val NaviampUpdateCheckIntervalMillis = 24L * 60L * 60L * 1_000L
