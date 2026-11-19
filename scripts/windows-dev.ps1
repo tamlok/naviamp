@@ -1,0 +1,66 @@
+#Requires -Version 7.0
+<#
+.SYNOPSIS
+Builds and launches the current checkout's Windows development app.
+.DESCRIPTION
+Requires Windows, JDK 21, Android SDK platform 36, CMake 3.22+, and a Windows
+C++ toolchain. Uses the Gradle wrapper and the existing development data profile.
+Does not update Git, clean build caches, install the app, or stop running apps.
+.EXAMPLE
+pwsh -NoProfile -File ./scripts/windows-dev.ps1
+#>
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+
+if (-not $IsWindows) {
+    throw 'This script builds and runs the Windows app; run it on Windows.'
+}
+
+function ConvertTo-ApplicationPath([string]$Path) {
+    if ($Path.StartsWith('\\?\')) {
+        $Path = $Path.Substring(4)
+    }
+    [IO.Path]::GetFullPath($Path)
+}
+
+$repositoryRoot = Split-Path -Parent $PSScriptRoot
+$applicationDirectory = Join-Path $repositoryRoot 'build/local-test/Naviamp'
+$executable = ConvertTo-ApplicationPath (Join-Path $applicationDirectory 'Naviamp.exe')
+$buildExecutable = ConvertTo-ApplicationPath (Join-Path $repositoryRoot 'apps/desktop/build/compose/binaries/main/app/Naviamp/Naviamp.exe')
+
+# Both images must be unlocked before Gradle rebuilds or replaces their files.
+foreach ($process in Get-Process -Name Naviamp -ErrorAction SilentlyContinue) {
+    $processPath = $process.Path
+    if (-not $processPath) {
+        throw "Cannot identify the executable path of Naviamp (PID $($process.Id)). Close it before rebuilding."
+    }
+    $processPath = ConvertTo-ApplicationPath $processPath
+    if ($processPath -ieq $executable -or $processPath -ieq $buildExecutable) {
+        throw "Close the local Naviamp app before rebuilding (PID $($process.Id), $processPath)."
+    }
+}
+
+Push-Location -LiteralPath $repositoryRoot
+try {
+    Write-Host 'Building and staging the current checkout for Windows x64...'
+    & .\gradlew.bat `
+        '-Pkotlin.native.enableKlibsCrossCompilation=false' `
+        '-Pnaviamp.bass.platform=windows-x64' `
+        :apps:desktop:stageLocalTestApp
+    if ($LASTEXITCODE -ne 0) {
+        throw "Windows development build failed with exit code $LASTEXITCODE. Naviamp was not launched."
+    }
+    if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
+        throw "The build did not produce the staged executable: $executable"
+    }
+
+    $applicationProcess = Start-Process `
+        -FilePath $executable `
+        -WorkingDirectory $applicationDirectory `
+        -PassThru
+    Write-Host "Launched the Windows development app (PID $($applicationProcess.Id)): $executable"
+} finally {
+    Pop-Location
+}

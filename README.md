@@ -336,6 +336,29 @@ make android-debug
   App Bundle; see [Android distribution](docs/android-distribution.md).
 - Windows and Linux standalone/installer targets must run on their respective operating systems.
 
+### Windows development build
+
+In PowerShell 7, build the current checkout and launch the staged app:
+
+```powershell
+pwsh -NoProfile -File ./scripts/windows-dev.ps1
+```
+
+Set up JDK 21 (`JAVA_HOME` or `java` on `PATH`), Android SDK platform 36
+(`ANDROID_HOME`, `ANDROID_SDK_ROOT`, or `sdk.dir` in `local.properties`), and CMake
+3.22+ (`cmake` on `PATH` or `CMAKE_EXE`) with a Windows C++ toolchain such as Visual
+Studio Build Tools with MSVC and the Windows SDK. The shared Gradle project needs
+the Android SDK even for this Desktop build. GNU Make and WiX are not required.
+
+The script runs `:apps:desktop:stageLocalTestApp` for Windows x64, then opens
+`build/local-test/Naviamp/Naviamp.exe` using the existing development data profile,
+separate from release app data. It builds local changes incrementally; it does not
+pull Git updates, clean caches, or install an MSI. Close any app running from this
+checkout's staged or Compose build image before rerunning; the script never stops
+running apps and does not launch an older build when compilation fails.
+
+### Release and verification guidance
+
 Release operators should use the [v2.11.1 release readiness record](docs/releases/v2.11.1-readiness.md)
 for exact packages, signing and remaining store gates.
 
