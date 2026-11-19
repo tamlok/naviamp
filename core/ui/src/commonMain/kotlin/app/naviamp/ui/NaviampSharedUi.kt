@@ -1257,6 +1257,7 @@ private fun NaviampMiniPlayerSliders(
                     volumeValue = it
                     actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
                 },
+                onToggleMute = { actions.playback(NowPlayingPlaybackAction.ToggleMute) },
                 colors = colors,
                 trackWidth = 80.dp,
                 sliderHeight = 48.dp,

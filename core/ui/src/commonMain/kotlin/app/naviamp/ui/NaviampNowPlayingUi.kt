@@ -1182,6 +1182,7 @@ private fun NowPlayingDetails(
                     volumeValue = it
                     actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
                 },
+                onToggleMute = { actions.playback(NowPlayingPlaybackAction.ToggleMute) },
                 colors = actionColors,
                 trackWidth = transportClusterWidth.takeIf { matchVolumeToTransportWidth },
             )
@@ -2140,6 +2141,7 @@ internal fun VolumeRow(
     value: Float,
     isChangingVolume: (Boolean) -> Unit,
     onValueChanged: (Float) -> Unit,
+    onToggleMute: () -> Unit,
     colors: NaviampColors,
     trackWidth: Dp? = null,
     sliderHeight: Dp = 24.dp,
@@ -2166,18 +2168,21 @@ internal fun VolumeRow(
     val rowModifier = if (trackWidth == null) {
         Modifier.fillMaxWidth().padding(horizontal = 14.dp)
     } else {
-        Modifier.width(trackWidth + 25.dp)
+        Modifier.width(trackWidth + 56.dp)
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = rowModifier,
     ) {
-        Icon(
-            imageVector = NaviampTransportIcons.Volume,
-            contentDescription = null,
-            tint = colors.primaryText.copy(alpha = 0.86f),
-            modifier = Modifier.size(17.dp),
+        NaviampTransportIconButton(
+            enabled = true,
+            icon = if (value <= 0f) NaviampTransportIcons.VolumeMuted else NaviampTransportIcons.Volume,
+            contentDescription = stringResource(if (value <= 0f) Res.string.now_playing_unmute else Res.string.now_playing_mute),
+            colors = colors,
+            buttonSize = 48.dp,
+            iconSize = 17.dp,
+            onClick = onToggleMute,
         )
         Canvas(
             modifier = (if (trackWidth == null) Modifier.weight(1f) else Modifier.width(trackWidth))

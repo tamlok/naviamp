@@ -1184,6 +1184,8 @@
     <string name="permission_local_network_usage">Naviamp connects to your music servers and discovers playback devices on your local network.</string>
     <string name="now_playing_playback_position">Playback position</string>
     <string name="now_playing_volume">Volume</string>
+    <string name="now_playing_mute">Mute</string>
+    <string name="now_playing_unmute">Unmute</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>

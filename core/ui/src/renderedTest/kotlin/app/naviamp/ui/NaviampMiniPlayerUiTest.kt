@@ -275,6 +275,35 @@ class NaviampMiniPlayerUiTest {
     }
 
     @Test
+    fun speakerTogglesWithoutOpeningDetailsAndFollowsVolumeVisibility() = runComposeUiTest {
+        val playing = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
+            stateLabel = "Paused", durationSeconds = 200.0, volumePercent = 40))
+        val showVolume = mutableStateOf(true)
+        var opened = 0
+        setContent { Box(Modifier.width(320.dp)) {
+            NaviampMiniNowPlaying(playing.value, NaviampColors.Dark, { opened++ },
+                NaviampNowPlayingActions({ request ->
+                    if (request.action == NowPlayingPlaybackAction.ToggleMute) {
+                        playing.value = playing.value.copy(volumePercent = if (playing.value.volumePercent == 0) 40 else 0)
+                    }
+                }, {}, {}, {}, {}, {}, {}),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark),
+                showVolumeBar = showVolume.value)
+        } }
+        onNodeWithContentDescription("Mute").assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+            .performTouchInput { click(center) }
+        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
+        onNodeWithContentDescription("Unmute").performTouchInput { click(center) }
+        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
+        runOnIdle { assertEquals(0, opened); showVolume.value = false }
+        onNodeWithContentDescription("Mute").assertDoesNotExist()
+        runOnIdle { showVolume.value = true; playing.value = playing.value.copy(volumePercent = 0) }
+        onNodeWithContentDescription("Unmute").assertIsDisplayed()
+        runOnIdle { playing.value = playing.value.copy(canChangeVolume = false) }
+        onNodeWithContentDescription("Unmute").assertDoesNotExist()
+    }
+
+    @Test
     fun unknownDurationAndUnavailableRemoteSeekingNeverDispatchASeek() = runComposeUiTest {
         val state = mutableStateOf(NowPlayingUi(id = "remote", title = "Remote song", subtitle = "Device",
             stateLabel = "Paused", durationSeconds = 200.0, positionSeconds = 50.0,
@@ -320,10 +349,13 @@ class NaviampMiniPlayerUiTest {
                 .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
             val volume = onNodeWithContentDescription("Volume")
                 .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+            val mute = onNodeWithContentDescription("Mute")
+                .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
             val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
             val next = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
             val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
             assertTrue(progress.right <= volume.left && volume.right <= player.right)
+            assertTrue(progress.right <= mute.left && mute.right <= volume.left)
             assertTrue(progress.bottom <= player.bottom && volume.bottom <= player.bottom)
             if (viewport < 720) assertTrue(progress.top >= identity.bottom && progress.top >= next.bottom)
             else assertTrue(progress.left >= next.right)

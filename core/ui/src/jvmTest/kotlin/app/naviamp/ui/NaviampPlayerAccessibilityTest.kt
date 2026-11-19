@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -68,6 +69,32 @@ class NaviampPlayerAccessibilityTest {
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(-1f) }
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
         assertEquals(listOf(100, 0), volumes)
+    }
+
+    @Test fun speakerButtonSupportsPointerKeyboardAndLiveVolumeState() = runDesktopComposeUiTest(1280, 720) {
+        val playing = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
+            stateLabel = "Paused", volumePercent = 65, canChangeVolume = true))
+        setContent {
+            NaviampNowPlayingPanel(playing.value, colors = NaviampColors(),
+                actions = NaviampNowPlayingActions({ request ->
+                    if (request.action == NowPlayingPlaybackAction.ToggleMute) {
+                        playing.value = playing.value.copy(volumePercent = if (playing.value.volumePercent == 0) 65 else 0)
+                    }
+                }, {}, {}, {}, {}, {}, {}))
+        }
+        onNodeWithContentDescription("Mute").assertHasClickAction()
+            .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+            .performTouchInput { click(center) }
+        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
+        val unmute = onNodeWithContentDescription("Unmute")
+        unmute.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        unmute.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(.65f, 0f..1f))
+        onNodeWithContentDescription("Mute").assertIsDisplayed()
+        runOnIdle { playing.value = playing.value.copy(volumePercent = 0) }
+        onNodeWithContentDescription("Unmute").assertIsDisplayed()
+        runOnIdle { playing.value = playing.value.copy(canChangeVolume = false) }
+        onNodeWithContentDescription("Unmute").assertDoesNotExist()
     }
 
     @Test fun volumeKeyboardSeeksAndFocusTraversalWorkInBothLayoutDirections() {

@@ -187,6 +187,33 @@ object NaviampTransportIcons {
         }
     }.build()
 
+    val VolumeMuted: ImageVector = ImageVector.Builder(
+        name = "VolumeMuted",
+        defaultWidth = IconSize,
+        defaultHeight = IconSize,
+        viewportWidth = Viewport,
+        viewportHeight = Viewport,
+    ).apply {
+        path(
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 2f,
+            strokeLineCap = StrokeCap.Round,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
+            moveTo(4f, 9f)
+            lineTo(8f, 9f)
+            lineTo(13f, 5f)
+            lineTo(13f, 19f)
+            lineTo(8f, 15f)
+            lineTo(4f, 15f)
+            close()
+            moveTo(17f, 9f)
+            lineTo(23f, 15f)
+            moveTo(23f, 9f)
+            lineTo(17f, 15f)
+        }
+    }.build()
+
     val Cast: ImageVector = ImageVector.Builder(
         name = "Cast",
         defaultWidth = IconSize,

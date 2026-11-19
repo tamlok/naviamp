@@ -1076,6 +1076,71 @@ class NaviampCorePlaybackControllerTest {
     }
 
     @Test
+    fun muteRestoresTheCurrentVolumeAcrossTrackAndExternalVolumeChanges() = runTest {
+        val fixture = playbackFixture(this)
+        fun externalVolume(percent: Int) = fixture.store.updateShell { shell ->
+            shell.copy(playback = shell.playback.copy(settings = shell.playback.settings.copy(volumePercent = percent)))
+        }
+        suspend fun toggle() = fixture.controller.execute(playbackCommand(NowPlayingPlaybackAction.ToggleMute))
+
+        externalVolume(42)
+        toggle()
+        assertEquals(0, fixture.store.state.value.shell.nowPlaying?.volumePercent)
+        fixture.controller.updateLiveState { it.copy(currentTrack = it.queue.tracks.first()) }
+        toggle()
+        assertEquals(42, fixture.store.state.value.shell.nowPlaying?.volumePercent)
+        toggle()
+        toggle()
+        externalVolume(73)
+        toggle()
+        toggle()
+
+        assertEquals(listOf(0, 42, 0, 42, 0, 73), fixture.effects.volumes)
+        assertEquals(fixture.effects.volumes, fixture.savedSettings.map { it.volumePercent })
+        assertEquals(73, fixture.store.state.value.shell.nowPlaying?.volumePercent)
+        assertEquals(0, fixture.effects.pauses)
+        assertEquals(0, fixture.effects.resumes)
+    }
+
+    @Test
+    fun manualVolumeChangesRestoreTheLastAudibleLevelRatherThanUndoingTheGesture() = runTest {
+        val fixture = playbackFixture(this)
+        for (percent in listOf(40, 20, 5, 0)) {
+            fixture.controller.execute(NaviampCoreCommand.NowPlaying.Playback(
+                NowPlayingPlaybackActionRequest(NowPlayingPlaybackAction.ChangeVolume, volumePercent = percent)))
+        }
+        fixture.controller.execute(playbackCommand(NowPlayingPlaybackAction.ToggleMute))
+        assertEquals(listOf(40, 20, 5, 0, 5), fixture.effects.volumes)
+        assertEquals(5, fixture.store.state.value.shell.nowPlaying?.volumePercent)
+    }
+
+    @Test
+    fun aSessionStartingAtZeroCanUnmuteAndThenRestoreItsFallbackVolume() = runTest {
+        val fixture = playbackFixture(this)
+        fixture.store.updateShell { shell ->
+            shell.copy(playback = shell.playback.copy(settings = shell.playback.settings.copy(volumePercent = 0)))
+        }
+        repeat(3) { fixture.controller.execute(playbackCommand(NowPlayingPlaybackAction.ToggleMute)) }
+        assertEquals(listOf(50, 0, 50), fixture.effects.volumes)
+        assertEquals(50, fixture.store.state.value.shell.nowPlaying?.volumePercent)
+    }
+
+    @Test
+    fun muteDoesNotChangeVolumeOrSettingsWhenEitherSoftwareVolumeCapabilityIsMissing() = runTest {
+        for (engineSupportsVolume in listOf(false, true)) {
+            val fixture = playbackFixture(this)
+            fixture.effects.capabilities = fixture.effects.capabilities.copy(supportsSoftwareVolume = engineSupportsVolume)
+            fixture.store.updateShell { shell ->
+                shell.copy(capabilities = shell.capabilities.copy(softwareVolumeControl = !engineSupportsVolume))
+            }
+            repeat(2) { fixture.controller.execute(playbackCommand(NowPlayingPlaybackAction.ToggleMute)) }
+            assertTrue(fixture.effects.volumes.isEmpty())
+            assertTrue(fixture.savedSettings.isEmpty())
+            assertEquals(100, fixture.store.state.value.shell.playback.settings.volumePercent)
+        }
+    }
+
+    @Test
     fun platformCapabilityCanSuppressSoftwareVolumeEvenWhenTheEngineSupportsIt() = runTest {
         val fixture = playbackFixture(this)
         fixture.store.updateShell { shell ->
@@ -1330,7 +1395,7 @@ private fun PlaybackFixture.moveToQueueEnd() {
 }
 
 private class PlaybackTestEffects : NaviampCorePlaybackEffectPort {
-    override val capabilities = NaviampCorePlaybackCapabilities(supportsVisualizer = true)
+    override var capabilities = NaviampCorePlaybackCapabilities(supportsVisualizer = true)
     override val playbackSource = PlaybackSource.ProviderStream
     var pauses = 0
     var resumes = 0

@@ -403,6 +403,8 @@
     <string name="permission_local_network_usage">Naviamp 会连接到你的音乐服务器，并发现本地网络上的播放设备。</string>
     <string name="now_playing_playback_position">播放位置</string>
     <string name="now_playing_volume">音量</string>
+    <string name="now_playing_mute">静音</string>
+    <string name="now_playing_unmute">取消静音</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>
