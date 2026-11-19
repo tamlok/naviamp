@@ -13,6 +13,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
 - Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
+- Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
 

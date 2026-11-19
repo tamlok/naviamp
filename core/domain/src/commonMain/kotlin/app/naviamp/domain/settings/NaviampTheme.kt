@@ -122,7 +122,7 @@ val NaviampBuiltinTheme = NaviampThemePack(
         onSuccess = "#FFFFFF",
     ),
     dark = NaviampThemePalette(
-        background = "#101114",
+        background = "#2D353B",
         backgroundWarm = "#52231F",
         backgroundOlive = "#11190B",
         primaryText = "#FFFFFF",
