@@ -22,6 +22,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.
 - Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.
+- Keep the current Aurora colors when opening or closing the full player, including while new artwork loads or a track-color transition is in progress.
 
 ### Upgrade notes
 

@@ -204,6 +204,12 @@ private fun NaviampSharedAppShellContent(
     val selectedDownloadLocationId = cache.selectedDownloadLocationId
     val selectedAudioCacheLocationId = cache.selectedAudioCacheLocationId
     val colors = LocalNaviampTheme.current.colors
+    // Keep this above the scaffold: expanding the player replaces both scaffold content slots.
+    val playerBackground = rememberNaviampPlayerBackground(
+        interfaceSettings,
+        nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }?.coverArtUrl,
+        colors,
+    )
     NaviampFontSizeScope(
         fontSize = interfaceSettings.generalFontSize,
         includeStandardScale = true,
@@ -305,7 +311,7 @@ private fun NaviampSharedAppShellContent(
                 miniPlayer = {
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, interfaceSettings)
+                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, playerBackground)
                         }
                     }
                 },
@@ -369,6 +375,7 @@ private fun NaviampSharedAppShellContent(
                             colors = colors,
                             uiState = uiState,
                             showFullNowPlaying = showFullNowPlaying,
+                            playerBackground = playerBackground,
                             playbackProgress = effectivePlaybackProgress,
                             visualizerBandsProvider = visualizerBandsProvider,
                             settingsSync = settingsSync,
@@ -486,6 +493,7 @@ internal fun ConnectedContent(
     colors: NaviampColors,
     uiState: NaviampAppShellUiState,
     showFullNowPlaying: Boolean,
+    playerBackground: NaviampPlayerBackgroundState,
     playbackProgress: StateFlow<PlaybackProgress>?,
     visualizerBandsProvider: () -> List<Float>,
     settingsSync: NaviampSettingsSyncUi,
@@ -847,7 +855,7 @@ internal fun ConnectedContent(
     if (showFullNowPlaying && nowPlaying != null) {
         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
             FullNowPlaying(nowPlaying, effectivePlaybackProgress, colors,
-                visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings)
+                visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings, playerBackground)
         }
     } else {
         browseContent()
@@ -980,11 +988,11 @@ private fun FullNowPlaying(
     selectedVisualizer: NaviampVisualizer,
     actions: NaviampNowPlayingActions,
     interfaceSettings: InterfaceSettings,
+    background: NaviampPlayerBackgroundState,
 ) {
-    val background = rememberNaviampPlayerBackground(interfaceSettings, nowPlaying.coverArtUrl, colors)
-    val playerColors = animatedNaviampPlayerColors(background.targetPlayerColors)
+    val playerColors = background.playerColors.value
     Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
-        NaviampAppBackground(background, colors, playerColors,
+        NaviampAppBackground(background.background, colors, playerColors,
             Modifier.matchParentSize().testTag("full-player-background"))
         NaviampNowPlayingPanel(
             contentInsets = WindowInsets(0),
@@ -1105,12 +1113,11 @@ fun NaviampMiniNowPlaying(
     colors: NaviampColors,
     onOpen: () -> Unit,
     actions: NaviampNowPlayingActions,
-    interfaceSettings: InterfaceSettings,
+    background: NaviampPlayerBackgroundState,
     modifier: Modifier = Modifier,
 ) {
     val playing = nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }
     val openLabel = stringResource(Res.string.mini_player_open)
-    val background = rememberNaviampPlayerBackground(interfaceSettings, playing?.coverArtUrl, colors)
     BoxWithConstraints(modifier.fillMaxWidth().testTag("mini-player")) {
         NaviampPlayerBackground(background, colors,
             Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))

@@ -33,7 +33,8 @@ class NaviampMiniPlayerUiTest {
             albumBlurRadiusDp = 36, singleColorHex = "#315577"))
         setContent { NaviampTheme(settings.value.theme) {
             Box(Modifier.width(1000.dp)) {
-                NaviampMiniNowPlaying(null, LocalNaviampTheme.current.colors, {}, actions(), settings.value)
+                NaviampMiniNowPlaying(null, LocalNaviampTheme.current.colors, {}, actions(),
+                    rememberNaviampPlayerBackground(settings.value, null, LocalNaviampTheme.current.colors))
             }
         } }
         runOnIdle { settings.value = settings.value.copy(appBackgroundStyle = AppBackgroundStyle.Aurora) }
@@ -60,7 +61,8 @@ class NaviampMiniPlayerUiTest {
             isPaused = true, coverArtUrl = "naviamp-radio-tile://cover?label=Theme&from=884422&to=224488")
         setContent { NaviampTheme(settings.value.theme, systemDark.value) {
             Box(Modifier.width(1000.dp)) {
-                NaviampMiniNowPlaying(track, LocalNaviampTheme.current.colors, {}, actions(), settings.value)
+                NaviampMiniNowPlaying(track, LocalNaviampTheme.current.colors, {}, actions(),
+                    rememberNaviampPlayerBackground(settings.value, track.coverArtUrl, LocalNaviampTheme.current.colors))
             }
         } }
         fun pixel(): Color = onNodeWithTag("mini-player-background").captureToImage().toPixelMap()[2, 2]
@@ -98,7 +100,8 @@ class NaviampMiniPlayerUiTest {
         val state = mutableStateOf<NowPlayingUi?>(null)
         var opened = false
         setContent { Box(Modifier.width(412.dp)) {
-            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened = true }, actions(), InterfaceSettings())
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened = true }, actions(),
+                rememberNaviampPlayerBackground(InterfaceSettings(), state.value?.coverArtUrl, NaviampColors.Dark))
         } }
         fun assertEmpty() {
             onNodeWithText("Nothing playing").assertIsDisplayed()
@@ -132,7 +135,7 @@ class NaviampMiniPlayerUiTest {
                     NowPlayingPlaybackAction.Resume, NowPlayingPlaybackAction.PlayCurrent -> state.value.copy(isPlaying = true, isPaused = false)
                     else -> state.value
                 }
-            }, InterfaceSettings())
+            }, rememberNaviampPlayerBackground(InterfaceSettings(), state.value.coverArtUrl, NaviampColors.Dark))
         } }
         onNodeWithContentDescription("Pause").assertIsEnabled().performClick()
         onNodeWithContentDescription("Play").performClick()
@@ -163,7 +166,8 @@ class NaviampMiniPlayerUiTest {
                     Box(Modifier.width(320.dp)) {
                         NaviampMiniNowPlaying(NowPlayingUi(id = "track", title = "A long current track title",
                             subtitle = "Artist", stateLabel = "Paused", isPaused = true, hasNext = true),
-                            NaviampColors.Dark, {}, actions(), InterfaceSettings())
+                            NaviampColors.Dark, {}, actions(),
+                            rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
                     }
                 }
             }
@@ -183,7 +187,8 @@ class NaviampMiniPlayerUiTest {
         setContent { Box(Modifier.width(412.dp)) {
             NaviampMiniNowPlaying(NowPlayingUi(title = "Fixture radio", subtitle = "Live station", stateLabel = "Live",
                 isLive = true, isPlaying = true, hasPrevious = false, hasNext = true, canSeek = false),
-                NaviampColors.Dark, {}, actions(), InterfaceSettings())
+                NaviampColors.Dark, {}, actions(),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
         } }
         onNodeWithText("Fixture radio", useUnmergedTree = true).assertIsDisplayed()
         onNodeWithText("Live station", useUnmergedTree = true).assertIsDisplayed()

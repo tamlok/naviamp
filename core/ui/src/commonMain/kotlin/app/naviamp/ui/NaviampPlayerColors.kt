@@ -4,7 +4,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -127,22 +129,31 @@ data class NaviampPlayerColors(
     }
 }
 
+/** Retain the transition at its owner, but observe frames only in the player rendering scopes. */
 @Composable
-fun animatedNaviampPlayerColors(
+internal fun rememberAnimatedNaviampPlayerColors(
     target: NaviampPlayerColors,
     durationMillis: Int = 360,
-): NaviampPlayerColors {
+): State<NaviampPlayerColors> {
     val animationSpec = tween<Color>(durationMillis = durationMillis, easing = LinearEasing)
-    val backgroundStart by animateColorAsState(target.backgroundStart, animationSpec, label = "playerBackgroundStart")
-    val backgroundMid by animateColorAsState(target.backgroundMid, animationSpec, label = "playerBackgroundMid")
-    val backgroundEnd by animateColorAsState(target.backgroundEnd, animationSpec, label = "playerBackgroundEnd")
-    val accent by animateColorAsState(target.accent, animationSpec, label = "playerAccent")
-    val additional = (0..1).map { index ->
-        val color by animateColorAsState(target.additionalBackgroundColors.getOrElse(index) { target.backgroundMid }, animationSpec,
-            label = "playerBackgroundExtra$index")
-        color
+    val backgroundStart = animateColorAsState(target.backgroundStart, animationSpec, label = "playerBackgroundStart")
+    val backgroundMid = animateColorAsState(target.backgroundMid, animationSpec, label = "playerBackgroundMid")
+    val backgroundEnd = animateColorAsState(target.backgroundEnd, animationSpec, label = "playerBackgroundEnd")
+    val accent = animateColorAsState(target.accent, animationSpec, label = "playerAccent")
+    val firstExtra = animateColorAsState(
+        target.additionalBackgroundColors.getOrElse(0) { target.backgroundMid }, animationSpec, label = "playerBackgroundExtra0",
+    )
+    val secondExtra = animateColorAsState(
+        target.additionalBackgroundColors.getOrElse(1) { target.backgroundMid }, animationSpec, label = "playerBackgroundExtra1",
+    )
+    return remember(backgroundStart, backgroundMid, backgroundEnd, accent, firstExtra, secondExtra) {
+        derivedStateOf {
+            NaviampPlayerColors(
+                backgroundStart.value, backgroundMid.value, backgroundEnd.value, accent.value,
+                listOf(firstExtra.value, secondExtra.value),
+            )
+        }
     }
-    return NaviampPlayerColors(backgroundStart, backgroundMid, backgroundEnd, accent, additional)
 }
 
 fun naviampColorFromHex(value: String): Color? {

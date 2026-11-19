@@ -118,7 +118,11 @@ private fun NaviampTelevisionAppShellContent(
         colors = colors,
         isDark = LocalNaviampTheme.current.isDark,
     )
-    val backgroundPlayerColors = animatedNaviampPlayerColors(appBackground.targetPlayerColors)
+    val backgroundPlayerColorsState = rememberAnimatedNaviampPlayerColors(appBackground.targetPlayerColors)
+    val backgroundPlayerColors = backgroundPlayerColorsState.value
+    val playerBackground = remember(appBackground, backgroundPlayerColorsState) {
+        NaviampPlayerBackgroundState(appBackground, backgroundPlayerColorsState)
+    }
     var nowPlayingPreview by rememberSaveable { mutableStateOf(false) }
     val selectedDestination = naviampSelectedTelevisionDestination(
         selectedRoute = uiState.shellChrome.selectedRoute,
@@ -441,6 +445,7 @@ private fun NaviampTelevisionAppShellContent(
                                         TelevisionConnectedContent(
                                             colors = colors,
                                             uiState = uiState,
+                                            playerBackground = playerBackground,
                                             playbackProgress = playbackProgress,
                                             visualizerBandsProvider = visualizerBandsProvider,
                                             settingsSync = settingsSync,
@@ -626,6 +631,7 @@ private fun TelevisionNavigationIconButton(
 private fun TelevisionConnectedContent(
     colors: NaviampColors,
     uiState: NaviampAppShellUiState,
+    playerBackground: NaviampPlayerBackgroundState,
     playbackProgress: StateFlow<PlaybackProgress>?,
     visualizerBandsProvider: () -> List<Float>,
     settingsSync: NaviampSettingsSyncUi,
@@ -742,6 +748,7 @@ private fun TelevisionConnectedContent(
             colors = colors,
             uiState = uiState,
             showFullNowPlaying = false,
+            playerBackground = playerBackground,
             playbackProgress = playbackProgress,
             visualizerBandsProvider = visualizerBandsProvider,
             settingsSync = settingsSync,

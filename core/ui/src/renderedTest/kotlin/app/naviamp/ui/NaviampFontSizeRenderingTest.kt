@@ -50,7 +50,8 @@ class NaviampFontSizeRenderingTest {
                 NaviampFontSizeScope(player.value, general.value) {
                     Box(Modifier.size(280.dp, 420.dp)) {
                         when (surface.value) {
-                            0 -> NaviampMiniNowPlaying(nowPlaying, NaviampColors(), {}, actions, InterfaceSettings())
+                            0 -> NaviampMiniNowPlaying(nowPlaying, NaviampColors(), {}, actions,
+                                rememberNaviampPlayerBackground(InterfaceSettings(), nowPlaying.coverArtUrl, NaviampColors()))
                             1 -> NaviampNowPlayingPanel(nowPlaying, colors = NaviampColors(), actions = actions)
                             2 -> CenteredLyricsList(
                                 listOf(NaviampLyricLineUi(0, text = "Lyric line")), 0, null, 0,

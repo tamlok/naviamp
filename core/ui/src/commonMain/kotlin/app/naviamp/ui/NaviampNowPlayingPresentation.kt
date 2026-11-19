@@ -283,7 +283,9 @@ fun NaviampMiniPlayerContent(
         colors = colors,
         actions = actions,
         onOpen = onOpen,
-        interfaceSettings = interfaceSettings,
+        background = rememberNaviampPlayerBackground(
+            interfaceSettings, nowPlaying.takeUnless { it.id.isBlank() && !it.isLive }?.coverArtUrl, colors,
+        ),
         modifier = modifier,
     )
 }

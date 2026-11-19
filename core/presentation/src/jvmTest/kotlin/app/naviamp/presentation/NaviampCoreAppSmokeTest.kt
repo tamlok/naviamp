@@ -108,9 +108,21 @@ class NaviampCoreAppSmokeTest {
                 assertSolidNavigation()
             }
             fun expand(expanded: Boolean) {
+                val checkAurora = ui.value.general.interfaceSettings.appBackgroundStyle == AppBackgroundStyle.Aurora
+                mainClock.autoAdvance = false
                 runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(nowPlayingOpen = expanded)) }
+                mainClock.advanceTimeByFrame()
+                waitForIdle()
+                val firstFrame = if (checkAurora) {
+                    if (expanded) fullPixels() else miniPixel().let { it to it }
+                } else null
                 mainClock.advanceTimeBy(500)
                 waitForIdle()
+                if (firstFrame != null) {
+                    val settled = if (expanded) fullPixels() else miniPixel().let { it to it }
+                    assertEquals(settled, firstFrame, "Switching player size must not restart Aurora from fallback")
+                }
+                mainClock.autoAdvance = true
                 if (expanded) {
                     onNodeWithTag("now-playing-back").assertIsDisplayed()
                     onNodeWithTag("main-navigation-rail").assertDoesNotExist()

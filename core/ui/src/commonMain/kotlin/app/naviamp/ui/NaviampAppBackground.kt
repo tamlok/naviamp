@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -54,36 +57,44 @@ internal fun naviampAppBackgroundUi(
     )
 }
 
+/** Shared by the mini and full players so changing presentation does not restart palette loading or animation. */
+@Stable
+class NaviampPlayerBackgroundState internal constructor(
+    internal val background: NaviampAppBackgroundUi,
+    internal val playerColors: State<NaviampPlayerColors>,
+)
+
 @Composable
-internal fun rememberNaviampPlayerBackground(
+fun rememberNaviampPlayerBackground(
     interfaceSettings: InterfaceSettings,
     coverArtUrl: String?,
     colors: NaviampColors,
-): NaviampAppBackgroundUi {
+): NaviampPlayerBackgroundState {
     val isDark = LocalNaviampTheme.current.isDark
     val albumColors = if (interfaceSettings.appBackgroundStyle == AppBackgroundStyle.SingleColor) {
         remember(colors) { NaviampPlayerColors.solid(colors.background) }
     } else {
         rememberNaviampCoverArtPlayerColors(coverArtUrl, colors)
     }
-    return remember(interfaceSettings, coverArtUrl, albumColors, colors, isDark) {
+    val background = remember(interfaceSettings, coverArtUrl, albumColors, colors, isDark) {
         naviampAppBackgroundUi(interfaceSettings, coverArtUrl, albumColors, colors, isDark)
     }
+    val playerColors = if (background.style == AppBackgroundStyle.SingleColor) {
+        rememberUpdatedState(background.targetPlayerColors)
+    } else {
+        rememberAnimatedNaviampPlayerColors(background.targetPlayerColors)
+    }
+    return remember(background, playerColors) { NaviampPlayerBackgroundState(background, playerColors) }
 }
 
-/** Keep finite palette transitions in the background layer, outside player controls/navigation. */
+/** Observe finite palette transitions only in the background layer, outside controls/navigation. */
 @Composable
 internal fun NaviampPlayerBackground(
-    background: NaviampAppBackgroundUi,
+    background: NaviampPlayerBackgroundState,
     colors: NaviampColors,
     modifier: Modifier = Modifier,
 ) {
-    val playerColors = if (background.style == AppBackgroundStyle.SingleColor) {
-        background.targetPlayerColors
-    } else {
-        animatedNaviampPlayerColors(background.targetPlayerColors)
-    }
-    NaviampAppBackground(background, colors, playerColors, modifier)
+    NaviampAppBackground(background.background, colors, background.playerColors.value, modifier)
 }
 
 @Composable
