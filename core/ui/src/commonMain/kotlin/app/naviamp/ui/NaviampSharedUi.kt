@@ -311,7 +311,11 @@ private fun NaviampSharedAppShellContent(
                 miniPlayer = {
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-                            NaviampMiniNowPlaying(nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, playerBackground)
+                            NaviampMiniNowPlaying(
+                                nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, playerBackground,
+                                playbackProgress = effectivePlaybackProgress,
+                                showVolumeBar = interfaceSettings.nowPlaying.showVolumeBar,
+                            )
                         }
                     }
                 },
@@ -1115,6 +1119,8 @@ fun NaviampMiniNowPlaying(
     actions: NaviampNowPlayingActions,
     background: NaviampPlayerBackgroundState,
     modifier: Modifier = Modifier,
+    playbackProgress: StateFlow<PlaybackProgress>? = null,
+    showVolumeBar: Boolean = true,
 ) {
     val playing = nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }
     val openLabel = stringResource(Res.string.mini_player_open)
@@ -1122,70 +1128,138 @@ fun NaviampMiniNowPlaying(
         NaviampPlayerBackground(background, colors,
             Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))
         val compact = maxWidth < 360.dp
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        ) {
+        val inlineSliders = maxWidth >= 720.dp
+        val showSliders = playing != null && (!playing.isLive || (showVolumeBar && playing.canChangeVolume))
+        Column(Modifier.fillMaxWidth()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    .testTag("mini-player-identity")
-                    .then(if (playing == null) Modifier else Modifier.clickable(
-                        onClickLabel = openLabel, role = Role.Button, onClick = onOpen,
-                    ).semantics { contentDescription = openLabel }),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
-                NaviampCoverArt(playing?.coverArtUrl, colors, if (compact) 32.dp else 40.dp, 5.dp,
-                    mediaKind = if (playing?.isLive == true) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(
-                        playing?.title ?: stringResource(Res.string.mini_player_empty_title),
-                        color = colors.primaryText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                    )
-                    Text(
-                        playing?.subtitle ?: stringResource(Res.string.mini_player_empty_subtitle),
-                        color = colors.playerSecondaryText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 11.sp,
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                        .testTag("mini-player-identity")
+                        .then(if (playing == null) Modifier else Modifier.clickable(
+                            onClickLabel = openLabel, role = Role.Button, onClick = onOpen,
+                        ).semantics { contentDescription = openLabel }),
+                ) {
+                    NaviampCoverArt(playing?.coverArtUrl, colors, if (compact) 32.dp else 40.dp, 5.dp,
+                        mediaKind = if (playing?.isLive == true) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            playing?.title ?: stringResource(Res.string.mini_player_empty_title),
+                            color = colors.primaryText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                        )
+                        Text(
+                            playing?.subtitle ?: stringResource(Res.string.mini_player_empty_subtitle),
+                            color = colors.playerSecondaryText,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+                if (!compact) MiniPlayerIconButton(
+                    colors = colors,
+                    enabled = playing?.hasPrevious == true,
+                    icon = NaviampTransportIcons.Previous,
+                    contentDescription = stringResource(Res.string.transport_previous),
+                    onClick = { actions.playback(NowPlayingPlaybackAction.Previous) },
+                    size = 48.dp,
+                )
+                MiniPlayerIconButton(
+                    colors = colors,
+                    enabled = playing?.canPlayPause == true,
+                    icon = if (playing?.isPlaying == true) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
+                    contentDescription = stringResource(if (playing?.isPlaying == true) Res.string.transport_pause else Res.string.transport_play),
+                    onClick = {
+                        actions.playback(when {
+                            playing?.isPlaying == true -> NowPlayingPlaybackAction.Pause
+                            playing?.isPaused == true -> NowPlayingPlaybackAction.Resume
+                            else -> NowPlayingPlaybackAction.PlayCurrent
+                        })
+                    },
+                    size = 48.dp,
+                )
+                MiniPlayerIconButton(
+                    colors = colors,
+                    enabled = playing?.hasNext == true,
+                    icon = NaviampTransportIcons.Next,
+                    contentDescription = stringResource(Res.string.transport_next),
+                    onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
+                    size = 48.dp,
+                )
+                if (inlineSliders && showSliders) {
+                    Box(Modifier.weight(1f)) {
+                        NaviampMiniPlayerSliders(playing, playbackProgress, showVolumeBar, colors, actions)
+                    }
                 }
             }
-            if (!compact) MiniPlayerIconButton(
-                colors = colors,
-                enabled = playing?.hasPrevious == true,
-                icon = NaviampTransportIcons.Previous,
-                contentDescription = stringResource(Res.string.transport_previous),
-                onClick = { actions.playback(NowPlayingPlaybackAction.Previous) },
-                size = 48.dp,
-            )
-            MiniPlayerIconButton(
-                colors = colors,
-                enabled = playing?.canPlayPause == true,
-                icon = if (playing?.isPlaying == true) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
-                contentDescription = stringResource(if (playing?.isPlaying == true) Res.string.transport_pause else Res.string.transport_play),
-                onClick = {
-                    actions.playback(when {
-                        playing?.isPlaying == true -> NowPlayingPlaybackAction.Pause
-                        playing?.isPaused == true -> NowPlayingPlaybackAction.Resume
-                        else -> NowPlayingPlaybackAction.PlayCurrent
-                    })
+            if (!inlineSliders && showSliders) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+                    NaviampMiniPlayerSliders(playing, playbackProgress, showVolumeBar, colors, actions)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NaviampMiniPlayerSliders(
+    nowPlaying: NowPlayingUi,
+    playbackProgress: StateFlow<PlaybackProgress>?,
+    showVolumeBar: Boolean,
+    colors: NaviampColors,
+    actions: NaviampNowPlayingActions,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!nowPlaying.isLive) {
+            Box(Modifier.weight(1f)) {
+                NowPlayingProgressRow(
+                    nowPlaying = nowPlaying,
+                    playbackProgress = playbackProgress,
+                    canSeek = nowPlaying.canSeek && (nowPlaying.durationSeconds ?: playbackProgress?.value?.durationSeconds)
+                        ?.let { it.isFinite() && it > 0.0 } == true,
+                    colors = colors,
+                    controlColors = colors,
+                    timeFontSize = 11.sp,
+                    timeWidth = 42.dp,
+                    onSeek = actions::seek,
+                    showTimeLabels = false,
+                    showWaveform = false,
+                    scrubberHeight = 48.dp,
+                )
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+        if (showVolumeBar && nowPlaying.canChangeVolume) {
+            var volumeValue by remember(nowPlaying.id) { mutableStateOf(nowPlaying.volumePercent.coerceIn(0, 100) / 100f) }
+            var isChangingVolume by remember(nowPlaying.id) { mutableStateOf(false) }
+            LaunchedEffect(nowPlaying.volumePercent) {
+                if (!isChangingVolume) volumeValue = nowPlaying.volumePercent.coerceIn(0, 100) / 100f
+            }
+            VolumeRow(
+                value = volumeValue,
+                isChangingVolume = { isChangingVolume = it },
+                onValueChanged = {
+                    volumeValue = it
+                    actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
                 },
-                size = 48.dp,
-            )
-            MiniPlayerIconButton(
                 colors = colors,
-                enabled = playing?.hasNext == true,
-                icon = NaviampTransportIcons.Next,
-                contentDescription = stringResource(Res.string.transport_next),
-                onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
-                size = 48.dp,
+                trackWidth = 80.dp,
+                sliderHeight = 48.dp,
             )
         }
     }

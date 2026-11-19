@@ -1765,7 +1765,7 @@ internal fun Modifier.visualizerSwipe(onSwiped: (VisualizerCycleDirection) -> Un
     }
 
 @Composable
-private fun NowPlayingProgressRow(
+internal fun NowPlayingProgressRow(
     nowPlaying: NowPlayingUi,
     playbackProgress: StateFlow<PlaybackProgress>?,
     canSeek: Boolean,
@@ -1774,6 +1774,9 @@ private fun NowPlayingProgressRow(
     timeFontSize: TextUnit,
     timeWidth: Dp,
     onSeek: (Double) -> Unit,
+    showTimeLabels: Boolean = true,
+    showWaveform: Boolean = true,
+    scrubberHeight: Dp = 28.dp,
 ) {
     // Layout tracks structure and active scrubbing. Shared cached rendering and live semantics
     // consume playback ticks without recomposing or repainting this row.
@@ -1790,7 +1793,7 @@ private fun NowPlayingProgressRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        NowPlayingPositionLabel(
+        if (showTimeLabels) NowPlayingPositionLabel(
             nowPlaying = nowPlaying,
             progressState = progressState,
             colors = colors,
@@ -1813,7 +1816,7 @@ private fun NowPlayingProgressRow(
             }
         } else {
             WaveformScrubber(
-                amplitudes = nowPlaying.waveform?.amplitudes.orEmpty(),
+                amplitudes = if (showWaveform) nowPlaying.waveform?.amplitudes.orEmpty() else emptyList(),
                 value = scrubberValue.coerceIn(0f, 1f),
                 drawValue = {
                     scrubberOverride ?: playbackFraction(
@@ -1835,10 +1838,10 @@ private fun NowPlayingProgressRow(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .height(28.dp),
+                    .height(scrubberHeight),
             )
         }
-        Text(
+        if (showTimeLabels) Text(
             if (nowPlaying.isLive) "Radio" else secondsLabel(durationSeconds),
             color = colors.primaryText,
             textAlign = TextAlign.Center,
@@ -2133,12 +2136,13 @@ internal fun RatingRow(
 }
 
 @Composable
-private fun VolumeRow(
+internal fun VolumeRow(
     value: Float,
     isChangingVolume: (Boolean) -> Unit,
     onValueChanged: (Float) -> Unit,
     colors: NaviampColors,
     trackWidth: Dp? = null,
+    sliderHeight: Dp = 24.dp,
 ) {
     var widthPx by remember { mutableFloatStateOf(1f) }
     var focused by remember { mutableStateOf(false) }
@@ -2177,7 +2181,7 @@ private fun VolumeRow(
         )
         Canvas(
             modifier = (if (trackWidth == null) Modifier.weight(1f) else Modifier.width(trackWidth))
-                .height(24.dp)
+                .height(sliderHeight)
                 .testTag("now-playing-volume-slider")
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false

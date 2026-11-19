@@ -277,6 +277,7 @@ fun NaviampMiniPlayerContent(
     onOpen: () -> Unit,
     interfaceSettings: InterfaceSettings,
     modifier: Modifier = Modifier,
+    playbackProgress: StateFlow<PlaybackProgress>? = null,
 ) {
     NaviampMiniNowPlaying(
         nowPlaying = nowPlaying,
@@ -287,5 +288,7 @@ fun NaviampMiniPlayerContent(
             interfaceSettings, nowPlaying.takeUnless { it.id.isBlank() && !it.isLive }?.coverArtUrl, colors,
         ),
         modifier = modifier,
+        playbackProgress = playbackProgress,
+        showVolumeBar = interfaceSettings.nowPlaying.showVolumeBar,
     )
 }

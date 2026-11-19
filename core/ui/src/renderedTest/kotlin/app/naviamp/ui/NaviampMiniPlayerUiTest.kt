@@ -8,6 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import app.naviamp.domain.playback.PlaybackProgress
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.Density
@@ -111,6 +116,8 @@ class NaviampMiniPlayerUiTest {
             onNodeWithContentDescription("Previous").assertIsNotEnabled()
             onNodeWithContentDescription("Play").assertIsNotEnabled()
             onNodeWithContentDescription("Next").assertIsNotEnabled()
+            onNodeWithContentDescription("Playback position").assertDoesNotExist()
+            onNodeWithContentDescription("Volume").assertDoesNotExist()
             runOnIdle { assertEquals(false, opened) }
         }
         assertEmpty()
@@ -196,6 +203,130 @@ class NaviampMiniPlayerUiTest {
         onNodeWithContentDescription("Previous").assertIsNotEnabled()
         onNodeWithContentDescription("Pause").assertIsEnabled()
         onNodeWithContentDescription("Next").assertIsEnabled()
-        onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)).assertCountEquals(0)
+        onNodeWithContentDescription("Playback position").assertDoesNotExist()
+        onNodeWithContentDescription("Volume").assertIsDisplayed()
+    }
+
+    @Test
+    fun progressFollowsPlaybackTicksAndSeeksWithoutOpeningDetails() = runComposeUiTest {
+        val progress = MutableStateFlow(PlaybackProgress(40.0, 200.0))
+        val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
+        var opened = 0
+        setContent { Box(Modifier.width(412.dp)) {
+            NaviampMiniNowPlaying(
+                NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
+                    positionSeconds = 10.0, durationSeconds = 200.0, isPaused = true),
+                NaviampColors.Dark, { opened++ }, NaviampNowPlayingActions({ requests += it }, {}, {}, {}, {}, {}, {}),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark),
+                playbackProgress = progress,
+            )
+        } }
+        val slider = onNodeWithContentDescription("Playback position")
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.2f, 0f..1f))
+        runOnIdle { progress.value = PlaybackProgress(80.0, 200.0) }
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(.75f) }
+        runOnIdle {
+            assertEquals(NowPlayingPlaybackAction.Seek, requests.single().action)
+            assertEquals(150.0, requests.single().seekSeconds)
+        }
+        slider.performTouchInput {
+            swipe(Offset(width * .25f, centerY), Offset(width * .6f, centerY))
+        }
+        runOnIdle { assertEquals(120.0, requests.last().seekSeconds!!, 1.0) }
+        slider.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        slider.performKeyInput { pressKey(Key.DirectionRight) }
+        runOnIdle {
+            assertEquals(82.0, requests.last().seekSeconds!!, .01)
+            assertEquals(0, opened)
+        }
+    }
+
+    @Test
+    fun volumeFollowsExternalChangesAndRespectsCapabilitiesAndPreference() = runComposeUiTest {
+        val state = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
+            stateLabel = "Paused", durationSeconds = 200.0, volumePercent = 40))
+        val showVolume = mutableStateOf(true)
+        val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
+        var opened = 0
+        setContent { Box(Modifier.width(412.dp)) {
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened++ },
+                NaviampNowPlayingActions({ requests += it }, {}, {}, {}, {}, {}, {}),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark),
+                showVolumeBar = showVolume.value)
+        } }
+        val slider = onNodeWithContentDescription("Volume")
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
+        runOnIdle { state.value = state.value.copy(volumePercent = 70) }
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.7f, 0f..1f))
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(2f) }
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(-1f) }
+        slider.performTouchInput { click(center) }
+        runOnIdle {
+            assertEquals(listOf(100, 0, 50), requests.map { it.volumePercent })
+            assertTrue(requests.all { it.action == NowPlayingPlaybackAction.ChangeVolume })
+            assertEquals(0, opened)
+            showVolume.value = false
+        }
+        slider.assertDoesNotExist()
+        runOnIdle { showVolume.value = true; state.value = state.value.copy(canChangeVolume = false) }
+        slider.assertDoesNotExist()
+        onNodeWithContentDescription("Playback position").assertIsDisplayed()
+    }
+
+    @Test
+    fun unknownDurationAndUnavailableRemoteSeekingNeverDispatchASeek() = runComposeUiTest {
+        val state = mutableStateOf(NowPlayingUi(id = "remote", title = "Remote song", subtitle = "Device",
+            stateLabel = "Paused", durationSeconds = 200.0, positionSeconds = 50.0,
+            canSeek = false, canChangeVolume = false))
+        setContent { Box(Modifier.width(412.dp)) {
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, {},
+                NaviampNowPlayingActions({ error("Disabled control dispatched $it") }, {}, {}, {}, {}, {}, {}),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
+        } }
+        val slider = onNodeWithContentDescription("Playback position")
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.25f, 0f..1f))
+        fun assertNotSeekable() {
+            slider.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress).not())
+            slider.performTouchInput { click(center) }
+        }
+        assertNotSeekable()
+        onNodeWithContentDescription("Volume").assertDoesNotExist()
+        for (duration in listOf(null, 0.0)) {
+            runOnIdle { state.value = state.value.copy(canSeek = true, durationSeconds = duration) }
+            assertNotSeekable()
+        }
+        runOnIdle { state.value = state.value.copy(isLive = true) }
+        slider.assertDoesNotExist()
+        onNodeWithTag("mini-player").assertHeightIsEqualTo(64.dp)
+    }
+
+    @Test
+    fun slidersStaySeparateAndReachableAcrossWidthsAndLargeText() = runComposeUiTest {
+        val width = mutableStateOf(320.dp)
+        setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                Box(Modifier.width(width.value)) {
+                    NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "A long song title", subtitle = "Artist",
+                        stateLabel = "Paused", durationSeconds = 200.0), NaviampColors.Dark, {}, actions(),
+                        rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
+                }
+            }
+        }
+        for (viewport in listOf(320, 412, 719, 720, 1000)) {
+            runOnIdle { width.value = viewport.dp }
+            val progress = onNodeWithContentDescription("Playback position")
+                .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+            val volume = onNodeWithContentDescription("Volume")
+                .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+            val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
+            val next = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
+            val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
+            assertTrue(progress.right <= volume.left && volume.right <= player.right)
+            assertTrue(progress.bottom <= player.bottom && volume.bottom <= player.bottom)
+            if (viewport < 720) assertTrue(progress.top >= identity.bottom && progress.top >= next.bottom)
+            else assertTrue(progress.left >= next.right)
+        }
     }
 }
