@@ -20,6 +20,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Keep playback paused when seeking, without briefly restarting audio; resume from the last selected position only after Play.
 - Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.
 - Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.

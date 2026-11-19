@@ -154,7 +154,7 @@ class NaviampCorePlaybackEngineAdapter(
     private var observedTransitionSettings: PlaybackTransitionSettings? = null
     private var playbackState: PlaybackState = PlaybackState.Stopped
     private var resumePositionSeconds: Double? = null
-    // Restored metadata and interrupted preview preparation have no runnable native stream yet.
+    // Restored metadata, paused seeks and interrupted preview preparation await an explicit start.
     private var deferredStart = false
     private var visualizerFramesEnabled = false
     private var visualizerSamplingJob: Job? = null
@@ -227,24 +227,42 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     override fun seek(positionSeconds: Double) {
-        if (seekBeforeDeferredStart(positionSeconds)) return
-        if (engine is RestartOnSeekPlaybackEngine) {
-            val preservePausedState = pauseRequested.load() || playbackState == PlaybackState.Paused
+        if (deferSeekUntilResume(positionSeconds)) return
+        if (engine is RestartOnSeekPlaybackEngine || resolutionJob?.isActive == true) {
             clearPreparedTransition()
             authenticatedStreams?.clearCurrent()
-            startCurrent(positionSeconds, pauseWhenStarted = preservePausedState)
+            startCurrent(positionSeconds)
         } else {
             engine.seek(positionSeconds)
         }
     }
 
     override fun replayCurrent(positionSeconds: Double) {
-        if (seekBeforeDeferredStart(positionSeconds)) return
-        startCurrent(positionSeconds, pauseWhenStarted = pauseRequested.load() || playbackState == PlaybackState.Paused)
+        if (deferSeekUntilResume(positionSeconds)) return
+        startCurrent(positionSeconds)
     }
 
-    private fun seekBeforeDeferredStart(positionSeconds: Double): Boolean {
-        if (!deferredStart) return false
+    private fun deferSeekUntilResume(positionSeconds: Double): Boolean {
+        if (!deferredStart) {
+            if (!pauseRequested.load() && playbackState != PlaybackState.Paused) return false
+            // Reopening now would start audio before the Playing callback could pause it again.
+            // Invalidate callbacks before stop so its Stopped/Unknown cannot clear the seek.
+            generation++
+            resolutionJob?.cancel()
+            resolutionJob = null
+            unstreamableRecoveryJob?.cancel()
+            unstreamableRecoveryJob = null
+            cancelAudioPrefetch()
+            clearAudioPrefetchCompletions()
+            clearPreparedTransition()
+            authenticatedStreams?.clearCurrent()
+            (engine as? DownloadFallbackAwarePlaybackEngine)?.setDownloadFallbackListener(null)
+            deferredStart = true
+            pauseRequested.store(true)
+            engine.stop()
+            playbackState = PlaybackState.Paused
+            observer?.onStateChanged(playbackState)
+        }
         resumePositionSeconds = positionSeconds
         observer?.onProgressChanged(PlaybackProgress(positionSeconds, queue.current?.durationSeconds?.toDouble()))
         return true
@@ -397,7 +415,6 @@ class NaviampCorePlaybackEngineAdapter(
         stopCurrentPlayback: Boolean = false,
     ) {
         val track = queue.current ?: return
-        deferredStart = false
         pauseRequested.store(pauseWhenStarted)
         if (recoveryLocalAudio == null) {
             unstreamableRecoveryJob?.cancel()
@@ -410,6 +427,15 @@ class NaviampCorePlaybackEngineAdapter(
         // Invalidate callbacks first, then stop before a dispatcher can start the next stream inline.
         // Automatic advance retains the prepared transition and never takes this manual-skip path.
         if (stopCurrentPlayback) engine.stop()
+        if (deferredStart) {
+            deferredStart = false
+            if (!pauseWhenStarted) {
+                // Explicit Play ends the pause even while resolving the stream. A new seek
+                // must replace that pending start, not restore the previous pause intent.
+                playbackState = PlaybackState.Loading
+                observer?.onStateChanged(playbackState)
+            }
+        }
         resolutionJob = scope.launch {
             preparedNextInvalidation?.join()
             if (requestGeneration != generation) return@launch
