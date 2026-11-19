@@ -84,7 +84,7 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `primaryText`, `secondaryText`, `mutedText` | Foreground hierarchy. |
 | `border` | Outlines and separators. |
 | `accent`, `onAccent` | Selected/action background and its foreground. |
-| `controlSurface` | App cards, controls, dialogs and lyrics panels. |
+| `controlSurface` | Navigation, app cards, controls, dialogs and lyrics panels. Naviamp Dark uses `#393E46`. |
 | `playerSurface` | Standard full-player controller, queue/history/related/station panels and unselected rows; null means transparent. |
 | `playerSecondaryText`, `playerMutedText` | Shared full/mini-player metadata hierarchy, independent of ordinary app text. |
 | `albumArtPlaceholder` | Missing/loading artwork. |
