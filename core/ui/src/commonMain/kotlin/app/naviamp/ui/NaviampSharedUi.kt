@@ -1196,11 +1196,6 @@ fun NaviampMiniNowPlaying(
                     NaviampVolumeControl(playing.volumePercent, colors, actions::changeVolume)
                 }
             }
-            if (!inlineProgress && showProgress) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                    NaviampMiniPlayerProgress(playing, playbackProgress, colors, actions)
-                }
-            }
         }
     }
 }

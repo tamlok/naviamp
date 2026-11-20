@@ -12,8 +12,8 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Seek through tracks and adjust volume directly from the mini-player, with controls that adapt to narrow windows and respect playback capabilities and the volume-bar preference.
 - Open Queue as a drawer using the mini-player button immediately after Next, without leaving the current screen or entering the full player.
 - Close the mini-player and full-player Queue drawers from their headers; the full player's Pin control remains available.
-- Favorite or unfavorite the current track from the mini-player heart before Previous. Below 480dp, keep only Heart, Play/Pause, and Queue buttons while retaining track details and progress.
-- Show elapsed/total playback time, such as `01:01/05:38`, immediately after the mini-player progress bar on the same line, including a preview while seeking.
+- Favorite or unfavorite the current track from the mini-player heart before Previous. Below 480dp, keep only Heart, Play/Pause, and Queue buttons while retaining track details.
+- Show the mini-player progress bar and elapsed/total playback time, such as `01:01/05:38`, only when they fit inline. Hide both instead of wrapping them onto a second row.
 - Keep volume sliders hidden until the speaker icon is clicked, then show a vertical slider in a popup in both full and mini players. Clicking the speaker no longer mutes or unmutes playback.
 - Move the full-player volume speaker to the bottom immediately before Cast, and enlarge transport, favorite/rating, and bottom-action controls while keeping narrow layouts usable.
 - Place the full-player favorite heart at the artwork card’s bottom-left corner, independent of the centered image, matching the Play button and icon sizes. Keep rating stars with track details; filled artwork places the heart above the controls without covering them.

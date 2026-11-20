@@ -2,7 +2,6 @@ package app.naviamp.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -17,11 +16,8 @@ import app.naviamp.domain.playback.PlaybackProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.LayoutDirection
 import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceSettings
@@ -259,7 +255,7 @@ class NaviampMiniPlayerUiTest {
         val progress = MutableStateFlow(PlaybackProgress(40.0, 200.0))
         val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
         var opened = 0
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(1000.dp)) {
             NaviampMiniNowPlaying(
                 NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
                     positionSeconds = 10.0, durationSeconds = 200.0, isPaused = true),
@@ -300,7 +296,7 @@ class NaviampMiniPlayerUiTest {
         val state = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
             stateLabel = "Paused", positionSeconds = 10.0, isPaused = true))
         val seeks = mutableListOf<NowPlayingPlaybackActionRequest>()
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(1000.dp)) {
             NaviampMiniNowPlaying(state.value, NaviampColors.Dark, {},
                 NaviampNowPlayingActions({ seeks += it }, {}, {}, {}, {}, {}, {}),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark), playbackProgress = progress)
@@ -321,7 +317,7 @@ class NaviampMiniPlayerUiTest {
     fun timingFollowsTheProgressBarWithoutVolumeInRtl() = runComposeUiTest {
         setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Box(Modifier.width(412.dp)) {
+                Box(Modifier.width(1000.dp)) {
                     NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
                         stateLabel = "Paused", positionSeconds = 61.0, durationSeconds = 338.0),
                         NaviampColors.Dark, {}, actions(),
@@ -369,7 +365,7 @@ class NaviampMiniPlayerUiTest {
         slider.assertDoesNotExist()
         runOnIdle { showVolume.value = true; state.value = state.value.copy(canChangeVolume = false) }
         slider.assertDoesNotExist()
-        onNodeWithContentDescription("Playback position").assertIsDisplayed()
+        onNodeWithContentDescription("Playback position").assertDoesNotExist()
     }
 
     @Test
@@ -413,7 +409,7 @@ class NaviampMiniPlayerUiTest {
         val state = mutableStateOf(NowPlayingUi(id = "remote", title = "Remote song", subtitle = "Device",
             stateLabel = "Paused", durationSeconds = 200.0, positionSeconds = 50.0,
             canSeek = false, canChangeVolume = false))
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(1000.dp)) {
             NaviampMiniNowPlaying(state.value, NaviampColors.Dark, {},
                 NaviampNowPlayingActions({ error("Disabled control dispatched $it") }, {}, {}, {}, {}, {}, {}),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
@@ -437,15 +433,11 @@ class NaviampMiniPlayerUiTest {
     }
 
     @Test
-    fun slidersStaySeparateAndReachableAcrossWidthsAndLargeText() = runComposeUiTest {
+    fun controlsStaySeparateWithoutProgressAcrossWidthsAndLargeText() = runComposeUiTest {
         val width = mutableStateOf(320.dp)
-        var requiredTimeWidth = 0.dp
         setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
-                val timingLayout = rememberTextMeasurer().measure("01:01/05:38",
-                    LocalTextStyle.current.merge(TextStyle(fontSize = 11.sp)))
-                requiredTimeWidth = with(LocalDensity.current) { timingLayout.size.width.toDp() }
                 Box(Modifier.width(width.value)) {
                     NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "A long song title", subtitle = "Artist",
                         stateLabel = "Paused", positionSeconds = 61.0, durationSeconds = 338.0), NaviampColors.Dark, {}, actions(),
@@ -455,8 +447,8 @@ class NaviampMiniPlayerUiTest {
         }
         for (viewport in listOf(280, 320, 360, 412, 479, 480, 719, 720, 1000)) {
             runOnIdle { width.value = viewport.dp }
-            val progress = onNodeWithContentDescription("Playback position")
-                .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+            onNodeWithContentDescription("Playback position").assertDoesNotExist()
+            onNodeWithTag("mini-player-time").assertDoesNotExist()
             onNodeWithTag("now-playing-volume-slider").assertDoesNotExist()
             val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
             val heart = onNodeWithContentDescription("Favorite")
@@ -466,7 +458,7 @@ class NaviampMiniPlayerUiTest {
                 .assertIsDisplayed().assertIsEnabled().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
                 .getUnclippedBoundsInRoot()
             val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
-            onNodeWithText("01:01/05:38").assertIsDisplayed()
+            onNodeWithText("01:01/05:38").assertDoesNotExist()
             onNodeWithText("A long song title", useUnmergedTree = true).assertIsDisplayed()
             assertTrue(identity.right <= heart.left && heart.right <= play.left)
             if (viewport < 480) {
@@ -481,39 +473,39 @@ class NaviampMiniPlayerUiTest {
                     .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
                 assertTrue(heart.right <= previous.left && previous.right <= play.left)
                 assertTrue(play.right <= next.left && next.right <= queue.left && queue.right <= speaker.left)
-                assertTrue(speaker.right <= player.right && speaker.bottom <= progress.top)
+                assertTrue(speaker.right <= player.right)
             }
             assertTrue(heart.top == play.top && play.top == queue.top)
-            val time = onNodeWithTag("mini-player-time").assertIsDisplayed().getUnclippedBoundsInRoot()
-            assertTrue(time.left >= progress.right && time.right <= player.right)
-            assertTrue(time.right - time.left >= requiredTimeWidth, "Elapsed/total timing must fit without splitting its digits")
-            assertTrue(time.top >= progress.top && time.bottom <= progress.bottom)
-            assertTrue(progress.bottom <= player.bottom)
-            assertTrue(progress.top >= identity.bottom && progress.top >= queue.bottom)
         }
     }
 
     @Test
-    fun trailingTimingKeepsTheOriginalCompactPlayerHeights() = runComposeUiTest {
+    fun progressAndTimingDisappearBeforeWrappingToAnotherLine() = runComposeUiTest {
         val width = mutableStateOf(1000.dp)
         setContent { Box(Modifier.width(width.value)) {
             NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
                 positionSeconds = 61.0, durationSeconds = 338.0), NaviampColors.Dark, {}, actions(),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
         } }
-        for ((viewport, height) in listOf(1000 to 64, 320 to 112)) {
+        for (viewport in listOf(1000, 720, 719, 480, 320, 1000)) {
             runOnIdle { width.value = viewport.dp }
-            onNodeWithTag("mini-player").assertHeightIsEqualTo(height.dp)
-            onNodeWithText("01:01/05:38").assertIsDisplayed()
-            val timing = onNodeWithTag("mini-player-time").getUnclippedBoundsInRoot()
-            val progress = onNodeWithContentDescription("Playback position").getUnclippedBoundsInRoot()
-            assertTrue(timing.left >= progress.right && timing.top >= progress.top && timing.bottom <= progress.bottom)
+            onNodeWithTag("mini-player").assertHeightIsEqualTo(64.dp)
+            if (viewport >= 720) {
+                onNodeWithText("01:01/05:38").assertIsDisplayed()
+                val timing = onNodeWithTag("mini-player-time").getUnclippedBoundsInRoot()
+                val progress = onNodeWithContentDescription("Playback position").assertIsDisplayed().getUnclippedBoundsInRoot()
+                assertTrue(timing.left >= progress.right && timing.top >= progress.top && timing.bottom <= progress.bottom)
+            } else {
+                onNodeWithContentDescription("Playback position").assertDoesNotExist()
+                onNodeWithTag("mini-player-time").assertDoesNotExist()
+                onNodeWithText("01:01/05:38").assertDoesNotExist()
+            }
         }
     }
 
     @Test
     fun seekingAcrossOneHundredMinutesDoesNotResizeTheBar() = runComposeUiTest {
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(1000.dp)) {
             NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
                 positionSeconds = 61.0, durationSeconds = 7200.0), NaviampColors.Dark, {}, actions(),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
