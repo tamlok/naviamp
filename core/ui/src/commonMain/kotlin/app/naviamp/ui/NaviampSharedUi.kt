@@ -1098,7 +1098,8 @@ fun NaviampMiniNowPlaying(
     BoxWithConstraints(modifier.fillMaxWidth().testTag("mini-player")) {
         NaviampPlayerBackground(background, colors,
             Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))
-        val compact = maxWidth < 360.dp
+        val compact = maxWidth < 480.dp
+        val artworkSize = if (maxWidth < 360.dp) 32.dp else 40.dp
         val inlineProgress = maxWidth >= 720.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
         val showProgress = playing != null && !playing.isLive
         Column(Modifier.fillMaxWidth()) {
@@ -1117,7 +1118,7 @@ fun NaviampMiniNowPlaying(
                             onClickLabel = openLabel, role = Role.Button, onClick = { onOpen(false) },
                         ).semantics { contentDescription = openLabel }),
                 ) {
-                    NaviampCoverArt(playing?.coverArtUrl, colors, if (compact) 32.dp else 40.dp, 5.dp,
+                    NaviampCoverArt(playing?.coverArtUrl, colors, artworkSize, 5.dp,
                         mediaKind = if (playing?.isLive == true) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(
@@ -1137,6 +1138,15 @@ fun NaviampMiniNowPlaying(
                         )
                     }
                 }
+                MiniPlayerIconButton(
+                    colors = colors,
+                    enabled = playing?.canFavorite == true && !playing.isLive,
+                    icon = if (playing?.favoriteActive == true) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                    contentDescription = stringResource(if (playing?.favoriteActive == true) Res.string.playlist_item_unfavorite else Res.string.tv_favorite),
+                    onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                    selected = playing?.favoriteActive == true,
+                    size = 48.dp,
+                )
                 if (!compact) MiniPlayerIconButton(
                     colors = colors,
                     enabled = playing?.hasPrevious == true,
@@ -1159,7 +1169,7 @@ fun NaviampMiniNowPlaying(
                     },
                     size = 48.dp,
                 )
-                MiniPlayerIconButton(
+                if (!compact) MiniPlayerIconButton(
                     colors = colors,
                     enabled = playing?.hasNext == true,
                     icon = NaviampTransportIcons.Next,
@@ -1182,7 +1192,7 @@ fun NaviampMiniNowPlaying(
                         NaviampMiniPlayerProgress(playing, playbackProgress, colors, actions)
                     }
                 }
-                if (playing != null && showVolumeBar && playing.canChangeVolume) {
+                if (!compact && playing != null && showVolumeBar && playing.canChangeVolume) {
                     NaviampVolumeControl(playing.volumePercent, colors, actions::changeVolume)
                 }
             }

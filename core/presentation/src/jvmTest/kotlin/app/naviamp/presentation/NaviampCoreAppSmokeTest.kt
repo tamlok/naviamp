@@ -474,7 +474,8 @@ class NaviampCoreAppSmokeTest {
                         onNodeWithText("Upcoming song").assertIsDisplayed()
                         assertBrowsing()
                     }
-                    onNodeWithContentDescription("Next").assertIsNotEnabled()
+                    if (width < 480) onNodeWithContentDescription("Next").assertDoesNotExist()
+                    else onNodeWithContentDescription("Next").assertIsNotEnabled()
                     openQueue()
                     onNodeWithTag("now-playing-queue-close").assertIsDisplayed().performClick()
                     onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()

@@ -110,7 +110,7 @@ class NaviampMiniPlayerUiTest {
     fun emptyAndSyntheticPlayersStayVisibleWithoutPlayableActions() = runComposeUiTest {
         val state = mutableStateOf<NowPlayingUi?>(null)
         var opened = false
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(480.dp)) {
             NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened = true }, actions(),
                 rememberNaviampPlayerBackground(InterfaceSettings(), state.value?.coverArtUrl, NaviampColors.Dark))
         } }
@@ -119,6 +119,7 @@ class NaviampMiniPlayerUiTest {
             onNodeWithText("Choose something to play").assertIsDisplayed()
             onNodeWithTag("mini-player-identity").assert(hasClickAction().not())
                 .performTouchInput { click() }
+            onNodeWithContentDescription("Favorite").assertIsDisplayed().assertIsNotEnabled()
             onNodeWithContentDescription("Previous").assertIsNotEnabled()
             onNodeWithContentDescription("Play").assertIsNotEnabled()
             onNodeWithContentDescription("Next").assertIsNotEnabled()
@@ -142,7 +143,7 @@ class NaviampMiniPlayerUiTest {
         val state = mutableStateOf(track)
         val dispatched = mutableListOf<NowPlayingPlaybackAction>()
         var opened = 0
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(480.dp)) {
             NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened++ }, actions {
                 dispatched += it
                 state.value = when (it) {
@@ -173,6 +174,35 @@ class NaviampMiniPlayerUiTest {
     }
 
     @Test
+    fun heartTogglesTheCurrentFavoriteWithoutOpeningDetailsOrChangingPlayback() = runComposeUiTest {
+        val width = mutableStateOf(320.dp)
+        val state = mutableStateOf<NowPlayingUi?>(NowPlayingUi(id = "track", title = "Song", subtitle = "Artist",
+            stateLabel = "Paused", isPaused = true, canFavorite = true))
+        val requests = mutableListOf<NowPlayingCurrentTrackAction>()
+        setContent { Box(Modifier.width(width.value)) {
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { error("Favorite opened player details") },
+                actions { error("Favorite changed playback") }.copy(onCurrentTrackAction = { request ->
+                    requests += request.action
+                    val track = requireNotNull(state.value)
+                    state.value = track.copy(favoriteActive = !track.favoriteActive)
+                }), rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
+        } }
+        for (viewport in listOf(320, 480)) {
+            runOnIdle { width.value = viewport.dp }
+            onNodeWithContentDescription("Favorite").assertIsEnabled().assertIsNotSelected().performClick()
+            onNodeWithContentDescription("Unfavorite").assertIsEnabled().assertIsSelected().performClick()
+            onNodeWithContentDescription("Favorite").assertIsNotSelected()
+        }
+        runOnIdle { state.value = state.value?.copy(canFavorite = false) }
+        onNodeWithContentDescription("Favorite").assertIsNotEnabled().performTouchInput { click() }
+        runOnIdle { state.value = state.value?.copy(canFavorite = true, isLive = true) }
+        onNodeWithContentDescription("Favorite").assertIsNotEnabled().performTouchInput { click() }
+        runOnIdle { state.value = null }
+        onNodeWithContentDescription("Favorite").assertIsNotEnabled().performTouchInput { click() }
+        runOnIdle { assertEquals(List(4) { NowPlayingCurrentTrackAction.ToggleFavorite }, requests) }
+    }
+
+    @Test
     fun narrowLargeTextKeepsTitleAndTransportTargetsSeparate() = runComposeUiTest {
         setContent {
             val density = LocalDensity.current
@@ -190,14 +220,15 @@ class NaviampMiniPlayerUiTest {
         onNodeWithContentDescription("Previous").assertDoesNotExist()
         onNodeWithText("A long current track title", useUnmergedTree = true).assertIsDisplayed()
         val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
+        val heart = onNodeWithContentDescription("Favorite").assertIsDisplayed().getUnclippedBoundsInRoot()
         val play = onNodeWithContentDescription("Play").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
-        val next = onNodeWithContentDescription("Next").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
+        onNodeWithContentDescription("Next").assertDoesNotExist()
+        onNodeWithTag("volume-popup-button").assertDoesNotExist()
         val queue = onNodeWithContentDescription("Queue").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
         assertTrue(play.right - play.left >= 48.dp && play.bottom - play.top >= 48.dp)
-        assertTrue(next.right - next.left >= 48.dp && next.bottom - next.top >= 48.dp)
+        assertTrue(heart.right - heart.left >= 48.dp && heart.bottom - heart.top >= 48.dp)
         assertTrue(queue.right - queue.left >= 48.dp && queue.bottom - queue.top >= 48.dp)
-        assertTrue(identity.right <= play.left && play.right <= next.left)
-        assertTrue(next.right <= queue.left)
+        assertTrue(identity.right <= heart.left && heart.right <= play.left && play.right <= queue.left)
     }
 
     @Test
@@ -211,13 +242,14 @@ class NaviampMiniPlayerUiTest {
         onNodeWithText("Fixture radio", useUnmergedTree = true).assertIsDisplayed()
         onNodeWithText("Live station", useUnmergedTree = true).assertIsDisplayed()
         onNodeWithTag("mini-player-identity").assertHasClickAction()
-        onNodeWithContentDescription("Previous").assertIsNotEnabled()
+        onNodeWithContentDescription("Previous").assertDoesNotExist()
+        onNodeWithContentDescription("Favorite").assertIsNotEnabled()
         onNodeWithContentDescription("Pause").assertIsEnabled()
-        onNodeWithContentDescription("Next").assertIsEnabled()
+        onNodeWithContentDescription("Next").assertDoesNotExist()
         onNodeWithContentDescription("Queue").assertIsEnabled()
         onNodeWithContentDescription("Playback position").assertDoesNotExist()
         onNodeWithTag("mini-player-time").assertDoesNotExist()
-        onNodeWithTag("volume-popup-button").assertIsDisplayed()
+        onNodeWithTag("volume-popup-button").assertDoesNotExist()
         onNodeWithTag("now-playing-volume-slider").assertDoesNotExist()
         onNodeWithTag("mini-player").assertHeightIsEqualTo(64.dp)
     }
@@ -312,7 +344,7 @@ class NaviampMiniPlayerUiTest {
         val showVolume = mutableStateOf(true)
         val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
         var opened = 0
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(480.dp)) {
             NaviampMiniNowPlaying(state.value, NaviampColors.Dark, { opened++ },
                 NaviampNowPlayingActions({ requests += it }, {}, {}, {}, {}, {}, {}),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark),
@@ -347,7 +379,7 @@ class NaviampMiniPlayerUiTest {
         val showVolume = mutableStateOf(true)
         val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
         var opened = 0
-        setContent { Box(Modifier.width(320.dp)) {
+        setContent { Box(Modifier.width(480.dp)) {
             NaviampMiniNowPlaying(playing.value, NaviampColors.Dark, { opened++ },
                 NaviampNowPlayingActions({ requests += it }, {}, {}, {}, {}, {}, {}),
                 rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark),
@@ -421,30 +453,43 @@ class NaviampMiniPlayerUiTest {
                 }
             }
         }
-        for (viewport in listOf(280, 320, 360, 412, 719, 720, 1000)) {
+        for (viewport in listOf(280, 320, 360, 412, 479, 480, 719, 720, 1000)) {
             runOnIdle { width.value = viewport.dp }
             val progress = onNodeWithContentDescription("Playback position")
                 .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
             onNodeWithTag("now-playing-volume-slider").assertDoesNotExist()
-            val speaker = onNodeWithTag("volume-popup-button")
-                .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
             val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
-            val next = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
+            val heart = onNodeWithContentDescription("Favorite")
+                .assertIsDisplayed().assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+            val play = onNodeWithContentDescription("Play").assertIsDisplayed().getUnclippedBoundsInRoot()
             val queue = onNodeWithContentDescription("Queue")
                 .assertIsDisplayed().assertIsEnabled().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
                 .getUnclippedBoundsInRoot()
             val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
             onNodeWithText("01:01/05:38").assertIsDisplayed()
             onNodeWithText("A long song title", useUnmergedTree = true).assertIsDisplayed()
-            assertTrue(next.right <= queue.left && queue.right <= speaker.left)
-            assertTrue(next.top == queue.top && next.bottom == queue.bottom)
+            assertTrue(identity.right <= heart.left && heart.right <= play.left)
+            if (viewport < 480) {
+                onNodeWithContentDescription("Previous").assertDoesNotExist()
+                onNodeWithContentDescription("Next").assertDoesNotExist()
+                onNodeWithTag("volume-popup-button").assertDoesNotExist()
+                assertTrue(play.right <= queue.left && queue.right <= player.right)
+            } else {
+                val previous = onNodeWithContentDescription("Previous").assertIsDisplayed().getUnclippedBoundsInRoot()
+                val next = onNodeWithContentDescription("Next").assertIsDisplayed().getUnclippedBoundsInRoot()
+                val speaker = onNodeWithTag("volume-popup-button")
+                    .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
+                assertTrue(heart.right <= previous.left && previous.right <= play.left)
+                assertTrue(play.right <= next.left && next.right <= queue.left && queue.right <= speaker.left)
+                assertTrue(speaker.right <= player.right && speaker.bottom <= progress.top)
+            }
+            assertTrue(heart.top == play.top && play.top == queue.top)
             val time = onNodeWithTag("mini-player-time").assertIsDisplayed().getUnclippedBoundsInRoot()
             assertTrue(time.left >= progress.right && time.right <= player.right)
             assertTrue(time.right - time.left >= requiredTimeWidth, "Elapsed/total timing must fit without splitting its digits")
             assertTrue(time.top >= progress.top && time.bottom <= progress.bottom)
-            assertTrue(speaker.right <= player.right && speaker.bottom <= progress.top)
             assertTrue(progress.bottom <= player.bottom)
-            assertTrue(progress.top >= identity.bottom && progress.top >= next.bottom)
+            assertTrue(progress.top >= identity.bottom && progress.top >= queue.bottom)
         }
     }
 
@@ -485,7 +530,7 @@ class NaviampMiniPlayerUiTest {
     @Test
     fun verticalVolumeDragUsesTopAsMaximumAndBottomAsMinimum() = runComposeUiTest {
         val volumes = mutableListOf<Int>()
-        setContent { Box(Modifier.width(412.dp)) {
+        setContent { Box(Modifier.width(480.dp)) {
             NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
                 durationSeconds = 200.0, volumePercent = 50), NaviampColors.Dark, {},
                 NaviampNowPlayingActions({ volumes += requireNotNull(it.volumePercent) }, {}, {}, {}, {}, {}, {}),
