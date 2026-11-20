@@ -243,6 +243,42 @@ class NaviampRasterInteractionTest {
         }
     }
 
+    @Test fun combinedTimeCachesWholeSecondsAndPaintsAtTheRightEdgeInRtl() = runComposeUiTest {
+        val presenter = RecordingPresenter()
+        val position = mutableDoubleStateOf(61.25)
+        var compositions = 0
+        var parentDraws = 0
+        setContent {
+            CompositionLocalProvider(LocalNaviampRasterPresenter provides presenter,
+                androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Rtl) {
+                Box(Modifier.width(200.dp).drawWithContent { parentDraws++; drawContent() }) {
+                    SideEffect { compositions++ }
+                    NowPlayingCombinedTimeLabel({ position.doubleValue }, 338.0, NaviampColors(), 11.sp)
+                }
+            }
+        }
+        onNodeWithText("01:01/05:38").assertExists()
+        val initialImage = presenter.layers.single().image
+        val initialDraws = parentDraws
+        val initialCompositions = compositions
+        val initialPresentations = presenter.presentations
+        runOnIdle { position.doubleValue = 61.9 }
+        waitForIdle()
+        runOnIdle {
+            assertSame(initialImage, presenter.layers.single().image)
+            assertEquals(initialPresentations, presenter.presentations)
+        }
+        runOnIdle { position.doubleValue = 62.0 }
+        onNodeWithText("01:02/05:38").assertExists()
+        runOnIdle {
+            val layer = presenter.layers.single()
+            assertNotSame(initialImage, layer.image)
+            assertEquals(presenter.bounds.width - layer.image.width, layer.origin.x)
+            assertEquals(initialDraws, parentDraws, "Timing updates must not repaint the parent")
+            assertEquals(initialCompositions, compositions, "Timing updates must not recompose the parent")
+        }
+    }
+
     @Test fun deferredNativeUpdatesStillCommitInTheSharedDrawingPass() = runComposeUiTest {
         val presenter = RecordingPresenter(requiresDrawSynchronization = true)
         val progress = mutableFloatStateOf(.2f)

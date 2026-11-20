@@ -2,12 +2,14 @@ package app.naviamp.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -15,8 +17,12 @@ import app.naviamp.domain.playback.PlaybackProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.LayoutDirection
 import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.AppBackgroundStyle
@@ -118,6 +124,7 @@ class NaviampMiniPlayerUiTest {
             onNodeWithContentDescription("Next").assertIsNotEnabled()
             onNodeWithContentDescription("Playback position").assertDoesNotExist()
             onNodeWithContentDescription("Volume").assertDoesNotExist()
+            onNodeWithTag("mini-player-time").assertDoesNotExist()
             runOnIdle { assertEquals(false, opened) }
         }
         assertEmpty()
@@ -204,6 +211,7 @@ class NaviampMiniPlayerUiTest {
         onNodeWithContentDescription("Pause").assertIsEnabled()
         onNodeWithContentDescription("Next").assertIsEnabled()
         onNodeWithContentDescription("Playback position").assertDoesNotExist()
+        onNodeWithTag("mini-player-time").assertDoesNotExist()
         onNodeWithContentDescription("Volume").assertIsDisplayed()
     }
 
@@ -223,16 +231,21 @@ class NaviampMiniPlayerUiTest {
         } }
         val slider = onNodeWithContentDescription("Playback position")
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(.2f, 0f..1f))
+        onNodeWithText("00:40/03:20").assertIsDisplayed()
         runOnIdle { progress.value = PlaybackProgress(80.0, 200.0) }
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(.4f, 0f..1f))
+        onNodeWithText("01:20/03:20").assertIsDisplayed()
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(.75f) }
         runOnIdle {
             assertEquals(NowPlayingPlaybackAction.Seek, requests.single().action)
             assertEquals(150.0, requests.single().seekSeconds)
         }
         slider.performTouchInput {
-            swipe(Offset(width * .25f, centerY), Offset(width * .6f, centerY))
+            down(Offset(width * .25f, centerY))
+            moveTo(Offset(width * .6f, centerY))
         }
+        onNodeWithText("02:00/03:20").assertIsDisplayed()
+        slider.performTouchInput { up() }
         runOnIdle { assertEquals(120.0, requests.last().seekSeconds!!, 1.0) }
         slider.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
         slider.performKeyInput { pressKey(Key.DirectionRight) }
@@ -240,6 +253,49 @@ class NaviampMiniPlayerUiTest {
             assertEquals(82.0, requests.last().seekSeconds!!, .01)
             assertEquals(0, opened)
         }
+    }
+
+    @Test
+    fun timingDiscoversDurationAndKeepsTheStructuralDurationAuthoritative() = runComposeUiTest {
+        val progress = MutableStateFlow(PlaybackProgress(61.9, null))
+        val state = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
+            stateLabel = "Paused", positionSeconds = 10.0, isPaused = true))
+        val seeks = mutableListOf<NowPlayingPlaybackActionRequest>()
+        setContent { Box(Modifier.width(412.dp)) {
+            NaviampMiniNowPlaying(state.value, NaviampColors.Dark, {},
+                NaviampNowPlayingActions({ seeks += it }, {}, {}, {}, {}, {}, {}),
+                rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark), playbackProgress = progress)
+        } }
+        onNodeWithText("01:01/--:--").assertIsDisplayed()
+        val slider = onNodeWithContentDescription("Playback position")
+        slider.assert(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress).not())
+        runOnIdle { progress.value = PlaybackProgress(61.9, 338.0) }
+        onNodeWithText("01:01/05:38").assertIsDisplayed()
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { it(.5f) }
+        runOnIdle { assertEquals(169.0, seeks.single().seekSeconds) }
+        runOnIdle { state.value = state.value.copy(durationSeconds = 200.0) }
+        onNodeWithText("01:01/03:20").assertIsDisplayed()
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo((61.9 / 200.0).toFloat(), 0f..1f))
+    }
+
+    @Test
+    fun timingRemainsAboveTheRightEndWithoutVolumeInRtl() = runComposeUiTest {
+        setContent {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                Box(Modifier.width(412.dp)) {
+                    NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
+                        stateLabel = "Paused", positionSeconds = 61.0, durationSeconds = 338.0),
+                        NaviampColors.Dark, {}, actions(),
+                        rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark), showVolumeBar = false)
+                }
+            }
+        }
+        onNodeWithText("01:01/05:38").assertIsDisplayed()
+        onNodeWithContentDescription("Volume").assertDoesNotExist()
+        val time = onNodeWithTag("mini-player-time").getUnclippedBoundsInRoot()
+        val progress = onNodeWithContentDescription("Playback position").getUnclippedBoundsInRoot()
+        assertEquals(progress.right, time.right)
+        assertTrue(time.bottom <= progress.top)
     }
 
     @Test
@@ -327,18 +383,23 @@ class NaviampMiniPlayerUiTest {
         }
         runOnIdle { state.value = state.value.copy(isLive = true) }
         slider.assertDoesNotExist()
+        onNodeWithTag("mini-player-time").assertDoesNotExist()
         onNodeWithTag("mini-player").assertHeightIsEqualTo(64.dp)
     }
 
     @Test
     fun slidersStaySeparateAndReachableAcrossWidthsAndLargeText() = runComposeUiTest {
         val width = mutableStateOf(320.dp)
+        var requiredTimeWidth = 0.dp
         setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
+                val timingLayout = rememberTextMeasurer().measure("01:01/05:38",
+                    LocalTextStyle.current.merge(TextStyle(fontSize = 11.sp)))
+                requiredTimeWidth = with(LocalDensity.current) { timingLayout.size.width.toDp() }
                 Box(Modifier.width(width.value)) {
                     NaviampMiniNowPlaying(NowPlayingUi(id = "song", title = "A long song title", subtitle = "Artist",
-                        stateLabel = "Paused", durationSeconds = 200.0), NaviampColors.Dark, {}, actions(),
+                        stateLabel = "Paused", positionSeconds = 61.0, durationSeconds = 338.0), NaviampColors.Dark, {}, actions(),
                         rememberNaviampPlayerBackground(InterfaceSettings(), null, NaviampColors.Dark))
                 }
             }
@@ -354,11 +415,16 @@ class NaviampMiniPlayerUiTest {
             val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
             val next = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
             val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
+            onNodeWithText("01:01/05:38").assertIsDisplayed()
+            val time = onNodeWithTag("mini-player-time").assertIsDisplayed().getUnclippedBoundsInRoot()
+            assertEquals(progress.right, time.right)
+            assertTrue(time.right - time.left >= requiredTimeWidth, "Elapsed/total timing must fit without splitting its digits")
+            assertTrue(time.bottom <= progress.top && time.top >= player.top)
+            assertEquals(progress.bottom, volume.bottom)
             assertTrue(progress.right <= volume.left && volume.right <= player.right)
             assertTrue(progress.right <= mute.left && mute.right <= volume.left)
             assertTrue(progress.bottom <= player.bottom && volume.bottom <= player.bottom)
-            if (viewport < 720) assertTrue(progress.top >= identity.bottom && progress.top >= next.bottom)
-            else assertTrue(progress.left >= next.right)
+            assertTrue(progress.top >= identity.bottom && progress.top >= next.bottom)
         }
     }
 }

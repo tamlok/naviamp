@@ -25,6 +25,9 @@ fun Int.durationLabel(): String {
 fun Double?.durationLabel(): String =
     this?.toTimeLabel() ?: "--:--"
 
+internal fun Double?.paddedDurationLabel(): String =
+    this?.takeIf { it.isFinite() }.durationLabel().padStart(5, '0')
+
 fun PlaybackProgress.label(effectiveDurationSeconds: Double?): String {
     val position = positionSeconds.durationLabel()
     val duration = effectiveDurationSeconds.durationLabel()

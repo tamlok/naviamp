@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">Hiçbir şey çalmıyor</string>
     <string name="mini_player_empty_subtitle">Çalmak için bir şey seçin</string>
     <string name="mini_player_open">Oynatıcı ayrıntılarını aç</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">Favori sanatçılar</string>
     <string name="settings_radio_new_dj">Yeni DJ</string>
     <string name="settings_radio_create_dj">Yeni DJ oluştur</string>

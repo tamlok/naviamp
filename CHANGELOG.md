@@ -9,6 +9,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
 - Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides application navigation and the mini-player; its pinned Back arrow restores the preceding screen and navigation without interrupting playback.
 - Seek through tracks and adjust volume directly from the mini-player, with controls that adapt to narrow windows and respect playback capabilities and the volume-bar preference.
+- Show elapsed/total playback time, such as `01:01/05:38`, above the mini-player progress bar at its right edge, including a preview while seeking.
 - Click the speaker icon in the full or mini player to mute, then click again to restore the previous volume. Both players share the same mute state.
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.

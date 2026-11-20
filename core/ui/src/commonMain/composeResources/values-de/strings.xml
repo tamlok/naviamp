@@ -18,6 +18,7 @@
     <string name="mini_player_empty_title">Keine Wiedergabe</string>
     <string name="mini_player_empty_subtitle">Wähle etwas zum Abspielen</string>
     <string name="mini_player_open">Playerdetails öffnen</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">Lieblingskünstler</string>
     <string name="settings_radio_new_dj">Neuer DJ</string>
     <string name="settings_radio_create_dj">Neuen DJ erstellen</string>

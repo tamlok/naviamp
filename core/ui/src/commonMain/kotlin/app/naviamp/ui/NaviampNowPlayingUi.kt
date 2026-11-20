@@ -58,6 +58,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusable
@@ -111,6 +113,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -1775,80 +1778,113 @@ internal fun NowPlayingProgressRow(
     timeFontSize: TextUnit,
     timeWidth: Dp,
     onSeek: (Double) -> Unit,
-    showTimeLabels: Boolean = true,
+    timeLabelsAbove: Boolean = false,
     showWaveform: Boolean = true,
     scrubberHeight: Dp = 28.dp,
 ) {
     // Layout tracks structure and active scrubbing. Shared cached rendering and live semantics
     // consume playback ticks without recomposing or repainting this row.
     val progressState = playbackProgress?.collectAsState()
-    val durationSeconds = remember(nowPlaying.id, nowPlaying.durationSeconds) {
-        nowPlaying.durationSeconds ?: playbackProgress?.value?.durationSeconds
+    val durationSeconds by remember(nowPlaying.id, nowPlaying.durationSeconds, progressState) {
+        derivedStateOf { nowPlaying.durationSeconds ?: progressState?.value?.durationSeconds }
     }
     val structuralProgressFraction = playbackFraction(nowPlaying.positionSeconds, durationSeconds)
     var scrubberOverride by remember(nowPlaying.id) { mutableStateOf<Float?>(null) }
     val scrubberValue = scrubberOverride ?: structuralProgressFraction.toFloat()
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        if (showTimeLabels) NowPlayingPositionLabel(
-            nowPlaying = nowPlaying,
-            progressState = progressState,
+    Column(Modifier.fillMaxWidth()) {
+        if (timeLabelsAbove) NowPlayingCombinedTimeLabel(
+            positionSeconds = {
+                scrubberOverride?.let { seekSecondsForFraction(it, durationSeconds) }
+                    ?: progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds
+            },
+            durationSeconds = durationSeconds,
             colors = colors,
             fontSize = timeFontSize,
-            width = timeWidth,
         )
-        if (nowPlaying.isLive) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(22.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (!timeLabelsAbove) NowPlayingPositionLabel(
+                nowPlaying = nowPlaying,
+                progressState = progressState,
+                colors = colors,
+                fontSize = timeFontSize,
+                width = timeWidth,
+            )
+            if (nowPlaying.isLive) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(controlColors.accent.copy(alpha = 0.7f)),
+                        .weight(1f)
+                        .height(22.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(controlColors.accent.copy(alpha = 0.7f)),
+                    )
+                }
+            } else {
+                WaveformScrubber(
+                    amplitudes = if (showWaveform) nowPlaying.waveform?.amplitudes.orEmpty() else emptyList(),
+                    value = scrubberValue.coerceIn(0f, 1f),
+                    drawValue = {
+                        scrubberOverride ?: playbackFraction(
+                            progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds,
+                            durationSeconds,
+                        ).toFloat()
+                    },
+                    enabled = canSeek && durationSeconds?.let { it.isFinite() && it > 0.0 } == true,
+                    smoothProgress = nowPlaying.isPlaying && scrubberOverride == null,
+                    durationSeconds = durationSeconds,
+                    progressIdentity = nowPlaying.id,
+                    colors = controlColors,
+                    onValueChange = {
+                        scrubberOverride = it
+                    },
+                    onValueChangeFinished = { seekFraction ->
+                        seekSecondsForFraction(seekFraction, durationSeconds)?.let(onSeek)
+                        scrubberOverride = null
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(scrubberHeight),
                 )
             }
-        } else {
-            WaveformScrubber(
-                amplitudes = if (showWaveform) nowPlaying.waveform?.amplitudes.orEmpty() else emptyList(),
-                value = scrubberValue.coerceIn(0f, 1f),
-                drawValue = {
-                    scrubberOverride ?: playbackFraction(
-                        progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds,
-                        durationSeconds,
-                    ).toFloat()
-                },
-                enabled = canSeek && durationSeconds != null,
-                smoothProgress = nowPlaying.isPlaying && scrubberOverride == null,
-                durationSeconds = durationSeconds,
-                progressIdentity = nowPlaying.id,
-                colors = controlColors,
-                onValueChange = {
-                    scrubberOverride = it
-                },
-                onValueChangeFinished = { seekFraction ->
-                    seekSecondsForFraction(seekFraction, durationSeconds)?.let(onSeek)
-                    scrubberOverride = null
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(scrubberHeight),
+            if (!timeLabelsAbove) Text(
+                if (nowPlaying.isLive) "Radio" else secondsLabel(durationSeconds),
+                color = colors.primaryText,
+                textAlign = TextAlign.Center,
+                fontSize = timeFontSize,
+                modifier = Modifier.width(timeWidth),
             )
         }
-        if (showTimeLabels) Text(
-            if (nowPlaying.isLive) "Radio" else secondsLabel(durationSeconds),
-            color = colors.primaryText,
-            textAlign = TextAlign.Center,
-            fontSize = timeFontSize,
-            modifier = Modifier.width(timeWidth),
-        )
+    }
+}
+
+@Composable
+internal fun NowPlayingCombinedTimeLabel(
+    positionSeconds: () -> Double?,
+    durationSeconds: Double?,
+    colors: NaviampColors,
+    fontSize: TextUnit,
+) {
+    val currentPosition by rememberUpdatedState(positionSeconds)
+    val wholeSeconds = remember {
+        derivedStateOf { currentPosition()?.takeIf { it.isFinite() }?.toInt()?.coerceAtLeast(0) }
+    }
+    val duration = remember(durationSeconds) { durationSeconds.paddedDurationLabel() }
+    val separator = stringResource(Res.string.mini_player_time_separator)
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("mini-player-time")) {
+        NaviampRasterValueText(text = {
+            AnnotatedString(wholeSeconds.value?.toDouble().paddedDurationLabel() + separator + duration)
+        }, style = TextStyle(color = colors.primaryText, fontSize = fontSize,
+            textAlign = TextAlign.Right, textDirection = TextDirection.Ltr),
+            width = maxWidth, alignment = AbsoluteAlignment.Right)
     }
 }
 

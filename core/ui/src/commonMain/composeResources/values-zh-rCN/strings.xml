@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">暂无播放内容</string>
     <string name="mini_player_empty_subtitle">选择要播放的内容</string>
     <string name="mini_player_open">打开播放器详情</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">收藏的艺人</string>
     <string name="settings_radio_new_dj">新建 DJ</string>
     <string name="settings_radio_create_dj">创建新 DJ</string>

@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -1128,7 +1129,7 @@ fun NaviampMiniNowPlaying(
         NaviampPlayerBackground(background, colors,
             Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))
         val compact = maxWidth < 360.dp
-        val inlineSliders = maxWidth >= 720.dp
+        val inlineSliders = maxWidth >= 720.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
         val showSliders = playing != null && (!playing.isLive || (showVolumeBar && playing.canChangeVolume))
         Column(Modifier.fillMaxWidth()) {
             Row(
@@ -1222,21 +1223,20 @@ private fun NaviampMiniPlayerSliders(
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Bottom,
     ) {
         if (!nowPlaying.isLive) {
             Box(Modifier.weight(1f)) {
                 NowPlayingProgressRow(
                     nowPlaying = nowPlaying,
                     playbackProgress = playbackProgress,
-                    canSeek = nowPlaying.canSeek && (nowPlaying.durationSeconds ?: playbackProgress?.value?.durationSeconds)
-                        ?.let { it.isFinite() && it > 0.0 } == true,
+                    canSeek = nowPlaying.canSeek,
                     colors = colors,
                     controlColors = colors,
                     timeFontSize = 11.sp,
                     timeWidth = 42.dp,
                     onSeek = actions::seek,
-                    showTimeLabels = false,
+                    timeLabelsAbove = true,
                     showWaveform = false,
                     scrubberHeight = 48.dp,
                 )

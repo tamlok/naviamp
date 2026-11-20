@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">Aucune lecture en cours</string>
     <string name="mini_player_empty_subtitle">Choisissez un contenu à écouter</string>
     <string name="mini_player_open">Ouvrir les détails du lecteur</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">Artistes favoris</string>
     <string name="settings_radio_new_dj">Nouveau DJ</string>
     <string name="settings_radio_create_dj">Créer un nouveau DJ</string>

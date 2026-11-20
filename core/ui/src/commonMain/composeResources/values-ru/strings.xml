@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">Ничего не воспроизводится</string>
     <string name="mini_player_empty_subtitle">Выберите, что послушать</string>
     <string name="mini_player_open">Открыть подробности плеера</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">Любимые исполнители</string>
     <string name="settings_radio_new_dj">Новый диджей</string>
     <string name="settings_radio_create_dj">Создать нового диджея</string>

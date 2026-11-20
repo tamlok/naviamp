@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -123,9 +124,10 @@ internal fun NaviampRasterText(
     }
 }
 
-/** Wrapped, centered text whose changing value does not recompose the surrounding player. */
+/** Cached, wrapping value text whose changes do not recompose the surrounding player. */
 @Composable
-internal fun NaviampRasterValueText(text: () -> AnnotatedString, style: TextStyle, width: Dp) {
+internal fun NaviampRasterValueText(text: () -> AnnotatedString, style: TextStyle, width: Dp,
+    alignment: Alignment.Horizontal = Alignment.CenterHorizontally) {
     val currentText by rememberUpdatedState(text)
     val density = LocalDensity.current
     val direction = LocalLayoutDirection.current
@@ -152,10 +154,10 @@ internal fun NaviampRasterValueText(text: () -> AnnotatedString, style: TextStyl
         }
         draw
     }
-    val content = remember(render, widthPx) { NaviampRasterContent(value = { currentText() }, render = { value ->
+    val content = remember(render, widthPx, alignment, direction) { NaviampRasterContent(value = { currentText() }, render = { value ->
         val image = render(value)
         height.intValue = image.height
-        listOf(NaviampRasterLayer(image, origin = Offset((widthPx - image.width) / 2f, 0f)))
+        listOf(NaviampRasterLayer(image, origin = Offset(alignment.align(image.width, widthPx, direction).toFloat(), 0f)))
     }) }
     Box(Modifier.width(width).height(with(density) { height.intValue.toDp() })
         .naviampLiveSemantics({ currentText() }) { this.text = it }) {

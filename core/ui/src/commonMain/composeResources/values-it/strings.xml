@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">Nessuna riproduzione in corso</string>
     <string name="mini_player_empty_subtitle">Scegli qualcosa da riprodurre</string>
     <string name="mini_player_open">Apri i dettagli del lettore</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">Artisti preferiti</string>
     <string name="settings_radio_new_dj">Nuovo DJ</string>
     <string name="settings_radio_create_dj">Crea nuovo DJ</string>

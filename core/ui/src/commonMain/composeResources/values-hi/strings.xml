@@ -32,6 +32,7 @@
     <string name="mini_player_empty_title">कुछ नहीं चल रहा है</string>
     <string name="mini_player_empty_subtitle">चलाने के लिए कुछ चुनें</string>
     <string name="mini_player_open">प्लेयर का विवरण खोलें</string>
+    <string name="mini_player_time_separator">/</string>
     <string name="my_favorite_artists">पसंदीदा कलाकार</string>
     <string name="settings_radio_new_dj">नया DJ</string>
     <string name="settings_radio_create_dj">नया DJ बनाएँ</string>
