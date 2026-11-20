@@ -26,11 +26,9 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -675,30 +673,20 @@ internal fun ConnectedContent(
                 mediaActions = mediaActions,
                 scrollState = homeScrollState,
             )
-            SharedRoute.Playlists -> PullToRefreshRoute(
-                isRefreshing = playlists.refreshing,
-                onRefresh = playlistsActions.onRefresh,
-            ) {
-                NaviampPlaylistsContent(
-                    colors = colors,
-                    screen = playlists,
-                    actions = playlistsActions,
-                    mediaActions = mediaActions,
-                    playlistChoices = playlistChoices,
-                )
-            }
-            SharedRoute.Library -> PullToRefreshRoute(
-                isRefreshing = library.selectedCatalog.syncStatus.isSyncing,
-                onRefresh = libraryActions.onRefresh,
-            ) {
-                NaviampLibraryContent(
-                    colors = colors,
-                    screen = library,
-                    actions = libraryActions,
-                    mediaActions = mediaActions,
-                    viewportState = libraryViewportState,
-                )
-            }
+            SharedRoute.Playlists -> NaviampPlaylistsContent(
+                colors = colors,
+                screen = playlists,
+                actions = playlistsActions,
+                mediaActions = mediaActions,
+                playlistChoices = playlistChoices,
+            )
+            SharedRoute.Library -> NaviampLibraryContent(
+                colors = colors,
+                screen = library,
+                actions = libraryActions,
+                mediaActions = mediaActions,
+                viewportState = libraryViewportState,
+            )
             SharedRoute.Search -> NaviampSearchContent(
                 colors = colors,
                 screen = search,
@@ -835,16 +823,11 @@ internal fun ConnectedContent(
                     }
                 }
             }
-            SharedRoute.Radio -> PullToRefreshRoute(
-                isRefreshing = radio.refreshing,
-                onRefresh = radioActions.onRefresh,
-            ) {
-                NaviampInternetRadioContent(
-                    colors = colors,
-                    screen = radio,
-                    actions = radioActions,
-                )
-            }
+            SharedRoute.Radio -> NaviampInternetRadioContent(
+                colors = colors,
+                screen = radio,
+                actions = radioActions,
+            )
             SharedRoute.My -> NaviampMyContent(uiState, actions, colors)
             SharedRoute.Settings -> Unit
             SharedRoute.Downloads -> NaviampDownloadsContent(
@@ -955,34 +938,6 @@ internal fun NaviampNowPlayingActions.withCastOutputActions(
     onCastPicker = onPicker,
     onRemoteOutputAction = if (cast.selected) onSelectLocal else onRemoteOutputAction,
 )
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun PullToRefreshRoute(
-    isRefreshing: Boolean,
-    onRefresh: () -> Unit,
-    useScrollContainer: Boolean = false,
-    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
-    content: @Composable () -> Unit,
-) {
-    PullToRefreshBox(
-        isRefreshing = isRefreshing,
-        onRefresh = onRefresh,
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        if (useScrollContainer) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState),
-            ) {
-                content()
-            }
-        } else {
-            content()
-        }
-    }
-}
 
 @Composable
 private fun FullNowPlaying(

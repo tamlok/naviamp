@@ -2079,6 +2079,7 @@ fun NaviampInternetRadioContent(
     InternetRadioContent(
         colors = colors,
         screen = screen,
+        onRefresh = actions.onRefresh,
         onStationAction = actions.onStationAction,
         onSaveStation = actions.onSaveStation,
         headerActions = {
@@ -2096,11 +2097,13 @@ fun NaviampInternetRadioContent(
 fun InternetRadioContent(
     colors: NaviampColors,
     screen: NaviampInternetRadioScreenUi,
+    onRefresh: () -> Unit,
     onStationAction: (StationRowActionRequest) -> Unit,
     onSaveStation: ((NaviampInternetRadioStationEditUi) -> Unit)? = null,
     headerActions: @Composable RowScope.() -> Unit = {},
 ) {
     val stations = screen.stations
+    val scrollState = rememberScrollState()
     var stationBeingEdited by remember { mutableStateOf<NaviampInternetRadioStationUi?>(null) }
     var stationBeingDeleted by remember { mutableStateOf<NaviampInternetRadioStationUi?>(null) }
     var creatingStation by remember { mutableStateOf(false) }
@@ -2131,9 +2134,15 @@ fun InternetRadioContent(
             }
             headerActions()
         }
+        NaviampPullToRefreshBox(
+            isRefreshing = screen.refreshing,
+            onRefresh = onRefresh,
+            canPull = { !scrollState.canScrollBackward },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
         ) {
             screen.status?.let { Text(it, color = colors.secondaryText, fontSize = 12.sp) }
             if (stations.isEmpty()) {
@@ -2174,6 +2183,7 @@ fun InternetRadioContent(
                     },
                 )
             }
+        }
         }
     }
 

@@ -152,6 +152,7 @@ private fun PlaylistsContent(
         }
     }
     val sortedPlaylists = playlists.sortedForPlaylistScreen(sortMode, recentPlaylistIds)
+    val scrollState = rememberScrollState()
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -186,9 +187,15 @@ private fun PlaylistsContent(
                 ),
             )
         }
+        NaviampPullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = onRefresh,
+            canPull = { !scrollState.canScrollBackward },
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+        ) {
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
         ) {
             if (sortedPlaylists.isEmpty()) {
                 Text(stringResource(Res.string.playlists_empty), color = colors.secondaryText, fontSize = 12.sp)
@@ -214,6 +221,7 @@ private fun PlaylistsContent(
                     onAddToPlaylist = { playlistToAddToPlaylist = playlist },
                 )
             }
+        }
         }
     }
 

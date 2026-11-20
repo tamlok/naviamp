@@ -7,6 +7,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Features
 
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
+- Pull down at the top of Home, Playlists, Library Artists/Albums/Songs, and Radio to refresh, using touch or a primary-button mouse drag. Pull feedback and empty-list gesture areas are shared across platforms; normal mouse-wheel scrolling is unchanged.
 - Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides application navigation and the mini-player; its pinned Back arrow restores the preceding screen and navigation without interrupting playback.
 - Seek through tracks and adjust volume directly from the mini-player, with controls that adapt to narrow windows and respect playback capabilities and the volume-bar preference.
 - Show elapsed/total playback time, such as `01:01/05:38`, immediately after the mini-player progress bar on the same line, including a preview while seeking.

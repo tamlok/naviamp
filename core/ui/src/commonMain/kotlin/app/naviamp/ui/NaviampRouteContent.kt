@@ -33,8 +33,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -954,7 +952,6 @@ private fun HomeCollectionItemListRow(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharedHomeRoute(
     colors: NaviampColors,
@@ -1003,21 +1000,11 @@ fun SharedHomeRoute(
                 items = listOf(NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh)),
             )
         }
-        PullToRefreshBox(
+        NaviampPullToRefreshBox(
             isRefreshing = home.refreshing,
             onRefresh = actions.onRefresh,
+            canPull = { !scrollState.canScrollBackward },
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            indicator = {
-                if (home.refreshing) {
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.TopCenter),
-                        color = colors.primaryText,
-                        trackColor = colors.mutedText.copy(alpha = 0.25f),
-                    )
-                }
-            },
         ) {
             Box(
                 modifier = Modifier
@@ -1633,9 +1620,15 @@ fun NaviampLibraryContent(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            NaviampPullToRefreshBox(
+                isRefreshing = syncStatus.isSyncing,
+                onRefresh = actions.onRefresh,
+                canPull = { !activeListState.canScrollBackward },
+                modifier = Modifier.weight(1f).fillMaxSize(),
+            ) {
             LazyColumn(
                 state = activeListState,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
             if (filteredItems.isEmpty() && filteredTracks.isEmpty() &&
@@ -1774,6 +1767,7 @@ fun NaviampLibraryContent(
                 }
             }
         }
+            }
             if (query.isBlank() && (
                 screen.selectedView != NaviampLibraryView.Albums ||
                     catalog.albumSortOrder == app.naviamp.domain.settings.LibraryAlbumSortOrder.Title
