@@ -962,10 +962,9 @@ private fun NowPlayingDetails(
     val canTogglePlayback = nowPlaying.canPlayPause
     val height = availableHeight ?: Dp.Unspecified
     val pinBottomActions = !mobileLayout && height != Dp.Unspecified
-    val showVolume = !compactLayout || height == Dp.Unspecified || height >= 250.dp
     val showRating = !compactLayout || height == Dp.Unspecified || height >= 150.dp
     val showAudioInfo = displaySettings.showAudioInfo && (!compactLayout || height == Dp.Unspecified || height >= 150.dp)
-    val volumeVisible = displaySettings.showVolumeBar && nowPlaying.canChangeVolume && showVolume
+    val volumeVisible = displaySettings.showVolumeBar && nowPlaying.canChangeVolume
     val compactMetadataRow = compactLayout && !mobileLayout
     val controlColors = colors.copy(accent = playerColors.accent)
     val useLargeSizing = mobileLayout && !compactSizing
@@ -979,19 +978,19 @@ private fun NowPlayingDetails(
     // and y on Android because scaled text can be taller than its fixed box.
     val metadataTextHeight = with(LocalDensity.current) { (metadataFontSize + 3).sp.toDp() }
     val audioInfoFontSize = if (useLargeSizing) 14.sp else 11.sp
-    val ratingIconSize = if (useLargeSizing) 21.dp else 17.dp
-    val ratingFavoriteSlotWidth = if (useLargeSizing) 30.dp else 24.dp
-    val ratingStarSlotWidth = if (useLargeSizing) 23.dp else 18.dp
-    val ratingStarsWidth = if (useLargeSizing) 116.dp else 92.dp
+    val ratingIconSize = if (useLargeSizing) 28.dp else 24.dp
+    val ratingFavoriteSlotWidth = if (useLargeSizing) 40.dp else 32.dp
+    val ratingStarSlotWidth = if (useLargeSizing) 32.dp else 28.dp
+    val ratingStarsWidth = if (useLargeSizing) 160.dp else 140.dp
     val scrubberTimeFontSize = if (useLargeSizing) 14.sp else 11.sp
     val scrubberTimeWidth = (if (useLargeSizing) 52.dp else 42.dp) *
         (if (filledArtworkLayout) LocalDensity.current.fontScale.coerceAtLeast(1f) else 1f)
-    val secondaryTransportButtonSize = if (useLargeSizing) 36.dp else 28.dp
-    val secondaryTransportIconSize = if (useLargeSizing) 21.dp else 16.dp
-    val transportButtonSize = if (useLargeSizing) 42.dp else 34.dp
-    val transportIconSize = if (useLargeSizing) 25.dp else 20.dp
-    val prominentTransportButtonSize = if (useLargeSizing) 56.dp else 44.dp
-    val prominentTransportIconSize = if (useLargeSizing) 30.dp else 24.dp
+    val secondaryTransportButtonSize = if (useLargeSizing) 48.dp else 40.dp
+    val secondaryTransportIconSize = if (useLargeSizing) 28.dp else 24.dp
+    val transportButtonSize = if (useLargeSizing) 56.dp else 48.dp
+    val transportIconSize = if (useLargeSizing) 32.dp else 28.dp
+    val prominentTransportButtonSize = if (useLargeSizing) 64.dp else 56.dp
+    val prominentTransportIconSize = if (useLargeSizing) 36.dp else 32.dp
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1179,7 +1178,7 @@ private fun NowPlayingDetails(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .testTag("now-playing-transport-row")
@@ -1249,10 +1248,6 @@ private fun NowPlayingDetails(
             )
         }
 
-        if (volumeVisible) {
-            NaviampVolumeControl(nowPlaying.volumePercent, actionColors, actions::changeVolume)
-        }
-
         if (compactLayout && mobileLayout) {
             Box(modifier = Modifier.weight(1f))
         }
@@ -1260,11 +1255,11 @@ private fun NowPlayingDetails(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .requiredHeight(if (mobileLayout) 46.dp else 44.dp)
+                .requiredHeight(48.dp)
                 .testTag("now-playing-bottom-actions"),
         ) {
-            val bottomActionButtonSize = 33.dp
-            val bottomActionIconSize = 20.dp
+            val bottomActionButtonSize = 40.dp
+            val bottomActionIconSize = 24.dp
             Row(modifier = Modifier.align(Alignment.CenterStart)) {
                 NaviampTransportIconButton(
                     enabled = nowPlaying.canStartRadio,
@@ -1338,9 +1333,13 @@ private fun NowPlayingDetails(
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.align(Alignment.CenterEnd),
             ) {
+                if (volumeVisible) {
+                    NaviampVolumeControl(
+                        nowPlaying.volumePercent, actionColors, actions::changeVolume, iconSize = bottomActionIconSize,
+                    )
+                }
                 if (nowPlaying.castAvailable) {
                     NaviampTransportIconButton(
                         enabled = true,
@@ -1541,8 +1540,8 @@ private fun FilledArtworkMetadataRow(
     val (format, quality) = nowPlaying.audioInfo.compactAudioInfoParts()
     val textStyle = TextStyle(fontSize = if (largeSizing) 14.sp else 11.sp)
     val measurer = rememberTextMeasurer()
-    val favoriteWidth = if (largeSizing) 30.dp else 24.dp
-    val starsWidth = if (largeSizing) 116.dp else 92.dp
+    val favoriteWidth = if (largeSizing) 40.dp else 32.dp
+    val starsWidth = if (largeSizing) 160.dp else 140.dp
     val ratingWidth = (if (nowPlaying.canFavorite) favoriteWidth else 0.dp) +
         (if (nowPlaying.canRate) starsWidth else 0.dp) +
         (if (nowPlaying.canFavorite && nowPlaying.canRate) 3.dp else 0.dp)
@@ -1551,8 +1550,8 @@ private fun FilledArtworkMetadataRow(
     @Composable fun ratings() {
         RatingRow(nowPlaying.favoriteActive, nowPlaying.canFavorite, nowPlaying.userRating, nowPlaying.canRate,
             colors, onToggleFavorite, onRatingSelected,
-            iconSize = if (largeSizing) 21.dp else 17.dp,
-            favoriteSlotWidth = favoriteWidth, starSlotWidth = if (largeSizing) 23.dp else 18.dp,
+            iconSize = if (largeSizing) 28.dp else 24.dp,
+            favoriteSlotWidth = favoriteWidth, starSlotWidth = if (largeSizing) 32.dp else 28.dp,
             starsWidth = starsWidth, modifier = Modifier.testTag("now-playing-filled-rating"))
     }
 
@@ -1625,6 +1624,10 @@ private fun CompactMetadataRow(
                 colors = colors,
                 onToggleFavorite = onToggleFavorite,
                 onRatingSelected = onRatingSelected,
+                iconSize = 24.dp,
+                favoriteSlotWidth = 32.dp,
+                starSlotWidth = 28.dp,
+                starsWidth = 140.dp,
                 modifier = Modifier.padding(horizontal = 8.dp),
             )
         } else if (showAudioText && audioQuality.isNotBlank()) {
@@ -2260,7 +2263,7 @@ private val NowPlayingArtShadowMargin = 12.dp
 private val CompactNowPlayingStackBreakpoint = 640.dp
 private val CompactNowPlayingStackGap = 3.dp
 private val CompactNowPlayingDetailsMinHeight = 132.dp
-private val WideNowPlayingRowMinHeight = 224.dp
+private val WideNowPlayingRowMinHeight = 264.dp
 private val NowPlayingRowGap = 8.dp
 
 internal fun waveformVisibleBarCount(amplitudeCount: Int): Int = amplitudeCount.coerceAtLeast(0)

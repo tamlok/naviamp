@@ -16,6 +16,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
@@ -31,6 +32,83 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampNowPlayingLayoutTest {
+    @Test fun enlargedControlsFitAndVolumeSitsImmediatelyBeforeCast() {
+        val cases = listOf(
+            Triple(280, 500, true), Triple(320, 720, false), Triple(360, 640, false),
+            Triple(420, 900, false), Triple(780, 720, false), Triple(1280, 720, false),
+            Triple(1000, 240, false),
+        )
+        for ((width, height, filled) in cases) runDesktopComposeUiTest(width, height) {
+            val playing = mutableStateOf(NowPlayingUi(
+                id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
+                isPaused = true, canPlayPause = true, hasPrevious = true, hasNext = true,
+                canFavorite = true, canRate = true, audioInfo = "MP3 320 kbps",
+                volumePercent = 50, canChangeVolume = true, castAvailable = true,
+            ))
+            val playback = mutableListOf<NowPlayingPlaybackActionRequest>()
+            var castClicks = 0
+            setContent {
+                NaviampNowPlayingPanel(
+                    nowPlaying = playing.value, colors = NaviampColors.Dark,
+                    actions = NaviampNowPlayingActions(
+                        { playback += it }, {}, {}, {}, {}, {}, {}, onCastPicker = { castClicks++ },
+                    ),
+                    displaySettings = app.naviamp.domain.settings.NowPlayingDisplaySettings(fillArtworkArea = filled),
+                )
+            }
+            val label = "${width}x$height filled=$filled"
+            val bottom = onNodeWithTag("now-playing-bottom-actions").performScrollTo().getUnclippedBoundsInRoot()
+            val speaker = onNodeWithTag("volume-popup-button")
+            val cast = onNodeWithContentDescription("Cast to a device")
+            val bottomNodes = listOf("Start track radio", "DJs", "Volume", "Cast to a device", "Queue", "Track actions")
+                .map { onNodeWithContentDescription(it).assertIsDisplayed().assertWidthIsAtLeast(40.dp)
+                    .assertHeightIsAtLeast(40.dp).getUnclippedBoundsInRoot() }
+            for (bounds in bottomNodes) {
+                assertTrue(bounds.left >= bottom.left && bounds.right <= bottom.right, "$label bottom control fits horizontally")
+                assertTrue(bounds.top >= bottom.top && bounds.bottom <= bottom.bottom, "$label bottom control fits vertically")
+            }
+            bottomNodes.zipWithNext().forEach { (left, right) ->
+                assertTrue(left.right <= right.left, "$label bottom controls must not overlap")
+            }
+            val volumeBounds = speaker.getUnclippedBoundsInRoot()
+            val castBounds = cast.getUnclippedBoundsInRoot()
+            assertEquals(volumeBounds.right, castBounds.left, "$label volume immediately precedes Cast")
+            assertEquals(volumeBounds.top + (volumeBounds.bottom - volumeBounds.top) / 2,
+                castBounds.top + (castBounds.bottom - castBounds.top) / 2, "$label same baseline")
+            val transport = listOf("Shuffle Up Next", "Previous", "Play", "Next", "Repeat off")
+                .map { onNodeWithContentDescription(it).assertWidthIsAtLeast(40.dp)
+                    .assertHeightIsAtLeast(40.dp).getUnclippedBoundsInRoot() }
+            transport.zipWithNext().forEach { (left, right) ->
+                assertTrue(left.right <= right.left, "$label transport controls must not overlap")
+            }
+            assertTrue(transport.first().left >= bottom.left && transport.last().right <= bottom.right,
+                "$label transport fits within card insets")
+            assertTrue(transport.maxOf { it.bottom } <= bottom.top, "$label transport stays above bottom actions")
+            onNodeWithContentDescription("Play").assertWidthIsAtLeast(56.dp).assertHeightIsAtLeast(56.dp)
+            onNodeWithContentDescription("Favorite").assertWidthIsAtLeast(32.dp).assertHeightIsAtLeast(24.dp)
+            onNodeWithContentDescription("5 star rating").assertWidthIsAtLeast(28.dp).assertHeightIsAtLeast(24.dp)
+            System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
+                val target = java.io.File(directory, "controls-$width-$height-$filled.png")
+                target.parentFile.mkdirs()
+                javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", target)
+            }
+            speaker.performMouseInput { click() }
+            onNodeWithTag("now-playing-volume-slider").assertIsDisplayed()
+                .performSemanticsAction(SemanticsActions.SetProgress) { it(.75f) }
+                .performKeyInput { pressKey(Key.Escape) }
+            cast.performMouseInput { click() }
+            runOnIdle {
+                assertEquals(1, castClicks, "$label Cast remains clickable beside volume")
+                assertEquals(listOf(75), playback.map { it.volumePercent }, "$label speaker opens without muting")
+                playing.value = playing.value.copy(castAvailable = false)
+            }
+            cast.assertDoesNotExist()
+            assertEquals(speaker.getUnclippedBoundsInRoot().right,
+                onNodeWithContentDescription("Queue").getUnclippedBoundsInRoot().left,
+                "$label volume remains available without Cast")
+        }
+    }
+
     @Test fun controlCardInsetsKeepProgressAndActionsAwayFromEveryEdge() {
         for ((width, height) in listOf(1280 to 720, 360 to 640, 420 to 900, 1000 to 240)) {
             runDesktopComposeUiTest(width, height) {

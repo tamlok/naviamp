@@ -12,6 +12,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Seek through tracks and adjust volume directly from the mini-player, with controls that adapt to narrow windows and respect playback capabilities and the volume-bar preference.
 - Show elapsed/total playback time, such as `01:01/05:38`, immediately after the mini-player progress bar on the same line, including a preview while seeking.
 - Keep volume sliders hidden until the speaker icon is clicked, then show a vertical slider in a popup in both full and mini players. Clicking the speaker no longer mutes or unmutes playback.
+- Move the full-player volume speaker to the bottom immediately before Cast, and enlarge transport, favorite/rating, and bottom-action controls while keeping narrow layouts usable.
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.

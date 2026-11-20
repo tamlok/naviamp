@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.PopupProperties
@@ -54,7 +55,12 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 @Composable
-internal fun NaviampVolumeControl(volumePercent: Int, colors: NaviampColors, onVolumeChanged: (Int) -> Unit) {
+internal fun NaviampVolumeControl(
+    volumePercent: Int,
+    colors: NaviampColors,
+    onVolumeChanged: (Int) -> Unit,
+    iconSize: Dp = 17.dp,
+) {
     var expanded by remember { mutableStateOf(false) }
     val volume = remember { mutableFloatStateOf(volumePercent.coerceIn(0, 100) / 100f) }
     var dragging by remember { mutableStateOf(false) }
@@ -71,7 +77,7 @@ internal fun NaviampVolumeControl(volumePercent: Int, colors: NaviampColors, onV
             colors = colors,
             selected = expanded,
             buttonSize = 48.dp,
-            iconSize = 17.dp,
+            iconSize = iconSize,
             modifier = Modifier.testTag("volume-popup-button"),
             onClick = { expanded = !expanded },
         )

@@ -96,9 +96,9 @@ class NaviampFilledArtworkLayoutTest {
             val rating: Boolean = true, val showAudio: Boolean = true, val split: Boolean = false)
         val cases = listOf(
             Case(320, 704, 1f, "MP3 320 kbps", split = true),
-            Case(320, 704, 1.4f, "MP3 320 kbps", split = true),
+            Case(320, 704, 1.4f, "MP3 320 kbps"),
             Case(320, 704, 2f, "FLAC 24-bit / 192 kHz"),
-            Case(280, 500, 1f, "MP3 320 kbps", split = true),
+            Case(280, 500, 1f, "MP3 320 kbps"),
             Case(412, 818, 1f, "MP3 320 kbps", split = true),
             Case(320, 704, 1f, "MP3 320 kbps", rating = false),
             Case(320, 704, 1f, "MP3 320 kbps", showAudio = false),
