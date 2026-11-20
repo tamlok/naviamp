@@ -48,6 +48,18 @@ class NaviampDetailHeaderTest {
     }
 
     @Test
+    fun darkHeadersKeepWarmAndCoolArtworkColorInsteadOfWashingItIntoCharcoal() {
+        val warm = NaviampAlbumPalette(Color(0xFFD65822), Color(0xFFE6A62C), Color(0xFFBB2840))
+        val cool = NaviampAlbumPalette(Color(0xFF2868C4), Color(0xFF219A9A), Color(0xFF653AB5))
+        for (colors in listOf(NaviampColors.Dark, NaviampForestTheme.dark.toNaviampColors())) {
+            val warmStops = naviampDetailHeaderColors(warm, colors).gradientColors
+            val coolStops = naviampDetailHeaderColors(cool, colors).gradientColors
+            assertTrue(warmStops.maxOf { it.red - it.blue } >= 0.15f, "Warm artwork lost its red/orange chroma")
+            assertTrue(coolStops.maxOf { it.blue - it.red } >= 0.15f, "Cool artwork lost its blue chroma")
+        }
+    }
+
+    @Test
     fun missingArtworkUsesTheExactThemeSurface() {
         for (colors in listOf(NaviampColors.Light, NaviampColors.Dark)) {
             assertEquals(List(3) { colors.background }, naviampDetailHeaderColors(null, colors).gradientColors)

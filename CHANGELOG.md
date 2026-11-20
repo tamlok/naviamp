@@ -25,7 +25,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 - Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
 - Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
-- Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages, with a gentle but clearly visible color tint. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
+- Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. Preserve artwork colors while adjusting brightness for readable text, instead of washing them into gray. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
 
 ### Bug fixes

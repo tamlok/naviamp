@@ -13,6 +13,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 
 /** The same covers drive the playlist collage and its header, never the playing track. */
@@ -36,17 +38,54 @@ internal suspend fun loadNaviampDetailHeaderPalette(
 internal fun naviampDetailHeaderColors(palette: NaviampAlbumPalette?, colors: NaviampColors): NaviampPlayerColors {
     if (palette == null) return NaviampPlayerColors.solid(colors.background)
     val artwork = NaviampPlayerColors.from(palette, colors)
-    // A restrained tint keeps normal theme text readable across arbitrary artwork.
-    return artwork.copy(
-        backgroundStart = artwork.backgroundStart.mix(colors.background, 0.84f),
-        backgroundMid = artwork.backgroundMid.mix(colors.background, 0.84f),
-        backgroundEnd = artwork.backgroundEnd.mix(colors.background, 0.84f),
-    )
+    val start = artwork.backgroundStart
+    val middle = artwork.backgroundMid
+    val end = artwork.backgroundEnd
+    // Component bounds protect every gradient pixel, not just its three stops.
+    val minimum = Color(minOf(start.red, middle.red, end.red), minOf(start.green, middle.green, end.green),
+        minOf(start.blue, middle.blue, end.blue))
+    val maximum = Color(maxOf(start.red, middle.red, end.red), maxOf(start.green, middle.green, end.green),
+        maxOf(start.blue, middle.blue, end.blue))
+    val primaryLuminance = colors.primaryText.luminance()
+    val secondaryLuminance = colors.secondaryText.luminance()
+    val favoriteLuminance = naviampDetailHeaderFavoriteColor(colors).luminance()
+    // Black/white adjusts luminance without the gray wash of a theme-surface blend.
+    var target = if (primaryLuminance > colors.background.luminance()) Color.Black else Color.White
+    repeat(2) { pass ->
+        val firstStep = if (pass == 0) 0 else 1
+        for (step in firstStep..8) {
+            val amount = step / 8f
+            val low = minimum.mix(target, amount).luminance()
+            val high = maximum.mix(target, amount).luminance()
+            if (minimumHeaderContrast(primaryLuminance, low, high) >= 4.5f &&
+                minimumHeaderContrast(secondaryLuminance, low, high) >= 4.5f &&
+                minimumHeaderContrast(favoriteLuminance, low, high) >= 3f
+            ) {
+                return artwork.copy(
+                    backgroundStart = start.mix(target, amount),
+                    backgroundMid = middle.mix(target, amount),
+                    backgroundEnd = end.mix(target, amount),
+                )
+            }
+        }
+        // Unusual custom foreground combinations may need their original theme surface.
+        target = colors.background
+    }
+    return NaviampPlayerColors.solid(colors.background)
 }
+
+private fun minimumHeaderContrast(foreground: Float, minimum: Float, maximum: Float): Float = when {
+    foreground < minimum -> (minimum + 0.05f) / (foreground + 0.05f)
+    foreground > maximum -> (foreground + 0.05f) / (maximum + 0.05f)
+    else -> 1f
+}
+
+private fun naviampDetailHeaderFavoriteColor(colors: NaviampColors): Color =
+    colors.favorite.mix(colors.primaryText, 0.4f)
 
 internal fun naviampDetailHeaderContentColors(colors: NaviampColors): NaviampColors = colors.copy(
     mutedText = colors.secondaryText,
-    favorite = colors.favorite.mix(colors.primaryText, 0.4f),
+    favorite = naviampDetailHeaderFavoriteColor(colors),
 )
 
 @Composable
