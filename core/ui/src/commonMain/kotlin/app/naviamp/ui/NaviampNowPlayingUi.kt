@@ -521,21 +521,30 @@ private fun NaviampNowPlayingPanelContent(
                 ) {
                     BoxWithConstraints(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .naviampContentInsets(contentInsets, WindowInsets(0)).padding(top = 48.dp)) {
-                        NowPlayingDetails(
-                            nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
-                            colors = overlayColors, playerColors = visualizerColors, actions = actions,
-                            actionColors = actionColors,
-                            queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
-                            onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
-                            selectedVisualizer = selectedVisualizer, displaySettings = displaySettings,
-                            onOpenPlaylistDialog = openPlaylistMembership,
-                            onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
-                            mobileLayout = true, filledArtworkLayout = true,
-                            compactLayout = viewportMaxHeight < 500.dp,
-                            compactSizing = maxWidth < 380.dp,
-                            modifier = Modifier.fillMaxWidth().heightIn(max = viewportMaxHeight)
-                                .verticalScroll(rememberScrollState()).padding(16.dp),
-                        )
+                        val compactWidthSizing = maxWidth < 380.dp
+                        Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)
+                            .verticalScroll(rememberScrollState())) {
+                            NowPlayingFavoriteButton(
+                                nowPlaying = progressStableNowPlaying, colors = colors,
+                                largeSizing = !compactWidthSizing,
+                                onClick = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                                modifier = Modifier.align(AbsoluteAlignment.Left).padding(8.dp),
+                            )
+                            NowPlayingDetails(
+                                nowPlaying = progressStableNowPlaying, playbackProgress = playbackProgress,
+                                colors = overlayColors, playerColors = visualizerColors, actions = actions,
+                                actionColors = actionColors,
+                                queueActive = queuePresentation != NowPlayingQueuePresentation.Hidden,
+                                onOpenQueue = openQueue, queueFocusRequester = queueButtonFocus,
+                                selectedVisualizer = selectedVisualizer, displaySettings = displaySettings,
+                                onOpenPlaylistDialog = openPlaylistMembership,
+                                onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
+                                mobileLayout = true, filledArtworkLayout = true,
+                                compactLayout = viewportMaxHeight < 500.dp,
+                                compactSizing = compactWidthSizing,
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            )
+                        }
                     }
                 }
                 NowPlayingSidePanel(
@@ -591,6 +600,7 @@ private fun NaviampNowPlayingPanelContent(
                             onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
                             onVisualizerSelected = actions::selectVisualizer,
                             onVisualizerSwiped = actions::cycleVisualizer,
+                            onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                             shadowMargin = 0.dp,
                         )
                     }
@@ -684,6 +694,7 @@ private fun NaviampNowPlayingPanelContent(
                             onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
                             onVisualizerSelected = actions::selectVisualizer,
                             onVisualizerSwiped = actions::cycleVisualizer,
+                            onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                         )
                         NowPlayingDetails(
                             nowPlaying = nowPlaying,
@@ -730,6 +741,8 @@ private fun NaviampNowPlayingPanelContent(
                             onToggleVisualizer = { actions.display(NowPlayingDisplayAction.ToggleVisualizer) },
                             onVisualizerSelected = actions::selectVisualizer,
                             onVisualizerSwiped = actions::cycleVisualizer,
+                            onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
+                            largeSizing = !compactWidthSizing,
                         )
                     }
                     NowPlayingDetails(
@@ -831,6 +844,40 @@ private fun rememberProgressStableNowPlaying(nowPlaying: NowPlayingUi): NowPlayi
     return remember(key) { key }
 }
 
+private fun nowPlayingProminentButtonSize(large: Boolean): Dp = if (large) 64.dp else 56.dp
+private fun nowPlayingProminentIconSize(large: Boolean): Dp = if (large) 36.dp else 32.dp
+
+@Composable
+private fun NowPlayingFavoriteButton(
+    nowPlaying: NowPlayingUi,
+    colors: NaviampColors,
+    largeSizing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (nowPlaying.isLive || !nowPlaying.canFavorite) return
+    val overlayColors = rememberNaviampArtworkOverlayColors()
+    val label = stringResource(if (nowPlaying.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite)
+    Box(modifier) {
+        NaviampTooltip(label, overlayColors) {
+            IconButton(
+                onClick = onClick,
+                modifier = Modifier.size(nowPlayingProminentButtonSize(largeSizing))
+                    .background(overlayColors.controlSurface, CircleShape)
+                    .testTag("now-playing-artwork-favorite")
+                    .semantics { selected = nowPlaying.favoriteActive },
+            ) {
+                Icon(
+                    imageVector = if (nowPlaying.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                    contentDescription = label,
+                    tint = if (nowPlaying.favoriteActive) colors.favorite else overlayColors.primaryText,
+                    modifier = Modifier.size(nowPlayingProminentIconSize(largeSizing)),
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun NowPlayingArtSurface(
     nowPlaying: NowPlayingUi,
@@ -849,6 +896,8 @@ private fun NowPlayingArtSurface(
     onToggleVisualizer: () -> Unit,
     onVisualizerSelected: (NaviampVisualizer) -> Unit,
     onVisualizerSwiped: (VisualizerCycleDirection) -> Unit,
+    onToggleFavorite: () -> Unit,
+    largeSizing: Boolean = false,
     shadowMargin: Dp = NowPlayingArtShadowMargin,
 ) {
     val shape = RoundedCornerShape(resolvedMediaArtworkCornerRadius(SharedMediaItemKind.Track, size, cornerRadius))
@@ -863,36 +912,46 @@ private fun NowPlayingArtSurface(
         )
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(size + shadowMargin * 2)
-                .visualizerContextMenu { visualizerMenuExpanded = true }
-                .visualizerSwipe(onVisualizerSwiped)
-                .then(toggleModifier),
+            modifier = Modifier.fillMaxWidth().height(size + shadowMargin * 2),
         ) {
-            LiveVisualizerSurface(
-                coverArtUrl = coverArtUrl,
-                bandsProvider = visualizerBandsProvider,
-                visualizer = selectedVisualizer,
-                visualizerColors = visualizerColors,
-                active = visualizerActive,
-                tempoBpm = tempoBpm,
-                colors = colors,
-                lyricStage = progressNowPlaying.currentLyricMirrorTunnelStage(),
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .fillMaxSize(),
-            )
-            NaviampDropdownMenu(
-                expanded = visualizerMenuExpanded,
-                onDismissRequest = { visualizerMenuExpanded = false },
-                offset = DpOffset(8.dp, 8.dp),
+                    .fillMaxSize()
+                    .visualizerContextMenu { visualizerMenuExpanded = true }
+                    .visualizerSwipe(onVisualizerSwiped)
+                    .then(toggleModifier),
             ) {
-                VisualizerDropdownMenuItems(
-                    selectedVisualizer = selectedVisualizer,
-                    onVisualizerSelected = {
-                        visualizerMenuExpanded = false
-                        onVisualizerSelected(it)
-                    },
+                LiveVisualizerSurface(
+                    coverArtUrl = coverArtUrl,
+                    bandsProvider = visualizerBandsProvider,
+                    visualizer = selectedVisualizer,
+                    visualizerColors = visualizerColors,
+                    active = visualizerActive,
+                    tempoBpm = tempoBpm,
+                    colors = colors,
+                    lyricStage = progressNowPlaying.currentLyricMirrorTunnelStage(),
+                    modifier = Modifier
+                        .fillMaxSize(),
+                )
+                NaviampDropdownMenu(
+                    expanded = visualizerMenuExpanded,
+                    onDismissRequest = { visualizerMenuExpanded = false },
+                    offset = DpOffset(8.dp, 8.dp),
+                ) {
+                    VisualizerDropdownMenuItems(
+                        selectedVisualizer = selectedVisualizer,
+                        onVisualizerSelected = {
+                            visualizerMenuExpanded = false
+                            onVisualizerSelected(it)
+                        },
+                    )
+                }
+            }
+            Box(Modifier.size(size).testTag("now-playing-visualizer-artwork-anchor")) {
+                NowPlayingFavoriteButton(
+                    nowPlaying, colors, largeSizing, onToggleFavorite,
+                    Modifier.align(AbsoluteAlignment.BottomLeft).padding(8.dp),
                 )
             }
         }
@@ -911,6 +970,10 @@ private fun NowPlayingArtSurface(
                 Box(modifier = toggleModifier) {
                     NaviampCoverArt(coverArtUrl, colors, size, cornerRadius, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
                 }
+                NowPlayingFavoriteButton(
+                    nowPlaying, colors, largeSizing, onToggleFavorite,
+                    Modifier.align(AbsoluteAlignment.BottomLeft).padding(8.dp),
+                )
             }
         }
     }
@@ -979,7 +1042,6 @@ private fun NowPlayingDetails(
     val metadataTextHeight = with(LocalDensity.current) { (metadataFontSize + 3).sp.toDp() }
     val audioInfoFontSize = if (useLargeSizing) 14.sp else 11.sp
     val ratingIconSize = if (useLargeSizing) 28.dp else 24.dp
-    val ratingFavoriteSlotWidth = if (useLargeSizing) 40.dp else 32.dp
     val ratingStarSlotWidth = if (useLargeSizing) 32.dp else 28.dp
     val ratingStarsWidth = if (useLargeSizing) 160.dp else 140.dp
     val scrubberTimeFontSize = if (useLargeSizing) 14.sp else 11.sp
@@ -989,8 +1051,8 @@ private fun NowPlayingDetails(
     val secondaryTransportIconSize = if (useLargeSizing) 28.dp else 24.dp
     val transportButtonSize = if (useLargeSizing) 56.dp else 48.dp
     val transportIconSize = if (useLargeSizing) 32.dp else 28.dp
-    val prominentTransportButtonSize = if (useLargeSizing) 64.dp else 56.dp
-    val prominentTransportIconSize = if (useLargeSizing) 36.dp else 32.dp
+    val prominentTransportButtonSize = nowPlayingProminentButtonSize(useLargeSizing)
+    val prominentTransportIconSize = nowPlayingProminentIconSize(useLargeSizing)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1122,7 +1184,6 @@ private fun NowPlayingDetails(
                 nowPlaying = nowPlaying, colors = colors,
                 showRating = showRating, showAudioInfo = showAudioInfo,
                 largeSizing = useLargeSizing,
-                onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                 onRatingSelected = { rating -> actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating) },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -1132,7 +1193,6 @@ private fun NowPlayingDetails(
                     colors = colors,
                     showRating = showRating,
                     showAudioInfo = showAudioInfo,
-                    onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                     onRatingSelected = { rating ->
                         actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
                     },
@@ -1144,19 +1204,15 @@ private fun NowPlayingDetails(
                     verticalArrangement = Arrangement.spacedBy(if (filledArtworkLayout) 4.dp else 1.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    if (showRating && !nowPlaying.isLive && (nowPlaying.canFavorite || nowPlaying.canRate)) {
+                    if (showRating && !nowPlaying.isLive && nowPlaying.canRate) {
                         RatingRow(
-                            favoriteActive = nowPlaying.favoriteActive,
-                            canFavorite = nowPlaying.canFavorite,
                             rating = nowPlaying.userRating,
                             canRate = nowPlaying.canRate,
                             colors = colors,
-                            onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                             onRatingSelected = { rating ->
                                 actions.currentTrack(NowPlayingCurrentTrackAction.SetRating, rating = rating)
                             },
                             iconSize = ratingIconSize,
-                            favoriteSlotWidth = ratingFavoriteSlotWidth,
                             starSlotWidth = ratingStarSlotWidth,
                             starsWidth = ratingStarsWidth,
                             modifier = Modifier.fillMaxWidth(),
@@ -1529,29 +1585,23 @@ private fun FilledArtworkMetadataRow(
     showRating: Boolean,
     showAudioInfo: Boolean,
     largeSizing: Boolean,
-    onToggleFavorite: () -> Unit,
     onRatingSelected: (Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val ratingVisible = showRating && !nowPlaying.isLive &&
-        (nowPlaying.canFavorite || nowPlaying.canRate)
+    val ratingVisible = showRating && !nowPlaying.isLive && nowPlaying.canRate
     val audioVisible = showAudioInfo && nowPlaying.audioInfo.isNotBlank()
     if (!ratingVisible && !audioVisible) return
     val (format, quality) = nowPlaying.audioInfo.compactAudioInfoParts()
     val textStyle = TextStyle(fontSize = if (largeSizing) 14.sp else 11.sp)
     val measurer = rememberTextMeasurer()
-    val favoriteWidth = if (largeSizing) 40.dp else 32.dp
     val starsWidth = if (largeSizing) 160.dp else 140.dp
-    val ratingWidth = (if (nowPlaying.canFavorite) favoriteWidth else 0.dp) +
-        (if (nowPlaying.canRate) starsWidth else 0.dp) +
-        (if (nowPlaying.canFavorite && nowPlaying.canRate) 3.dp else 0.dp)
+    val ratingWidth = if (ratingVisible) starsWidth else 0.dp
     val gap = 8.dp
 
     @Composable fun ratings() {
-        RatingRow(nowPlaying.favoriteActive, nowPlaying.canFavorite, nowPlaying.userRating, nowPlaying.canRate,
-            colors, onToggleFavorite, onRatingSelected,
+        RatingRow(nowPlaying.userRating, nowPlaying.canRate, colors, onRatingSelected,
             iconSize = if (largeSizing) 28.dp else 24.dp,
-            favoriteSlotWidth = favoriteWidth, starSlotWidth = if (largeSizing) 32.dp else 28.dp,
+            starSlotWidth = if (largeSizing) 32.dp else 28.dp,
             starsWidth = starsWidth, modifier = Modifier.testTag("now-playing-filled-rating"))
     }
 
@@ -1589,12 +1639,10 @@ private fun CompactMetadataRow(
     colors: NaviampColors,
     showRating: Boolean,
     showAudioInfo: Boolean,
-    onToggleFavorite: () -> Unit,
     onRatingSelected: (Int?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val showRatingControls = showRating && !nowPlaying.isLive &&
-        (nowPlaying.canFavorite || nowPlaying.canRate)
+    val showRatingControls = showRating && !nowPlaying.isLive && nowPlaying.canRate
     val showAudioText = showAudioInfo && nowPlaying.audioInfo.isNotBlank()
     if (!showRatingControls && !showAudioText) return
     val (audioType, audioQuality) = nowPlaying.audioInfo.compactAudioInfoParts()
@@ -1617,15 +1665,11 @@ private fun CompactMetadataRow(
         }
         if (showRatingControls) {
             RatingRow(
-                favoriteActive = nowPlaying.favoriteActive,
-                canFavorite = nowPlaying.canFavorite,
                 rating = nowPlaying.userRating,
                 canRate = nowPlaying.canRate,
                 colors = colors,
-                onToggleFavorite = onToggleFavorite,
                 onRatingSelected = onRatingSelected,
                 iconSize = 24.dp,
-                favoriteSlotWidth = 32.dp,
                 starSlotWidth = 28.dp,
                 starsWidth = 140.dp,
                 modifier = Modifier.padding(horizontal = 8.dp),
@@ -2204,15 +2248,11 @@ private fun DrawScope.drawFallbackScrubLine(
 
 @Composable
 internal fun RatingRow(
-    favoriteActive: Boolean,
-    canFavorite: Boolean,
     rating: Int?,
     canRate: Boolean,
     colors: NaviampColors,
-    onToggleFavorite: () -> Unit,
     onRatingSelected: (Int?) -> Unit,
     iconSize: Dp = 17.dp,
-    favoriteSlotWidth: Dp = 24.dp,
     starSlotWidth: Dp = 18.dp,
     starsWidth: Dp = 92.dp,
     modifier: Modifier = Modifier,
@@ -2223,19 +2263,6 @@ internal fun RatingRow(
         modifier = modifier.padding(vertical = 1.dp),
     ) {
         val inactiveColor = colors.primaryText.copy(alpha = 0.72f)
-        if (canFavorite) Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .width(favoriteSlotWidth)
-                .clickable(enabled = canFavorite, role = Role.Button, onClick = onToggleFavorite),
-        ) {
-            Icon(
-                imageVector = if (favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
-                contentDescription = if (favoriteActive) "Remove favorite" else "Favorite",
-                tint = if (favoriteActive) colors.favorite else inactiveColor,
-                modifier = Modifier.size(iconSize),
-            )
-        }
         if (canRate) Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.width(starsWidth)) {
             (1..5).forEach { value ->
                 val selected = (rating ?: 0) >= value

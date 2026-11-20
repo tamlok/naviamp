@@ -85,7 +85,10 @@ class NaviampNowPlayingLayoutTest {
                 "$label transport fits within card insets")
             assertTrue(transport.maxOf { it.bottom } <= bottom.top, "$label transport stays above bottom actions")
             onNodeWithContentDescription("Play").assertWidthIsAtLeast(56.dp).assertHeightIsAtLeast(56.dp)
-            onNodeWithContentDescription("Favorite").assertWidthIsAtLeast(32.dp).assertHeightIsAtLeast(24.dp)
+            val favoriteBounds = onNodeWithContentDescription("Favorite").getUnclippedBoundsInRoot()
+            val playBounds = onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
+            assertEquals(playBounds.right - playBounds.left, favoriteBounds.right - favoriteBounds.left, "$label favorite matches Play width")
+            assertEquals(playBounds.bottom - playBounds.top, favoriteBounds.bottom - favoriteBounds.top, "$label favorite matches Play height")
             onNodeWithContentDescription("5 star rating").assertWidthIsAtLeast(28.dp).assertHeightIsAtLeast(24.dp)
             System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
                 val target = java.io.File(directory, "controls-$width-$height-$filled.png")
@@ -106,6 +109,93 @@ class NaviampNowPlayingLayoutTest {
             assertEquals(speaker.getUnclippedBoundsInRoot().right,
                 onNodeWithContentDescription("Queue").getUnclippedBoundsInRoot().left,
                 "$label volume remains available without Cast")
+        }
+    }
+
+    @Test fun artworkFavoriteMatchesPlayAndDoesNotTriggerArtworkGestures() {
+        for ((width, height, filled) in listOf(
+            Triple(1280, 720, false), Triple(420, 900, false), Triple(320, 900, false),
+            Triple(360, 640, false), Triple(320, 720, true), Triple(420, 900, true),
+            Triple(280, 500, true), Triple(640, 240, true),
+        )) runDesktopComposeUiTest(width, height) {
+            val playing = mutableStateOf(NowPlayingUi(
+                id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
+                isPaused = true, canPlayPause = true, canFavorite = true, canRate = true,
+                visualizerAvailable = true,
+                coverArtUrl = "naviamp-radio-tile://cover?label=ART&from=CC5511&to=1133AA",
+            ))
+            val trackActions = mutableListOf<NowPlayingCurrentTrackAction>()
+            val displayActions = mutableListOf<NowPlayingDisplayAction>()
+            setContent {
+                NaviampNowPlayingPanel(
+                    playing.value, colors = NaviampColors.Dark,
+                    actions = NaviampNowPlayingActions({}, { displayActions += it.action }, {
+                        trackActions += it.action
+                        if (it.action == NowPlayingCurrentTrackAction.ToggleFavorite) {
+                            playing.value = playing.value.copy(favoriteActive = !playing.value.favoriteActive)
+                        }
+                    }, {}, {}, {}, {}),
+                    displaySettings = app.naviamp.domain.settings.NowPlayingDisplaySettings(fillArtworkArea = filled),
+                    contentInsets = WindowInsets(left = 4, top = 8, right = 4, bottom = 8),
+                )
+            }
+            val label = "${width}x$height filled=$filled"
+            val favorite = onNodeWithTag("now-playing-artwork-favorite")
+            val playBounds = onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
+            val playIconBounds = onNodeWithContentDescription("Play", useUnmergedTree = true).getUnclippedBoundsInRoot()
+            favorite.performScrollTo().assertIsDisplayed().assertIsNotSelected()
+            onAllNodesWithContentDescription("Favorite").assertCountEquals(1)
+            favorite.assertWidthIsEqualTo(playBounds.right - playBounds.left)
+                .assertHeightIsEqualTo(playBounds.bottom - playBounds.top)
+            onNodeWithContentDescription("Favorite", useUnmergedTree = true)
+                .assertWidthIsEqualTo(playIconBounds.right - playIconBounds.left)
+                .assertHeightIsEqualTo(playIconBounds.bottom - playIconBounds.top)
+            val bounds = favorite.getUnclippedBoundsInRoot()
+            if (filled) {
+                val art = onNodeWithTag("now-playing-filled-artwork").getUnclippedBoundsInRoot()
+                val controls = onNodeWithTag("now-playing-controller").getUnclippedBoundsInRoot()
+                assertTrue(bounds.left >= art.left && bounds.right <= art.right, "$label inside artwork")
+                assertTrue(bounds.bottom <= controls.top, "$label does not overlap controls")
+            } else {
+                val art = onNodeWithTag("now-playing-artwork").getUnclippedBoundsInRoot()
+                assertEquals(art.left + 8.dp, bounds.left, "$label left corner")
+                assertEquals(art.bottom - 8.dp, bounds.bottom, "$label bottom corner")
+            }
+            favorite.performMouseInput { click() }
+            favorite.assertIsSelected().assertContentDescriptionEquals("Unfavorite")
+            favorite.performTouchInput { click() }
+            favorite.assertIsNotSelected().assertContentDescriptionEquals("Favorite")
+            runOnIdle {
+                assertEquals(List(2) { NowPlayingCurrentTrackAction.ToggleFavorite }, trackActions)
+                assertTrue(displayActions.isEmpty(), "$label heart must not toggle artwork")
+            }
+            System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
+                val target = java.io.File(directory, "favorite-$width-$height-$filled.png")
+                target.parentFile.mkdirs()
+                javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", target)
+            }
+            if (!filled) {
+                runOnIdle { playing.value = playing.value.copy(visualizerVisible = true) }
+                favorite.assertIsDisplayed()
+                assertEquals(bounds, favorite.getUnclippedBoundsInRoot(), "$label stable visualizer anchor")
+                favorite.performMouseInput { click(button = MouseButton.Secondary) }
+                favorite.performTouchInput { swipeLeft() }
+                favorite.performMouseInput { click() }
+                runOnIdle { assertTrue(displayActions.isEmpty(), "$label no visualizer gesture leaks") }
+                onAllNodesWithText(NaviampVisualizer.AudioSphere.label).assertCountEquals(0)
+                onNodeWithTag("now-playing-visualizer-artwork-anchor").performTouchInput {
+                    click(Offset(center.x, 16f))
+                }
+                runOnIdle { assertEquals(listOf(NowPlayingDisplayAction.ToggleVisualizer), displayActions) }
+            }
+            runOnIdle { playing.value = playing.value.copy(canFavorite = false, favoriteActive = true) }
+            favorite.assertDoesNotExist()
+            onNodeWithContentDescription("5 star rating").assertExists()
+            runOnIdle { playing.value = playing.value.copy(canFavorite = true, canRate = false, visualizerVisible = false) }
+            favorite.performScrollTo().assertIsDisplayed()
+            onNodeWithContentDescription("5 star rating").assertDoesNotExist()
+            runOnIdle { playing.value = playing.value.copy(isLive = true) }
+            favorite.assertDoesNotExist()
         }
     }
 

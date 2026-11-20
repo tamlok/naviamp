@@ -7,20 +7,16 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampRatingRowTest {
-    @Test fun starsAndHeartFollowIndependentCapabilitiesEvenWithStaleMetadata() = runComposeUiTest {
-        val rate = mutableStateOf(false); val favorite = mutableStateOf(true)
-        var favorites = 0; val ratings = mutableListOf<Int?>()
-        setContent { MaterialTheme { RatingRow(true, favorite.value, 4, rate.value, NaviampColors.Dark,
-            { favorites++ }, { ratings += it }) } }
-        onNodeWithContentDescription("Remove favorite").assertIsDisplayed().performClick()
-        assertEquals(1, favorites)
-        (1..5).forEach { onNodeWithContentDescription("$it star rating").assertDoesNotExist() }
-        runOnIdle { favorite.value = false; rate.value = true }
-        onNodeWithContentDescription("Remove favorite").assertDoesNotExist()
+    @Test fun starsSetClearAndRespectCapabilityWithStaleMetadata() = runComposeUiTest {
+        val rate = mutableStateOf(true)
+        val rating = mutableStateOf<Int?>(4)
+        val ratings = mutableListOf<Int?>()
+        setContent { MaterialTheme { RatingRow(rating.value, rate.value, NaviampColors.Dark,
+            { ratings += it; rating.value = it }) } }
         onNodeWithContentDescription("3 star rating").performClick()
-        assertEquals(listOf<Int?>(3), ratings)
-        runOnIdle { rate.value = false }
-        onNodeWithContentDescription("Remove favorite").assertDoesNotExist()
+        onNodeWithContentDescription("3 star rating").performClick()
+        assertEquals(listOf<Int?>(3, null), ratings)
+        runOnIdle { rate.value = false; rating.value = 4 }
         (1..5).forEach { onNodeWithContentDescription("$it star rating").assertDoesNotExist() }
     }
 }

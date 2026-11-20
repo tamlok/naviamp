@@ -93,13 +93,13 @@ class NaviampFilledArtworkLayoutTest {
 
     @Test fun narrowFilledMetadataBalancesAudioAroundRatingsAndFallsBackForLargeText() {
         data class Case(val width: Int, val height: Int, val scale: Float, val audio: String,
-            val rating: Boolean = true, val showAudio: Boolean = true, val split: Boolean = false)
+            val rating: Boolean = true, val showAudio: Boolean = true)
         val cases = listOf(
-            Case(320, 704, 1f, "MP3 320 kbps", split = true),
+            Case(320, 704, 1f, "MP3 320 kbps"),
             Case(320, 704, 1.4f, "MP3 320 kbps"),
             Case(320, 704, 2f, "FLAC 24-bit / 192 kHz"),
             Case(280, 500, 1f, "MP3 320 kbps"),
-            Case(412, 818, 1f, "MP3 320 kbps", split = true),
+            Case(412, 818, 1f, "MP3 320 kbps"),
             Case(320, 704, 1f, "MP3 320 kbps", rating = false),
             Case(320, 704, 1f, "MP3 320 kbps", showAudio = false),
             Case(320, 704, 1f, "", rating = true),
@@ -133,18 +133,29 @@ class NaviampFilledArtworkLayoutTest {
                 it(durationLayouts)
             }
             assertEquals(1, durationLayouts.single().lineCount, "Time labels must not wrap with larger text")
-            if (case.split) {
-                val format = onNodeWithText("MP3").fetchSemanticsNode().boundsInRoot
-                val quality = onNodeWithText("320 kbps").fetchSemanticsNode().boundsInRoot
+            if (case.rating && case.showAudio && case.audio.isNotBlank()) {
                 val rating = onNodeWithTag("now-playing-filled-rating").fetchSemanticsNode().boundsInRoot
-                assertTrue(format.right <= rating.left && quality.left >= rating.right)
-                assertTrue(kotlin.math.abs(format.center.y - rating.center.y) < density)
-                assertTrue(kotlin.math.abs(quality.center.y - rating.center.y) < density)
-                assertTrue(kotlin.math.abs(rating.center.x - metadata.center.x) < density, "Rating bar stays centered")
-            } else if (case.rating && case.showAudio && case.audio.isNotBlank()) {
-                val audio = onNodeWithText(case.audio).fetchSemanticsNode().boundsInRoot
-                val rating = onNodeWithTag("now-playing-filled-rating").fetchSemanticsNode().boundsInRoot
-                assertTrue(audio.top - rating.bottom >= 7.5f * density, "Large text uses a readable second line")
+                val stacked = onAllNodesWithText(case.audio).fetchSemanticsNodes().isNotEmpty()
+                val audioLabels = if (stacked) {
+                    val audio = onNodeWithText(case.audio).fetchSemanticsNode().boundsInRoot
+                    assertTrue(audio.top - rating.bottom >= 7.5f * density, "Stacked audio stays clear of ratings")
+                    listOf(case.audio)
+                } else {
+                    val labels = case.audio.split(' ', limit = 2)
+                    val format = onNodeWithText(labels[0]).fetchSemanticsNode().boundsInRoot
+                    val quality = onNodeWithText(labels[1]).fetchSemanticsNode().boundsInRoot
+                    assertTrue(format.right <= rating.left && quality.left >= rating.right)
+                    assertTrue(kotlin.math.abs(format.center.y - rating.center.y) < density)
+                    assertTrue(kotlin.math.abs(quality.center.y - rating.center.y) < density)
+                    assertTrue(kotlin.math.abs(rating.center.x - metadata.center.x) < density, "Rating bar stays centered")
+                    labels
+                }
+                for (text in audioLabels) {
+                    val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+                    onNodeWithText(text).assertIsDisplayed()
+                        .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                    assertTrue(layouts.isNotEmpty() && layouts.none { it.hasVisualOverflow }, "Audio text remains readable")
+                }
             }
             if (case.rating) {
                 onNodeWithContentDescription("Favorite").performClick()
