@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,11 +30,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -770,14 +773,36 @@ private fun PlaylistDetailContent(
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            MultiCoverArt(
-                colors = colors,
-                covers = listOfNotNull(detail.playlist.coverArtUrl).ifEmpty {
-                    detail.tracks.mapNotNull { it.coverArtUrl }.distinct().take(4)
-                },
-                size = 96.dp,
-                mediaKind = SharedMediaItemKind.Playlist,
-            )
+            Box(contentAlignment = Alignment.Center) {
+                MultiCoverArt(
+                    colors = colors,
+                    covers = listOfNotNull(detail.playlist.coverArtUrl).ifEmpty {
+                        detail.tracks.mapNotNull { it.coverArtUrl }.distinct().take(4)
+                    },
+                    size = 96.dp,
+                    mediaKind = SharedMediaItemKind.Playlist,
+                )
+                IconButton(
+                    onClick = onPlayPlaylist,
+                    enabled = detail.tracks.isNotEmpty(),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = Color.Black,
+                        contentColor = Color.White,
+                        disabledContainerColor = Color.Black,
+                        disabledContentColor = Color.White,
+                    ),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .alpha(0.3f)
+                        .testTag("playlist-artwork-play"),
+                ) {
+                    Icon(
+                        NaviampTransportIcons.Play,
+                        contentDescription = stringResource(Res.string.playlists_play),
+                        modifier = Modifier.size(32.dp),
+                    )
+                }
+            }
             Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                 Text(detail.playlist.subtitle, color = colors.secondaryText, fontSize = 12.sp)
                 status?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
