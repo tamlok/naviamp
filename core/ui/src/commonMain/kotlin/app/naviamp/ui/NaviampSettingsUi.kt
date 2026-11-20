@@ -312,6 +312,7 @@ fun NaviampSharedSettingsContent(
     connect: NaviampConnectSettingsUi = NaviampConnectSettingsUi(),
     connectActions: NaviampConnectSettingsActions? = null,
     saveWithoutReconnect: Boolean = false,
+    showTitle: Boolean = true,
 ) {
     var selectedCategory by rememberSaveable { mutableStateOf<NaviampSettingsCategory?>(null) }
     LaunchedEffect(isConnectionFormOpen) {
@@ -337,7 +338,7 @@ fun NaviampSharedSettingsContent(
             .padding(vertical = 4.dp),
     ) {
         if (selectedCategory == null) {
-            NaviampPageTitle(languagePack.settingsTitle(), colors)
+            if (showTitle) NaviampPageTitle(languagePack.settingsTitle(), colors)
         } else if (!djEditorOpen) {
             SettingsDetailHeader(
                 category = selectedCategory!!,

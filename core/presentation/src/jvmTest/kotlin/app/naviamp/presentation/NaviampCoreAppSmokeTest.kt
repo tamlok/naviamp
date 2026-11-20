@@ -338,7 +338,7 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun myLinksUseCoreNavigationAndReturnThroughTheSharedBackDispatcher() = runDesktopComposeUiTest(1000, 740) {
+    fun myTabsKeepTheirHeaderAndSettingsStateAndUseSharedBackAndAccounts() = runDesktopComposeUiTest(1000, 740) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val provider = FakeCoreMediaProvider()
         val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
@@ -349,17 +349,30 @@ class NaviampCoreAppSmokeTest {
         try {
             setContent { CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) { NaviampCoreApp(core) } }
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.My)
-            onNodeWithTag("my-settings").performClick()
+            onNodeWithTag("my-accounts").assertIsSelected()
+            onNodeWithTag("my-settings").performClick().assertIsSelected()
+            onNodeWithTag("my-account-info").assertDoesNotExist()
             runOnIdle { assertEquals(SharedRoute.Settings, core.state.value.shell.shellChrome.selectedRoute) }
             onNodeWithText("Source", substring = false).performClick()
+            onNodeWithText("Connections", substring = false).assertIsDisplayed()
+            onNodeWithTag("my-downloads").performClick().assertIsSelected()
+            onNodeWithTag("my-hub").assertIsDisplayed()
+            onNodeWithTag("my-account-info").assertDoesNotExist()
+            onNodeWithTag("my-settings").performClick().assertIsSelected()
+            onNodeWithText("Connections", substring = false).assertIsDisplayed()
+            // Leaving My and returning must not discard the nested Settings destination.
+            core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Home)
+            core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Settings)
+            onNodeWithText("Connections", substring = false).assertIsDisplayed()
             runOnIdle { dispatcher.currentHandler?.invoke() }
             runOnIdle { assertEquals(SharedRoute.Settings, core.state.value.shell.shellChrome.selectedRoute) }
+            onNodeWithText("Source", substring = false).assertIsDisplayed()
             runOnIdle { dispatcher.currentHandler?.invoke() }
-            onNodeWithTag("my-hub").assertIsDisplayed()
+            onNodeWithTag("my-accounts").assertIsSelected()
             onNodeWithTag("my-downloads").performClick()
             runOnIdle { assertEquals(SharedRoute.Downloads, core.state.value.shell.shellChrome.selectedRoute); dispatcher.currentHandler?.invoke() }
-            onNodeWithTag("my-hub").assertIsDisplayed()
-            onNodeWithTag("my-accounts").performClick()
+            onNodeWithTag("my-accounts").assertIsSelected()
+            onNodeWithTag("my-account-chooser").performClick()
             onNodeWithTag("account-chooser").assertIsDisplayed()
             onNodeWithTag("account-add").performClick()
             onNodeWithTag("connection-name").assertIsDisplayed()
@@ -371,8 +384,86 @@ class NaviampCoreAppSmokeTest {
             waitUntil(timeoutMillis = 5_000) { onAllNodesWithTag("account-chooser").fetchSemanticsNodes().size == 1 }
             onNodeWithTag("account-chooser").assertIsDisplayed()
             core.actions.shell.connectionActions.onCloseAccounts()
-            onNodeWithTag("my-hub").assertIsDisplayed()
+            onNodeWithTag("my-accounts").assertIsSelected()
         } finally { scope.cancel() }
+    }
+
+    @Test
+    fun myTabsConfineAccountDetailsAndKeepOfflineDownloadsBoundedAtEveryWidth() {
+        for ((width, height) in listOf(1000 to 740, 412 to 818, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val core = NaviampCore.create(scope, fakeCoreServices())
+                val server = "https://music.example.test:8888"
+                val account = NaviampSavedConnectionUi("my-server", server, server, "listener", current = true)
+                val ui = mutableStateOf(NaviampAppShellUiState(
+                    shellChrome = NaviampShellChromeUi(selectedRoute = SharedRoute.My, supportsDownloads = true),
+                    connectionSettings = NaviampConnectionSettingsUi(connection = NaviampShellConnectionUi(
+                        connected = false, hasSavedConnection = true, savedConnections = listOf(account),
+                    )),
+                ))
+                val actions = core.actions.shell.copy(navigationActions = core.actions.shell.navigationActions.copy(
+                    onRouteSelected = { route -> ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(selectedRoute = route)) },
+                ))
+                try {
+                    setContent { NaviampSharedAppShell(uiState = ui.value, actions = actions, syncActions = core.actions.settingsSync) }
+                    onNodeWithTag("my-accounts").assertIsSelected()
+                    onAllNodesWithText(server, substring = false).assertCountEquals(1)
+                    onNodeWithText("listener", substring = false).assertIsDisplayed()
+                    val credentialUrl = "https://sensitive:credential@music.example.test:8888/?auth=token#fragment"
+                    for ((saved, expected) in listOf(
+                        account.copy(serverUrl = " $server/ ") to server,
+                        account.copy(displayName = credentialUrl, serverUrl = " $credentialUrl ") to
+                            "https://<redacted>@music.example.test:8888/",
+                    )) {
+                        runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                            connection = ui.value.connectionSettings.connection.copy(savedConnections = listOf(saved)),
+                        )) }
+                        onAllNodesWithText("https://", substring = true).assertCountEquals(1)
+                        onNodeWithText(expected, substring = false).assertIsDisplayed()
+                        onAllNodesWithText("credential", substring = true).assertCountEquals(0)
+                        onAllNodesWithText("auth=", substring = true).assertCountEquals(0)
+                    }
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(savedConnections = listOf(account)),
+                    )) }
+                    val tabs = listOf("my-accounts", "my-downloads", "my-settings")
+                    val initialBounds = tabs.map { tag ->
+                        val node = onNodeWithTag(tag).assertIsDisplayed()
+                        node.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab))
+                        node.fetchSemanticsNode().boundsInRoot
+                    }
+                    for (tag in listOf("my-downloads", "my-settings", "my-accounts")) {
+                        onNodeWithTag(tag).performClick().assertIsSelected()
+                        tabs.forEachIndexed { index, tab ->
+                            assertEquals(initialBounds[index], onNodeWithTag(tab).assertIsDisplayed().fetchSemanticsNode().boundsInRoot)
+                        }
+                        onNodeWithTag("connection-name").assertDoesNotExist()
+                        if (tag != "my-accounts") {
+                            onNodeWithTag("my-account-info").assertDoesNotExist()
+                            onNodeWithText("listener", substring = false).assertDoesNotExist()
+                        }
+                        // Settings retains its existing Source summary, not the Accounts information panel.
+                        if (tag == "my-downloads") onNodeWithText(server, substring = false).assertDoesNotExist()
+                    }
+                    onNodeWithTag("my-accounts").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+                    onNodeWithTag("my-accounts").performKeyInput { pressKey(androidx.compose.ui.input.key.Key.DirectionRight) }
+                    onNodeWithTag("my-downloads").assertIsFocused().performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+                    onNodeWithTag("my-downloads").assertIsSelected()
+                    // Capability changes can leave Core on Downloads; show Accounts rather than a login form.
+                    runOnIdle { ui.value = ui.value.copy(shellChrome = ui.value.shellChrome.copy(supportsDownloads = false)) }
+                    onNodeWithTag("my-downloads").assertDoesNotExist()
+                    onNodeWithTag("my-accounts").assertIsSelected()
+                    onNodeWithText(server, substring = false).assertIsDisplayed()
+                    onNodeWithTag("connection-name").assertDoesNotExist()
+                    runOnIdle { ui.value = ui.value.copy(connectionSettings = ui.value.connectionSettings.copy(
+                        connection = ui.value.connectionSettings.connection.copy(savedConnections = listOf(account.copy(displayName = "Home music"))),
+                    )) }
+                    onNodeWithText("Home music", substring = false).assertIsDisplayed()
+                    onAllNodesWithText(server, substring = false).assertCountEquals(1)
+                } finally { scope.cancel() }
+            }
+        }
     }
 
     @Test

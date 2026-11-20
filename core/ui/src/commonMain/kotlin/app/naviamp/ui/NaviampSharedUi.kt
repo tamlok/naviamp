@@ -228,7 +228,8 @@ private fun NaviampSharedAppShellContent(
     )
     val connectionSetupOnly = !connected && !hasSavedConnection && savedConnections.isEmpty() && remoteNowPlaying == null
     val showingDisconnectedConnectionForm = !connected &&
-        (connectionSetupOnly || (selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My))
+        (connectionSetupOnly || (selectedRoute != SharedRoute.Settings && selectedRoute != SharedRoute.My &&
+            selectedRoute != SharedRoute.Downloads))
     val canShowNowPlaying = sharedCanShowNowPlaying(
         connected = connected,
         remoteNowPlayingAvailable = remoteNowPlaying != null,
@@ -352,7 +353,7 @@ private fun NaviampSharedAppShellContent(
                     verticalArrangement = if (showFullNowPlaying) Arrangement.spacedBy(0.dp) else Arrangement.spacedBy(8.dp),
                 ) {
                     val showingRouteConnectionForm = editingConnection && selectedRoute != SharedRoute.Settings
-                    if (!showFullNowPlaying && (restoringConnection || (!connected && selectedRoute != SharedRoute.My) || showingRouteConnectionForm)) {
+                    if (!showFullNowPlaying && (restoringConnection || showingDisconnectedConnectionForm || showingRouteConnectionForm)) {
                         Text("Naviamp", color = colors.primaryText, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         if (!connection.statusIsError) {
                             Text(status, color = colors.secondaryText, fontSize = 13.sp)
@@ -503,7 +504,7 @@ internal fun sharedRouteUsesOwnScroll(
     editingConnection: Boolean,
     selectedRoute: SharedRoute,
 ): Boolean = sharedRouteCanUseOwnScroll(editingConnection, selectedRoute) &&
-    (connected || selectedRoute == SharedRoute.Settings || selectedRoute == SharedRoute.My)
+    (connected || selectedRoute == SharedRoute.Settings || selectedRoute == SharedRoute.My || selectedRoute == SharedRoute.Downloads)
 
 @Composable
 internal fun ConnectedContent(
@@ -661,23 +662,6 @@ internal fun ConnectedContent(
             playlistChoices = playlistChoices,
             scrollState = playlistDetailScrollState,
         )
-        selectedRoute == SharedRoute.Settings -> routeStateHolder.SaveableStateProvider(SharedRoute.Settings.name) {
-            NaviampSettingsContent(
-                colors = colors,
-                desktopShortcutPlatform = uiState.capabilities.desktopShortcutPlatform,
-                connectionSettings = connectionSettings,
-                general = general,
-                playback = playback,
-                cache = cache,
-                settingsSync = settingsSync,
-                connectionActions = connectionActions,
-                syncActions = syncActions,
-                valueActions = valueActions,
-                maintenanceActions = maintenanceActions,
-                connect = uiState.connect,
-                connectActions = actions.connectActions,
-            )
-        }
         else -> when (selectedRoute) {
             SharedRoute.Home -> SharedHomeRoute(
                 colors = colors,
@@ -842,15 +826,30 @@ internal fun ConnectedContent(
                 screen = radio,
                 actions = radioActions,
             )
-            SharedRoute.My -> NaviampMyContent(uiState, actions, colors)
-            SharedRoute.Settings -> Unit
-            SharedRoute.Downloads -> NaviampDownloadsContent(
+            SharedRoute.My, SharedRoute.Downloads, SharedRoute.Settings -> NaviampMyContent(
+                uiState = uiState,
+                actions = actions,
                 colors = colors,
-                screen = downloads,
-                actions = downloadsActions,
-                playlistChoices = playlistChoices,
-                playlistActionStatus = playlists.status,
-            )
+                selectedRoute = selectedRoute,
+                stateHolder = routeStateHolder,
+            ) {
+                NaviampSettingsContent(
+                    colors = colors,
+                    desktopShortcutPlatform = uiState.capabilities.desktopShortcutPlatform,
+                    connectionSettings = connectionSettings,
+                    general = general,
+                    playback = playback,
+                    cache = cache,
+                    settingsSync = settingsSync,
+                    connectionActions = connectionActions,
+                    syncActions = syncActions,
+                    valueActions = valueActions,
+                    maintenanceActions = maintenanceActions,
+                    connect = uiState.connect,
+                    connectActions = actions.connectActions,
+                    showTitle = false,
+                )
+            }
         }
     }
     }
@@ -999,11 +998,13 @@ fun NaviampSettingsContent(
     maintenanceActions: NaviampSettingsMaintenanceActions,
     connect: NaviampConnectSettingsUi = NaviampConnectSettingsUi(),
     connectActions: NaviampConnectSettingsActions? = null,
+    showTitle: Boolean = true,
 ) {
     val connection = connectionSettings.connection
     NaviampSharedSettingsContent(
         colors = colors,
         modifier = modifier,
+        showTitle = showTitle,
         interfaceSettings = general.interfaceSettings,
         playbackSettings = playback.settings,
         cacheSettings = cache.settings,

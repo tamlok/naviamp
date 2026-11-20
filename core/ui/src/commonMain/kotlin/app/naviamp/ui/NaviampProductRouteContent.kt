@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.naviamp.ui.generated.resources.Res
@@ -32,13 +33,14 @@ fun ColumnScope.NaviampProductRouteContent(
     colors: NaviampColors,
     appRoute: NaviampRoute,
     libraryListState: LazyListState,
-    settingsContent: @Composable () -> Unit,
+    settingsContent: @Composable (showTitle: Boolean) -> Unit,
 ) {
     var saveSonicPathDialogOpen by remember { mutableStateOf(false) }
     var saveSonicMixDialogOpen by remember { mutableStateOf(false) }
     val contentScrollState = rememberScrollState()
     val libraryViewportState = rememberNaviampLibraryViewportState(artists = libraryListState)
     val artistAppearanceState = rememberNaviampArtistAppearanceState(shellState.artistDetail.selectedArtist?.id)
+    val routeStateHolder = rememberSaveableStateHolder()
 
     Box(
         modifier = Modifier
@@ -312,15 +314,13 @@ fun ColumnScope.NaviampProductRouteContent(
                     screen = shellState.radio,
                     actions = shellActions.radioActions,
                 )
-                NaviampRoute.Downloads -> NaviampDownloadsContent(
+                NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings -> NaviampMyContent(
+                    uiState = shellState,
+                    actions = shellActions,
                     colors = colors,
-                    screen = shellState.downloads,
-                    actions = shellActions.downloadsActions,
-                    playlistChoices = shellState.playlistChoices,
-                    playlistActionStatus = shellState.playlists.status,
-                )
-                NaviampRoute.My -> NaviampMyContent(shellState, shellActions, colors)
-                NaviampRoute.Settings -> settingsContent()
+                    selectedRoute = appRoute.toSharedRoute(),
+                    stateHolder = routeStateHolder,
+                ) { settingsContent(false) }
             }
         }
     }

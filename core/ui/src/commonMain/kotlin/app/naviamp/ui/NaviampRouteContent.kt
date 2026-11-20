@@ -1854,6 +1854,7 @@ fun NaviampDownloadsContent(
     actions: NaviampDownloadsActions,
     playlistChoices: List<NaviampPlaylistChoiceUi>,
     playlistActionStatus: String?,
+    showTitle: Boolean = true,
 ) {
     val downloads = screen.downloads
     var downloadForPlaylist by remember { mutableStateOf<NaviampDownloadedTrackUi?>(null) }
@@ -1883,7 +1884,7 @@ fun NaviampDownloadsContent(
     Column(modifier = Modifier.fillMaxSize()) {
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                NaviampPageTitle(stringResource(Res.string.downloads_offline_title), colors)
+                if (showTitle) NaviampPageTitle(stringResource(Res.string.downloads_offline_title), colors)
                 Text(
                     stringResource(
                         Res.string.downloads_summary,
