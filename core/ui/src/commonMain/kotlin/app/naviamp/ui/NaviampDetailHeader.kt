@@ -38,9 +38,9 @@ internal fun naviampDetailHeaderColors(palette: NaviampAlbumPalette?, colors: Na
     val artwork = NaviampPlayerColors.from(palette, colors)
     // A restrained tint keeps normal theme text readable across arbitrary artwork.
     return artwork.copy(
-        backgroundStart = artwork.backgroundStart.mix(colors.background, 0.88f),
-        backgroundMid = artwork.backgroundMid.mix(colors.background, 0.88f),
-        backgroundEnd = artwork.backgroundEnd.mix(colors.background, 0.88f),
+        backgroundStart = artwork.backgroundStart.mix(colors.background, 0.84f),
+        backgroundMid = artwork.backgroundMid.mix(colors.background, 0.84f),
+        backgroundEnd = artwork.backgroundEnd.mix(colors.background, 0.84f),
     )
 }
 
