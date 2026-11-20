@@ -95,9 +95,16 @@ fun NaviampArtistDetailContent(
     artistPlaylistLayout: AlbumCollectionLayout = AlbumCollectionLayout.List,
     artistAppearanceAlbumLayout: AlbumCollectionLayout = AlbumCollectionLayout.List,
 ) {
+    val artwork = screen.detail?.artist ?: screen.selectedArtist
+    val artworkUrls = remember(artwork?.coverArtUrl) { listOfNotNull(artwork?.coverArtUrl) }
+    val headerBackground = rememberNaviampDetailHeaderColors(artwork?.id, artworkUrls, artwork?.fallbackCoverArtUrl, colors)
     val detail = screen.detail
     if (detail == null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+        NaviampDetailHeader(
+            colors = colors,
+            background = headerBackground,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) { colors ->
             IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
                 Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
             }
@@ -114,6 +121,7 @@ fun NaviampArtistDetailContent(
     ArtistDetailContent(
         colors = colors,
         detail = detail,
+        headerBackground = headerBackground,
         albumCollectionLayout = albumCollectionLayout,
         artistPlaylistLayout = artistPlaylistLayout,
         artistAppearanceAlbumLayout = artistAppearanceAlbumLayout,
@@ -234,6 +242,7 @@ fun NaviampArtistDetailContent(
 private fun ArtistDetailContent(
     colors: NaviampColors,
     detail: SharedArtistDetailUi,
+    headerBackground: NaviampPlayerColors,
     albumCollectionLayout: AlbumCollectionLayout,
     artistPlaylistLayout: AlbumCollectionLayout,
     artistAppearanceAlbumLayout: AlbumCollectionLayout,
@@ -307,92 +316,97 @@ private fun ArtistDetailContent(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            NaviampTooltip("Back", colors) {
-                IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        NaviampIcons.Back,
-                        contentDescription = "Back",
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(18.dp),
-                    )
+        NaviampDetailHeader(
+            colors = colors,
+            background = headerBackground,
+        ) { colors ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                NaviampTooltip("Back", colors) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            NaviampIcons.Back,
+                            contentDescription = "Back",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
-            }
-            Text(
-                detail.artist.title,
-                color = colors.primaryText,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                modifier = Modifier.clickable(
-                    enabled = detail.artist.coverArtUrl != null || detail.artist.fallbackCoverArtUrl != null,
-                    onClick = { artistImageOpen = true },
-                ),
-            ) {
-                NaviampCoverArt(
-                    detail.artist.coverArtUrl,
-                    colors,
-                    96.dp,
-                    48.dp,
-                    fallbackUrl = detail.artist.fallbackCoverArtUrl,
-                    mediaKind = SharedMediaItemKind.Artist,
-                )
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-                modifier = Modifier.weight(1f),
-            ) {
                 Text(
                     detail.artist.title,
                     color = colors.primaryText,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    detail.localLibraryLabel.ifBlank { "${detail.albums.size} albums" },
-                    color = colors.secondaryText,
-                    fontSize = 13.sp,
-                )
-                NaviampResponsiveActionRow(
-                    colors = colors,
-                    actions = listOfNotNull(
-                        NaviampDetailAction("Play artist catalog", NaviampTransportIcons.Play, { onArtistPlay(displayedAlbums) }, displayedAlbums.isNotEmpty()),
-                        NaviampDetailAction("Start artist radio", NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),
-                        NaviampDetailAction(
-                            stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
-                            NaviampIcons.Downloads, onKeepDownloaded, detail.albums.isNotEmpty() || keptDownloaded,
-                            selected = keptDownloaded,
-                        ),
-                        NaviampDetailAction(
-                            if (detail.artist.favoriteActive) "Remove artist favorite" else "Favorite artist",
-                            if (detail.artist.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
-                            onArtistFavoriteToggled,
-                            detail.artist.canFavorite,
-                            selected = detail.artist.favoriteActive,
-                        ),
-                        NaviampDetailAction(
-                            if (similarArtistsVisible) "Hide similar artists" else "Find similar artists",
-                            NaviampIcons.Artist,
-                            onFindSimilarArtists,
-                            selected = similarArtistsVisible,
-                        ),
-                        NaviampDetailAction("Add artist to queue", NaviampIcons.Queue, onArtistAddToQueue, detail.albums.isNotEmpty()),
-                        NaviampDetailAction("Add artist to playlist", NaviampIcons.Playlist, { addArtistToPlaylistOpen = true }, detail.albums.isNotEmpty()),
-                        NaviampDetailAction("Shuffle artist catalog", NaviampTransportIcons.Shuffle, { onArtistShuffle(displayedAlbums) }, displayedAlbums.isNotEmpty()),
-                        onFindInAurral?.let { NaviampDetailAction(stringResource(Res.string.discovery_find_in_aurral), NaviampIcons.Search, it) },
+            }
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier.clickable(
+                        enabled = detail.artist.coverArtUrl != null || detail.artist.fallbackCoverArtUrl != null,
+                        onClick = { artistImageOpen = true },
                     ),
-                )
+                ) {
+                    NaviampCoverArt(
+                        detail.artist.coverArtUrl,
+                        colors,
+                        96.dp,
+                        48.dp,
+                        fallbackUrl = detail.artist.fallbackCoverArtUrl,
+                        mediaKind = SharedMediaItemKind.Artist,
+                    )
+                }
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        detail.artist.title,
+                        color = colors.primaryText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        detail.localLibraryLabel.ifBlank { "${detail.albums.size} albums" },
+                        color = colors.secondaryText,
+                        fontSize = 13.sp,
+                    )
+                    NaviampResponsiveActionRow(
+                        colors = colors,
+                        actions = listOfNotNull(
+                            NaviampDetailAction("Play artist catalog", NaviampTransportIcons.Play, { onArtistPlay(displayedAlbums) }, displayedAlbums.isNotEmpty()),
+                            NaviampDetailAction("Start artist radio", NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),
+                            NaviampDetailAction(
+                                stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
+                                NaviampIcons.Downloads, onKeepDownloaded, detail.albums.isNotEmpty() || keptDownloaded,
+                                selected = keptDownloaded,
+                            ),
+                            NaviampDetailAction(
+                                if (detail.artist.favoriteActive) "Remove artist favorite" else "Favorite artist",
+                                if (detail.artist.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                                onArtistFavoriteToggled,
+                                detail.artist.canFavorite,
+                                selected = detail.artist.favoriteActive,
+                            ),
+                            NaviampDetailAction(
+                                if (similarArtistsVisible) "Hide similar artists" else "Find similar artists",
+                                NaviampIcons.Artist,
+                                onFindSimilarArtists,
+                                selected = similarArtistsVisible,
+                            ),
+                            NaviampDetailAction("Add artist to queue", NaviampIcons.Queue, onArtistAddToQueue, detail.albums.isNotEmpty()),
+                            NaviampDetailAction("Add artist to playlist", NaviampIcons.Playlist, { addArtistToPlaylistOpen = true }, detail.albums.isNotEmpty()),
+                            NaviampDetailAction("Shuffle artist catalog", NaviampTransportIcons.Shuffle, { onArtistShuffle(displayedAlbums) }, displayedAlbums.isNotEmpty()),
+                            onFindInAurral?.let { NaviampDetailAction(stringResource(Res.string.discovery_find_in_aurral), NaviampIcons.Search, it) },
+                        ),
+                    )
+                }
             }
         }
         Column(

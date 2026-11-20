@@ -219,6 +219,9 @@ internal suspend fun naviampCoverArtPlayerColors(
     colors: NaviampColors = NaviampColors.Dark,
 ): NaviampPlayerColors = NaviampCoverArtCache.playerColors(url, colors)
 
+internal suspend fun naviampCoverArtSamples(url: String): List<NaviampRgbSample>? =
+    NaviampCoverArtCache.samples(url)
+
 internal fun resetNaviampCoverArtCache() = NaviampCoverArtCache.clear()
 
 private object NaviampCoverArtCache {
@@ -298,6 +301,17 @@ private object NaviampCoverArtCache {
     suspend fun playerColors(url: String, colors: NaviampColors): NaviampPlayerColors {
         if (mutex.withLock { palettes[url] } == null) image(url, PaletteCoverArtSidePx)
         return cachedPlayerColors(url, colors)
+    }
+
+    suspend fun samples(url: String): List<NaviampRgbSample>? {
+        mutex.withLock { palettes[url] }?.let { return it }
+        val image = image(url, PaletteCoverArtSidePx) ?: return null
+        mutex.withLock { palettes[url] }?.let { return it }
+        // Bitmap LRU and palette FIFO can evict independently. Reuse the cached pixels,
+        // rather than treating a healthy image as missing or fetching it again.
+        val samples = withContext(Dispatchers.Default) { naviampDecodedCoverArt(image, PaletteCoverArtSidePx).rgbSamples }
+        mutex.withLock { putBounded(palettes, url, samples, MaxPalettes) }
+        return samples
     }
 
     fun clear() {

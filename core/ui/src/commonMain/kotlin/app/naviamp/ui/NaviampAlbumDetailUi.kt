@@ -78,9 +78,16 @@ fun NaviampAlbumDetailContent(
     playlistActionStatus: String? = null,
     albumArtworkPreference: AlbumArtworkPreference = AlbumArtworkPreference.Inherit,
 ) {
+    val artwork = screen.detail?.album ?: screen.selectedAlbum
+    val artworkUrls = remember(artwork?.coverArtUrl) { listOfNotNull(artwork?.coverArtUrl) }
+    val headerBackground = rememberNaviampDetailHeaderColors(artwork?.id, artworkUrls, artwork?.fallbackCoverArtUrl, colors)
     val detail = screen.detail
     if (detail == null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+        NaviampDetailHeader(
+            colors = colors,
+            background = headerBackground,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) { colors ->
             IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
                 Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
             }
@@ -97,6 +104,7 @@ fun NaviampAlbumDetailContent(
     AlbumDetailContent(
         colors = colors,
         detail = detail,
+        headerBackground = headerBackground,
         onBack = actions.onBack,
         onPlayAlbum = {
             actions.onAlbumAction(
@@ -175,6 +183,7 @@ fun NaviampAlbumDetailContent(
 private fun AlbumDetailContent(
     colors: NaviampColors,
     detail: SharedAlbumDetailUi,
+    headerBackground: NaviampPlayerColors,
     onBack: () -> Unit,
     onPlayAlbum: () -> Unit,
     onShuffleAlbum: () -> Unit,
@@ -204,98 +213,104 @@ private fun AlbumDetailContent(
         verticalArrangement = Arrangement.spacedBy(3.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            NaviampTooltip("Back", colors) {
-                IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        NaviampIcons.Back,
-                        contentDescription = "Back",
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(18.dp),
+        NaviampDetailHeader(
+            colors = colors,
+            background = headerBackground,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) { colors ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                NaviampTooltip("Back", colors) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            NaviampIcons.Back,
+                            contentDescription = "Back",
+                            tint = colors.primaryText,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Text(
+                    detail.album.title,
+                    color = colors.primaryText,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier.clickable(
+                        enabled = detail.album.coverArtUrl != null || detail.album.fallbackCoverArtUrl != null,
+                        onClick = { albumImageOpen = true },
+                    ),
+                ) {
+                    NaviampCoverArt(
+                        detail.album.coverArtUrl,
+                        colors,
+                        96.dp,
+                        4.dp,
+                        fallbackUrl = detail.album.fallbackCoverArtUrl,
+                        mediaKind = SharedMediaItemKind.Album,
                     )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                    Text(
+                        detail.album.subtitle,
+                        color = colors.primaryText,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.clickable(
+                            enabled = detail.artist != null,
+                            onClick = { detail.artist?.let(onArtistSelected) },
+                        ),
+                    )
+                    detail.album.releaseYear?.let { year ->
+                        Text(year.toString(), color = colors.secondaryText, fontSize = 12.sp)
+                    }
+                    NaviampResponsiveActionRow(
+                        colors = colors,
+                        actions = listOf(
+                            NaviampDetailAction("Play album", NaviampTransportIcons.Play, onPlayAlbum, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction("Shuffle album", NaviampTransportIcons.Shuffle, onShuffleAlbum, detail.tracks.size > 1),
+                            NaviampDetailAction("Start album radio", NaviampTransportIcons.Radio, onAlbumRadio, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction("Download album", NaviampIcons.Downloads, onAlbumDownload, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(
+                                stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
+                                NaviampIcons.Downloads, onKeepDownloaded, detail.tracks.isNotEmpty() || keptDownloaded,
+                                selected = keptDownloaded,
+                            ),
+                            NaviampDetailAction("Add album to queue", NaviampIcons.Queue, onAlbumAddToQueue, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction("Add album to playlist", NaviampIcons.Playlist, { addAlbumToPlaylistOpen = true }, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.album_settings), NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(
+                                if (detail.album.favoriteActive) "Remove album favorite" else "Favorite album",
+                                if (detail.album.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                                onAlbumFavoriteToggled,
+                                detail.album.canFavorite,
+                                selected = detail.album.favoriteActive,
+                            ),
+                        ),
+                    )
+                    playbackProfileStatus?.let { status ->
+                        Text(status, color = colors.secondaryText, fontSize = 11.sp)
+                    }
                 }
             }
             Text(
-                detail.album.title,
-                color = colors.primaryText,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                listOfNotNull(
+                    "${detail.tracks.size} tracks",
+                    detail.totalDurationLabel.takeIf { it.isNotBlank() }?.let { "Total $it" },
+                ).joinToString(" - "),
+                color = colors.secondaryText,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                modifier = Modifier.clickable(
-                    enabled = detail.album.coverArtUrl != null || detail.album.fallbackCoverArtUrl != null,
-                    onClick = { albumImageOpen = true },
-                ),
-            ) {
-                NaviampCoverArt(
-                    detail.album.coverArtUrl,
-                    colors,
-                    96.dp,
-                    4.dp,
-                    fallbackUrl = detail.album.fallbackCoverArtUrl,
-                    mediaKind = SharedMediaItemKind.Album,
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                Text(
-                    detail.album.subtitle,
-                    color = colors.primaryText,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable(
-                        enabled = detail.artist != null,
-                        onClick = { detail.artist?.let(onArtistSelected) },
-                    ),
-                )
-                detail.album.releaseYear?.let { year ->
-                    Text(year.toString(), color = colors.secondaryText, fontSize = 12.sp)
-                }
-                NaviampResponsiveActionRow(
-                    colors = colors,
-                    actions = listOf(
-                        NaviampDetailAction("Play album", NaviampTransportIcons.Play, onPlayAlbum, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction("Shuffle album", NaviampTransportIcons.Shuffle, onShuffleAlbum, detail.tracks.size > 1),
-                        NaviampDetailAction("Start album radio", NaviampTransportIcons.Radio, onAlbumRadio, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction("Download album", NaviampIcons.Downloads, onAlbumDownload, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction(
-                            stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
-                            NaviampIcons.Downloads, onKeepDownloaded, detail.tracks.isNotEmpty() || keptDownloaded,
-                            selected = keptDownloaded,
-                        ),
-                        NaviampDetailAction("Add album to queue", NaviampIcons.Queue, onAlbumAddToQueue, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction("Add album to playlist", NaviampIcons.Playlist, { addAlbumToPlaylistOpen = true }, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction(stringResource(Res.string.album_settings), NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()),
-                        NaviampDetailAction(
-                            if (detail.album.favoriteActive) "Remove album favorite" else "Favorite album",
-                            if (detail.album.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
-                            onAlbumFavoriteToggled,
-                            detail.album.canFavorite,
-                            selected = detail.album.favoriteActive,
-                        ),
-                    ),
-                )
-                playbackProfileStatus?.let { status ->
-                    Text(status, color = colors.secondaryText, fontSize = 11.sp)
-                }
-            }
-        }
-        Text(
-            listOfNotNull(
-                "${detail.tracks.size} tracks",
-                detail.totalDurationLabel.takeIf { it.isNotBlank() }?.let { "Total $it" },
-            ).joinToString(" - "),
-            color = colors.secondaryText,
-            modifier = Modifier.fillMaxWidth(),
-        )
         Column(
             verticalArrangement = Arrangement.spacedBy(5.dp),
             modifier = Modifier

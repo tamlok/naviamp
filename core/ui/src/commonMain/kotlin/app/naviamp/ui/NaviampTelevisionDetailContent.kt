@@ -58,12 +58,16 @@ internal fun TelevisionAlbumDetail(
     actions: NaviampAlbumDetailActions,
     topNavigationFocusRequester: FocusRequester,
 ) {
+    val artwork = screen.detail?.album ?: screen.selectedAlbum
+    val artworkUrls = remember(artwork?.coverArtUrl) { listOfNotNull(artwork?.coverArtUrl) }
+    val headerBackground = rememberNaviampDetailHeaderColors(artwork?.id, artworkUrls, artwork?.fallbackCoverArtUrl, colors)
     val detail = screen.detail
     if (detail == null) {
         TelevisionDetailLoading(
             title = screen.selectedAlbum?.title ?: stringResource(Res.string.tv_album),
             status = screen.status,
             colors = colors,
+            background = headerBackground,
         )
         return
     }
@@ -86,6 +90,7 @@ internal fun TelevisionAlbumDetail(
                 coverArtUrl = detail.album.coverArtUrl,
                 fallbackCoverArtUrl = detail.album.fallbackCoverArtUrl,
                 colors = colors,
+                background = headerBackground,
                 topNavigationFocusRequester = topNavigationFocusRequester,
                 initialActionDownFocusRequester = firstTrackFocusRequester,
                 actions = listOf(
@@ -138,12 +143,16 @@ internal fun TelevisionArtistDetail(
     onAlbumOpening: () -> Unit = {},
     topNavigationFocusRequester: FocusRequester,
 ) {
+    val artwork = screen.detail?.artist ?: screen.selectedArtist
+    val artworkUrls = remember(artwork?.coverArtUrl) { listOfNotNull(artwork?.coverArtUrl) }
+    val headerBackground = rememberNaviampDetailHeaderColors(artwork?.id, artworkUrls, artwork?.fallbackCoverArtUrl, colors)
     val detail = screen.detail
     if (detail == null) {
         TelevisionDetailLoading(
             title = screen.selectedArtist?.title ?: stringResource(Res.string.tv_artist),
             status = screen.status,
             colors = colors,
+            background = headerBackground,
         )
         return
     }
@@ -170,6 +179,7 @@ internal fun TelevisionArtistDetail(
                 fallbackCoverArtUrl = detail.artist.fallbackCoverArtUrl,
                 mediaKind = SharedMediaItemKind.Artist,
                 colors = colors,
+                background = headerBackground,
                 topNavigationFocusRequester = topNavigationFocusRequester,
                 initialActionDownFocusRequester = if (popularTracksAvailable) {
                     firstPopularTrackFocusRequester
@@ -304,12 +314,21 @@ internal fun TelevisionPlaylistDetail(
     actions: NaviampPlaylistDetailActions,
     topNavigationFocusRequester: FocusRequester,
 ) {
+    val artworkUrls = remember(screen.detail, screen.selectedPlaylist) {
+        screen.detail?.headerArtworkUrls() ?: screen.selectedPlaylist?.let {
+            listOfNotNull(it.coverArtUrl).ifEmpty { it.coverArtUrls.distinct().take(4) }
+        }.orEmpty()
+    }
+    val headerBackground = rememberNaviampDetailHeaderColors(
+        screen.detail?.playlist?.id ?: screen.selectedPlaylist?.id, artworkUrls, null, colors,
+    )
     val detail = screen.detail
     if (detail == null) {
         TelevisionDetailLoading(
             title = screen.selectedPlaylist?.title ?: stringResource(Res.string.tv_playlist),
             status = screen.status,
             colors = colors,
+            background = headerBackground,
         )
         return
     }
@@ -330,6 +349,8 @@ internal fun TelevisionPlaylistDetail(
                 metadata = televisionTrackCountLabel(detail.tracks.size),
                 coverArtUrl = playlist.coverArtUrl ?: playlist.coverArtUrls.firstOrNull(),
                 colors = colors,
+                background = headerBackground,
+                coverArtUrls = artworkUrls,
                 topNavigationFocusRequester = topNavigationFocusRequester,
                 initialActionDownFocusRequester = firstTrackFocusRequester,
                 actions = listOf(
@@ -414,25 +435,41 @@ private fun TelevisionDetailHero(
     fallbackCoverArtUrl: String? = null,
     mediaKind: SharedMediaItemKind,
     colors: NaviampColors,
+    background: NaviampPlayerColors,
+    coverArtUrls: List<String> = emptyList(),
     actions: List<TelevisionHeroAction>,
     initialActionDownFocusRequester: FocusRequester? = null,
     topNavigationFocusRequester: FocusRequester? = null,
 ) {
     val initialActionFocusRequester = remember(title) { FocusRequester() }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    NaviampDetailHeader(
+        colors = colors,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        background = background,
+    ) { colors ->
         Row(
             horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            NaviampCoverArt(
-                coverArtUrl,
-                colors,
-                TelevisionDetailHeroArtworkSize,
-                resolvedMediaArtworkCornerRadius(mediaKind, TelevisionDetailHeroArtworkSize, 16.dp),
-                fallbackUrl = fallbackCoverArtUrl,
-                mediaKind = mediaKind,
-            )
+            if (mediaKind == SharedMediaItemKind.Playlist) {
+                MultiCoverArt(
+                    colors = colors,
+                    covers = coverArtUrls,
+                    size = TelevisionDetailHeroArtworkSize,
+                    cornerRadius = 16.dp,
+                    mediaKind = mediaKind,
+                )
+            } else {
+                NaviampCoverArt(
+                    coverArtUrl,
+                    colors,
+                    TelevisionDetailHeroArtworkSize,
+                    resolvedMediaArtworkCornerRadius(mediaKind, TelevisionDetailHeroArtworkSize, 16.dp),
+                    fallbackUrl = fallbackCoverArtUrl,
+                    mediaKind = mediaKind,
+                )
+            }
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f),
@@ -741,8 +778,13 @@ private fun TelevisionDetailLoading(
     title: String,
     status: String?,
     colors: NaviampColors,
+    background: NaviampPlayerColors,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.fillMaxSize()) {
+    NaviampDetailHeader(
+        colors = colors,
+        verticalArrangement = Arrangement.spacedBy(18.dp),
+        background = background,
+    ) { colors ->
         Text(title, color = colors.primaryText, fontSize = 34.sp, fontWeight = FontWeight.Black)
         Text(status ?: stringResource(Res.string.tv_loading), color = colors.secondaryText, fontSize = 19.sp)
     }

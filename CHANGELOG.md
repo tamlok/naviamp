@@ -16,7 +16,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
 - Open accounts, the existing Favorite Artists collection, supported Downloads, and Settings from My.
-- Keep navigation and browsing backgrounds theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
+- Keep navigation and browsing content theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
 - Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
 - Open Queue as a full-height drawer over the lyrics, or pin it as a separate card below lyrics aligned with the playback controls. Queue reopens drawer mode when pinned; outside clicks dismiss the drawer without activating controls underneath. Wide players share height equally between artwork and controls, with matching card styling and outer padding; narrow layouts stack pinned cards below the controls.
@@ -25,6 +25,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 - Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
 - Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
+- Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
 
 ### Bug fixes

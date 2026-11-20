@@ -518,8 +518,20 @@ fun NaviampPlaylistDetailContent(
     scrollState: ScrollState = rememberScrollState(),
 ) {
     val detail = screen.detail
+    val headerCovers = remember(detail, screen.selectedPlaylist) {
+        detail?.headerArtworkUrls() ?: screen.selectedPlaylist?.let {
+            listOfNotNull(it.coverArtUrl).ifEmpty { it.coverArtUrls.distinct().take(4) }
+        }.orEmpty()
+    }
+    val headerBackground = rememberNaviampDetailHeaderColors(
+        detail?.playlist?.id ?: screen.selectedPlaylist?.id, headerCovers, null, colors,
+    )
     if (detail == null) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+        NaviampDetailHeader(
+            colors = colors,
+            background = headerBackground,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) { colors ->
             IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
                 Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
             }
@@ -536,6 +548,8 @@ fun NaviampPlaylistDetailContent(
     PlaylistDetailContent(
         colors = colors,
         detail = detail,
+        headerCovers = headerCovers,
+        headerBackground = headerBackground,
         status = screen.status,
         onBack = actions.onBack,
         onPlayPlaylist = {
@@ -644,6 +658,8 @@ fun NaviampPlaylistDetailContent(
 private fun PlaylistDetailContent(
     colors: NaviampColors,
     detail: SharedPlaylistDetailUi,
+    headerCovers: List<String>,
+    headerBackground: NaviampPlayerColors,
     status: String?,
     onBack: () -> Unit,
     onPlayPlaylist: () -> Unit,
@@ -724,124 +740,124 @@ private fun PlaylistDetailContent(
                 detailViewportBounds = coordinates.boundsInWindow()
             },
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    NaviampIcons.Back,
-                    contentDescription = stringResource(Res.string.common_back),
-                    tint = colors.primaryText,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            if (detail.playlist.isSmartPlaylist) {
-                if (detail.playlist.canManagePlaylist) {
-                    IconButton(
-                        onClick = requestSmartPlaylistEdit,
-                        enabled = !smartPlaylistLoading,
-                        modifier = Modifier.size(32.dp),
-                    ) {
+        NaviampDetailHeader(colors = colors, background = headerBackground) { colors ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        NaviampIcons.Back,
+                        contentDescription = stringResource(Res.string.common_back),
+                        tint = colors.primaryText,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                if (detail.playlist.isSmartPlaylist) {
+                    if (detail.playlist.canManagePlaylist) {
+                        IconButton(
+                            onClick = requestSmartPlaylistEdit,
+                            enabled = !smartPlaylistLoading,
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                NaviampIcons.Brain,
+                                contentDescription = editSmartPlaylistLabel,
+                                tint = colors.secondaryText,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    } else {
                         Icon(
                             NaviampIcons.Brain,
-                            contentDescription = editSmartPlaylistLabel,
+                            contentDescription = stringResource(Res.string.playlists_smart),
                             tint = colors.secondaryText,
                             modifier = Modifier.size(18.dp),
                         )
                     }
                 } else {
                     Icon(
-                        NaviampIcons.Brain,
-                        contentDescription = stringResource(Res.string.playlists_smart),
+                        NaviampIcons.Playlist,
+                        contentDescription = stringResource(Res.string.playlists_title),
                         tint = colors.secondaryText,
                         modifier = Modifier.size(18.dp),
                     )
                 }
-            } else {
-                Icon(
-                    NaviampIcons.Playlist,
-                    contentDescription = stringResource(Res.string.playlists_title),
-                    tint = colors.secondaryText,
-                    modifier = Modifier.size(18.dp),
+                Text(
+                    detail.playlist.title,
+                    color = colors.primaryText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                detail.playlist.title,
-                color = colors.primaryText,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(contentAlignment = Alignment.Center) {
-                MultiCoverArt(
-                    colors = colors,
-                    covers = listOfNotNull(detail.playlist.coverArtUrl).ifEmpty {
-                        detail.tracks.mapNotNull { it.coverArtUrl }.distinct().take(4)
-                    },
-                    size = 96.dp,
-                    mediaKind = SharedMediaItemKind.Playlist,
-                )
-                IconButton(
-                    onClick = onPlayPlaylist,
-                    enabled = detail.tracks.isNotEmpty(),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.Black,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color.Black,
-                        disabledContentColor = Color.White,
-                    ),
-                    modifier = Modifier
-                        .size(48.dp)
-                        .alpha(0.3f)
-                        .testTag("playlist-artwork-play"),
-                ) {
-                    Icon(
-                        NaviampTransportIcons.Play,
-                        contentDescription = stringResource(Res.string.playlists_play),
-                        modifier = Modifier.size(32.dp),
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(contentAlignment = Alignment.Center) {
+                    MultiCoverArt(
+                        colors = colors,
+                        covers = headerCovers,
+                        size = 96.dp,
+                        mediaKind = SharedMediaItemKind.Playlist,
                     )
+                    IconButton(
+                        onClick = onPlayPlaylist,
+                        enabled = detail.tracks.isNotEmpty(),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.Black,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color.Black,
+                            disabledContentColor = Color.White,
+                        ),
+                        modifier = Modifier
+                            .size(48.dp)
+                            .alpha(0.3f)
+                            .testTag("playlist-artwork-play"),
+                    ) {
+                        Icon(
+                            NaviampTransportIcons.Play,
+                            contentDescription = stringResource(Res.string.playlists_play),
+                            modifier = Modifier.size(32.dp),
+                        )
+                    }
                 }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
-                Text(detail.playlist.subtitle, color = colors.secondaryText, fontSize = 12.sp)
-                status?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
-                NaviampResponsiveActionRow(
-                    colors = colors,
-                    actions = buildList {
-                        add(NaviampDetailAction(stringResource(Res.string.playlists_play), NaviampTransportIcons.Play, onPlayPlaylist, detail.tracks.isNotEmpty()))
-                        add(NaviampDetailAction(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, onShufflePlaylist, detail.tracks.size > 1))
-                        if (detail.playlist.isSmartPlaylist && detail.playlist.canManagePlaylist) {
-                            add(
-                                NaviampDetailAction(
-                                    editSmartPlaylistLabel,
-                                    NaviampIcons.Brain,
-                                    requestSmartPlaylistEdit,
-                                    enabled = !smartPlaylistLoading,
-                                ),
-                            )
-                        } else if (detail.playlist.canEditPlaylist) {
-                            add(NaviampDetailAction(stringResource(Res.string.playlists_rename_title), NaviampIcons.Edit, { renameOpen = true }))
-                        }
-                        add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_queue), NaviampIcons.Queue, onAddPlaylistToQueue, detail.tracks.isNotEmpty()))
-                        add(NaviampDetailAction(stringResource(Res.string.playlists_download), NaviampIcons.Downloads, onDownloadPlaylist, detail.tracks.isNotEmpty()))
-                        add(NaviampDetailAction("Playback profile", NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()))
-                        if (!detail.playlist.isSmartPlaylist) {
-                            add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_playlist), NaviampIcons.Playlist, { addToPlaylistOpen = true }, detail.tracks.isNotEmpty()))
-                            if (detail.playlist.canEditPlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_bulk_tools_title), NaviampIcons.Settings, { bulkToolsOpen = true }, detail.tracks.isNotEmpty()))
-                        }
-                        if (detail.playlist.canManagePlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_delete_title), NaviampIcons.Trash, { deleteOpen = true }))
-                    },
-                )
-                smartPlaylistLoadMessage?.let { message ->
-                    Text(
-                        message.ifBlank { stringResource(Res.string.playlists_load_smart_failed) },
-                        color = colors.secondaryText,
-                        fontSize = 12.sp,
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                    Text(detail.playlist.subtitle, color = colors.secondaryText, fontSize = 12.sp)
+                    status?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
+                    NaviampResponsiveActionRow(
+                        colors = colors,
+                        actions = buildList {
+                            add(NaviampDetailAction(stringResource(Res.string.playlists_play), NaviampTransportIcons.Play, onPlayPlaylist, detail.tracks.isNotEmpty()))
+                            add(NaviampDetailAction(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, onShufflePlaylist, detail.tracks.size > 1))
+                            if (detail.playlist.isSmartPlaylist && detail.playlist.canManagePlaylist) {
+                                add(
+                                    NaviampDetailAction(
+                                        editSmartPlaylistLabel,
+                                        NaviampIcons.Brain,
+                                        requestSmartPlaylistEdit,
+                                        enabled = !smartPlaylistLoading,
+                                    ),
+                                )
+                            } else if (detail.playlist.canEditPlaylist) {
+                                add(NaviampDetailAction(stringResource(Res.string.playlists_rename_title), NaviampIcons.Edit, { renameOpen = true }))
+                            }
+                            add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_queue), NaviampIcons.Queue, onAddPlaylistToQueue, detail.tracks.isNotEmpty()))
+                            add(NaviampDetailAction(stringResource(Res.string.playlists_download), NaviampIcons.Downloads, onDownloadPlaylist, detail.tracks.isNotEmpty()))
+                            add(NaviampDetailAction("Playback profile", NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()))
+                            if (!detail.playlist.isSmartPlaylist) {
+                                add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_playlist), NaviampIcons.Playlist, { addToPlaylistOpen = true }, detail.tracks.isNotEmpty()))
+                                if (detail.playlist.canEditPlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_bulk_tools_title), NaviampIcons.Settings, { bulkToolsOpen = true }, detail.tracks.isNotEmpty()))
+                            }
+                            if (detail.playlist.canManagePlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_delete_title), NaviampIcons.Trash, { deleteOpen = true }))
+                        },
                     )
-                }
-                playbackProfileStatus?.let { message ->
-                    Text(message, color = colors.secondaryText, fontSize = 11.sp)
+                    smartPlaylistLoadMessage?.let { message ->
+                        Text(
+                            message.ifBlank { stringResource(Res.string.playlists_load_smart_failed) },
+                            color = colors.secondaryText,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    playbackProfileStatus?.let { message ->
+                        Text(message, color = colors.secondaryText, fontSize = 11.sp)
+                    }
                 }
             }
         }
