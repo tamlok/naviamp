@@ -19,7 +19,7 @@
     <string name="mini_player_empty_subtitle">Elige algo para reproducir</string>
     <string name="mini_player_open">Abrir detalles del reproductor</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">Artistas favoritos</string>
+    <string name="library_filter_favorites">Favoritos</string>
     <string name="tv_album_sort_order">Orden de álbumes</string>
     <string name="tv_album_sort_order_description">Elige cómo ordenar los lanzamientos del artista</string>
     <string name="tv_album_sort_oldest_first">Más antiguos primero</string>

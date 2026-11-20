@@ -33,7 +33,7 @@
     <string name="mini_player_empty_subtitle">Pilih sesuatu untuk diputar</string>
     <string name="mini_player_open">Buka detail pemutar</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">Artis favorit</string>
+    <string name="library_filter_favorites">Favorit</string>
     <string name="settings_radio_new_dj">DJ baru</string>
     <string name="settings_radio_create_dj">Buat DJ baru</string>
     <string name="tv_album_sort_order">Urutan album</string>

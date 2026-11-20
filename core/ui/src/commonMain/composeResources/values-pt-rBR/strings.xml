@@ -19,7 +19,7 @@
     <string name="mini_player_empty_subtitle">Escolha algo para ouvir</string>
     <string name="mini_player_open">Abrir detalhes do player</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">Artistas favoritos</string>
+    <string name="library_filter_favorites">Favoritos</string>
     <string name="settings_radio_new_dj">Novo DJ</string>
     <string name="settings_radio_create_dj">Criar novo DJ</string>
     <string name="tv_album_sort_order">Ordenação de álbuns</string>

@@ -1367,6 +1367,35 @@ internal fun MediaListContent(
     }
 }
 
+internal fun libraryVisibleItems(
+    catalog: NaviampLibraryCatalogUi,
+    artistFavoritesOnly: Boolean,
+): List<SharedMediaItemUi> {
+    val query = catalog.query.trim().lowercase()
+    // Authoritative server matches may depend on aliases or metadata absent from the row.
+    val serverMatches = catalog.query.isNotBlank() && catalog.resultsQuery == catalog.query
+    if ((query.isBlank() || serverMatches) && !artistFavoritesOnly) return catalog.items
+    return catalog.items.filter { item ->
+        (query.isBlank() || serverMatches || item.title.lowercase().contains(query) ||
+            item.subtitle.lowercase().contains(query) || item.meta.lowercase().contains(query)) &&
+            (!artistFavoritesOnly || item.favoriteActive)
+    }
+}
+
+@Composable
+internal fun LibraryCatalogStatus(colors: NaviampColors, screen: NaviampLibraryScreenUi) {
+    val favorites = screen.selectedView == NaviampLibraryView.Artists && screen.artistFavoritesOnly
+    when {
+        favorites && screen.artistFavoritesLoading -> {
+            Text(stringResource(Res.string.library_loading_artists), color = colors.secondaryText)
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = colors.accent)
+        }
+        favorites && screen.artistFavoritesFailed ->
+            Text(stringResource(Res.string.favorite_artists_failed), color = colors.secondaryText)
+        else -> NaviampLibraryLoadingStatus(colors, screen.selectedView, screen.selectedCatalog)
+    }
+}
+
 @Composable
 fun NaviampLibraryContent(
     colors: NaviampColors,
@@ -1389,20 +1418,10 @@ fun NaviampLibraryContent(
     }
     val restoredTarget = viewportState.focusedTarget(screen.selectedView)
     val restoredItemFocusRequester = remember(screen.selectedView, restoredTarget) { FocusRequester() }
-    // Provider matching may include accents, aliases, tokenization or hidden metadata.
-    // Only locally preview an unqueried/old catalog; never re-filter current server matches.
+    val artistFavoritesOnly = screen.selectedView == NaviampLibraryView.Artists && screen.artistFavoritesOnly
     val serverMatches = query.isNotBlank() && catalog.resultsQuery == query
-    val filteredItems = remember(items, query, serverMatches) {
-        val normalizedQuery = query.trim().lowercase()
-        if (normalizedQuery.isBlank() || serverMatches) {
-            items
-        } else {
-            items.filter { item ->
-                item.title.lowercase().contains(normalizedQuery) ||
-                    item.subtitle.lowercase().contains(normalizedQuery) ||
-                    item.meta.lowercase().contains(normalizedQuery)
-            }
-        }
+    val filteredItems = remember(items, query, serverMatches, artistFavoritesOnly) {
+        libraryVisibleItems(catalog, artistFavoritesOnly)
     }
     val filteredTracks = remember(tracks, query, serverMatches) {
         val normalizedQuery = query.trim().lowercase()
@@ -1587,6 +1606,24 @@ fun NaviampLibraryContent(
                     ) { Text(label, maxLines = 1) }
                 }
             }
+            if (screen.selectedView == NaviampLibraryView.Artists && screen.supportsArtistFavorites) {
+                val selectionState = stringResource(
+                    if (screen.artistFavoritesOnly) Res.string.library_view_state_selected
+                    else Res.string.library_view_state_not_selected,
+                )
+                TextButton(
+                    onClick = { actions.onArtistFavoritesOnlyChanged(!screen.artistFavoritesOnly) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        containerColor = if (screen.artistFavoritesOnly) colors.accent else colors.controlSurface,
+                        contentColor = if (screen.artistFavoritesOnly) colors.onAccent else colors.primaryText,
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp).semantics {
+                        selected = screen.artistFavoritesOnly
+                        stateDescription = selectionState
+                    },
+                ) { Text(stringResource(Res.string.library_filter_favorites)) }
+            }
             val searchPlaceholder = when (screen.selectedView) {
                 NaviampLibraryView.Artists -> stringResource(Res.string.library_search_artists)
                 NaviampLibraryView.Albums -> stringResource(Res.string.library_search_albums)
@@ -1615,7 +1652,7 @@ fun NaviampLibraryContent(
             )
         }
         // Loading and refresh feedback must never displace the search controls.
-        NaviampLibraryLoadingStatus(colors, screen.selectedView, catalog)
+        LibraryCatalogStatus(colors, screen)
         Row(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1632,11 +1669,12 @@ fun NaviampLibraryContent(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
             if (filteredItems.isEmpty() && filteredTracks.isEmpty() &&
-                !syncStatus.isSyncing && !catalog.searching && catalog.pendingJump == null) {
+                !syncStatus.isSyncing && !catalog.searching && catalog.pendingJump == null &&
+                !(artistFavoritesOnly && (screen.artistFavoritesLoading || screen.artistFavoritesFailed))) {
                 item {
                 val emptyMessage = when (screen.selectedView) {
                     NaviampLibraryView.Artists -> if (query.isBlank()) {
-                        stringResource(Res.string.library_no_artists)
+                        stringResource(if (artistFavoritesOnly) Res.string.favorite_artists_empty else Res.string.library_no_artists)
                     } else {
                         stringResource(Res.string.library_no_artist_matches)
                     }
@@ -1759,7 +1797,8 @@ fun NaviampLibraryContent(
                     )
                 }
             }
-            if (filteredItems.isNotEmpty() || filteredTracks.isNotEmpty()) {
+            if (!artistFavoritesOnly && !screen.artistFavoritesLoading &&
+                (filteredItems.isNotEmpty() || filteredTracks.isNotEmpty())) {
                 item(key = "library-load-more-${screen.selectedView.name}") {
                     androidx.compose.runtime.LaunchedEffect(screen.selectedView, items.size, tracks.size, query, catalog.searching) {
                         if (!syncStatus.isSyncing && !catalog.searching) actions.onLoadMore()

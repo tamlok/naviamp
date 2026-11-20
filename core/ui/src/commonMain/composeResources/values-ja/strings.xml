@@ -33,7 +33,7 @@
     <string name="mini_player_empty_subtitle">再生するものを選んでください</string>
     <string name="mini_player_open">プレーヤーの詳細を開く</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">お気に入りのアーティスト</string>
+    <string name="library_filter_favorites">お気に入り</string>
     <string name="settings_radio_new_dj">新しいDJ</string>
     <string name="settings_radio_create_dj">新しいDJを作成</string>
     <string name="tv_album_sort_order">アルバムの並び順</string>

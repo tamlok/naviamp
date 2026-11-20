@@ -33,7 +33,7 @@
     <string name="mini_player_empty_subtitle">اختر شيئًا لتشغيله</string>
     <string name="mini_player_open">فتح تفاصيل المشغل</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">الفنانون المفضلون</string>
+    <string name="library_filter_favorites">المفضلة</string>
     <string name="settings_radio_new_dj">دي جي جديد</string>
     <string name="settings_radio_create_dj">إنشاء دي جي جديد</string>
     <string name="tv_album_sort_order">ترتيب الألبومات</string>

@@ -18,7 +18,7 @@
     <string name="mini_player_empty_subtitle">Choose something to play</string>
     <string name="mini_player_open">Open player details</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">Favorite artists</string>
+    <string name="library_filter_favorites">Favorites</string>
     <string name="tv_album_sort_order">Album sorting</string>
     <string name="tv_album_sort_order_description">Choose how artist releases are ordered</string>
     <string name="tv_album_sort_oldest_first">Oldest first</string>

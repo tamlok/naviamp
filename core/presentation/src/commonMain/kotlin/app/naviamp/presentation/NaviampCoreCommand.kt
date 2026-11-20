@@ -114,6 +114,7 @@ sealed interface NaviampCoreCommand {
         data object LoadMore : Library
         data class JumpToLetter(val letter: Char) : Library
         data class ChangeAlbumSortOrder(val order: LibraryAlbumSortOrder) : Library
+        data class ChangeArtistFavoritesOnly(val enabled: Boolean) : Library
         data class TrackAction(val request: app.naviamp.ui.SharedTrackRowActionRequest) : Library
         data object OpenSources : Library
         data class ToggleSource(val id: String) : Library

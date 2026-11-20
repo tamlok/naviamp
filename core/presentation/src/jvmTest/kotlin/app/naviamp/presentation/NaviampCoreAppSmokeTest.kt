@@ -510,31 +510,47 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun myFavoritesOpensTheExistingHomeCollectionAndBackReturnsHome() = runDesktopComposeUiTest(1000, 740) {
+    fun libraryFavoritesWorksWithHomeSectionHiddenAndMyHasNoShortcut() = runDesktopComposeUiTest(1000, 740) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val provider = FakeCoreMediaProvider()
+        val base = FakeCoreMediaProvider()
+        val favorite = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("favorite"), "Favorite Artist",
+            favoritedAtIso8601 = "2026-11-20T00:00:00Z")
+        val ordinary = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("ordinary"), "Ordinary Artist")
+        val provider = object : app.naviamp.domain.provider.MediaProvider by base {
+            override val capabilities = base.capabilities.copy(supportsArtistFavorites = true)
+            override suspend fun artists(limit: Int) = listOf(favorite.copy(favoritedAtIso8601 = null), ordinary)
+            override suspend fun artistsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(artists(request.limit), request.offset, request.limit, false)
+            override suspend fun favoriteArtistsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(listOf(favorite), request.offset, request.limit, false)
+        }
         val section = SharedHomeCollectionSectionUi("favorites", "Favorite artists", emptyList(),
-            titleResource = SharedHomeCollectionTitleResource.FavoriteArtists)
+            titleResource = SharedHomeCollectionTitleResource.FavoriteArtists, visible = false)
         val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
             connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
             product = NaviampCoreState(shell = NaviampAppShellUiState(home = NaviampHomeScreenUi(
                 content = SharedHomeUi(collectionSections = listOf(section))))),
         ))
-        val dispatcher = NaviampSystemBackDispatcher()
         try {
-            setContent { CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) { NaviampCoreApp(core) } }
+            setContent { NaviampCoreApp(core) }
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.My)
-            onNodeWithTag("my-favorite-artists").performClick()
-            runOnIdle {
-                assertEquals(SharedRoute.Home, core.state.value.shell.shellChrome.selectedRoute)
-                assertEquals(section, core.state.value.shell.home.collectionPage?.section)
-                dispatcher.currentHandler?.invoke()
-            }
-            runOnIdle {
-                assertEquals(SharedRoute.Home, core.state.value.shell.shellChrome.selectedRoute)
-                assertEquals(null, core.state.value.shell.home.collectionPage)
-            }
-            onNodeWithTag("my-hub").assertDoesNotExist()
+            onNodeWithTag("my-hub").assertIsDisplayed()
+            onNodeWithTag("my-favorite-artists").assertDoesNotExist()
+            onNodeWithTag("my-accounts").assertIsDisplayed()
+            onNodeWithTag("my-settings").assertIsDisplayed()
+            onNodeWithTag("main-destination-Library").performClick()
+            onNodeWithText("Artists").performClick()
+            onNodeWithText("Ordinary Artist").assertIsDisplayed()
+            onNodeWithText("Favorites").assertIsNotSelected().performClick()
+            onNodeWithText("Favorites").assertIsSelected()
+            onNodeWithText("Favorite Artist").assertIsDisplayed()
+            onNodeWithText("Ordinary Artist").assertDoesNotExist()
+            runOnIdle { assertTrue(core.state.value.shell.library.artistFavoritesOnly) }
+            onNodeWithText("Albums").performClick()
+            onNodeWithText("Favorites").assertDoesNotExist()
+            onNodeWithText("Artists").performClick()
+            onNodeWithText("Favorites").assertIsSelected().performClick()
+            onNodeWithText("Ordinary Artist").assertIsDisplayed()
         } finally { scope.cancel() }
     }
 

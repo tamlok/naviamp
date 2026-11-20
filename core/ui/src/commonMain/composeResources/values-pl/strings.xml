@@ -28,7 +28,7 @@
     <string name="mini_player_empty_subtitle">Wybierz coś do odtworzenia</string>
     <string name="mini_player_open">Otwórz szczegóły odtwarzacza</string>
     <string name="mini_player_time_separator">/</string>
-    <string name="my_favorite_artists">Ulubieni wykonawcy</string>
+    <string name="library_filter_favorites">Ulubione</string>
     <string name="settings_radio_new_dj">Nowy DJ</string>
     <string name="settings_radio_create_dj">Utwórz nowego DJ-a</string>
     <string name="tv_album_sort_order">Sortowanie albumów</string>

@@ -1,6 +1,7 @@
 package app.naviamp.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -95,7 +96,13 @@ internal fun TelevisionLibrary(
     NaviampLibrarySourcePicker(colors, screen.sourcePicker, actions)
     val view = screen.selectedView
     val catalog = screen.selectedCatalog
-    val items = catalog.items
+    val showFavorites = view == NaviampLibraryView.Artists && screen.supportsArtistFavorites
+    val artistFavoritesOnly = view == NaviampLibraryView.Artists && screen.artistFavoritesOnly
+    val items = remember(catalog.items, catalog.query, catalog.resultsQuery, artistFavoritesOnly) {
+        libraryVisibleItems(catalog, artistFavoritesOnly)
+    }
+    val canLoadMore = !artistFavoritesOnly && !screen.artistFavoritesLoading &&
+        !catalog.syncStatus.isSyncing && !catalog.searching
     val tracks = catalog.tracks
     val ids = if (view == NaviampLibraryView.Songs) tracks.map { it.id } else items.map { it.id }
     val titles = if (view == NaviampLibraryView.Songs) tracks.map { it.title } else items.map { it.title }
@@ -103,6 +110,7 @@ internal fun TelevisionLibrary(
     val refreshFocus = remember { FocusRequester() }
     val sourcesFocus = remember { FocusRequester() }
     val sortFocus = remember { FocusRequester() }
+    val favoritesFocus = remember { FocusRequester() }
     val showShortcuts = view != NaviampLibraryView.Albums || catalog.albumSortOrder == LibraryAlbumSortOrder.Title
     val shortcuts = if (showShortcuts) televisionLibraryShortcuts() else emptyList()
     val letterFocus = remember { shortcuts.associateWith { FocusRequester() } }
@@ -216,9 +224,9 @@ internal fun TelevisionLibrary(
             libraryLetterJumpIndex(titles, jump.letter).takeIf { it >= 0 }?.let { focusContent(it) }
         }
     }
-    LaunchedEffect(view, ids.size, viewport.focusedId(view)) {
+    LaunchedEffect(view, ids.size, viewport.focusedId(view), canLoadMore) {
         val index = ids.indexOf(viewport.focusedId(view))
-        if (index >= 0 && index >= ids.size - 8 && !catalog.syncStatus.isSyncing) actions.onLoadMore()
+        if (index >= 0 && index >= ids.size - 8 && canLoadMore) actions.onLoadMore()
     }
 
     Column(
@@ -281,7 +289,11 @@ internal fun TelevisionLibrary(
                     if (event.type != KeyEventType.KeyDown) false else when (event.key) {
                         Key.DirectionLeft -> { selectors.getValue(NaviampLibraryView.Songs).requestFocus(); true }
                         Key.DirectionRight -> {
-                            if (view == NaviampLibraryView.Albums) sortFocus.requestFocus() else refreshFocus.requestFocus()
+                            when {
+                                showFavorites -> favoritesFocus.requestFocus()
+                                view == NaviampLibraryView.Albums -> sortFocus.requestFocus()
+                                else -> refreshFocus.requestFocus()
+                            }
                             true
                         }
                         Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
@@ -290,6 +302,34 @@ internal fun TelevisionLibrary(
                     }
                 },
             )
+            if (showFavorites) {
+                val selectionDescription = stringResource(
+                    if (screen.artistFavoritesOnly) Res.string.library_view_state_selected
+                    else Res.string.library_view_state_not_selected,
+                )
+                TelevisionTextButton(stringResource(Res.string.library_filter_favorites), colors,
+                    calmFocus = true,
+                    onClick = { actions.onArtistFavoritesOnlyChanged(!screen.artistFavoritesOnly) },
+                    modifier = Modifier.focusRequester(favoritesFocus)
+                        .border(
+                            2.dp,
+                            if (screen.artistFavoritesOnly) colors.accent else androidx.compose.ui.graphics.Color.Transparent,
+                            RoundedCornerShape(10.dp),
+                        )
+                        .semantics {
+                            selected = screen.artistFavoritesOnly
+                            stateDescription = selectionDescription
+                        }
+                        .onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) false else when (event.key) {
+                                Key.DirectionLeft -> { sourcesFocus.requestFocus(); true }
+                                Key.DirectionRight -> { refreshFocus.requestFocus(); true }
+                                Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
+                                Key.DirectionDown -> { focusContent(); true }
+                                else -> false
+                            }
+                        })
+            }
             if (view == NaviampLibraryView.Albums) {
                 val sortLabel = stringResource(
                     if (catalog.albumSortOrder == LibraryAlbumSortOrder.Title) {
@@ -319,8 +359,11 @@ internal fun TelevisionLibrary(
             val refreshModifier = Modifier.focusRequester(refreshFocus).onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) false else when (event.key) {
                     Key.DirectionLeft -> {
-                        if (view == NaviampLibraryView.Albums) sortFocus.requestFocus()
-                        else sourcesFocus.requestFocus()
+                        when {
+                            showFavorites -> favoritesFocus.requestFocus()
+                            view == NaviampLibraryView.Albums -> sortFocus.requestFocus()
+                            else -> sourcesFocus.requestFocus()
+                        }
                         true
                     }
                     Key.DirectionRight -> true
@@ -333,7 +376,7 @@ internal fun TelevisionLibrary(
                 enabled = !catalog.syncStatus.isSyncing, onClick = actions.onRefresh,
                 modifier = refreshModifier)
         }
-        NaviampLibraryLoadingStatus(colors, view, catalog)
+        LibraryCatalogStatus(colors, screen)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (showShortcuts) LazyColumn(state = letterListState, modifier = Modifier.fillMaxHeight().width(54.dp).testTag(TelevisionLibraryShortcutRailTestTag).onFocusChanged {
                 letterFocused = it.hasFocus
@@ -369,9 +412,14 @@ internal fun TelevisionLibrary(
             }
             Box(Modifier.weight(1f).fillMaxHeight().onFocusChanged { contentFocused = it.hasFocus }.focusGroup()) {
                 if (ids.isEmpty()) {
-                    if (!catalog.syncStatus.isSyncing && catalog.pendingJump == null) Text(
+                    if (!catalog.syncStatus.isSyncing && !catalog.searching && catalog.pendingJump == null &&
+                        !(artistFavoritesOnly && (screen.artistFavoritesLoading || screen.artistFavoritesFailed))) Text(
                         stringResource(when (view) {
-                            NaviampLibraryView.Artists -> Res.string.library_no_artists
+                            NaviampLibraryView.Artists -> when {
+                                catalog.query.isNotBlank() -> Res.string.library_no_artist_matches
+                                artistFavoritesOnly -> Res.string.favorite_artists_empty
+                                else -> Res.string.library_no_artists
+                            }
                             NaviampLibraryView.Albums -> Res.string.library_no_albums
                             NaviampLibraryView.Songs -> Res.string.library_no_songs
                         }), color = colors.secondaryText, fontSize = 20.sp,
@@ -392,7 +440,7 @@ internal fun TelevisionLibrary(
                                         .onPreviewKeyEvent { event ->
                                             if (event.type != KeyEventType.KeyDown) false else when (event.key) {
                                                 Key.DirectionUp -> { if (index == 0) focusSelector() else focusContent(index - 1); true }
-                                                Key.DirectionDown -> { if (index < tracks.lastIndex) focusContent(index + 1) else actions.onLoadMore(); true }
+                                                Key.DirectionDown -> { if (index < tracks.lastIndex) focusContent(index + 1) else if (canLoadMore) actions.onLoadMore(); true }
                                                 Key.DirectionLeft -> { focusLetter(); true }
                                                 else -> false
                                             }
@@ -417,7 +465,7 @@ internal fun TelevisionLibrary(
                         onItemFocused = { viewport.record(view, items[it].id) },
                         onLeftFromFirstColumn = ::focusLetter,
                         onUpFromFirstRow = ::focusSelector,
-                        onEndReached = { if (!catalog.syncStatus.isSyncing) actions.onLoadMore() },
+                        onEndReached = { if (canLoadMore) actions.onLoadMore() },
                         itemTagPrefix = TelevisionLibraryItemTagPrefix,
                     )
                 }

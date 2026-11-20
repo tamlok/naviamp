@@ -161,6 +161,7 @@ class NaviampCoreMediaTransactions(
     private val favoriteArtistActivity: FavoriteArtistActivityRepository? = null,
     private val onFavoriteArtistActivityChanged: () -> Unit = {},
     private val onAlbumUpdated: (app.naviamp.domain.provider.MediaProvider, Album) -> Unit = { _, _ -> },
+    private val onArtistUpdated: (app.naviamp.domain.provider.MediaProvider, Artist) -> Unit = { _, _ -> },
 ) : NaviampCoreTrackRadioTransactions {
     private val trackRadioBuild = Mutex()
     fun play(tracks: List<Track>, index: Int = 0, shuffle: Boolean = false) {
@@ -436,7 +437,7 @@ class NaviampCoreMediaTransactions(
         val provider = providerOrPublish() ?: return
         val sourceId = activeSourceId()
         mutate("Artist favorites are not supported.", { favoriteArtistUpdate(provider, artist, favoritedAtIso8601()) }) {
-            if (sourceId != activeSourceId()) return@mutate
+            if (sourceId != activeSourceId() || !providerSource.isCurrent(provider)) return@mutate
             registry.updateArtist(it)
             activeSourceId()?.let { sourceId ->
                 recordFavoriteArtistActivity {
@@ -449,6 +450,7 @@ class NaviampCoreMediaTransactions(
                 }
             }
             updateArtistFavoriteUi(it.id.value, it.favoritedAtIso8601 != null)
+            onArtistUpdated(provider, it)
         }
     }
 

@@ -27,9 +27,6 @@ internal fun NaviampMyContent(
     modifier: Modifier = Modifier,
 ) {
     val account = uiState.connectionSettings.connection.savedConnections.firstOrNull { it.current }
-    val favoriteArtists = uiState.home.content.collectionSections.firstOrNull {
-        it.visible && it.titleResource == SharedHomeCollectionTitleResource.FavoriteArtists
-    }
     Column(modifier.fillMaxSize()) {
         NaviampPageHeader(stringResource(Res.string.nav_my), colors)
         Column(
@@ -45,12 +42,6 @@ internal fun NaviampMyContent(
                 }
             }
             MyLink(stringResource(Res.string.tv_accounts), "my-accounts", colors, actions.connectionActions.onOpenAccounts)
-            if (favoriteArtists != null) {
-                MyLink(stringResource(Res.string.my_favorite_artists), "my-favorite-artists", colors) {
-                    actions.navigationActions.onRouteSelected(SharedRoute.Home)
-                    actions.homeActions.onCollectionSelected(favoriteArtists.id)
-                }
-            }
             if (uiState.shellChrome.supportsDownloads) {
                 MyLink(stringResource(Res.string.downloads_offline_title), "my-downloads", colors) {
                     actions.navigationActions.onRouteSelected(SharedRoute.Downloads)

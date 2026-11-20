@@ -500,6 +500,7 @@ class NaviampCore private constructor(
                 favoriteArtistActivity = services.content.homeLibrary,
                 onFavoriteArtistActivityChanged = { scope.launch { home.refreshAfterConnection() } },
                 onAlbumUpdated = { provider, album -> services.content.albumIndex?.updateAlbum(provider, album) },
+                onArtistUpdated = catalog::artistUpdated,
             )
             val playlistMembership = NaviampCorePlaylistMembershipCoordinator(
                 providerSource = providerSource,
