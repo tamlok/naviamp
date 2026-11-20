@@ -602,6 +602,8 @@ private fun NaviampNowPlayingPanelContent(
                             onVisualizerSwiped = actions::cycleVisualizer,
                             onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                             shadowMargin = 0.dp,
+                            modifier = Modifier.fillMaxSize(),
+                            cardHorizontalPadding = 14.dp,
                         )
                     }
                     NowPlayingDetails(
@@ -743,6 +745,7 @@ private fun NaviampNowPlayingPanelContent(
                             onVisualizerSwiped = actions::cycleVisualizer,
                             onToggleFavorite = { actions.currentTrack(NowPlayingCurrentTrackAction.ToggleFavorite) },
                             largeSizing = !compactWidthSizing,
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                     NowPlayingDetails(
@@ -899,25 +902,26 @@ private fun NowPlayingArtSurface(
     onToggleFavorite: () -> Unit,
     largeSizing: Boolean = false,
     shadowMargin: Dp = NowPlayingArtShadowMargin,
+    modifier: Modifier = Modifier,
+    cardHorizontalPadding: Dp = 0.dp,
 ) {
     val shape = RoundedCornerShape(resolvedMediaArtworkCornerRadius(SharedMediaItemKind.Track, size, cornerRadius))
     val toggleModifier = Modifier.clickable(enabled = visualizerAvailable, onClick = onToggleVisualizer)
     var visualizerMenuExpanded by remember { mutableStateOf(false) }
 
-    if (visualizerVisible && visualizerAvailable) {
-        val progress = currentPlaybackProgress(nowPlaying, playbackProgress)
-        val progressNowPlaying = nowPlaying.copy(
-            positionSeconds = progress.positionSeconds ?: nowPlaying.positionSeconds,
-            durationSeconds = nowPlaying.durationSeconds ?: progress.durationSeconds,
-        )
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().height(size + shadowMargin * 2),
-        ) {
+    Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        if (visualizerVisible && visualizerAvailable) {
+            val progress = currentPlaybackProgress(nowPlaying, playbackProgress)
+            val progressNowPlaying = nowPlaying.copy(
+                positionSeconds = progress.positionSeconds ?: nowPlaying.positionSeconds,
+                durationSeconds = nowPlaying.durationSeconds ?: progress.durationSeconds,
+            )
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .height(size + shadowMargin * 2)
+                    .testTag("now-playing-visualizer")
                     .visualizerContextMenu { visualizerMenuExpanded = true }
                     .visualizerSwipe(onVisualizerSwiped)
                     .then(toggleModifier),
@@ -931,8 +935,7 @@ private fun NowPlayingArtSurface(
                     tempoBpm = tempoBpm,
                     colors = colors,
                     lyricStage = progressNowPlaying.currentLyricMirrorTunnelStage(),
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                 )
                 NaviampDropdownMenu(
                     expanded = visualizerMenuExpanded,
@@ -948,33 +951,30 @@ private fun NowPlayingArtSurface(
                     )
                 }
             }
-            Box(Modifier.size(size).testTag("now-playing-visualizer-artwork-anchor")) {
-                NowPlayingFavoriteButton(
-                    nowPlaying, colors, largeSizing, onToggleFavorite,
-                    Modifier.align(AbsoluteAlignment.BottomLeft).padding(8.dp),
-                )
+        } else {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.size(size + shadowMargin * 2),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(size)
+                        .testTag("now-playing-artwork")
+                        .shadow(24.dp, shape, clip = false)
+                        .shadow(7.dp, shape, clip = false),
+                ) {
+                    Box(modifier = toggleModifier) {
+                        NaviampCoverArt(coverArtUrl, colors, size, cornerRadius, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
+                    }
+                }
             }
         }
-    } else {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(size + shadowMargin * 2),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(size)
-                    .testTag("now-playing-artwork")
-                    .shadow(24.dp, shape, clip = false)
-                    .shadow(7.dp, shape, clip = false),
-            ) {
-                Box(modifier = toggleModifier) {
-                    NaviampCoverArt(coverArtUrl, colors, size, cornerRadius, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
-                }
-                NowPlayingFavoriteButton(
-                    nowPlaying, colors, largeSizing, onToggleFavorite,
-                    Modifier.align(AbsoluteAlignment.BottomLeft).padding(8.dp),
-                )
-            }
+        Box(Modifier.matchParentSize().padding(horizontal = cardHorizontalPadding)
+            .testTag("now-playing-artwork-card")) {
+            NowPlayingFavoriteButton(
+                nowPlaying, colors, largeSizing, onToggleFavorite,
+                Modifier.align(AbsoluteAlignment.BottomLeft).padding(8.dp),
+            )
         }
     }
 }

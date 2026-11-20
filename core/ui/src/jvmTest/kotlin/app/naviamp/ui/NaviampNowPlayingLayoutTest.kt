@@ -112,11 +112,11 @@ class NaviampNowPlayingLayoutTest {
         }
     }
 
-    @Test fun artworkFavoriteMatchesPlayAndDoesNotTriggerArtworkGestures() {
+    @Test fun artworkCardFavoriteMatchesPlayAndDoesNotTriggerArtworkGestures() {
         for ((width, height, filled) in listOf(
             Triple(1280, 720, false), Triple(420, 900, false), Triple(320, 900, false),
             Triple(360, 640, false), Triple(320, 720, true), Triple(420, 900, true),
-            Triple(280, 500, true), Triple(640, 240, true),
+            Triple(280, 500, true), Triple(640, 240, true), Triple(280, 500, false),
         )) runDesktopComposeUiTest(width, height) {
             val playing = mutableStateOf(NowPlayingUi(
                 id = "song", title = "Song", subtitle = "Artist", stateLabel = "Paused",
@@ -157,9 +157,21 @@ class NaviampNowPlayingLayoutTest {
                 assertTrue(bounds.left >= art.left && bounds.right <= art.right, "$label inside artwork")
                 assertTrue(bounds.bottom <= controls.top, "$label does not overlap controls")
             } else {
+                val card = onNodeWithTag("now-playing-artwork-card").getUnclippedBoundsInRoot()
                 val art = onNodeWithTag("now-playing-artwork").getUnclippedBoundsInRoot()
-                assertEquals(art.left + 8.dp, bounds.left, "$label left corner")
-                assertEquals(art.bottom - 8.dp, bounds.bottom, "$label bottom corner")
+                val controls = onNodeWithTag("now-playing-controller").getUnclippedBoundsInRoot()
+                assertEquals(card.left + 8.dp, bounds.left, "$label card left corner")
+                assertEquals(card.bottom - 8.dp, bounds.bottom, "$label card bottom corner")
+                assertEquals(controls.left, card.left, "$label card left aligns with controller")
+                assertEquals(controls.right, card.right, "$label card right aligns with controller")
+                if (width >= 780) {
+                    val slot = onNodeWithTag("now-playing-artwork-slot").getUnclippedBoundsInRoot()
+                    assertEquals(slot.top, card.top, "$label card uses full artwork area height")
+                    assertEquals(slot.bottom, card.bottom, "$label card uses full artwork area height")
+                    assertTrue(bounds.left < art.left, "$label favorite anchors to card, not centered image")
+                } else if (height >= 900) {
+                    assertEquals(controls.top - 8.dp, bounds.bottom, "$label favorite uses bottom of artwork area")
+                }
             }
             favorite.performMouseInput { click() }
             favorite.assertIsSelected().assertContentDescriptionEquals("Unfavorite")
@@ -175,17 +187,22 @@ class NaviampNowPlayingLayoutTest {
                 javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", target)
             }
             if (!filled) {
+                val imageBefore = onNodeWithTag("now-playing-artwork").getUnclippedBoundsInRoot()
+                val visualizerWidthBefore = onNodeWithTag(if (width >= 780) "now-playing-artwork-slot" else "now-playing-artwork-card")
+                    .getUnclippedBoundsInRoot().let { it.right - it.left }
                 runOnIdle { playing.value = playing.value.copy(visualizerVisible = true) }
                 favorite.assertIsDisplayed()
+                val visualizerBounds = onNodeWithTag("now-playing-visualizer").getUnclippedBoundsInRoot()
+                assertEquals(visualizerWidthBefore, visualizerBounds.right - visualizerBounds.left, "$label visualizer retains width")
+                assertEquals(imageBefore.bottom - imageBefore.top + (if (width >= 780) 0.dp else 24.dp),
+                    visualizerBounds.bottom - visualizerBounds.top, "$label visualizer retains height")
                 assertEquals(bounds, favorite.getUnclippedBoundsInRoot(), "$label stable visualizer anchor")
                 favorite.performMouseInput { click(button = MouseButton.Secondary) }
                 favorite.performTouchInput { swipeLeft() }
                 favorite.performMouseInput { click() }
                 runOnIdle { assertTrue(displayActions.isEmpty(), "$label no visualizer gesture leaks") }
                 onAllNodesWithText(NaviampVisualizer.AudioSphere.label).assertCountEquals(0)
-                onNodeWithTag("now-playing-visualizer-artwork-anchor").performTouchInput {
-                    click(Offset(center.x, 16f))
-                }
+                onNodeWithTag("now-playing-visualizer").performTouchInput { click(center) }
                 runOnIdle { assertEquals(listOf(NowPlayingDisplayAction.ToggleVisualizer), displayActions) }
             }
             runOnIdle { playing.value = playing.value.copy(canFavorite = false, favoriteActive = true) }
@@ -568,7 +585,7 @@ class NaviampNowPlayingLayoutTest {
                     onNodeWithContentDescription("Unpin queue").performScrollTo().performClick()
                     back.performClick()
                 }
-                onNode(hasScrollAction() and hasAnyDescendant(hasTestTag("now-playing-controller")))
+                onNode(hasScrollAction() and hasAnyDescendant(hasTestTag("now-playing-side-panel")))
                     .performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 10_000f) }
                 val viewport = onRoot().getUnclippedBoundsInRoot()
                 val bottomCard = onNodeWithTag(if (queueShown) "now-playing-queue-card" else "now-playing-lyrics-card")
