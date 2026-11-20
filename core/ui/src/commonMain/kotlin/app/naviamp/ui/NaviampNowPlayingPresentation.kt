@@ -274,7 +274,7 @@ fun NaviampMiniPlayerContent(
     nowPlaying: NowPlayingUi,
     colors: NaviampColors,
     actions: NaviampNowPlayingActions,
-    onOpen: () -> Unit,
+    onOpen: (showQueue: Boolean) -> Unit,
     interfaceSettings: InterfaceSettings,
     modifier: Modifier = Modifier,
     playbackProgress: StateFlow<PlaybackProgress>? = null,

@@ -434,6 +434,81 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
+    fun miniPlayerQueuePreservesBrowsingAndDismissesWithoutOpeningThePlayer() {
+        for ((width, height) in listOf(1000 to 740, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val provider = FakeCoreMediaProvider()
+                val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+                    connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
+                ))
+                val playing = mutableStateOf<NowPlayingUi?>(NowPlayingUi(id = "queue-track", title = "Current song", subtitle = "Artist",
+                    stateLabel = "Paused", isPaused = true, hasNext = false, canPlayPause = false,
+                    upNext = listOf(NaviampNowPlayingItemUi("next", "Upcoming song", "Artist"))))
+                val dispatcher = NaviampSystemBackDispatcher()
+                try {
+                    setContent {
+                        val shell = core.state.collectAsState().value.shell
+                        CompositionLocalProvider(LocalNaviampSystemBackDispatcher provides dispatcher) {
+                            NaviampSharedAppShell(uiState = shell.copy(nowPlaying = playing.value),
+                                actions = core.actions.shell, syncActions = core.actions.settingsSync)
+                        }
+                    }
+                    val playback = core.state.value.shell.playback
+                    val route = onNodeWithTag("main-route-content").getUnclippedBoundsInRoot()
+                    fun assertBrowsing() {
+                        onNodeWithTag("mini-player").assertIsDisplayed()
+                        onNodeWithTag("now-playing-back").assertDoesNotExist()
+                        onNodeWithTag(if (width == 320) "main-navigation-open" else "main-navigation-rail").assertIsDisplayed()
+                        assertEquals(route, onNodeWithTag("main-route-content").getUnclippedBoundsInRoot())
+                        runOnIdle {
+                            assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
+                            assertEquals(SharedRoute.Home, core.state.value.shell.shellChrome.selectedRoute)
+                            assertEquals(playback, core.state.value.shell.playback)
+                        }
+                    }
+                    fun openQueue() {
+                        onNodeWithContentDescription("Queue").assertIsEnabled().performClick()
+                        onNodeWithTag("now-playing-queue-drawer").assertIsDisplayed()
+                        onNodeWithTag("now-playing-queue-pin").assertDoesNotExist()
+                        onNodeWithText("Upcoming song").assertIsDisplayed()
+                        assertBrowsing()
+                    }
+                    onNodeWithContentDescription("Next").assertIsNotEnabled()
+                    openQueue()
+                    onNodeWithTag("now-playing-queue-close").assertIsDisplayed().performClick()
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    assertBrowsing()
+                    onNodeWithContentDescription("Queue").assertIsFocused()
+                    openQueue()
+                    onNodeWithTag("now-playing-queue-drawer").performKeyInput {
+                        pressKey(androidx.compose.ui.input.key.Key.Escape)
+                    }
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    onNodeWithContentDescription("Queue").assertIsFocused()
+                    openQueue()
+                    runOnIdle { assertNotNull(dispatcher.currentHandler).invoke() }
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    openQueue()
+                    // A click on the identity beneath the scrim dismisses, never opens details.
+                    onNodeWithTag("mini-player-identity").performTouchInput { click(androidx.compose.ui.geometry.Offset(4f, centerY)) }
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    assertBrowsing()
+                    openQueue()
+                    runOnIdle { core.actions.shell.navigationActions.onOpenNowPlaying() }
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    onNodeWithTag("now-playing-back").assertIsDisplayed().performClick()
+                    assertBrowsing()
+                    openQueue()
+                    runOnIdle { playing.value = null }
+                    onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                    onNodeWithContentDescription("Queue").assertIsNotEnabled()
+                } finally { scope.cancel() }
+            }
+        }
+    }
+
+    @Test
     fun detailsHideTheMiniPlayerAndEveryExitRestoresItWithoutStoppingPlayback() {
         for ((width, height) in listOf(1000 to 740, 412 to 818, 320 to 640)) {
             runDesktopComposeUiTest(width, height) {

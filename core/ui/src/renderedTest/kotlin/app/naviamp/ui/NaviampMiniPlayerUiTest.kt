@@ -122,6 +122,7 @@ class NaviampMiniPlayerUiTest {
             onNodeWithContentDescription("Previous").assertIsNotEnabled()
             onNodeWithContentDescription("Play").assertIsNotEnabled()
             onNodeWithContentDescription("Next").assertIsNotEnabled()
+            onNodeWithContentDescription("Queue").assertIsDisplayed().assertIsNotEnabled()
             onNodeWithContentDescription("Playback position").assertDoesNotExist()
             onNodeWithContentDescription("Volume").assertDoesNotExist()
             onNodeWithTag("mini-player-time").assertDoesNotExist()
@@ -191,9 +192,12 @@ class NaviampMiniPlayerUiTest {
         val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
         val play = onNodeWithContentDescription("Play").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
         val next = onNodeWithContentDescription("Next").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
+        val queue = onNodeWithContentDescription("Queue").assertIsDisplayed().assertIsEnabled().getUnclippedBoundsInRoot()
         assertTrue(play.right - play.left >= 48.dp && play.bottom - play.top >= 48.dp)
         assertTrue(next.right - next.left >= 48.dp && next.bottom - next.top >= 48.dp)
+        assertTrue(queue.right - queue.left >= 48.dp && queue.bottom - queue.top >= 48.dp)
         assertTrue(identity.right <= play.left && play.right <= next.left)
+        assertTrue(next.right <= queue.left)
     }
 
     @Test
@@ -210,6 +214,7 @@ class NaviampMiniPlayerUiTest {
         onNodeWithContentDescription("Previous").assertIsNotEnabled()
         onNodeWithContentDescription("Pause").assertIsEnabled()
         onNodeWithContentDescription("Next").assertIsEnabled()
+        onNodeWithContentDescription("Queue").assertIsEnabled()
         onNodeWithContentDescription("Playback position").assertDoesNotExist()
         onNodeWithTag("mini-player-time").assertDoesNotExist()
         onNodeWithTag("volume-popup-button").assertIsDisplayed()
@@ -416,7 +421,7 @@ class NaviampMiniPlayerUiTest {
                 }
             }
         }
-        for (viewport in listOf(320, 412, 719, 720, 1000)) {
+        for (viewport in listOf(280, 320, 360, 412, 719, 720, 1000)) {
             runOnIdle { width.value = viewport.dp }
             val progress = onNodeWithContentDescription("Playback position")
                 .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
@@ -425,8 +430,14 @@ class NaviampMiniPlayerUiTest {
                 .assertIsDisplayed().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp).getUnclippedBoundsInRoot()
             val identity = onNodeWithTag("mini-player-identity").getUnclippedBoundsInRoot()
             val next = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
+            val queue = onNodeWithContentDescription("Queue")
+                .assertIsDisplayed().assertIsEnabled().assertHeightIsAtLeast(48.dp).assertWidthIsAtLeast(48.dp)
+                .getUnclippedBoundsInRoot()
             val player = onNodeWithTag("mini-player").getUnclippedBoundsInRoot()
             onNodeWithText("01:01/05:38").assertIsDisplayed()
+            onNodeWithText("A long song title", useUnmergedTree = true).assertIsDisplayed()
+            assertTrue(next.right <= queue.left && queue.right <= speaker.left)
+            assertTrue(next.top == queue.top && next.bottom == queue.bottom)
             val time = onNodeWithTag("mini-player-time").assertIsDisplayed().getUnclippedBoundsInRoot()
             assertTrue(time.left >= progress.right && time.right <= player.right)
             assertTrue(time.right - time.left >= requiredTimeWidth, "Elapsed/total timing must fit without splitting its digits")

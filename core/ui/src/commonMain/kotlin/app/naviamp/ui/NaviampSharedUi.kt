@@ -40,6 +40,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import app.naviamp.domain.settings.albumArtworkPreference
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -301,6 +303,14 @@ private fun NaviampSharedAppShellContent(
                     playlistDetail.selectedPlaylist == null &&
                     (selectedRoute == SharedRoute.Settings || selectedRoute == SharedRoute.Downloads),
             ) { navigationActions.onRouteSelected(SharedRoute.My) }
+            NaviampQueueDrawer(
+                nowPlaying = nowPlaying,
+                colors = colors,
+                actions = nowPlayingActions,
+                enabled = !connectionSetupOnly && !showFullNowPlaying,
+                fontSize = interfaceSettings.nowPlayingFontSize,
+                parentFontSize = interfaceSettings.generalFontSize,
+            ) { openQueue, queueFocusRequester ->
             NaviampMainScaffold(
                 selectedRoute = selectedRoute,
                 colors = colors,
@@ -311,9 +321,12 @@ private fun NaviampSharedAppShellContent(
                     if (!showFullNowPlaying) {
                         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
                             NaviampMiniNowPlaying(
-                                nowPlaying, colors, navigationActions.onOpenNowPlaying, nowPlayingActions, playerBackground,
+                                nowPlaying, colors, { showQueue ->
+                                    if (showQueue) openQueue() else navigationActions.onOpenNowPlaying()
+                                }, nowPlayingActions, playerBackground,
                                 playbackProgress = effectivePlaybackProgress,
                                 showVolumeBar = interfaceSettings.nowPlaying.showVolumeBar,
+                                queueFocusRequester = queueFocusRequester,
                             )
                         }
                     }
@@ -392,6 +405,7 @@ private fun NaviampSharedAppShellContent(
                     }
                 }
 
+            }
             }
         }
         if (radioDjCreationOpen) {
@@ -1071,12 +1085,13 @@ fun NaviampSettingsContent(
 fun NaviampMiniNowPlaying(
     nowPlaying: NowPlayingUi?,
     colors: NaviampColors,
-    onOpen: () -> Unit,
+    onOpen: (showQueue: Boolean) -> Unit,
     actions: NaviampNowPlayingActions,
     background: NaviampPlayerBackgroundState,
     modifier: Modifier = Modifier,
     playbackProgress: StateFlow<PlaybackProgress>? = null,
     showVolumeBar: Boolean = true,
+    queueFocusRequester: FocusRequester? = null,
 ) {
     val playing = nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }
     val openLabel = stringResource(Res.string.mini_player_open)
@@ -1089,7 +1104,7 @@ fun NaviampMiniNowPlaying(
         Column(Modifier.fillMaxWidth()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 8.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
@@ -1099,7 +1114,7 @@ fun NaviampMiniNowPlaying(
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                         .testTag("mini-player-identity")
                         .then(if (playing == null) Modifier else Modifier.clickable(
-                            onClickLabel = openLabel, role = Role.Button, onClick = onOpen,
+                            onClickLabel = openLabel, role = Role.Button, onClick = { onOpen(false) },
                         ).semantics { contentDescription = openLabel }),
                 ) {
                     NaviampCoverArt(playing?.coverArtUrl, colors, if (compact) 32.dp else 40.dp, 5.dp,
@@ -1152,6 +1167,16 @@ fun NaviampMiniNowPlaying(
                     onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
                     size = 48.dp,
                 )
+                Box(if (queueFocusRequester != null) Modifier.focusRequester(queueFocusRequester) else Modifier) {
+                    MiniPlayerIconButton(
+                        colors = colors,
+                        enabled = playing != null,
+                        icon = NaviampIcons.Queue,
+                        contentDescription = stringResource(Res.string.player_queue),
+                        onClick = { onOpen(true) },
+                        size = 48.dp,
+                    )
+                }
                 if (inlineProgress && showProgress) {
                     Box(Modifier.weight(1f)) {
                         NaviampMiniPlayerProgress(playing, playbackProgress, colors, actions)

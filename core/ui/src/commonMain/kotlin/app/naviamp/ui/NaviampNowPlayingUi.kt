@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -53,6 +54,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -72,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -138,6 +144,7 @@ import app.naviamp.domain.lyrics.LyricsTiming
 import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.playback.SleepTimerRequest
 import app.naviamp.domain.settings.LyricsDisplayPreference
+import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import app.naviamp.domain.settings.TrackSwipeAction
 import kotlinx.coroutines.launch
@@ -350,6 +357,100 @@ private class NowPlayingQueueUiState {
     val upNext = LazyListState()
     val related = LazyListState()
     val stations = LazyListState()
+}
+
+@Composable
+internal fun NaviampQueueDrawer(
+    nowPlaying: NowPlayingUi?,
+    colors: NaviampColors,
+    actions: NaviampNowPlayingActions,
+    enabled: Boolean,
+    fontSize: InterfaceFontSize,
+    parentFontSize: InterfaceFontSize,
+    content: @Composable (openQueue: () -> Unit, queueFocusRequester: FocusRequester) -> Unit,
+) {
+    val playing = nowPlaying?.takeUnless { it.id.isBlank() && !it.isLive }
+    val available = enabled && playing != null
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val queueFocus = remember { FocusRequester() }
+    val drawerFocus = remember { FocusRequester() }
+    var restoreQueueFocus by remember { mutableStateOf(false) }
+    val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
+    val openDrawer: () -> Unit = { if (available) scope.launch { drawerState.open() } }
+    val textDirection = LocalLayoutDirection.current
+    val drawerVisible = available &&
+        (drawerState.currentValue == DrawerValue.Open || drawerState.targetValue == DrawerValue.Open)
+
+    LaunchedEffect(available) {
+        if (!available) {
+            restoreQueueFocus = false
+            drawerState.snapTo(DrawerValue.Closed)
+        }
+    }
+    LaunchedEffect(drawerState.isOpen, available) {
+        if (!available) {
+            restoreQueueFocus = false
+        } else if (drawerState.isOpen) {
+            restoreQueueFocus = true
+            androidx.compose.runtime.withFrameNanos { }
+            drawerFocus.requestFocus()
+        } else if (drawerState.targetValue == DrawerValue.Closed && restoreQueueFocus) {
+            restoreQueueFocus = false
+            queueFocus.requestFocus()
+        }
+    }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val drawerWidth = minOf(420.dp, (maxWidth - 48.dp).coerceAtLeast(0.dp))
+        // Keep the drawer on the physical right without changing its content direction.
+        CompositionLocalProvider(
+            LocalLayoutDirection provides LayoutDirection.Rtl,
+            // This drawer shares the canvas; owned-window native layers would paint above it.
+            LocalNaviampRasterPresenter provides LocalNaviampRasterPresenter.current.takeUnless { drawerVisible },
+        ) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = drawerVisible,
+                modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
+                    if (drawerVisible && event.type == KeyEventType.KeyDown &&
+                        (event.key == Key.Escape || event.key == Key.Back)) {
+                        closeDrawer()
+                        true
+                    } else false
+                },
+                drawerContent = {
+                    ModalDrawerSheet(Modifier.width(drawerWidth).fillMaxHeight(),
+                        drawerContainerColor = colors.controlSurface) {
+                        if (drawerVisible) {
+                            CompositionLocalProvider(LocalLayoutDirection provides textDirection) {
+                                NaviampFontSizeScope(fontSize, parentFontSize) {
+                                    val queueState = remember(playing.id, playing.isLive) { NowPlayingQueueUiState() }
+                                    NowPlayingQueuePanel(
+                                        nowPlaying = rememberProgressStableNowPlaying(playing),
+                                        colors = colors, queueState = queueState,
+                                        showStationList = playing.isLive, compactQueueRows = true,
+                                        actions = actions, presentation = NowPlayingQueuePresentation.Drawer,
+                                        onPresentationChanged = null, pinFocusRequester = drawerFocus,
+                                        onDismiss = closeDrawer,
+                                        modifier = Modifier.fillMaxSize().focusRequester(drawerFocus).focusable()
+                                            .focusProperties { onExit = { cancelFocusChange() } }.focusGroup(),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+            ) {
+                CompositionLocalProvider(LocalLayoutDirection provides textDirection) {
+                    content(openDrawer, queueFocus)
+                }
+            }
+        }
+        if (drawerVisible) {
+            NaviampPopupPresence()
+            NaviampSystemBackHandler(enabled = true, onBack = closeDrawer)
+        }
+    }
 }
 
 @Composable
@@ -2364,9 +2465,10 @@ private fun NowPlayingQueuePanel(
     compactQueueRows: Boolean,
     actions: NaviampNowPlayingActions,
     presentation: NowPlayingQueuePresentation,
-    onPresentationChanged: (NowPlayingQueuePresentation) -> Unit,
+    onPresentationChanged: ((NowPlayingQueuePresentation) -> Unit)?,
     pinFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val pinned = presentation == NowPlayingQueuePresentation.Pinned
     val surfaceColor = if (pinned) colors.playerSurface else colors.controlSurface
@@ -2381,13 +2483,23 @@ private fun NowPlayingQueuePanel(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.player_queue), color = colors.primaryText,
                 fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            NaviampTransportIconButton(
+            if (onPresentationChanged != null) NaviampTransportIconButton(
                 enabled = true, icon = NaviampIcons.Pin,
                 contentDescription = stringResource(if (pinned) Res.string.now_playing_unpin_queue else Res.string.now_playing_pin_queue),
                 colors = colors, selected = pinned, buttonSize = 40.dp, iconSize = 20.dp,
                 modifier = Modifier.testTag("now-playing-queue-pin").focusRequester(pinFocusRequester)
                     .semantics { selected = pinned },
                 onClick = { onPresentationChanged(if (pinned) NowPlayingQueuePresentation.Drawer else NowPlayingQueuePresentation.Pinned) },
+            )
+            if (!pinned && (onDismiss != null || onPresentationChanged != null)) NaviampTransportIconButton(
+                enabled = true, icon = NaviampIcons.Close,
+                contentDescription = stringResource(Res.string.common_close),
+                colors = colors, buttonSize = 48.dp, iconSize = 24.dp,
+                modifier = Modifier.testTag("now-playing-queue-close"),
+                onClick = {
+                    if (onDismiss != null) onDismiss()
+                    else onPresentationChanged?.invoke(NowPlayingQueuePresentation.Hidden)
+                },
             )
         }
         if (showStationList) {
