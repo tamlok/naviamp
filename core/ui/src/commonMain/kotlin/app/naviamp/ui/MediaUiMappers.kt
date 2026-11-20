@@ -790,7 +790,6 @@ enum class NowPlayingPlaybackAction {
     ToggleShuffle,
     CycleRepeatMode,
     ChangeVolume,
-    ToggleMute,
 }
 
 data class NowPlayingPlaybackActionRequest(

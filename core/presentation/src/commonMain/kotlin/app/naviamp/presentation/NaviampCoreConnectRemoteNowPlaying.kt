@@ -232,8 +232,7 @@ internal fun NowPlayingPlaybackActionRequest.toNaviampConnectPlaybackCommand(
             NaviampConnectRepeatMode.One -> NaviampConnectRepeatMode.Off
         },
     )
-    NowPlayingPlaybackAction.ChangeVolume,
-    NowPlayingPlaybackAction.ToggleMute -> null
+    NowPlayingPlaybackAction.ChangeVolume -> null
 }
 
 private fun NaviampConnectRepeatMode.toUiRepeatMode(): NaviampRepeatMode = when (this) {

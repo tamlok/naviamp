@@ -404,8 +404,6 @@
     <string name="permission_local_network_usage">Naviamp se connecte à vos serveurs de musique et recherche les appareils de lecture sur votre réseau local.</string>
     <string name="now_playing_playback_position">Position de lecture</string>
     <string name="now_playing_volume">Volume</string>
-    <string name="now_playing_mute">Couper le son</string>
-    <string name="now_playing_unmute">Rétablir le son</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>

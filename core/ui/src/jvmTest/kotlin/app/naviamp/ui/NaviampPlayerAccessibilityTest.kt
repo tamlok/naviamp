@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampPlayerAccessibilityTest {
@@ -61,43 +62,55 @@ class NaviampPlayerAccessibilityTest {
                 }, {}, {}, {}, {}, {}, {}),
             )
         }
+        onNodeWithTag("now-playing-volume-slider").assertDoesNotExist()
+        onNodeWithTag("volume-popup-button").performClick()
         val slider = onNodeWithTag("now-playing-volume-slider")
         slider.assertContentDescriptionEquals("Volume")
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(.5f, 0f..1f))
+        slider.assertIsFocused()
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(2f) }
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(1f, 0f..1f))
         slider.performSemanticsAction(SemanticsActions.SetProgress) { it(-1f) }
         slider.assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
         assertEquals(listOf(100, 0), volumes)
+        slider.performSemanticsAction(SemanticsActions.SetProgress) { assertFalse(it(Float.NaN)) }
+        assertEquals(listOf(100, 0), volumes)
     }
 
-    @Test fun speakerButtonSupportsPointerKeyboardAndLiveVolumeState() = runDesktopComposeUiTest(1280, 720) {
+    @Test fun speakerOpensVolumeWithoutMutingAndTracksExternalVolume() = runDesktopComposeUiTest(1280, 720) {
         val playing = mutableStateOf(NowPlayingUi(id = "song", title = "Song", subtitle = "Artist",
             stateLabel = "Paused", volumePercent = 65, canChangeVolume = true))
+        val requests = mutableListOf<NowPlayingPlaybackActionRequest>()
         setContent {
             NaviampNowPlayingPanel(playing.value, colors = NaviampColors(),
-                actions = NaviampNowPlayingActions({ request ->
-                    if (request.action == NowPlayingPlaybackAction.ToggleMute) {
-                        playing.value = playing.value.copy(volumePercent = if (playing.value.volumePercent == 0) 65 else 0)
-                    }
-                }, {}, {}, {}, {}, {}, {}))
+                actions = NaviampNowPlayingActions({ requests += it }, {}, {}, {}, {}, {}, {}))
         }
-        onNodeWithContentDescription("Mute").assertHasClickAction()
+        val speaker = onNodeWithTag("volume-popup-button")
+        speaker.assertContentDescriptionEquals("Volume").assertHasClickAction()
             .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
-            .performTouchInput { click(center) }
-        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
-        val unmute = onNodeWithContentDescription("Unmute")
-        unmute.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
-        unmute.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
-        onNodeWithContentDescription("Volume").assertRangeInfoEquals(ProgressBarRangeInfo(.65f, 0f..1f))
-        onNodeWithContentDescription("Mute").assertIsDisplayed()
+            .performMouseInput { click() }
+        val slider = onNodeWithTag("now-playing-volume-slider")
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(.65f, 0f..1f))
+        val bounds = slider.getUnclippedBoundsInRoot()
+        assertTrue(bounds.bottom - bounds.top > bounds.right - bounds.left)
         runOnIdle { playing.value = playing.value.copy(volumePercent = 0) }
-        onNodeWithContentDescription("Unmute").assertIsDisplayed()
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
+        slider.performKeyInput { pressKey(Key.Escape) }
+        slider.assertDoesNotExist()
+        speaker.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+            .performKeyInput { pressKey(Key.Enter) }
+        slider.assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
+        speaker.performMouseInput { click() }
+        slider.assertDoesNotExist()
+        runOnIdle { assertTrue(requests.isEmpty()) }
+        speaker.performClick()
         runOnIdle { playing.value = playing.value.copy(canChangeVolume = false) }
-        onNodeWithContentDescription("Unmute").assertDoesNotExist()
+        speaker.assertDoesNotExist()
+        slider.assertDoesNotExist()
+        runOnIdle { assertTrue(requests.isEmpty()) }
     }
 
-    @Test fun volumeKeyboardSeeksAndFocusTraversalWorkInBothLayoutDirections() {
+    @Test fun volumePopupKeyboardChangesAndDismissalWorkInBothLayoutDirections() {
         for (direction in LayoutDirection.entries) runDesktopComposeUiTest(1280, 720) {
             val volumes = mutableListOf<Int>()
             setContent {
@@ -111,17 +124,20 @@ class NaviampPlayerAccessibilityTest {
                     )
                 }
             }
+            onNodeWithTag("volume-popup-button").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+                .performKeyInput { pressKey(Key.Enter) }
             val slider = onNodeWithTag("now-playing-volume-slider")
-            slider.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
             slider.assertIsFocused()
-            slider.performKeyInput { pressKey(Key.DirectionRight) }
-            assertEquals(55, volumes.last(), "Right must follow the visible left-to-right volume track in $direction")
+            slider.performKeyInput { pressKey(Key.DirectionUp); pressKey(Key.DirectionUp); pressKey(Key.DirectionUp) }
+            assertEquals(listOf(55, 60, 65), volumes, "Up follows the visible bottom-to-top track in $direction")
             slider.performKeyInput { pressKey(Key.MoveEnd); pressKey(Key.DirectionUp) }
             slider.assertRangeInfoEquals(ProgressBarRangeInfo(1f, 0f..1f))
             slider.performKeyInput { pressKey(Key.MoveHome); pressKey(Key.DirectionDown) }
             slider.assertRangeInfoEquals(ProgressBarRangeInfo(0f, 0f..1f))
-            slider.performKeyInput { pressKey(Key.Tab) }
-            slider.assertIsNotFocused()
+            slider.performKeyInput { pressKey(Key.PageUp) }
+            slider.assertRangeInfoEquals(ProgressBarRangeInfo(.1f, 0f..1f))
+            slider.performKeyInput { pressKey(Key.Escape) }
+            slider.assertDoesNotExist()
         }
     }
 }

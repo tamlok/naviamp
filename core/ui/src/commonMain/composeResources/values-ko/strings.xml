@@ -404,8 +404,6 @@
     <string name="permission_local_network_usage">Naviamp는 음악 서버에 연결하고 로컬 네트워크에서 재생 기기를 검색합니다.</string>
     <string name="now_playing_playback_position">재생 위치</string>
     <string name="now_playing_volume">음량</string>
-    <string name="now_playing_mute">음소거</string>
-    <string name="now_playing_unmute">음소거 해제</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>

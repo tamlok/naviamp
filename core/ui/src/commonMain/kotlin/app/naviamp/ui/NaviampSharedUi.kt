@@ -1129,8 +1129,8 @@ fun NaviampMiniNowPlaying(
         NaviampPlayerBackground(background, colors,
             Modifier.matchParentSize().clipToBounds().testTag("mini-player-background"))
         val compact = maxWidth < 360.dp
-        val inlineSliders = maxWidth >= 720.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
-        val showSliders = playing != null && (!playing.isLive || (showVolumeBar && playing.canChangeVolume))
+        val inlineProgress = maxWidth >= 720.dp * LocalDensity.current.fontScale.coerceAtLeast(1f)
+        val showProgress = playing != null && !playing.isLive
         Column(Modifier.fillMaxWidth()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1197,15 +1197,18 @@ fun NaviampMiniNowPlaying(
                     onClick = { actions.playback(NowPlayingPlaybackAction.Next) },
                     size = 48.dp,
                 )
-                if (inlineSliders && showSliders) {
+                if (inlineProgress && showProgress) {
                     Box(Modifier.weight(1f)) {
-                        NaviampMiniPlayerSliders(playing, playbackProgress, showVolumeBar, colors, actions)
+                        NaviampMiniPlayerProgress(playing, playbackProgress, colors, actions)
                     }
                 }
+                if (playing != null && showVolumeBar && playing.canChangeVolume) {
+                    NaviampVolumeControl(playing.volumePercent, colors, actions::changeVolume)
+                }
             }
-            if (!inlineSliders && showSliders) {
+            if (!inlineProgress && showProgress) {
                 Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                    NaviampMiniPlayerSliders(playing, playbackProgress, showVolumeBar, colors, actions)
+                    NaviampMiniPlayerProgress(playing, playbackProgress, colors, actions)
                 }
             }
         }
@@ -1213,55 +1216,23 @@ fun NaviampMiniNowPlaying(
 }
 
 @Composable
-private fun NaviampMiniPlayerSliders(
+private fun NaviampMiniPlayerProgress(
     nowPlaying: NowPlayingUi,
     playbackProgress: StateFlow<PlaybackProgress>?,
-    showVolumeBar: Boolean,
     colors: NaviampColors,
     actions: NaviampNowPlayingActions,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        if (!nowPlaying.isLive) {
-            Box(Modifier.weight(1f)) {
-                NowPlayingProgressRow(
-                    nowPlaying = nowPlaying,
-                    playbackProgress = playbackProgress,
-                    canSeek = nowPlaying.canSeek,
-                    colors = colors,
-                    controlColors = colors,
-                    timeFontSize = 11.sp,
-                    timeWidth = 42.dp,
-                    onSeek = actions::seek,
-                    timeLabelsAbove = true,
-                    showWaveform = false,
-                    scrubberHeight = 48.dp,
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-        if (showVolumeBar && nowPlaying.canChangeVolume) {
-            var volumeValue by remember(nowPlaying.id) { mutableStateOf(nowPlaying.volumePercent.coerceIn(0, 100) / 100f) }
-            var isChangingVolume by remember(nowPlaying.id) { mutableStateOf(false) }
-            LaunchedEffect(nowPlaying.volumePercent) {
-                if (!isChangingVolume) volumeValue = nowPlaying.volumePercent.coerceIn(0, 100) / 100f
-            }
-            VolumeRow(
-                value = volumeValue,
-                isChangingVolume = { isChangingVolume = it },
-                onValueChanged = {
-                    volumeValue = it
-                    actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
-                },
-                onToggleMute = { actions.playback(NowPlayingPlaybackAction.ToggleMute) },
-                colors = colors,
-                trackWidth = 80.dp,
-                sliderHeight = 48.dp,
-            )
-        }
-    }
+    NowPlayingProgressRow(
+        nowPlaying = nowPlaying,
+        playbackProgress = playbackProgress,
+        canSeek = nowPlaying.canSeek,
+        colors = colors,
+        controlColors = colors,
+        timeFontSize = 11.sp,
+        timeWidth = 42.dp,
+        onSeek = actions::seek,
+        combinedTimeLabels = true,
+        showWaveform = false,
+        scrubberHeight = 48.dp,
+    )
 }

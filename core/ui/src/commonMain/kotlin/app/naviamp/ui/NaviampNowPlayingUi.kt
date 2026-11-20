@@ -7,13 +7,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Arrangement
@@ -52,15 +49,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,7 +87,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
@@ -99,6 +96,7 @@ import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import kotlin.math.abs
 import androidx.compose.ui.semantics.Role
@@ -121,6 +119,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -484,7 +483,6 @@ private fun NaviampNowPlayingPanelContent(
                             mobileLayout = true, filledArtworkLayout = true,
                             compactLayout = viewportMaxHeight < 500.dp,
                             compactSizing = maxWidth < 380.dp,
-                            matchVolumeToTransportWidth = true,
                             modifier = Modifier.fillMaxWidth().heightIn(max = viewportMaxHeight)
                                 .verticalScroll(rememberScrollState()).padding(16.dp),
                         )
@@ -538,7 +536,6 @@ private fun NaviampNowPlayingPanelContent(
                         onOpenPlaylistDialog = openPlaylistMembership,
                         onOpenSaveQueueDialog = { saveQueueDialogOpen = true },
                         compactLayout = viewportMaxHeight < 640.dp,
-                        matchVolumeToTransportWidth = true,
                         availableHeight = (wideDetailsHeight - WideNowPlayingDetailsTopPadding)
                             .coerceAtLeast(WideNowPlayingDetailsMinHeight - WideNowPlayingDetailsTopPadding),
                         modifier = Modifier
@@ -866,7 +863,6 @@ private fun NowPlayingDetails(
     compactSizing: Boolean = compactLayout,
     availableHeight: Dp? = null,
     modifier: Modifier = Modifier,
-    matchVolumeToTransportWidth: Boolean = false,
     filledArtworkLayout: Boolean = false,
 ) {
     var actionMenuExpanded by remember { mutableStateOf(false) }
@@ -875,8 +871,6 @@ private fun NowPlayingDetails(
     var trackDetailsOpen by remember(nowPlaying.id, nowPlaying.isLive) { mutableStateOf(false) }
     var sleepTimerDialogOpen by remember { mutableStateOf(false) }
     var emptyQueueDialogOpen by remember { mutableStateOf(false) }
-    var volumeValue by remember { mutableFloatStateOf(nowPlaying.volumePercent.coerceIn(0, 100) / 100f) }
-    var isChangingVolume by remember { mutableStateOf(false) }
     val canSeek = nowPlaying.canSeek && nowPlaying.durationSeconds != null && !nowPlaying.isLive
     val canTogglePlayback = nowPlaying.canPlayPause
     val height = availableHeight ?: Dp.Unspecified
@@ -911,14 +905,6 @@ private fun NowPlayingDetails(
     val transportIconSize = if (useLargeSizing) 25.dp else 20.dp
     val prominentTransportButtonSize = if (useLargeSizing) 56.dp else 44.dp
     val prominentTransportIconSize = if (useLargeSizing) 30.dp else 24.dp
-    val transportClusterWidth = secondaryTransportButtonSize * 2 +
-        transportButtonSize * 2 + prominentTransportButtonSize + 32.dp
-
-    LaunchedEffect(nowPlaying.volumePercent) {
-        if (!isChangingVolume) {
-            volumeValue = nowPlaying.volumePercent.coerceIn(0, 100) / 100f
-        }
-    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1178,17 +1164,7 @@ private fun NowPlayingDetails(
         }
 
         if (volumeVisible) {
-            VolumeRow(
-                value = volumeValue,
-                isChangingVolume = { isChangingVolume = it },
-                onValueChanged = {
-                    volumeValue = it
-                    actions.changeVolume((it * 100).toInt().coerceIn(0, 100))
-                },
-                onToggleMute = { actions.playback(NowPlayingPlaybackAction.ToggleMute) },
-                colors = actionColors,
-                trackWidth = transportClusterWidth.takeIf { matchVolumeToTransportWidth },
-            )
+            NaviampVolumeControl(nowPlaying.volumePercent, actionColors, actions::changeVolume)
         }
 
         if (compactLayout && mobileLayout) {
@@ -1778,7 +1754,7 @@ internal fun NowPlayingProgressRow(
     timeFontSize: TextUnit,
     timeWidth: Dp,
     onSeek: (Double) -> Unit,
-    timeLabelsAbove: Boolean = false,
+    combinedTimeLabels: Boolean = false,
     showWaveform: Boolean = true,
     scrubberHeight: Dp = 28.dp,
 ) {
@@ -1791,23 +1767,15 @@ internal fun NowPlayingProgressRow(
     val structuralProgressFraction = playbackFraction(nowPlaying.positionSeconds, durationSeconds)
     var scrubberOverride by remember(nowPlaying.id) { mutableStateOf<Float?>(null) }
     val scrubberValue = scrubberOverride ?: structuralProgressFraction.toFloat()
+    val direction = if (combinedTimeLabels) LayoutDirection.Ltr else LocalLayoutDirection.current
 
-    Column(Modifier.fillMaxWidth()) {
-        if (timeLabelsAbove) NowPlayingCombinedTimeLabel(
-            positionSeconds = {
-                scrubberOverride?.let { seekSecondsForFraction(it, durationSeconds) }
-                    ?: progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds
-            },
-            durationSeconds = durationSeconds,
-            colors = colors,
-            fontSize = timeFontSize,
-        )
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (!timeLabelsAbove) NowPlayingPositionLabel(
+            if (!combinedTimeLabels) NowPlayingPositionLabel(
                 nowPlaying = nowPlaying,
                 progressState = progressState,
                 colors = colors,
@@ -1843,19 +1811,23 @@ internal fun NowPlayingProgressRow(
                     durationSeconds = durationSeconds,
                     progressIdentity = nowPlaying.id,
                     colors = controlColors,
-                    onValueChange = {
-                        scrubberOverride = it
-                    },
+                    onValueChange = { scrubberOverride = it },
                     onValueChangeFinished = { seekFraction ->
                         seekSecondsForFraction(seekFraction, durationSeconds)?.let(onSeek)
                         scrubberOverride = null
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(scrubberHeight),
+                    modifier = Modifier.weight(1f).height(scrubberHeight),
                 )
             }
-            if (!timeLabelsAbove) Text(
+            if (combinedTimeLabels) NowPlayingCombinedTimeLabel(
+                positionSeconds = {
+                    scrubberOverride?.let { seekSecondsForFraction(it, durationSeconds) }
+                        ?: progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds
+                },
+                durationSeconds = durationSeconds,
+                colors = colors,
+                fontSize = timeFontSize,
+            ) else Text(
                 if (nowPlaying.isLive) "Radio" else secondsLabel(durationSeconds),
                 color = colors.primaryText,
                 textAlign = TextAlign.Center,
@@ -1879,12 +1851,38 @@ internal fun NowPlayingCombinedTimeLabel(
     }
     val duration = remember(durationSeconds) { durationSeconds.paddedDurationLabel() }
     val separator = stringResource(Res.string.mini_player_time_separator)
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("mini-player-time")) {
+    val elapsedMinuteDigits by remember {
+        derivedStateOf {
+            var minutes = (wholeSeconds.value ?: 0) / 60
+            var digits = 2
+            while (minutes >= 100) {
+                minutes /= 10
+                digits++
+            }
+            digits
+        }
+    }
+    // Reserve the total's padded minute width up front, so seeking cannot resize the bar.
+    val sample = remember(elapsedMinuteDigits, duration, separator) {
+        buildString {
+            repeat(maxOf(elapsedMinuteDigits, duration.indexOf(':').coerceAtLeast(2))) { append('8') }
+            append(":88")
+            append(separator)
+            duration.forEach { append(if (it in '0'..'9') '8' else it) }
+        }
+    }
+    val style = TextStyle(color = colors.primaryText, fontSize = fontSize, lineHeight = fontSize * 1.3f,
+        fontFeatureSettings = "tnum", textAlign = TextAlign.Right, textDirection = TextDirection.Ltr)
+    val resolvedStyle = LocalTextStyle.current.merge(style)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val width = remember(sample, resolvedStyle, measurer, density) {
+        with(density) { measurer.measure(sample, resolvedStyle, softWrap = false, maxLines = 1).size.width.toDp() }
+    }
+    Box(Modifier.width(width).testTag("mini-player-time")) {
         NaviampRasterValueText(text = {
             AnnotatedString(wholeSeconds.value?.toDouble().paddedDurationLabel() + separator + duration)
-        }, style = TextStyle(color = colors.primaryText, fontSize = fontSize,
-            textAlign = TextAlign.Right, textDirection = TextDirection.Ltr),
-            width = maxWidth, alignment = AbsoluteAlignment.Right)
+        }, style = style, width = width, alignment = AbsoluteAlignment.Right)
     }
 }
 
@@ -2172,147 +2170,6 @@ internal fun RatingRow(
     }
 }
 
-@Composable
-internal fun VolumeRow(
-    value: Float,
-    isChangingVolume: (Boolean) -> Unit,
-    onValueChanged: (Float) -> Unit,
-    onToggleMute: () -> Unit,
-    colors: NaviampColors,
-    trackWidth: Dp? = null,
-    sliderHeight: Dp = 24.dp,
-) {
-    var widthPx by remember { mutableFloatStateOf(1f) }
-    var focused by remember { mutableStateOf(false) }
-    val accessibilityLabel = stringResource(Res.string.now_playing_volume)
-    val currentOnValueChanged by rememberUpdatedState(onValueChanged)
-    val currentIsChangingVolume by rememberUpdatedState(isChangingVolume)
-    val density = LocalDensity.current
-    val thumbRadiusPx = with(density) { VolumeThumbRadius.toPx() }
-
-    fun updateFromX(x: Float) {
-        val trackWidth = (widthPx - thumbRadiusPx * 2f).coerceAtLeast(1f)
-        currentOnValueChanged(((x - thumbRadiusPx) / trackWidth).coerceIn(0f, 1f))
-    }
-
-    fun commitVolume(target: Float) {
-        currentIsChangingVolume(true)
-        try { currentOnValueChanged(target.coerceIn(0f, 1f)) }
-        finally { currentIsChangingVolume(false) }
-    }
-
-    val rowModifier = if (trackWidth == null) {
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp)
-    } else {
-        Modifier.width(trackWidth + 56.dp)
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = rowModifier,
-    ) {
-        NaviampTransportIconButton(
-            enabled = true,
-            icon = if (value <= 0f) NaviampTransportIcons.VolumeMuted else NaviampTransportIcons.Volume,
-            contentDescription = stringResource(if (value <= 0f) Res.string.now_playing_unmute else Res.string.now_playing_mute),
-            colors = colors,
-            buttonSize = 48.dp,
-            iconSize = 17.dp,
-            onClick = onToggleMute,
-        )
-        Canvas(
-            modifier = (if (trackWidth == null) Modifier.weight(1f) else Modifier.width(trackWidth))
-                .height(sliderHeight)
-                .testTag("now-playing-volume-slider")
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    // The custom volume track, like the waveform, is drawn left to right in every locale.
-                    val target = when (event.key) {
-                        Key.DirectionLeft, Key.DirectionDown -> value - .05f
-                        Key.DirectionRight, Key.DirectionUp -> value + .05f
-                        Key.PageDown -> value - .1f
-                        Key.PageUp -> value + .1f
-                        Key.MoveHome -> 0f
-                        Key.MoveEnd -> 1f
-                        else -> return@onPreviewKeyEvent false
-                    }
-                    commitVolume(target)
-                    true
-                }
-                .onFocusChanged { focused = it.isFocused }
-                .focusable()
-                .semantics {
-                    contentDescription = accessibilityLabel
-                    progressBarRangeInfo = ProgressBarRangeInfo(value.coerceIn(0f, 1f), 0f..1f)
-                    setProgress { target ->
-                        if (!target.isFinite()) false else {
-                            commitVolume(target)
-                            true
-                        }
-                    }
-                }
-                .onSizeChanged { widthPx = it.width.toFloat().coerceAtLeast(1f) }
-                .pointerInput(widthPx, thumbRadiusPx) {
-                    detectTapGestures { offset ->
-                        currentIsChangingVolume(true)
-                        updateFromX(offset.x)
-                        currentIsChangingVolume(false)
-                    }
-                }
-                .pointerInput(widthPx, thumbRadiusPx) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            currentIsChangingVolume(true)
-                            updateFromX(offset.x)
-                        },
-                        onDrag = { change, _ -> updateFromX(change.position.x) },
-                        onDragEnd = { currentIsChangingVolume(false) },
-                        onDragCancel = { currentIsChangingVolume(false) },
-                    )
-                },
-        ) {
-            val centerY = size.height / 2f
-            val thumbRadius = VolumeThumbRadius.toPx()
-            val startX = thumbRadius
-            val trackEndX = (size.width - thumbRadius).coerceAtLeast(startX)
-            val endX = startX + (trackEndX - startX) * value.coerceIn(0f, 1f)
-            val volumeColor = colors.accent
-            drawLine(
-                color = colors.primaryText.copy(alpha = 0.24f),
-                start = Offset(startX, centerY),
-                end = Offset(trackEndX, centerY),
-                strokeWidth = 5f,
-                cap = StrokeCap.Round,
-            )
-            drawLine(
-                color = volumeColor,
-                start = Offset(startX, centerY),
-                end = Offset(endX, centerY),
-                strokeWidth = 5f,
-                cap = StrokeCap.Round,
-            )
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.32f),
-                radius = thumbRadius + 2f,
-                center = Offset(endX, centerY),
-            )
-            drawCircle(
-                color = volumeColor,
-                radius = thumbRadius,
-                center = Offset(endX, centerY),
-            )
-            drawCircle(
-                color = colors.primaryText.copy(alpha = 0.86f),
-                radius = thumbRadius * 0.42f,
-                center = Offset(endX, centerY),
-            )
-            if (focused) drawRoundRect(colors.primaryText,
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx()))
-        }
-    }
-}
-
 private val NowPlayingArtShadowMargin = 12.dp
 private val CompactNowPlayingStackBreakpoint = 640.dp
 private val CompactNowPlayingStackGap = 3.dp
@@ -2320,7 +2177,6 @@ private val CompactNowPlayingDetailsMinHeight = 132.dp
 private val WideNowPlayingArtMinHeight = 112.dp
 private val WideNowPlayingDetailsMinHeight = 232.dp
 private val WideNowPlayingDetailsTopPadding = 8.dp
-private val VolumeThumbRadius = 6.dp
 
 internal fun waveformVisibleBarCount(amplitudeCount: Int): Int = amplitudeCount.coerceAtLeast(0)
 

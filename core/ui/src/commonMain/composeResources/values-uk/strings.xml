@@ -404,8 +404,6 @@
     <string name="permission_local_network_usage">Naviamp підключається до ваших музичних серверів і знаходить пристрої відтворення в локальній мережі.</string>
     <string name="now_playing_playback_position">Позиція відтворення</string>
     <string name="now_playing_volume">Гучність</string>
-    <string name="now_playing_mute">Вимкнути звук</string>
-    <string name="now_playing_unmute">Увімкнути звук</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>

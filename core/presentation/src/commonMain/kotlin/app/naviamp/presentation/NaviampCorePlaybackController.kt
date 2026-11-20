@@ -97,7 +97,6 @@ class NaviampCorePlaybackController(
     private var persistedSeekGeneration = 0L
     private var sourceTransitionTargetId: String? = null
     private var connectHandoffAwaitingStart = false
-    private var lastAudibleVolumePercent = 50
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.NowPlaying.Playback,
@@ -716,29 +715,14 @@ class NaviampCorePlaybackController(
                 else publishStatus("There are not enough upcoming tracks to shuffle.")
             }
             NowPlayingPlaybackAction.CycleRepeatMode -> repeat.cycle()
-            NowPlayingPlaybackAction.ChangeVolume,
-            NowPlayingPlaybackAction.ToggleMute -> {
+            NowPlayingPlaybackAction.ChangeVolume -> request.volumePercent?.let { requested ->
                 val softwareVolumeEnabled = effects.capabilities.supportsSoftwareVolume &&
                     stateStore.state.value.shell.capabilities.softwareVolumeControl
-                val togglingMute = request.action == NowPlayingPlaybackAction.ToggleMute
-                if (togglingMute && !softwareVolumeEnabled) return
-                val currentVolume = playbackSettings.volumePercent.coerceIn(0, 100)
-                val requested = if (togglingMute) {
-                    if (currentVolume > 0) 0 else lastAudibleVolumePercent
-                } else request.volumePercent
-                if (requested == null) {
-                    publishStatus("Volume value is missing.")
-                } else {
-                    if (softwareVolumeEnabled && currentVolume > 0) lastAudibleVolumePercent = currentVolume
-                    val command = commands.changeVolume(requested, softwareVolumeEnabled)
-                    if (softwareVolumeEnabled && command.volumePercent > 0) {
-                        lastAudibleVolumePercent = command.volumePercent
-                    }
-                    val updated = playbackSettings.copy(volumePercent = command.volumePercent)
-                    settings.apply(updated, redownload = false)
-                    stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(settings = updated)) }
-                }
-            }
+                val command = commands.changeVolume(requested, softwareVolumeEnabled)
+                val updated = playbackSettings.copy(volumePercent = command.volumePercent)
+                settings.apply(updated, redownload = false)
+                stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(settings = updated)) }
+            } ?: publishStatus("Volume value is missing.")
         }
     }
 

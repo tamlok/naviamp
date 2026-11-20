@@ -404,8 +404,6 @@
     <string name="permission_local_network_usage">Naviampは音楽サーバーに接続し、ローカルネットワーク上の再生デバイスを検索します。</string>
     <string name="now_playing_playback_position">再生位置</string>
     <string name="now_playing_volume">音量</string>
-    <string name="now_playing_mute">ミュート</string>
-    <string name="now_playing_unmute">ミュート解除</string>
     <string name="settings_language_arabic_title">العربية</string>
     <string name="settings_language_chinese_simplified_title">简体中文</string>
     <string name="settings_language_dutch_title">Nederlands</string>
