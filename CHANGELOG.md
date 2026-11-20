@@ -20,6 +20,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
+- Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
 
 ### Bug fixes

@@ -2128,17 +2128,13 @@ fun InternetRadioContent(
             NaviampPageTitle("Internet Radio", colors)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (onSaveStation != null) {
-                    Button(
+                    NaviampTransportIconButton(
+                        enabled = true,
+                        icon = NaviampIcons.Plus,
+                        contentDescription = stringResource(Res.string.tv_new_station),
+                        colors = colors,
                         onClick = { creatingStation = true },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.primaryText.copy(alpha = 0.12f),
-                            contentColor = colors.primaryText,
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp),
-                    ) {
-                        Text("New station", fontSize = 12.sp)
-                    }
+                    )
                 }
                 headerActions()
             }
