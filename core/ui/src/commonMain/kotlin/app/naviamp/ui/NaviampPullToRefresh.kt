@@ -22,6 +22,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,7 +46,17 @@ internal fun NaviampPullToRefreshBox(
     val atTop by rememberUpdatedState(canPull)
     val scope = rememberCoroutineScope()
     val dispatcher = remember { NestedScrollDispatcher() }
-    val connection = remember { object : NestedScrollConnection {} }
+    val connection = remember {
+        object : NestedScrollConnection {
+            var hasDirectContact = false
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                // The child has already scrolled. Wheel overscroll must not pull Material's indicator;
+                // explicit mouse drags use the dispatcher and bypass this connection.
+                if (source == NestedScrollSource.UserInput && !hasDirectContact) Offset(0f, available.y)
+                else Offset.Zero
+        }
+    }
     val emptyAreaScroll = remember {
         object : ScrollableState by ScrollableState({ 0f }) {
             // Accept touch drags but never capture wheel events from the actual list.
@@ -62,6 +73,20 @@ internal fun NaviampPullToRefreshBox(
         Box(
             Modifier.fillMaxSize()
                 .nestedScroll(connection, dispatcher)
+                .pointerInput(connection) {
+                    try {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                connection.hasDirectContact = event.changes.any {
+                                    it.pressed && it.type != PointerType.Mouse
+                                }
+                            }
+                        }
+                    } finally {
+                        connection.hasDirectContact = false
+                    }
+                }
                 .pointerInput(Unit) {
                     // Compose scrollables handle touch, but deliberately exclude mouse drags.
                     awaitEachGesture {

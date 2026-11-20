@@ -35,6 +35,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Keep the refresh indicator hidden when mouse-wheel scrolling back to the top of a page; touch pulls and primary-button mouse drags still refresh.
 - Keep playback paused when seeking, without briefly restarting audio; resume from the last selected position only after Play.
 - Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.
 - Keep connection-form Cancel reachable beside Connect in bounded layouts.

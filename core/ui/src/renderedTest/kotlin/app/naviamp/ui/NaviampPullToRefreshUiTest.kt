@@ -45,6 +45,9 @@ class NaviampPullToRefreshUiTest {
             }
         }
         val surface = onNodeWithTag("screen")
+        surface.performMouseInput { moveTo(center); scroll(-12f) }
+        runOnIdle { assertEquals(0, refreshes) }
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
         surface.performTouchInput {
             down(Offset(width * 0.8f, height * 0.35f))
             moveBy(Offset(0f, height * 0.45f), delayMillis = 400)
@@ -61,6 +64,9 @@ class NaviampPullToRefreshUiTest {
         onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertIsDisplayed()
         surface.performMouseInput { release() }
         runOnIdle { assertEquals(2, refreshes); refreshing.value = false; populated.value = true }
+        surface.performMouseInput { moveTo(center); scroll(12f); scroll(-24f) }
+        runOnIdle { assertEquals(2, refreshes) }
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
 
         // Ordinary mouse clicks still select; starting a pull on a row must cancel its click.
         onNodeWithText("Item 0").performMouseInput { click() }
@@ -126,6 +132,7 @@ class NaviampPullToRefreshUiTest {
         val surface = onNodeWithTag("gesture")
         surface.performMouseInput { moveTo(center); repeat(10) { scroll(-10f); advanceEventTime(100) } }
         runOnIdle { assertEquals(0, refreshes); assertEquals(0, scrollState.value) }
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
         surface.performMouseInput { moveTo(center); scroll(12f) }
         runOnIdle { assertTrue(scrollState.value > 0) }
         val beforePull = scrollState.value
@@ -133,6 +140,34 @@ class NaviampPullToRefreshUiTest {
         runOnIdle { assertEquals(0, refreshes); assertEquals(beforePull, scrollState.value) }
         surface.performMouseInput { moveTo(center); scroll(12f) }
         runOnIdle { assertTrue(scrollState.value > beforePull); assertEquals(0, refreshes) }
+
+        // Wheel scrolling only enters nested scroll after the list has moved away from the top.
+        // Returning past the top must neither leave pull feedback nor arm the next gesture.
+        repeat(3) {
+            surface.performMouseInput { moveTo(center); scroll(-100f) }
+            runOnIdle { assertEquals(0, scrollState.value); assertEquals(0, refreshes) }
+            onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertDoesNotExist()
+            if (it < 2) {
+                surface.performMouseInput { scroll(12f) }
+                runOnIdle { assertTrue(scrollState.value > 0) }
+            }
+        }
+        surface.performMouseInput { click() }
+        runOnIdle { assertEquals(0, refreshes) }
+        surface.pullWithMouse(release = false)
+        runOnIdle { assertEquals(0, refreshes) }
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertIsDisplayed()
+        surface.performMouseInput { release() }
+        runOnIdle { assertEquals(1, refreshes) }
+        surface.performMouseInput { exit() }
+        surface.performTouchInput {
+            down(Offset(width * 0.8f, height * 0.35f))
+            moveBy(Offset(0f, height * 0.45f), delayMillis = 400)
+        }
+        runOnIdle { assertEquals(1, refreshes) }
+        onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)).assertIsDisplayed()
+        surface.performTouchInput { up() }
+        runOnIdle { assertEquals(2, refreshes) }
     }
 
     private fun SemanticsNodeInteraction.pullWithMouse(release: Boolean = true) = performMouseInput {
