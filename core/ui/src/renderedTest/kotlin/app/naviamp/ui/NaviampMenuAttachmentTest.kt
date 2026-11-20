@@ -1,5 +1,13 @@
 package app.naviamp.ui
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,10 +24,12 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
@@ -36,6 +46,63 @@ class NaviampMenuAttachmentTest {
     @Test fun openingMenuKeepsItsTopAnchorStationary() = verifyAttachment(true, LayoutDirection.Ltr, true)
     @Test fun lowerPaddingRemainsInsideTheMenuAfterEntrance() = verifyAttachment(false, LayoutDirection.Ltr, inspectPadding = true)
     @Test fun upperPaddingRemainsInsideTheMenuAfterEntrance() = verifyAttachment(true, LayoutDirection.Ltr, inspectPadding = true)
+
+    @Test fun contextMenuUsesWindowCursorCoordinates() = verifyCursorAttachment(false, LayoutDirection.Ltr)
+    @Test fun ownedContextMenuUsesWindowCursorCoordinates() = verifyCursorAttachment(true, LayoutDirection.Ltr)
+    @Test fun scaledContextMenuUsesWindowCursorCoordinates() = verifyCursorAttachment(false, LayoutDirection.Ltr, 2f)
+    @Test fun rtlContextMenuUsesWindowCursorCoordinates() = verifyCursorAttachment(true, LayoutDirection.Rtl, 2f)
+    @Test fun contextMenuFlipsAtBottomRight() = verifyCursorAttachment(true, LayoutDirection.Ltr, atEdge = true)
+
+    private fun verifyCursorAttachment(owned: Boolean, direction: LayoutDirection,
+        densityScale: Float = 1f, atEdge: Boolean = false) = runComposeUiTest {
+        val menu = NaviampItemMenuState()
+        val scroll = ScrollState(24)
+        var rowCoordinates: LayoutCoordinates? = null
+        var menuCoordinates: LayoutCoordinates? = null
+        setContent {
+            CompositionLocalProvider(LocalNaviampOwnedPopupWindows provides owned,
+                LocalLayoutDirection provides direction, LocalDensity provides Density(densityScale)) {
+                val input = Modifier.testTag("cursor-row")
+                    .onGloballyPositioned { rowCoordinates = it }
+                    .naviampItemContextMenu(menu).padding(12.dp)
+                val popup: @Composable () -> Unit = {
+                    NaviampDropdownMenu(menu.expanded, menu::dismiss,
+                        Modifier.testTag("cursor-menu").onGloballyPositioned { menuCoordinates = it },
+                        cursorPosition = menu.cursorPosition) {
+                        repeat(2) { NaviampDropdownMenuItem("Cursor action $it", onClick = menu::dismiss) }
+                    }
+                }
+                Box(Modifier.fillMaxSize()) {
+                    if (atEdge) {
+                        Box(Modifier.align(Alignment.BottomEnd).size(300.dp, 60.dp).then(input)) { popup() }
+                    } else {
+                        Column(Modifier.padding(start = 36.dp, top = 60.dp).fillMaxWidth()
+                            .height(180.dp).verticalScroll(scroll)) {
+                            Spacer(Modifier.height(60.dp))
+                            Box(Modifier.fillMaxWidth().height(60.dp).then(input)) { popup() }
+                            Spacer(Modifier.height(300.dp))
+                        }
+                    }
+                }
+            }
+        }
+        repeat(if (atEdge) 1 else 2) { attempt ->
+            val row = runOnIdle { checkNotNull(rowCoordinates).boundsInWindow() }
+            val relative = if (atEdge) Offset(row.width - 2f, row.height - 2f)
+                else Offset(row.width / 2 + attempt * 20f, row.height / 2 + attempt * 6f)
+            val cursor = row.topLeft + relative
+            onNodeWithTag("cursor-row").performMouseInput { click(relative, MouseButton.Secondary) }
+            onNodeWithText("Cursor action 0").assertIsDisplayed()
+            val bounds = runOnIdle { checkNotNull(menuCoordinates).boundsInWindow() }
+            val x = if (atEdge || direction == LayoutDirection.Rtl) bounds.right else bounds.left
+            val y = if (atEdge) bounds.bottom else bounds.top
+            assertTrue(abs(x - cursor.x) <= 1f && abs(y - cursor.y) <= 1f,
+                "Context menu must attach to cursor, not its parent: cursor=$cursor menu=$bounds")
+            assertTrue(bounds.left >= 0 && bounds.top >= 0)
+            onNodeWithText("Cursor action 0").performClick()
+            onNodeWithTag("cursor-menu").assertDoesNotExist()
+        }
+    }
 
     private fun verifyAttachment(above: Boolean, direction: LayoutDirection,
         inspectOpening: Boolean = false, inspectPadding: Boolean = false) = runComposeUiTest {

@@ -73,6 +73,11 @@ class NaviampPopupToggleTest {
                 }
             }
         }
+        onAllNodesWithContentDescription("More actions")[0].performMouseInput { click() }
+        val buttonMenuBounds = onNodeWithText("Queue album").fetchSemanticsNode().boundsInWindow
+        onNodeWithText("Queue album").performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.Escape) }
+        onNodeWithText("Queue album").assertDoesNotExist()
         onNodeWithText("Album").performMouseInput {
             moveTo(center)
             press(MouseButton.Secondary)
@@ -91,6 +96,8 @@ class NaviampPopupToggleTest {
         runOnIdle { assertEquals(1, actionCount); assertEquals(0, selected) }
 
         onAllNodesWithContentDescription("More actions")[0].performMouseInput { click() }
+        assertEquals(buttonMenuBounds, onNodeWithText("Queue album").fetchSemanticsNode().boundsInWindow,
+            "Opening from the button after a context menu must restore the button anchor")
         onNodeWithText("Queue album").assertIsDisplayed()
             .performSemanticsAction(SemanticsActions.RequestFocus)
             .performKeyInput { pressKey(Key.Escape) }

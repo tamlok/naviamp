@@ -109,7 +109,7 @@ private fun NaviampViewportPopup(onDismissRequest: () -> Unit, properties: Popup
 @Composable
 internal fun NaviampWindowDropdownMenu(expanded: Boolean, onDismissRequest: () -> Unit,
     modifier: Modifier, offset: DpOffset, containerColor: Color, shape: Shape,
-    shadowElevation: Dp, properties: PopupProperties,
+    shadowElevation: Dp, properties: PopupProperties, cursorPosition: IntOffset?,
     content: @Composable ColumnScope.() -> Unit) {
     val expandedState = remember { MutableTransitionState(false) }
     expandedState.targetState = expanded
@@ -117,15 +117,17 @@ internal fun NaviampWindowDropdownMenu(expanded: Boolean, onDismissRequest: () -
     if (!expandedState.currentState && !expandedState.targetState) return
     val density = LocalDensity.current
     val pixelOffset = with(density) { IntOffset(offset.x.roundToPx(), offset.y.roundToPx()) }
-    val margin = with(density) { 48.dp.roundToPx() }
+    val margin = if (cursorPosition == null) with(density) { 48.dp.roundToPx() } else 0
     val shadowPadding = with(density) { 32.dp.roundToPx() }
     // Observe the same parent anchor as Popup, independently of the presentation surface. The
     // desktop scene-layer popup can refit to hover drawing outside its cached picture bounds.
-    Layout(content = {}, modifier = Modifier.onGloballyPositioned { coordinates ->
-        val parent = coordinates.parentLayoutCoordinates ?: coordinates
-        val position = parent.positionInWindow()
-        anchor = IntRect(position.round(), IntSize(parent.size.width, parent.size.height))
-    }) { _, _ -> layout(0, 0) {} }
+    if (cursorPosition == null) {
+        Layout(content = {}, modifier = Modifier.onGloballyPositioned { coordinates ->
+            val parent = coordinates.parentLayoutCoordinates ?: coordinates
+            val position = parent.positionInWindow()
+            anchor = IntRect(position.round(), IntSize(parent.size.width, parent.size.height))
+        }) { _, _ -> layout(0, 0) {} }
+    }
     val scroll = rememberScrollState()
     var moveFocus by remember { mutableStateOf<(FocusDirection) -> Boolean>({ false }) }
     val menuKeys = Modifier.onPreviewKeyEvent { event ->
@@ -168,7 +170,8 @@ internal fun NaviampWindowDropdownMenu(expanded: Boolean, onDismissRequest: () -
         }) { measurables, constraints ->
             val menu = measurables.single().measure(constraints.copy(minWidth = 0, minHeight = 0))
             val windowSize = IntSize(constraints.maxWidth, constraints.maxHeight)
-            val geometry = naviampMenuGeometry(anchor, windowSize, IntSize(menu.width, menu.height),
+            val menuAnchor = cursorPosition?.let { IntRect(it, IntSize.Zero) } ?: anchor
+            val geometry = naviampMenuGeometry(menuAnchor, windowSize, IntSize(menu.width, menu.height),
                 layoutDirection, pixelOffset, margin, shadowPadding)
             layout(windowSize.width, windowSize.height) {
                 menu.placeWithLayer(geometry.paddedPosition.x, geometry.paddedPosition.y) {

@@ -3369,8 +3369,7 @@ private fun NowPlayingItemList(
                 QueueSectionHeader("QUEUE", colors)
             }
             val selected = item.id == currentId
-            var menuExpanded by remember { mutableStateOf(false) }
-            val openMenu = remember { { menuExpanded = true } }
+            val menu = remember { NaviampItemMenuState() }
             var playlistDialogOpen by remember { mutableStateOf(false) }
             val visibleRowActions = rowActions.filter { action ->
                 when (action.action) {
@@ -3425,10 +3424,7 @@ private fun NowPlayingItemList(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(5.dp))
                         .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.playerSurface)
-                        .naviampSecondaryClick(
-                            enabled = showActions && visibleRowActions.isNotEmpty(),
-                            onClick = openMenu,
-                        )
+                        .naviampItemContextMenu(menu, enabled = showActions && visibleRowActions.isNotEmpty())
                         .clickable { onClick(item) }
                         .padding(horizontal = 6.dp, vertical = rowVerticalPadding),
                 ) {
@@ -3444,7 +3440,7 @@ private fun NowPlayingItemList(
                         Box {
                             NaviampTooltip("More actions", colors) {
                                 IconButton(
-                                    onClick = { menuExpanded = !menuExpanded },
+                                    onClick = menu::toggleFromButton,
                                     modifier = Modifier.size(28.dp),
                                 ) {
                                     Icon(
@@ -3456,8 +3452,9 @@ private fun NowPlayingItemList(
                                 }
                             }
                             NaviampDropdownMenu(
-                                expanded = menuExpanded,
-                                onDismissRequest = { menuExpanded = false },
+                                expanded = menu.expanded,
+                                onDismissRequest = menu::dismiss,
+                                cursorPosition = menu.cursorPosition,
                             ) {
                                 visibleRowActions.forEach { action ->
                                     NaviampDropdownMenuItem(
@@ -3465,7 +3462,7 @@ private fun NowPlayingItemList(
                                         icon = if (action.action == NaviampAction.ToggleFavorite && item.favoriteActive) NaviampTransportIcons.HeartFilled else action.icon,
                                         enabled = action.enabled,
                                         onClick = {
-                                            menuExpanded = false
+                                            menu.dismiss()
                                             when (action.action) {
                                                 NaviampAction.PlayNext ->
                                                     onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.PlayNext))

@@ -31,7 +31,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +53,8 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.isPrimaryPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -67,6 +68,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
@@ -431,11 +434,12 @@ fun NaviampDropdownMenu(
     offset: DpOffset = DpOffset.Zero,
     containerColor: Color = LocalNaviampTheme.current.colors.menuSurface,
     properties: PopupProperties = PopupProperties(focusable = true),
+    cursorPosition: IntOffset? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    if (LocalNaviampOwnedPopupWindows.current) {
+    if (LocalNaviampOwnedPopupWindows.current || cursorPosition != null) {
         NaviampWindowDropdownMenu(expanded, onDismissRequest, modifier.widthIn(min = 220.dp),
-            offset, containerColor, RoundedCornerShape(4.dp), 8.dp, properties, content)
+            offset, containerColor, RoundedCornerShape(4.dp), 8.dp, properties, cursorPosition, content)
         return
     }
     DropdownMenu(
@@ -562,7 +566,31 @@ fun NaviampResponsiveActionRow(
     }
 }
 
-private val LocalNaviampItemMenuExpanded = compositionLocalOf<MutableState<Boolean>?> { null }
+internal class NaviampItemMenuState {
+    var expanded by mutableStateOf(false)
+        private set
+    /** Compose window coordinates, captured once at the secondary-button release. */
+    var cursorPosition by mutableStateOf<IntOffset?>(null)
+        private set
+    var coordinates: LayoutCoordinates? = null
+
+    fun openAt(position: IntOffset) {
+        cursorPosition = position
+        expanded = true
+    }
+
+    fun toggleFromButton() {
+        cursorPosition = null
+        expanded = !expanded
+    }
+
+    fun dismiss() {
+        // Keep the anchor through the exit transition, including the Popup-backed path.
+        expanded = false
+    }
+}
+
+private val LocalNaviampItemMenu = compositionLocalOf<NaviampItemMenuState?> { null }
 
 /** Share one menu between the row's secondary click and its nested overflow button. */
 @Composable
@@ -574,11 +602,10 @@ internal fun NaviampItemMenuRow(
     verticalAlignment: Alignment.Vertical = Alignment.Top,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val expanded = remember(itemKey, occurrenceIndex) { mutableStateOf(false) }
-    val openMenu = remember(expanded) { { expanded.value = true } }
-    CompositionLocalProvider(LocalNaviampItemMenuExpanded provides expanded) {
+    val menu = remember(itemKey, occurrenceIndex) { NaviampItemMenuState() }
+    CompositionLocalProvider(LocalNaviampItemMenu provides menu) {
         Row(
-            modifier = Modifier.naviampSecondaryClick(onClick = openMenu).then(modifier),
+            modifier = Modifier.naviampItemContextMenu(menu).then(modifier),
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment,
             content = content,
@@ -586,8 +613,8 @@ internal fun NaviampItemMenuRow(
     }
 }
 
-internal fun Modifier.naviampSecondaryClick(enabled: Boolean = true, onClick: () -> Unit): Modifier =
-    if (!enabled) this else pointerInput(onClick) {
+internal fun Modifier.naviampItemContextMenu(menu: NaviampItemMenuState, enabled: Boolean = true): Modifier =
+    if (!enabled) this else onGloballyPositioned { menu.coordinates = it }.pointerInput(menu) {
         awaitEachGesture {
             // awaitFirstDown filters out secondary mouse buttons on Desktop.
             val down = awaitPointerEvent(PointerEventPass.Initial).changes
@@ -607,8 +634,12 @@ internal fun Modifier.naviampSecondaryClick(enabled: Boolean = true, onClick: ()
                 }
                 event.changes.forEach { it.consume() }
                 if (!event.buttons.isSecondaryPressed) {
+                    val coordinates = menu.coordinates
                     if (!cancelled && change.position.x >= 0 && change.position.x < size.width &&
-                        change.position.y >= 0 && change.position.y < size.height) onClick()
+                        change.position.y >= 0 && change.position.y < size.height &&
+                        coordinates != null && coordinates.isAttached) {
+                        menu.openAt(coordinates.localToWindow(change.position).round())
+                    }
                     break
                 }
             }
@@ -627,12 +658,11 @@ fun NaviampRowOverflowMenu(
 ) {
     if (items.isEmpty()) return
 
-    val menuExpanded = LocalNaviampItemMenuExpanded.current ?: remember { mutableStateOf(false) }
-    var expanded by menuExpanded
+    val menu = LocalNaviampItemMenu.current ?: remember { NaviampItemMenuState() }
     Box(modifier = modifier) {
         NaviampTooltip(contentDescription, colors) {
             IconButton(
-                onClick = { expanded = !expanded },
+                onClick = menu::toggleFromButton,
                 modifier = Modifier
                     .size(buttonSize)
                     .clip(RoundedCornerShape(buttonSize / 2))
@@ -647,8 +677,9 @@ fun NaviampRowOverflowMenu(
             }
         }
         NaviampDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
+            expanded = menu.expanded,
+            onDismissRequest = menu::dismiss,
+            cursorPosition = menu.cursorPosition,
         ) {
             items.forEach { item ->
                 if (item.dividerBefore) androidx.compose.material3.HorizontalDivider()
@@ -657,7 +688,7 @@ fun NaviampRowOverflowMenu(
                     icon = item.icon,
                     enabled = item.enabled,
                     onClick = {
-                        expanded = false
+                        menu.dismiss()
                         item.onClick()
                     },
                 )
