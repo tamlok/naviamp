@@ -1507,6 +1507,14 @@ fun NaviampLibraryContent(
                     }
                 },
             )
+            NaviampPageHeaderAction(
+                icon = if (screen.favoritesOnly) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                contentDescription = stringResource(Res.string.library_filter_favorites),
+                colors = colors,
+                enabled = catalog.supportsFavorites || screen.favoritesOnly,
+                selected = screen.favoritesOnly,
+                onClick = { actions.onFavoritesOnlyChanged(!screen.favoritesOnly) },
+            )
             NaviampPageHeaderOverflow(
                 colors = colors,
                 items = buildList {
@@ -1554,14 +1562,6 @@ fun NaviampLibraryContent(
                         )
                     }
                 },
-            )
-            NaviampPageHeaderAction(
-                icon = if (screen.favoritesOnly) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
-                contentDescription = stringResource(Res.string.library_filter_favorites),
-                colors = colors,
-                enabled = catalog.supportsFavorites || screen.favoritesOnly,
-                selected = screen.favoritesOnly,
-                onClick = { actions.onFavoritesOnlyChanged(!screen.favoritesOnly) },
             )
         }
         Column(

@@ -146,8 +146,8 @@ class NaviampLibrarySearchResultsUiTest {
         onNodeWithText("Artists ordinary").assertIsDisplayed()
     }
 
-    @Test fun narrowHeaderHasRightmostAccessible48DpHeart() = verifyHeartHeader(320)
-    @Test fun wideHeaderHasRightmostAccessible48DpHeart() = verifyHeartHeader(800)
+    @Test fun narrowHeaderHasAccessible48DpHeartBeforeMoreActions() = verifyHeartHeader(320)
+    @Test fun wideHeaderHasAccessible48DpHeartBeforeMoreActions() = verifyHeartHeader(800)
 
     private fun verifyHeartHeader(width: Int) = runComposeUiTest {
         val screen = mutableStateOf(favoritesScreen())
@@ -159,8 +159,8 @@ class NaviampLibrarySearchResultsUiTest {
         val overflowBounds = onAllNodesWithContentDescription("More actions").fetchSemanticsNodes()
             .minBy { it.boundsInRoot.top }.boundsInRoot
         val searchBounds = onNodeWithContentDescription("Back to search").fetchSemanticsNode().boundsInRoot
-        assertTrue(heartBounds.left >= overflowBounds.right)
-        assertTrue(overflowBounds.left >= searchBounds.right)
+        assertTrue(heartBounds.left >= searchBounds.right)
+        assertTrue(overflowBounds.left >= heartBounds.right)
         assertEquals(searchBounds.center.y, heartBounds.center.y)
         assertTrue(heartBounds.bottom <= onNodeWithText("Artists").fetchSemanticsNode().boundsInRoot.top)
         onNodeWithText("Favorites", useUnmergedTree = true).assertDoesNotExist()
