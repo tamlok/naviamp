@@ -49,14 +49,14 @@ class NaviampCoreCatalogControllerTest {
             val store = NaviampCoreStateStore()
             val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
             controller.execute(NaviampCoreCommand.Library.Refresh)
-            controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
             controller.artistUpdated(provider, Artist(ArtistId("a"), "Alpha"))
             assertEquals(listOf("z"), store.favoriteArtistIds())
-            if (!filtered) controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+            if (!filtered) controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
 
             // A later server snapshot is authoritative over mutations completed before refresh.
             controller.execute(NaviampCoreCommand.Library.Refresh)
-            if (!filtered) controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+            if (!filtered) controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
 
             assertEquals(listOf("a", "z"), store.favoriteArtistIds())
         }
@@ -72,10 +72,10 @@ class NaviampCoreCatalogControllerTest {
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1,
             libraryIndex = repository, mediaRegistry = registry)
         controller.refreshAfterConnection()
-        assertTrue(store.state.value.shell.library.supportsArtistFavorites)
+        assertTrue(store.state.value.shell.library.artists.supportsFavorites)
         assertTrue(store.state.value.shell.library.artists.items.none { it.favoriteActive })
 
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
 
         assertEquals(listOf(0, 1), provider.favoriteOffsets)
         assertTrue(provider.browseOffsets.isEmpty())
@@ -83,8 +83,8 @@ class NaviampCoreCatalogControllerTest {
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
         assertTrue(registry.libraryArtists.filter { it.id.value in listOf("a", "z") }
             .all { it.favoritedAtIso8601 != null })
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
     }
 
     @Test
@@ -93,7 +93,7 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         controller.execute(NaviampCoreCommand.Library.LoadMore)
         controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
         assertEquals(listOf(0), provider.browseOffsets)
@@ -101,7 +101,7 @@ class NaviampCoreCatalogControllerTest {
         assertEquals('Z', store.state.value.shell.library.jumpRequest?.letter)
         assertNull(store.state.value.shell.library.artists.pendingJump)
 
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
         controller.execute(NaviampCoreCommand.Library.LoadMore)
         assertEquals(listOf(0, 1), provider.browseOffsets)
         assertEquals(listOf("a", "m", "z"), store.state.value.shell.library.artists.items.map { it.id })
@@ -118,8 +118,8 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
 
         controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
 
@@ -144,7 +144,7 @@ class NaviampCoreCatalogControllerTest {
             registry.updateArtist(ArtistDetails(Artist(ArtistId("z"), "Zulu", marker), emptyList()))
             val controller = NaviampCoreCatalogController(NaviampCoreStateStore(), { provider }, mediaRegistry = registry)
 
-            controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
 
             assertEquals(known, registry.home.favoriteArtists)
         }
@@ -158,12 +158,12 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         val query = NaviampCoreCommand.Library.ChangeQuery("server alias")
         controller.dispatch(query)
         val searching = launch { controller.execute(query) }
         runCurrent()
-        assertTrue(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.favoriteArtistIds().isEmpty())
         assertEquals("server alias", store.state.value.shell.library.artists.resultsQuery)
         controller.execute(NaviampCoreCommand.Library.LoadMore)
@@ -173,7 +173,7 @@ class NaviampCoreCatalogControllerTest {
 
         assertEquals(listOf("m", "z"), store.state.value.shell.library.artists.items.map { it.id })
         assertEquals(listOf("z"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         assertEquals(listOf(0, 1), provider.favoriteOffsets)
         assertEquals(listOf(0), provider.browseOffsets)
     }
@@ -186,7 +186,7 @@ class NaviampCoreCatalogControllerTest {
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1,
             mediaRegistry = registry)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("server alias"))
         controller.artistUpdated(provider, Artist(ArtistId("z"), "Zulu"))
         controller.artistUpdated(provider, Artist(ArtistId("x"), "Xylophone", "2026-01-01"))
@@ -197,7 +197,7 @@ class NaviampCoreCatalogControllerTest {
         assertEquals(listOf("a", "x"), store.favoriteArtistIds())
         assertNull(registry.artist("z")?.favoritedAtIso8601)
         controller.applyCommand(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Albums))
-        assertTrue(store.state.value.shell.library.artistFavoritesOnly)
+        assertTrue(store.state.value.shell.library.favoritesOnly)
         controller.applyCommand(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Artists))
         assertEquals(listOf("a", "x"), store.favoriteArtistIds())
         assertEquals(listOf(0, 1), provider.favoriteOffsets)
@@ -211,7 +211,7 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        val enable = NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true)
+        val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
         controller.dispatch(enable)
         val loading = launch { controller.execute(enable) }
         runCurrent()
@@ -225,7 +225,7 @@ class NaviampCoreCatalogControllerTest {
         loading.join()
         assertEquals(listOf("a", "x"), store.favoriteArtistIds())
         assertEquals('X', store.state.value.shell.library.jumpRequest?.letter)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
     }
 
     @Test
@@ -241,11 +241,11 @@ class NaviampCoreCatalogControllerTest {
         store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source")) }
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1, libraryIndex = repository)
         controller.refreshAfterConnection()
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         assertEquals(listOf(0), provider.favoriteOffsets)
         assertEquals(listOf(0, 1), provider.browseOffsets)
         assertEquals(listOf("z"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
     }
 
     @Test
@@ -255,9 +255,9 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
-        assertTrue(store.state.value.shell.library.artistFavoritesFailed)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        assertTrue(store.state.value.shell.library.artists.favoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.favoriteArtistIds().isEmpty())
         assertEquals(listOf(0), provider.browseOffsets)
         assertEquals(listOf(0, 1), provider.favoriteOffsets)
@@ -265,7 +265,7 @@ class NaviampCoreCatalogControllerTest {
         provider.beforeFavorites = {}
         controller.execute(NaviampCoreCommand.Library.Refresh)
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
         assertEquals(listOf(0, 1, 0, 1), provider.favoriteOffsets)
         provider.favorites = listOf(Artist(ArtistId("z"), "Zulu"))
         controller.execute(NaviampCoreCommand.Library.Refresh)
@@ -278,15 +278,15 @@ class NaviampCoreCatalogControllerTest {
         val provider = FavoriteCatalogProvider()
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
         controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
         provider.beforeFavorites = { error("Offline") }
 
         controller.execute(NaviampCoreCommand.Library.Refresh)
 
-        assertTrue(store.state.value.shell.library.artistFavoritesFailed)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.favoriteArtistIds().isEmpty())
         controller.artistUpdated(provider, Artist(ArtistId("a"), "Alpha"))
         assertTrue(store.favoriteArtistIds().isEmpty())
@@ -294,13 +294,13 @@ class NaviampCoreCatalogControllerTest {
         controller.dispatch(clearQuery)
         assertTrue(store.favoriteArtistIds().isEmpty())
         controller.execute(clearQuery)
-        assertTrue(store.state.value.shell.library.artistFavoritesFailed)
+        assertTrue(store.state.value.shell.library.artists.favoritesFailed)
         assertTrue(store.favoriteArtistIds().isEmpty())
         provider.beforeFavorites = {}
         provider.favorites = listOf(Artist(ArtistId("z"), "Zulu"))
         controller.execute(NaviampCoreCommand.Library.Refresh)
         assertEquals(listOf("z"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
     }
 
     @Test
@@ -321,11 +321,11 @@ class NaviampCoreCatalogControllerTest {
             }
             val store = NaviampCoreStateStore()
             val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-            controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
             if (searchFailure) controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
             assertEquals(1, requests)
-            assertTrue(store.state.value.shell.library.artistFavoritesFailed)
-            assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+            assertTrue(store.state.value.shell.library.artists.favoritesFailed)
+            assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         }
     }
 
@@ -335,14 +335,14 @@ class NaviampCoreCatalogControllerTest {
         provider.beforeSearch = { _, request -> if (request.offset == 1) error("Offline") }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
-        assertTrue(store.state.value.shell.library.artistFavoritesFailed)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.favoriteArtistIds().isEmpty())
         provider.beforeSearch = { _, _ -> }
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
         assertEquals(listOf("z"), store.favoriteArtistIds())
         assertTrue(provider.browseOffsets.isEmpty())
     }
@@ -354,15 +354,15 @@ class NaviampCoreCatalogControllerTest {
         provider.beforeFavorites = { gate.await() }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        val enable = NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true)
+        val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
         controller.dispatch(enable)
         val loading = launch { controller.execute(enable) }
         runCurrent()
-        assertTrue(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesLoading)
         loading.cancel()
         loading.join()
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
-        assertFalse(store.state.value.shell.library.artistFavoritesFailed)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesFailed)
         provider.beforeFavorites = {}
         controller.execute(enable)
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
@@ -379,23 +379,23 @@ class NaviampCoreCatalogControllerTest {
         }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        val enable = NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true)
+        val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
         controller.dispatch(enable)
         val old = launch { controller.execute(enable) }
         runCurrent()
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
         provider.favorites = listOf(Artist(ArtistId("x"), "Xylophone"))
         controller.dispatch(enable)
         val current = launch { controller.execute(enable) }
         runCurrent()
         first.complete(Unit)
         old.join()
-        assertTrue(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.favoriteArtistIds().isEmpty())
         second.complete(Unit)
         current.join()
         assertEquals(listOf("x"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
     }
 
     @Test
@@ -405,7 +405,7 @@ class NaviampCoreCatalogControllerTest {
         provider.beforeSearch = { query, _ -> if (query == "old") gate.await() }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         val oldQuery = NaviampCoreCommand.Library.ChangeQuery("old")
         controller.dispatch(oldQuery)
         val old = launch { controller.execute(oldQuery) }
@@ -416,8 +416,8 @@ class NaviampCoreCatalogControllerTest {
         gate.complete(Unit)
         old.join()
         assertEquals("new", store.state.value.shell.library.artists.resultsQuery)
-        assertTrue(store.state.value.shell.library.artistFavoritesOnly)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.favoritesOnly)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         controller.applyCommand(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Artists))
         controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery(""))
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
@@ -431,7 +431,7 @@ class NaviampCoreCatalogControllerTest {
         provider.beforeFavorites = { gate.await() }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        val enable = NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true)
+        val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
         controller.dispatch(enable)
         val oldLoad = launch { controller.execute(enable) }
         runCurrent()
@@ -440,13 +440,13 @@ class NaviampCoreCatalogControllerTest {
 
         controller.dispatch(returnToArtists)
 
-        assertTrue(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesLoading)
         gate.complete(Unit)
         oldLoad.join()
-        assertTrue(store.state.value.shell.library.artistFavoritesLoading)
+        assertTrue(store.state.value.shell.library.artists.favoritesLoading)
         controller.execute(returnToArtists)
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
     }
 
     @Test
@@ -457,7 +457,7 @@ class NaviampCoreCatalogControllerTest {
         var provider: MediaProvider = oldProvider
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        val enable = NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true)
+        val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
         controller.dispatch(enable)
         val old = launch { controller.execute(enable) }
         runCurrent()
@@ -466,12 +466,12 @@ class NaviampCoreCatalogControllerTest {
         controller.artistUpdated(oldProvider, Artist(ArtistId("stale"), "Stale", "2026-01-01"))
         gate.complete(Unit)
         old.join()
-        assertFalse(store.state.value.shell.library.supportsArtistFavorites)
-        assertFalse(store.state.value.shell.library.artistFavoritesOnly)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.supportsFavorites)
+        assertFalse(store.state.value.shell.library.favoritesOnly)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
         assertTrue(store.state.value.shell.library.artists.items.isEmpty())
         controller.applyCommand(enable)
-        assertFalse(store.state.value.shell.library.artistFavoritesOnly)
+        assertFalse(store.state.value.shell.library.favoritesOnly)
     }
 
     @Test
@@ -488,7 +488,7 @@ class NaviampCoreCatalogControllerTest {
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         val browsing = launch { controller.execute(NaviampCoreCommand.Library.Refresh) }
         runCurrent()
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         gate.complete(Unit)
         browsing.join()
         assertEquals(listOf("a", "z"), store.favoriteArtistIds())
@@ -504,7 +504,7 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         val query = NaviampCoreCommand.Library.ChangeQuery("alias")
         controller.dispatch(query)
         val searching = launch { controller.execute(query) }
@@ -516,7 +516,7 @@ class NaviampCoreCatalogControllerTest {
         assertEquals(listOf("a"), store.favoriteArtistIds())
         assertEquals(listOf("a", "z"), store.state.value.shell.library.artists.items.map { it.id })
         assertNull(store.state.value.shell.library.artists.resultsQuery)
-        assertFalse(store.state.value.shell.library.artistFavoritesLoading)
+        assertFalse(store.state.value.shell.library.artists.favoritesLoading)
     }
 
     @Test
@@ -524,9 +524,9 @@ class NaviampCoreCatalogControllerTest {
         val provider = FavoriteCatalogProvider().apply { favorites = emptyList() }
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
         assertTrue(store.state.value.shell.library.artists.items.isEmpty())
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
         assertEquals(listOf(0), provider.browseOffsets)
         assertEquals(listOf("a"), store.state.value.shell.library.artists.items.map { it.id })
     }
@@ -537,8 +537,8 @@ class NaviampCoreCatalogControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
         controller.execute(NaviampCoreCommand.Library.Refresh)
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(true))
-        controller.applyCommand(NaviampCoreCommand.Library.ChangeArtistFavoritesOnly(false))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
         controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
         provider.favorites = listOf(Artist(ArtistId("z"), "Zulu"))
         controller.execute(NaviampCoreCommand.Library.Refresh)
@@ -551,6 +551,635 @@ class NaviampCoreCatalogControllerTest {
         controller.execute(NaviampCoreCommand.Library.LoadMore)
         assertEquals(listOf(0, 0, 1), provider.browseOffsets)
         assertEquals(listOf("z"), store.favoriteArtistIds())
+    }
+
+    @Test
+    fun globalHeartCompletesEveryKindAndRestoresAllOrdinaryCursors() = runTest {
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+        for (view in NaviampLibraryView.entries) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            assertEquals(listOf("a"), store.catalogIds(view))
+        }
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        for (view in NaviampLibraryView.entries) {
+            val select = NaviampCoreCommand.Library.ChangeView(view)
+            controller.dispatch(select)
+            assertTrue(store.state.value.shell.library.favoritesOnly)
+            assertTrue(store.state.value.shell.library.catalog(view).favoritesLoading)
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.execute(select)
+            assertEquals(listOf("a", "z"), store.visibleFavoriteIds(view))
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
+            assertEquals(view, store.state.value.shell.library.jumpRequest?.view)
+        }
+        assertEquals(listOf(0, 1), provider.favoriteOffsets)
+        assertEquals(listOf(0, 1), provider.albumFavoriteOffsets)
+        assertEquals(listOf(0, 1), provider.songFavoriteOffsets)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+        for (view in NaviampLibraryView.entries) assertEquals(listOf("a"), store.catalogIds(view))
+        for (view in NaviampLibraryView.entries) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            assertEquals(listOf("a", "m", "z"), store.catalogIds(view))
+        }
+        assertEquals(listOf(0, 1), provider.browseOffsets)
+        assertEquals(listOf(0, 1), provider.albumBrowseOffsets)
+        assertEquals(listOf(0, 1), provider.songBrowseOffsets)
+    }
+
+    @Test
+    fun globalHeartKeepsIndependentQueriesAndSearchCursorsWithServerAliasIntersection() = runTest {
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+        for (view in NaviampLibraryView.entries) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias-$view"))
+            assertEquals(listOf("m"), store.catalogIds(view))
+        }
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        for (view in NaviampLibraryView.entries) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            assertEquals("alias-$view", store.state.value.shell.library.catalog(view).resultsQuery)
+            assertEquals(listOf("z"), store.visibleFavoriteIds(view))
+        }
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+        for (view in NaviampLibraryView.entries) {
+            assertEquals("alias-$view", store.state.value.shell.library.catalog(view).query)
+            assertEquals(listOf("m"), store.catalogIds(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            assertEquals(listOf("m", "z"), store.catalogIds(view))
+        }
+        assertEquals(listOf(0, 0, 1, 1), provider.searchRequests.map { it.second })
+        assertEquals(listOf(0, 0, 1, 1), provider.albumSearchRequests.map { it.second })
+        assertEquals(listOf(0, 0, 1, 1), provider.songSearchRequests.map { it.second })
+    }
+
+    @Test
+    fun identicalIdsNeverShareMembershipOrMutationsAcrossKinds() = runTest {
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        for (view in NaviampLibraryView.entries) controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+        controller.artistUpdated(provider, Artist(ArtistId("a"), "Alpha"))
+        controller.albumUpdated(provider, provider.albumItem("z"))
+        controller.trackUpdated(provider, provider.trackItem("a"))
+        assertEquals(listOf("z"), store.visibleFavoriteIds(NaviampLibraryView.Artists))
+        assertEquals(listOf("a"), store.visibleFavoriteIds(NaviampLibraryView.Albums))
+        assertEquals(listOf("z"), store.visibleFavoriteIds(NaviampLibraryView.Songs))
+        controller.trackUpdated(provider, provider.trackItem("x", "2026-01-01"))
+        assertEquals(listOf("x", "z"), store.visibleFavoriteIds(NaviampLibraryView.Songs))
+        assertEquals(listOf("z"), store.visibleFavoriteIds(NaviampLibraryView.Artists))
+        assertEquals(listOf("a"), store.visibleFavoriteIds(NaviampLibraryView.Albums))
+    }
+
+    @Test
+    fun everyMutationUpdatesDetachedOrdinarySnapshotsButNeverInjectsUnmatchedQueryRows() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+            val store = NaviampCoreStateStore()
+            val registry = NaviampCoreMediaRegistry()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1, mediaRegistry = registry)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("server alias"))
+            controller.mutateFavorite(view, provider, "z", null)
+            controller.mutateFavorite(view, provider, "a", null)
+            controller.mutateFavorite(view, provider, "x", "2026-01-01")
+            assertEquals(listOf("m", "z"), store.catalogIds(view))
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery(""))
+            assertEquals(listOf("x"), store.visibleFavoriteIds(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+            assertEquals(listOf("a"), store.catalogIds(view))
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            assertEquals(listOf("x"), store.visibleFavoriteIds(view))
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            assertEquals(listOf("a", "z"), store.visibleFavoriteIds(view))
+        }
+    }
+
+    @Test
+    fun nullableFavoriteEndpointsEnumerateTheEntireLiveCatalogForEachKind() = runTest {
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+            favoriteEnumerationSupported = false
+            browseArtists = listOf(Artist(ArtistId("a"), "Alpha"), Artist(ArtistId("m"), "Middle", "favorite"),
+                Artist(ArtistId("z"), "Zulu", "2026-01-01"))
+            browseAlbums = listOf(albumItem("a"), albumItem("m", "favorite"), albumItem("z", "2026-01-01"))
+            browseTracks = listOf(trackItem("a"), trackItem("m", "favorite"), trackItem("z", "2026-01-01"))
+        }
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        for (view in NaviampLibraryView.entries) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            assertEquals(listOf("m", "z"), store.visibleFavoriteIds(view))
+        }
+        assertEquals(listOf(0, 1, 2), provider.browseOffsets)
+        assertEquals(listOf(0, 1, 2), provider.albumBrowseOffsets)
+        assertEquals(listOf(0, 1, 2), provider.songBrowseOffsets)
+        assertEquals(listOf(0), provider.favoriteOffsets)
+        assertEquals(listOf(0), provider.albumFavoriteOffsets)
+        assertEquals(listOf(0), provider.songFavoriteOffsets)
+    }
+
+    @Test
+    fun favoriteSongsExceedTheLegacyCappedShortcutAndKeepTheirLastPage() = runTest {
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+            favoriteSongs = (0..5_000).map { trackItem("song-$it") }
+        }
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 200)
+        controller.dispatch(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Songs))
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        assertEquals(5_001, store.visibleFavoriteIds(NaviampLibraryView.Songs).size)
+        assertTrue("song-5000" in store.visibleFavoriteIds(NaviampLibraryView.Songs))
+        assertEquals((0..5_000 step 200).toList(), provider.songFavoriteOffsets)
+        assertTrue(provider.songBrowseOffsets.isEmpty())
+    }
+
+    @Test
+    fun filteredAlbumsBypassTheIndexAndRespectSortChangesWithoutPublishingRawRows() = runTest {
+        val snapshots = mutableMapOf<app.naviamp.domain.library.AlbumCatalogScope, app.naviamp.domain.library.AlbumCatalogSnapshot>()
+        val repository = object : app.naviamp.domain.library.AlbumCatalogRepository {
+            override fun readAlbumCatalog(scope: app.naviamp.domain.library.AlbumCatalogScope) = snapshots[scope]
+            override fun replaceAlbumCatalog(scope: app.naviamp.domain.library.AlbumCatalogScope, snapshot: app.naviamp.domain.library.AlbumCatalogSnapshot) {
+                snapshots[scope] = snapshot
+            }
+        }
+        val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+        val store = NaviampCoreStateStore()
+        val index = app.naviamp.domain.library.AlbumLibraryIndex(repository, { "source" }, { 1_000L })
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1, albumIndex = index)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Albums))
+        val ordinary = store.catalogIds(NaviampLibraryView.Albums)
+        val browseRequests = provider.albumBrowseOffsets.toList()
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        controller.dispatch(NaviampCoreCommand.Library.ChangeAlbumSortOrder(LibraryAlbumSortOrder.RecentlyAdded))
+        assertEquals(listOf("z", "a"), store.visibleFavoriteIds(NaviampLibraryView.Albums))
+        controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
+        assertNull(store.state.value.shell.library.jumpRequest)
+        controller.dispatch(NaviampCoreCommand.Library.ChangeAlbumSortOrder(LibraryAlbumSortOrder.Title))
+        controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
+        assertEquals(listOf("a", "z"), store.visibleFavoriteIds(NaviampLibraryView.Albums))
+        assertEquals(browseRequests, provider.albumBrowseOffsets)
+        assertEquals(listOf(0, 1), provider.albumFavoriteOffsets)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+        assertTrue(store.catalogIds(NaviampLibraryView.Albums).containsAll(ordinary))
+        controller.execute(NaviampCoreCommand.Library.JumpToLetter('M'))
+        assertEquals(browseRequests, provider.albumBrowseOffsets)
+    }
+
+    @Test
+    fun unsupportedFilteredTabDoesNotFetchAnyCatalogAndTheGlobalHeartCanBeDisabled() = runTest {
+        val provider = FavoriteCatalogProvider()
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            assertTrue(store.state.value.shell.library.favoritesOnly)
+            assertFalse(store.state.value.shell.library.catalog(view).supportsFavorites)
+            assertFalse(store.state.value.shell.library.catalog(view).favoritesLoading)
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+        }
+        assertTrue(provider.albumFavoriteOffsets.isEmpty())
+        assertTrue(provider.songFavoriteOffsets.isEmpty())
+        assertTrue(provider.albumBrowseOffsets.isEmpty())
+        assertTrue(provider.songBrowseOffsets.isEmpty())
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+        assertFalse(store.state.value.shell.library.favoritesOnly)
+        assertEquals(listOf("a"), store.catalogIds(NaviampLibraryView.Songs))
+    }
+
+    @Test
+    fun everyKindRejectsLateMembershipOnTabDepartureWithoutClearingTheNewTabsLoadingOwner() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val next = NaviampLibraryView.entries[(view.ordinal + 1) % NaviampLibraryView.entries.size]
+            val oldGate = CompletableDeferred<Unit>()
+            val newGate = CompletableDeferred<Unit>()
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                beforeKindFavorites = { kind, _ -> if (kind == view) oldGate.await() else if (kind == next) newGate.await() }
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
+            controller.dispatch(enable)
+            val old = launch { controller.execute(enable) }
+            runCurrent()
+            val change = NaviampCoreCommand.Library.ChangeView(next)
+            controller.dispatch(change)
+            assertTrue(store.state.value.shell.library.catalog(next).favoritesLoading)
+            val current = launch { controller.execute(change) }
+            runCurrent()
+            oldGate.complete(Unit)
+            old.join()
+            assertTrue(store.state.value.shell.library.catalog(next).favoritesLoading)
+            assertFalse(store.state.value.shell.library.catalog(view).favoritesLoading)
+            assertTrue(store.catalogIds(view).isEmpty())
+            newGate.complete(Unit)
+            current.join()
+            assertEquals(listOf("a", "z"), store.visibleFavoriteIds(next))
+        }
+    }
+
+    @Test
+    fun albumAndSongQueriesRejectOldResponsesAndKeepMutationsMadeDuringCompletion() = runTest {
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            val gate = CompletableDeferred<Unit>()
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                beforeKindSearch = { kind, query, request -> if (kind == view && query == "old" && request.offset == 1) gate.await() }
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            val query = NaviampCoreCommand.Library.ChangeQuery("old")
+            controller.dispatch(query)
+            val old = launch { controller.execute(query) }
+            runCurrent()
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.mutateFavorite(view, provider, "z", null)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("new"))
+            gate.complete(Unit)
+            old.join()
+            assertEquals("new", store.state.value.shell.library.catalog(view).resultsQuery)
+            assertEquals(listOf("a"), store.visibleFavoriteIds(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery(""))
+            assertEquals(listOf("a"), store.visibleFavoriteIds(view))
+        }
+    }
+
+    @Test
+    fun allKindsKeepInFlightLocalMutationsButClearCompletedOverridesOnExplicitRefresh() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val gate = CompletableDeferred<Unit>()
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.mutateFavorite(view, provider, "a", null)
+            provider.beforeKindFavorites = { kind, request -> if (kind == view && request.offset == 1) gate.await() }
+            val refreshing = launch { controller.execute(NaviampCoreCommand.Library.Refresh) }
+            runCurrent()
+            controller.mutateFavorite(view, provider, "z", null)
+            controller.mutateFavorite(view, provider, "x", "2026-01-01")
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            gate.complete(Unit)
+            refreshing.join()
+            assertEquals(listOf("a", "x"), store.visibleFavoriteIds(view))
+        }
+    }
+
+    @Test
+    fun failedRefreshInvalidationSurvivesAllSnapshotRestoresAndLaterOrdinaryPages() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                browseArtists = browseArtists.map { it.copy(favoritedAtIso8601 = "2025-01-01") }
+                browseAlbums = browseAlbums.map { it.copy(favoritedAtIso8601 = "2025-01-01") }
+                browseTracks = browseTracks.map { it.copy(favoritedAtIso8601 = "2025-01-01") }
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
+            provider.beforeKindFavorites = { kind, _ -> if (kind == view) error("Offline") }
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+            assertTrue(store.state.value.shell.library.catalog(view).favoritesFailed)
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery(""))
+            assertTrue(store.state.value.shell.library.catalog(view).favoritesFailed)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+            assertEquals(listOf("a"), store.catalogIds(view))
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            controller.execute(NaviampCoreCommand.Library.LoadMore)
+            assertEquals(listOf("a", "m"), store.catalogIds(view))
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            provider.beforeKindFavorites = { _, _ -> }
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            assertEquals(listOf("a", "z"), store.visibleFavoriteIds(view))
+        }
+    }
+
+    @Test
+    fun namespaceFoldersAndSourceChangesInvalidateInactiveMembershipCaches() = runTest {
+        for (scopeChange in listOf("namespace", "folders", "source")) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            for (view in NaviampLibraryView.entries) controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            provider.favorites = listOf(Artist(ArtistId("new"), "new"))
+            provider.favoriteAlbums = listOf(provider.albumItem("new"))
+            provider.favoriteSongs = listOf(provider.trackItem("new"))
+            when (scopeChange) {
+                "namespace" -> provider.cacheNamespace = "new"
+                "folders" -> provider.selectedMusicFolderIds = listOf("new")
+                else -> store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "new")) }
+            }
+            for (view in NaviampLibraryView.entries) {
+                controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+                assertEquals(listOf("new"), store.visibleFavoriteIds(view))
+            }
+            assertEquals(listOf(0, 1, 0), provider.favoriteOffsets)
+            assertEquals(listOf(0, 1, 0), provider.albumFavoriteOffsets)
+            assertEquals(listOf(0, 1, 0), provider.songFavoriteOffsets)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+            assertTrue(store.catalogIds(NaviampLibraryView.Artists).isEmpty())
+            assertTrue(store.catalogIds(NaviampLibraryView.Albums).isEmpty())
+            assertEquals(listOf("a"), store.catalogIds(NaviampLibraryView.Songs))
+        }
+    }
+
+    @Test
+    fun sameProviderSourceSwitchRejectsAllLateFavoritePages() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val gate = CompletableDeferred<Unit>()
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                beforeKindFavorites = { kind, _ -> if (kind == view) gate.await() }
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
+            controller.dispatch(enable)
+            val old = launch { controller.execute(enable) }
+            runCurrent()
+            store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "new")) }
+            controller.resetForSourceChange()
+            gate.complete(Unit)
+            old.join()
+            assertFalse(store.state.value.shell.library.favoritesOnly)
+            assertFalse(store.state.value.shell.library.catalog(view).favoritesLoading)
+            assertTrue(store.catalogIds(view).isEmpty())
+        }
+    }
+
+    @Test
+    fun albumAndTrackMarkersPreserveIndependentHomeDetailAndSearchTimestamps() = runTest {
+        for (marker in listOf(null, "favorite", "")) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                favoriteAlbums = favoriteAlbums.map { it.copy(favoritedAtIso8601 = marker) }
+                favoriteSongs = favoriteSongs.map { it.copy(favoritedAtIso8601 = marker) }
+            }
+            val album = provider.albumItem("z", "2026-01-01")
+            val track = provider.trackItem("z", "2025-01-01")
+            val registry = NaviampCoreMediaRegistry()
+            registry.updateHome(app.naviamp.domain.home.HomeContent(recentlyAddedAlbums = listOf(album),
+                recentlyPlayedTracks = listOf(track)), app.naviamp.domain.sonichome.SonicHomeDiscoveryRows())
+            registry.updateSearch(MediaSearchResults(albums = listOf(album), tracks = listOf(track)))
+            registry.updateAlbum(AlbumDetails(album.copy(favoritedAtIso8601 = marker), listOf(track.copy(favoritedAtIso8601 = marker))))
+            val controller = NaviampCoreCatalogController(NaviampCoreStateStore(), { provider }, mediaRegistry = registry)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Albums))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Songs))
+            assertEquals(listOf(album), registry.home.recentlyAddedAlbums)
+            assertEquals(listOf(track), registry.home.recentlyPlayedTracks)
+            assertEquals(listOf(album), registry.search.albums)
+            assertEquals(listOf(track), registry.search.tracks)
+            controller.albumUpdated(provider, album.copy(favoritedAtIso8601 = "favorite"))
+            controller.trackUpdated(provider, track.copy(favoritedAtIso8601 = "favorite"))
+            assertEquals(listOf(album), registry.home.recentlyAddedAlbums)
+            assertEquals(listOf(track), registry.home.recentlyPlayedTracks)
+        }
+    }
+
+    @Test
+    fun failedFavoriteRefreshKeepsHomeDetailAndSearchDatesUntilAnAuthoritativeUpdate() = runTest {
+        for (view in NaviampLibraryView.entries) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true)
+            val artist = Artist(ArtistId("z"), "Zulu", "2024-01-01T00:00:00Z")
+            val album = provider.albumItem("z", "2025-01-01T00:00:00Z")
+            val track = provider.trackItem("z", "2026-01-01T00:00:00Z")
+            val registry = NaviampCoreMediaRegistry()
+            registry.updateHome(app.naviamp.domain.home.HomeContent(favoriteArtists = listOf(artist),
+                recentlyAddedAlbums = listOf(album), recentlyPlayedTracks = listOf(track)),
+                app.naviamp.domain.sonichome.SonicHomeDiscoveryRows())
+            registry.updateSearch(MediaSearchResults(artists = listOf(artist), albums = listOf(album), tracks = listOf(track)))
+            registry.updateAlbum(AlbumDetails(album, listOf(track)))
+            registry.updateArtist(ArtistDetails(artist, listOf(album)), popularTracks = listOf(track),
+                appearanceAlbums = listOf(album), appearanceTracks = listOf(track))
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1, mediaRegistry = registry)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            assertTrue("z" in store.visibleFavoriteIds(view))
+            provider.beforeKindFavorites = { kind, _ -> if (kind == view) error("Offline") }
+
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("alias"))
+            controller.dispatch(NaviampCoreCommand.Library.ChangeQuery(""))
+
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            assertEquals(listOf(artist), registry.home.favoriteArtists)
+            assertEquals(listOf(album), registry.home.recentlyAddedAlbums)
+            assertEquals(listOf(track), registry.home.recentlyPlayedTracks)
+            assertEquals(MediaSearchResults(listOf(artist), listOf(album), listOf(track)), registry.search)
+            assertEquals(AlbumDetails(album, listOf(track)), registry.albumDetails)
+            assertEquals(ArtistDetails(artist, listOf(album)), registry.artistDetails)
+            assertEquals(listOf(track), registry.artistPopularTracks)
+            assertEquals(listOf(album), registry.artistAppearanceAlbums)
+            assertEquals(listOf(track), registry.artistAppearanceTracks)
+
+            provider.beforeKindFavorites = { _, _ -> }
+            provider.favorites = emptyList()
+            provider.favoriteAlbums = emptyList()
+            provider.favoriteSongs = emptyList()
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+            assertFalse(store.state.value.shell.library.catalog(view).favoritesFailed)
+            val timestamp = when (view) {
+                NaviampLibraryView.Artists -> registry.home.favoriteArtists.single().favoritedAtIso8601
+                NaviampLibraryView.Albums -> registry.home.recentlyAddedAlbums.single().favoritedAtIso8601
+                NaviampLibraryView.Songs -> registry.home.recentlyPlayedTracks.single().favoritedAtIso8601
+            }
+            assertNull(timestamp)
+        }
+    }
+
+    @Test
+    fun malformedAlbumAndSongPagesFailWithoutFallbackOrPartialSuccess() = runTest {
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            for (failure in listOf("empty", "metadata", "repeat", "token", "exception")) {
+                val base = FavoriteCatalogProvider(supportsAllKinds = true)
+                var requests = 0
+                fun <T> malformed(request: MediaPageRequest, item: T): MediaPage<T> {
+                    requests++
+                    if (failure == "exception") error("Offline")
+                    return MediaPage(if (failure == "empty") emptyList() else listOf(item),
+                        if (failure == "metadata") request.offset + 1 else request.offset, request.limit, true,
+                        nextContinuationToken = if (failure == "token") "cycle" else null)
+                }
+                val provider = object : MediaProvider by base {
+                    override suspend fun favoriteAlbumsPage(request: MediaPageRequest): MediaPage<Album> =
+                        malformed(request, base.albumItem(if (failure == "token") "a-${request.offset}" else "a"))
+                    override suspend fun favoriteTracksPage(request: MediaPageRequest): MediaPage<Track> =
+                        malformed(request, base.trackItem(if (failure == "token") "a-${request.offset}" else "a"))
+                }
+                val store = NaviampCoreStateStore()
+                val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+                controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+                controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+                assertTrue(store.state.value.shell.library.catalog(view).favoritesFailed)
+                assertFalse(store.state.value.shell.library.catalog(view).favoritesLoading)
+                assertTrue(store.visibleFavoriteIds(view).isEmpty())
+                assertEquals(if (failure == "repeat" || failure == "token") 2 else 1, requests)
+                assertTrue(base.albumBrowseOffsets.isEmpty())
+                assertTrue(base.songBrowseOffsets.isEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun unfilteredAlbumAndSongJumpsWalkRawPagesPastAnInjectedFavorite() = runTest {
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                browseAlbums = listOf(albumItem("a"), albumItem("m"), albumItem("y"),
+                    albumItem("ordinary-z").copy(title = "Zebra"), albumItem("z"))
+                browseTracks = listOf(trackItem("a"), trackItem("m"), trackItem("y"),
+                    trackItem("ordinary-z").copy(title = "Zebra"), trackItem("z"))
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(false))
+            controller.execute(NaviampCoreCommand.Library.JumpToLetter('Z'))
+            assertEquals(listOf("a", "m", "y", "ordinary-z"), store.catalogIds(view))
+            assertEquals(listOf(0, 0, 1, 2, 3), if (view == NaviampLibraryView.Albums)
+                provider.albumBrowseOffsets else provider.songBrowseOffsets)
+            assertEquals('Z', store.state.value.shell.library.jumpRequest?.letter)
+        }
+    }
+
+    @Test
+    fun albumAndSongSearchFailureNeverPublishesPartialMembershipAndRefreshRetriesTheExactQuery() = runTest {
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            val provider = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                beforeKindSearch = { kind, _, request -> if (kind == view && request.offset == 1) error("Offline") }
+            }
+            val store = NaviampCoreStateStore()
+            val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+            controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+            controller.applyCommand(NaviampCoreCommand.Library.ChangeQuery("server alias"))
+            assertTrue(store.state.value.shell.library.catalog(view).favoritesFailed)
+            assertTrue(store.visibleFavoriteIds(view).isEmpty())
+            provider.beforeKindSearch = { _, _, _ -> }
+            controller.execute(NaviampCoreCommand.Library.Refresh)
+            assertEquals("server alias", store.state.value.shell.library.catalog(view).query)
+            assertEquals(listOf("z"), store.visibleFavoriteIds(view))
+            assertFalse(store.state.value.shell.library.catalog(view).favoritesFailed)
+            assertEquals(listOf("server alias" to 0, "server alias" to 1, "server alias" to 0, "server alias" to 1),
+                if (view == NaviampLibraryView.Albums) provider.albumSearchRequests else provider.songSearchRequests)
+            assertTrue(provider.albumBrowseOffsets.isEmpty())
+            assertTrue(provider.songBrowseOffsets.isEmpty())
+        }
+    }
+
+    @Test
+    fun lateAlbumIndexCompletionAndSortChangesCannotOverwriteFilteredMembership() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val base = FavoriteCatalogProvider(supportsAllKinds = true)
+        val provider = object : MediaProvider by base {
+            override suspend fun albumsPage(request: MediaPageRequest): MediaPage<Album> {
+                gate.await()
+                return base.albumsPage(request)
+            }
+        }
+        val snapshots = mutableMapOf<app.naviamp.domain.library.AlbumCatalogScope, app.naviamp.domain.library.AlbumCatalogSnapshot>()
+        val repository = object : app.naviamp.domain.library.AlbumCatalogRepository {
+            override fun readAlbumCatalog(scope: app.naviamp.domain.library.AlbumCatalogScope) = snapshots[scope]
+            override fun replaceAlbumCatalog(scope: app.naviamp.domain.library.AlbumCatalogScope, snapshot: app.naviamp.domain.library.AlbumCatalogSnapshot) {
+                snapshots[scope] = snapshot
+            }
+        }
+        val store = NaviampCoreStateStore()
+        val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1,
+            albumIndex = app.naviamp.domain.library.AlbumLibraryIndex(repository, { "source" }, { 1_000L }))
+        val select = NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Albums)
+        controller.dispatch(select)
+        val ordinary = launch { controller.execute(select) }
+        runCurrent()
+        controller.applyCommand(NaviampCoreCommand.Library.ChangeFavoritesOnly(true))
+        controller.dispatch(NaviampCoreCommand.Library.ChangeAlbumSortOrder(LibraryAlbumSortOrder.RecentlyAdded))
+        gate.complete(Unit)
+        ordinary.join()
+        assertEquals(listOf("z", "a"), store.visibleFavoriteIds(NaviampLibraryView.Albums))
+        assertEquals(listOf("z", "a"), store.catalogIds(NaviampLibraryView.Albums))
+        assertFalse(store.state.value.shell.library.albums.syncStatus.isSyncing)
+        assertFalse(store.state.value.shell.library.albums.favoritesLoading)
+    }
+
+    @Test
+    fun lateFolderOrProviderMembershipCannotPublishIntoTheReplacementScope() = runTest {
+        for (view in listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs)) {
+            for (replaceProvider in listOf(false, true)) {
+                val gate = CompletableDeferred<Unit>()
+                val original = FavoriteCatalogProvider(supportsAllKinds = true).apply {
+                    beforeKindFavorites = { kind, _ -> if (kind == view) gate.await() }
+                }
+                var provider: MediaProvider = original
+                val store = NaviampCoreStateStore()
+                val controller = NaviampCoreCatalogController(store, { provider }, libraryPageSize = 1)
+                controller.dispatch(NaviampCoreCommand.Library.ChangeView(view))
+                val enable = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
+                controller.dispatch(enable)
+                val old = launch { controller.execute(enable) }
+                runCurrent()
+                if (replaceProvider) {
+                    provider = FavoriteCatalogProvider(namespace = "replacement", supportsAllKinds = true).apply {
+                        favoriteAlbums = listOf(albumItem("new"))
+                        favoriteSongs = listOf(trackItem("new"))
+                    }
+                } else {
+                    original.selectedMusicFolderIds = listOf("new")
+                    original.favoriteAlbums = listOf(original.albumItem("new"))
+                    original.favoriteSongs = listOf(original.trackItem("new"))
+                    original.beforeKindFavorites = { _, _ -> }
+                }
+                controller.execute(NaviampCoreCommand.Library.Refresh)
+                gate.complete(Unit)
+                old.join()
+                assertEquals(listOf("new"), store.visibleFavoriteIds(view))
+                assertFalse(store.state.value.shell.library.catalog(view).favoritesLoading)
+            }
+        }
+    }
+
+    private fun NaviampCoreStateStore.catalogIds(view: NaviampLibraryView): List<String> {
+        val catalog = state.value.shell.library.catalog(view)
+        return if (view == NaviampLibraryView.Songs) catalog.tracks.map { it.id } else catalog.items.map { it.id }
+    }
+
+    private fun NaviampCoreStateStore.visibleFavoriteIds(view: NaviampLibraryView): List<String> {
+        val library = state.value.shell.library
+        val catalog = library.catalog(view)
+        if (library.favoritesOnly && (!catalog.supportsFavorites || catalog.favoritesLoading || catalog.favoritesFailed)) return emptyList()
+        return if (view == NaviampLibraryView.Songs) catalog.tracks.filter { it.favoriteActive }.map { it.id }
+            else catalog.items.filter { it.favoriteActive }.map { it.id }
+    }
+
+    private fun NaviampCoreCatalogController.mutateFavorite(view: NaviampLibraryView, provider: FavoriteCatalogProvider,
+        id: String, timestamp: String?) {
+        when (view) {
+            NaviampLibraryView.Artists -> artistUpdated(provider, Artist(ArtistId(id), when (id) {
+                "a" -> "Alpha"; "z" -> "Zulu"; else -> id
+            }, timestamp))
+            NaviampLibraryView.Albums -> albumUpdated(provider, provider.albumItem(id, timestamp))
+            NaviampLibraryView.Songs -> trackUpdated(provider, provider.trackItem(id, timestamp))
+        }
     }
 
     private suspend fun NaviampCoreCatalogController.applyCommand(command: NaviampCoreCommand) {
@@ -1512,9 +2141,12 @@ class NaviampCoreCatalogControllerTest {
 private class FavoriteCatalogProvider(
     namespace: String = "favorites",
     supportsFavorites: Boolean = true,
+    supportsAllKinds: Boolean = false,
 ) : MediaProvider by CatalogTestProvider() {
-    override val cacheNamespace = namespace
-    override val capabilities = CatalogTestProvider().capabilities.copy(supportsArtistFavorites = supportsFavorites)
+    override var cacheNamespace = namespace
+    override var selectedMusicFolderIds: List<String> = emptyList()
+    override val capabilities = CatalogTestProvider().capabilities.copy(supportsArtistFavorites = supportsFavorites,
+        supportsAlbumFavorites = supportsAllKinds, supportsTrackFavorites = supportsAllKinds)
     var browseArtists = listOf(Artist(ArtistId("a"), "Alpha"), Artist(ArtistId("m"), "Middle"))
     var favorites = listOf(Artist(ArtistId("a"), "Alpha"), Artist(ArtistId("z"), "Zulu"))
     var favoriteEnumerationSupported = true
@@ -1523,6 +2155,18 @@ private class FavoriteCatalogProvider(
     val browseOffsets = mutableListOf<Int>()
     val favoriteOffsets = mutableListOf<Int>()
     val searchRequests = mutableListOf<Pair<String, Int>>()
+    var browseAlbums = listOf(albumItem("a"), albumItem("m"))
+    var browseTracks = listOf(trackItem("a"), trackItem("m"))
+    var favoriteAlbums = listOf(albumItem("a"), albumItem("z"))
+    var favoriteSongs = listOf(trackItem("a"), trackItem("z"))
+    var beforeKindFavorites: suspend (NaviampLibraryView, MediaPageRequest) -> Unit = { _, _ -> }
+    var beforeKindSearch: suspend (NaviampLibraryView, String, MediaPageRequest) -> Unit = { _, _, _ -> }
+    val albumBrowseOffsets = mutableListOf<Int>()
+    val songBrowseOffsets = mutableListOf<Int>()
+    val albumFavoriteOffsets = mutableListOf<Int>()
+    val songFavoriteOffsets = mutableListOf<Int>()
+    val albumSearchRequests = mutableListOf<Pair<String, Int>>()
+    val songSearchRequests = mutableListOf<Pair<String, Int>>()
 
     override suspend fun artistsPage(request: MediaPageRequest): MediaPage<Artist> {
         browseOffsets += request.offset
@@ -1533,6 +2177,7 @@ private class FavoriteCatalogProvider(
         favoriteOffsets += request.offset
         val result = if (favoriteEnumerationSupported) page(favorites, request) else null
         beforeFavorites(request)
+        beforeKindFavorites(NaviampLibraryView.Artists, request)
         return result
     }
 
@@ -1542,12 +2187,63 @@ private class FavoriteCatalogProvider(
             else listOf(Artist(ArtistId("m"), "Middle"), Artist(ArtistId("z"), "Zulu"))
         val result = page(matches, request)
         beforeSearch(query, request)
+        beforeKindSearch(NaviampLibraryView.Artists, query, request)
         return result
     }
 
-    private fun page(artists: List<Artist>, request: MediaPageRequest): MediaPage<Artist> {
-        val items = artists.drop(request.offset).take(request.limit)
-        return MediaPage(items, request.offset, request.limit, request.offset + items.size < artists.size)
+    override suspend fun albumsPage(request: MediaPageRequest): MediaPage<Album> {
+        albumBrowseOffsets += request.offset
+        return page(browseAlbums, request)
+    }
+
+    override suspend fun tracksPage(request: MediaPageRequest): MediaPage<Track> {
+        songBrowseOffsets += request.offset
+        return page(browseTracks, request)
+    }
+
+    override suspend fun favoriteAlbumsPage(request: MediaPageRequest): MediaPage<Album>? {
+        albumFavoriteOffsets += request.offset
+        val result = if (favoriteEnumerationSupported) page(favoriteAlbums, request) else null
+        beforeKindFavorites(NaviampLibraryView.Albums, request)
+        return result
+    }
+
+    override suspend fun favoriteTracksPage(request: MediaPageRequest): MediaPage<Track>? {
+        songFavoriteOffsets += request.offset
+        val result = if (favoriteEnumerationSupported) page(favoriteSongs, request) else null
+        beforeKindFavorites(NaviampLibraryView.Songs, request)
+        return result
+    }
+
+    override suspend fun favoriteTracks(limit: Int): List<Track> = error("Capped favorites are not authoritative")
+    override suspend fun libraryTracksPage(request: MediaPageRequest): MediaPage<Track>? = error("Index pages are not live membership")
+
+    override suspend fun searchAlbumsPage(query: String, request: MediaPageRequest): MediaPage<Album> {
+        albumSearchRequests += query to request.offset
+        val result = page(if (query == "new") listOf(albumItem("a")) else listOf(albumItem("m"), albumItem("z")), request)
+        beforeKindSearch(NaviampLibraryView.Albums, query, request)
+        return result
+    }
+
+    override suspend fun searchTracksPage(query: String, request: MediaPageRequest): MediaPage<Track> {
+        songSearchRequests += query to request.offset
+        val result = page(if (query == "new") listOf(trackItem("a")) else listOf(trackItem("m"), trackItem("z")), request)
+        beforeKindSearch(NaviampLibraryView.Songs, query, request)
+        return result
+    }
+
+    fun albumItem(id: String, favorite: String? = null) = Album(AlbumId(id), title(id), "Artist", null,
+        if (id == "z") "2026-10-01T00:00:00Z" else "2025-01-01T00:00:00Z", favoritedAtIso8601 = favorite)
+
+    fun trackItem(id: String, favorite: String? = null) = Track(TrackId(id), title(id), artistName = "Artist",
+        albumTitle = "Album", durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+        favoritedAtIso8601 = favorite)
+
+    private fun title(id: String) = when (id) { "a" -> "Alpha"; "m" -> "Middle"; "z" -> "Zulu"; else -> id }
+
+    private fun <T> page(items: List<T>, request: MediaPageRequest): MediaPage<T> {
+        val selected = items.drop(request.offset).take(request.limit)
+        return MediaPage(selected, request.offset, request.limit, request.offset + selected.size < items.size)
     }
 }
 

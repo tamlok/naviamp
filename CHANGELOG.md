@@ -15,7 +15,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Move the full-player volume speaker to the bottom immediately before Cast, and enlarge transport, favorite/rating, and bottom-action controls while keeping narrow layouts usable.
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
-- Filter Library → Artists to Favorites, independently of the optional Home section.
+- Use the heart in Library’s top-right header to filter Artists, Albums, and Songs to favorites, with one toggle retained across all three tabs and independent of the optional Home section.
 - Open accounts, supported Downloads, and Settings from My.
 - Keep navigation and browsing content theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.

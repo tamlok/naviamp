@@ -34,6 +34,9 @@
     <string name="mini_player_open">打开播放器详情</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">收藏</string>
+    <string name="library_favorites_empty">暂无收藏。</string>
+    <string name="library_favorites_failed">无法加载收藏。请刷新后重试。</string>
+    <string name="library_favorites_unsupported">此来源不支持收藏。</string>
     <string name="settings_radio_new_dj">新建 DJ</string>
     <string name="settings_radio_create_dj">创建新 DJ</string>
     <string name="tv_album_sort_order">专辑排序</string>

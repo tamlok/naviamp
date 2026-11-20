@@ -118,6 +118,21 @@ class OpenSubsonicAuditTest {
         assertEquals(1, http.calls.count { it.first == "getStarred2.view" })
     }
 
+    @Test fun favoriteSongPagesPreserveOffsetFolderScopeAndSharedSnapshot() = runTest {
+        val http = Http().apply {
+            payload = "\"starred2\":{\"song\":[${song("a")},${song("b")},${song("c") }],\"artist\":[{\"id\":\"artist\",\"name\":\"Artist\"}]}"
+        }
+        val p = provider(http, listOf("one", "two"))
+        val first = p.favoriteTracksPage(app.naviamp.domain.provider.MediaPageRequest(limit = 2))
+        assertEquals(listOf("a", "b"), first.items.map { it.id.value })
+        val last = p.favoriteTracksPage(assertNotNull(first.nextRequest))
+        assertEquals(listOf("c"), last.items.map { it.id.value })
+        assertNull(last.nextRequest)
+        p.favoriteArtistsPage(app.naviamp.domain.provider.MediaPageRequest(limit = 2))
+        val calls = http.calls.filter { it.first == "getStarred2.view" }
+        assertEquals(listOf("one", "two"), calls.map { io.ktor.http.parseQueryString(it.second)["musicFolderId"] })
+    }
+
     @Test fun downloadMemberPagesUseCompleteSubsonicAlbumAndArtistResponses() = runTest {
         val http = Http().apply {
             payload = """ "album":{"id":"album","name":"Album","song":[

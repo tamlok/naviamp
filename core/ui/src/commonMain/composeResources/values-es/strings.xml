@@ -20,6 +20,9 @@
     <string name="mini_player_open">Abrir detalles del reproductor</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favoritos</string>
+    <string name="library_favorites_empty">Aún no hay favoritos.</string>
+    <string name="library_favorites_failed">No se pudieron cargar los favoritos. Actualiza para volver a intentarlo.</string>
+    <string name="library_favorites_unsupported">Esta fuente no admite favoritos.</string>
     <string name="tv_album_sort_order">Orden de álbumes</string>
     <string name="tv_album_sort_order_description">Elige cómo ordenar los lanzamientos del artista</string>
     <string name="tv_album_sort_oldest_first">Más antiguos primero</string>

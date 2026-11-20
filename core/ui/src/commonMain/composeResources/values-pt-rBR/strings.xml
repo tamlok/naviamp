@@ -20,6 +20,9 @@
     <string name="mini_player_open">Abrir detalhes do player</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favoritos</string>
+    <string name="library_favorites_empty">Ainda não há favoritos.</string>
+    <string name="library_favorites_failed">Não foi possível carregar os favoritos. Atualize para tentar novamente.</string>
+    <string name="library_favorites_unsupported">Esta fonte não oferece suporte a favoritos.</string>
     <string name="settings_radio_new_dj">Novo DJ</string>
     <string name="settings_radio_create_dj">Criar novo DJ</string>
     <string name="tv_album_sort_order">Ordenação de álbuns</string>

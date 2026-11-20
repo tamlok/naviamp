@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import app.naviamp.domain.settings.LibraryAlbumSortOrder
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -27,8 +29,8 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class NaviampTelevisionLibraryUiTest {
     @Test fun favoritesHasRemoteNeighborsAndFiltersServerMatchesWithoutLoadingMore() = runDesktopComposeUiTest(1280, 720) {
-        val screen = mutableStateOf(screen().copy(supportsArtistFavorites = true,
-            artists = NaviampLibraryCatalogUi(query = "Rufus", resultsQuery = "Rufus", items = listOf(
+        val screen = mutableStateOf(screen().copy(
+            artists = NaviampLibraryCatalogUi(supportsFavorites = true, query = "Rufus", resultsQuery = "Rufus", items = listOf(
                 SharedMediaItemUi("plain", "Rufus Thomas", "Artist"),
                 SharedMediaItemUi("alias", "Server alias match", "Artist", favoriteActive = true),
             ))))
@@ -41,16 +43,22 @@ class NaviampTelevisionLibraryUiTest {
         onNodeWithTag(viewTag(NaviampLibraryView.Songs)).assertIsFocused()
             .performKeyInput { pressKey(Key.DirectionRight) }
         onNodeWithText("Choose libraries").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
-        onNodeWithText("Favorites").assertIsFocused().assertIsNotSelected()
-            .performKeyInput { pressKey(Key.Enter) }
-        onNodeWithText("Favorites").assertIsFocused().assertIsSelected()
+        onNodeWithText("Refresh").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithText("Favorites", useUnmergedTree = true).assertDoesNotExist()
+        val heart = onNodeWithContentDescription("Favorites").assertIsFocused().assertIsNotSelected()
+            .assertWidthIsAtLeast(48.dp).assertHeightIsAtLeast(48.dp)
+        assertTrue(heart.fetchSemanticsNode().boundsInRoot.left >=
+            onNodeWithText("Refresh").fetchSemanticsNode().boundsInRoot.right)
+        heart.performKeyInput { pressKey(Key.Enter) }
+        heart.assertIsFocused().assertIsSelected()
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Selected"))
         onNodeWithTag(itemTag("plain")).assertDoesNotExist()
         onNodeWithTag(itemTag("alias")).assertIsDisplayed()
         runOnIdle { loads = 0 }
-        onNodeWithText("Favorites").performKeyInput { pressKey(Key.DirectionRight) }
-        onNodeWithText("Refresh").assertIsFocused().performKeyInput { pressKey(Key.DirectionLeft) }
-        onNodeWithText("Favorites").assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+        heart.performKeyInput { pressKey(Key.DirectionRight) }.assertIsFocused()
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        onNodeWithText("Refresh").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        heart.assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
         onNodeWithTag(itemTag("alias")).assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
         runOnIdle {
             assertEquals(0, loads)
@@ -61,28 +69,138 @@ class NaviampTelevisionLibraryUiTest {
         onNodeWithText("No library artists match.").assertIsDisplayed()
     }
 
-    @Test fun favoritesStatusAndVisibilityFollowArtistState() = runDesktopComposeUiTest(1280, 720) {
-        val screen = mutableStateOf(NaviampLibraryScreenUi(
-            supportsArtistFavorites = true, artistFavoritesOnly = true, artistFavoritesLoading = true,
+    @Test fun favoritesStatusHidesStaleRowsAndNeverLoadsOrdinaryPagesOnAnyTab() = runDesktopComposeUiTest(1280, 720) {
+        val screen = mutableStateOf(favoritesScreen().copy(favoritesOnly = true))
+        var loads = 0
+        setContent { LibraryFixture(screen, rememberNaviampTelevisionLibraryState(), onLoadMore = { loads++ }) }
+        NaviampLibraryView.entries.forEach { view ->
+            runOnIdle {
+                screen.value = screen.value.copy(selectedView = view).withSelectedCatalog(
+                    favoritesCatalog(view).copy(query = "", resultsQuery = "", favoritesLoading = true),
+                )
+            }
+            onNodeWithText("Loading ${view.name.lowercase()}…").assertIsDisplayed()
+            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithText("No library ${view.name.lowercase()} found.").assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
+            runOnIdle {
+                screen.value = screen.value.withSelectedCatalog(screen.value.selectedCatalog.copy(
+                    favoritesLoading = false, favoritesFailed = true,
+                ))
+            }
+            onNodeWithText("Could not load favorites. Refresh to try again.").assertIsDisplayed()
+            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
+            runOnIdle {
+                screen.value = screen.value.withSelectedCatalog(screen.value.selectedCatalog.copy(
+                    favoritesFailed = false, items = emptyList(), tracks = emptyList(),
+                ))
+            }
+            onNodeWithText("No favorites yet.").assertIsDisplayed()
+            onNodeWithContentDescription("Favorites").assertIsDisplayed().assertIsSelected()
+            runOnIdle { assertEquals(0, loads) }
+        }
+    }
+
+    @Test fun globalHeartFiltersAllTabsAndRetainsQueriesThroughFavoriteRemovalAndToggleOff() = runDesktopComposeUiTest(1280, 720) {
+        val original = favoritesScreen()
+        val screen = mutableStateOf(original)
+        var loads = 0
+        setContent { LibraryFixture(screen, rememberNaviampTelevisionLibraryState(), onLoadMore = { loads++ }) }
+        onNodeWithContentDescription("Favorites").performClick().assertIsSelected()
+        runOnIdle { loads = 0 }
+        NaviampLibraryView.entries.forEach { view ->
+            onNodeWithTag(viewTag(view)).performClick()
+            onNodeWithContentDescription("Favorites").assertIsSelected()
+            onNodeWithText("Favorites", useUnmergedTree = true).assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-alias")).assertIsDisplayed()
+            onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
+            runOnIdle {
+                assertEquals(original.copy(selectedView = view, favoritesOnly = true), screen.value)
+                val catalog = screen.value.selectedCatalog
+                screen.value = screen.value.withSelectedCatalog(catalog.copy(
+                    items = catalog.items.map { it.copy(favoriteActive = false) },
+                    tracks = catalog.tracks.map { it.copy(favoriteActive = false) },
+                ))
+            }
+            onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
+            onNodeWithText("No library ${view.name.lowercase()} match.").assertIsDisplayed()
+            runOnIdle {
+                screen.value = screen.value.withSelectedCatalog(screen.value.selectedCatalog.copy(query = "", resultsQuery = ""))
+            }
+            onNodeWithText("No favorites yet.").assertIsDisplayed()
+            runOnIdle { screen.value = screen.value.withSelectedCatalog(favoritesCatalog(view)) }
+            onNodeWithContentDescription("Favorites")
+                .performSemanticsAction(SemanticsActions.RequestFocus)
+                .performKeyInput { pressKey(Key.DirectionDown) }
+            onNodeWithTag(itemTag("$view-alias")).assertIsFocused().performKeyInput { pressKey(Key.DirectionDown) }
+            runOnIdle { assertEquals(0, loads) }
+        }
+        onNodeWithContentDescription("Favorites").performClick().assertIsNotSelected()
+        NaviampLibraryView.entries.forEach { view ->
+            onNodeWithTag(viewTag(view)).performClick()
+            onNodeWithContentDescription("Favorites").assertIsNotSelected()
+            onNodeWithTag(itemTag("$view-alias")).assertIsDisplayed()
+            onNodeWithTag(itemTag("$view-ordinary")).assertIsDisplayed()
+            runOnIdle { assertEquals(original.copy(selectedView = view), screen.value) }
+        }
+    }
+
+    @Test fun unsupportedTabsKeepAnEnabledSelectedHeartUntilTheFilterIsTurnedOff() = runDesktopComposeUiTest(1280, 720) {
+        val screen = mutableStateOf(favoritesScreen().copy(
+            albums = favoritesCatalog(NaviampLibraryView.Albums).copy(supportsFavorites = false),
+            songs = favoritesCatalog(NaviampLibraryView.Songs).copy(supportsFavorites = false),
         ))
         var loads = 0
         setContent { LibraryFixture(screen, rememberNaviampTelevisionLibraryState(), onLoadMore = { loads++ }) }
-        onNodeWithText("Loading artists…").assertIsDisplayed()
-        onNodeWithText("No favorite artists yet.").assertDoesNotExist()
-        runOnIdle { screen.value = screen.value.copy(artistFavoritesLoading = false, artistFavoritesFailed = true) }
-        onNodeWithText("Could not load favorite artists. Refresh to try again.").assertIsDisplayed()
-        onNodeWithText("No favorite artists yet.").assertDoesNotExist()
-        runOnIdle { screen.value = screen.value.copy(artistFavoritesFailed = false) }
-        onNodeWithText("No favorite artists yet.").assertIsDisplayed()
-        runOnIdle { assertEquals(0, loads) }
         onNodeWithTag(viewTag(NaviampLibraryView.Albums)).performClick()
-        onNodeWithText("Favorites").assertDoesNotExist()
-        onNodeWithTag(viewTag(NaviampLibraryView.Songs)).performClick()
-        onNodeWithText("Favorites").assertDoesNotExist()
+        onNodeWithContentDescription("Favorites").assertIsDisplayed().assertIsNotEnabled().assertIsNotSelected()
+        onNodeWithText("Refresh").performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.DirectionRight) }.assertIsFocused()
         onNodeWithTag(viewTag(NaviampLibraryView.Artists)).performClick()
-        onNodeWithText("Favorites").assertIsSelected()
-        runOnIdle { screen.value = screen.value.copy(supportsArtistFavorites = false, artistFavoritesOnly = false) }
-        onNodeWithText("Favorites").assertDoesNotExist()
+        onNodeWithContentDescription("Favorites").performClick()
+        runOnIdle { loads = 0 }
+        listOf(NaviampLibraryView.Albums, NaviampLibraryView.Songs).forEach { view ->
+            onNodeWithTag(viewTag(view)).performClick()
+            onNodeWithContentDescription("Favorites").assertIsEnabled().assertIsSelected()
+            onNodeWithText("Favorites are not supported by this source.").assertIsDisplayed()
+            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
+            onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
+        }
+        runOnIdle { assertEquals(0, loads) }
+        onNodeWithText("Refresh").performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithContentDescription("Favorites").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+            .assertIsNotSelected().assertIsNotEnabled()
+        onNodeWithTag(itemTag("Songs-ordinary")).assertIsDisplayed()
+        onNodeWithText("Favorites are not supported by this source.").assertDoesNotExist()
+        onNodeWithTag(viewTag(NaviampLibraryView.Artists)).performClick()
+        onNodeWithContentDescription("Favorites").assertIsNotSelected().assertIsEnabled()
+    }
+
+    @Test fun filteredAlbumsKeepSortRailPolicyAndTheRightmostHeartFocusNeighbor() = runDesktopComposeUiTest(1280, 720) {
+        val screen = mutableStateOf(favoritesScreen().copy(selectedView = NaviampLibraryView.Albums, favoritesOnly = true))
+        setContent { LibraryFixture(screen, rememberNaviampTelevisionLibraryState()) }
+        onNodeWithTag(TelevisionLibraryShortcutRailTestTag).assertIsDisplayed()
+        onNodeWithText("Choose libraries").performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithText("Sort albums: Recently added").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithText("Refresh").assertIsFocused().performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithContentDescription("Favorites").assertIsFocused().assertIsSelected()
+            .performKeyInput { pressKey(Key.DirectionLeft) }
+        onNodeWithText("Refresh").assertIsFocused().performKeyInput { pressKey(Key.DirectionLeft) }
+        onNodeWithText("Sort albums: Recently added").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithTag(TelevisionLibraryShortcutRailTestTag).assertDoesNotExist()
+        runOnIdle { assertEquals(LibraryAlbumSortOrder.RecentlyAdded, screen.value.albums.albumSortOrder) }
+        onNodeWithTag(itemTag("Albums-alias")).assertIsDisplayed()
+        onNodeWithTag(itemTag("Albums-ordinary")).assertDoesNotExist()
+        onNodeWithContentDescription("Favorites").assertIsSelected()
+        onNodeWithText("Sort albums: Title").performClick()
+        onNodeWithTag(TelevisionLibraryShortcutRailTestTag).assertIsDisplayed()
+        runOnIdle { assertEquals(LibraryAlbumSortOrder.Title, screen.value.albums.albumSortOrder) }
     }
 
     @Test fun viewSwitchingDetailReturnAndSongActionsPreserveFocus() = runDesktopComposeUiTest(1280, 720) {
@@ -257,7 +375,8 @@ class NaviampTelevisionLibraryUiTest {
             typography = rememberNaviampTypography()) {
         TelevisionLibrary(screen.value, NaviampColors.Dark, NaviampLibraryActions(
             onViewChanged = { screen.value = screen.value.copy(selectedView = it) },
-            onArtistFavoritesOnlyChanged = { screen.value = screen.value.copy(artistFavoritesOnly = it) },
+            onFavoritesOnlyChanged = { screen.value = screen.value.copy(favoritesOnly = it) },
+            onAlbumSortOrderChanged = { screen.value = screen.value.copy(albums = screen.value.albums.copy(albumSortOrder = it)) },
             onQueryChanged = { query ->
                 val value = screen.value
                 screen.value = when (value.selectedView) {
@@ -268,6 +387,30 @@ class NaviampTelevisionLibraryUiTest {
             }, onRefresh = {}, onLoadMore = onLoadMore, onJumpToLetter = onJump, onTrackAction = onTrack,
         ), NaviampMediaActions({}, onMedia), viewport, FocusRequester())
         }
+    }
+
+    private fun favoritesScreen() = NaviampLibraryScreenUi(
+        artists = favoritesCatalog(NaviampLibraryView.Artists),
+        albums = favoritesCatalog(NaviampLibraryView.Albums),
+        songs = favoritesCatalog(NaviampLibraryView.Songs),
+    )
+
+    private fun favoritesCatalog(view: NaviampLibraryView) = NaviampLibraryCatalogUi(
+        query = "Rufus $view", resultsQuery = "Rufus $view", supportsFavorites = true,
+        items = if (view == NaviampLibraryView.Songs) emptyList() else listOf(
+            SharedMediaItemUi("$view-alias", "$view server alias", "Metadata match", favoriteActive = true),
+            SharedMediaItemUi("$view-ordinary", "$view ordinary", "Metadata match"),
+        ),
+        tracks = if (view != NaviampLibraryView.Songs) emptyList() else listOf(
+            SharedTrackRowUi("$view-alias", "$view server alias", "Metadata match", favoriteActive = true),
+            SharedTrackRowUi("$view-ordinary", "$view ordinary", "Metadata match"),
+        ),
+    )
+
+    private fun NaviampLibraryScreenUi.withSelectedCatalog(catalog: NaviampLibraryCatalogUi) = when (selectedView) {
+        NaviampLibraryView.Artists -> copy(artists = catalog)
+        NaviampLibraryView.Albums -> copy(albums = catalog)
+        NaviampLibraryView.Songs -> copy(songs = catalog)
     }
 
     private fun screen() = NaviampLibraryScreenUi(

@@ -34,6 +34,9 @@
     <string name="mini_player_open">Ouvrir les détails du lecteur</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favoris</string>
+    <string name="library_favorites_empty">Aucun favori pour le moment.</string>
+    <string name="library_favorites_failed">Impossible de charger les favoris. Actualisez pour réessayer.</string>
+    <string name="library_favorites_unsupported">Cette source ne prend pas en charge les favoris.</string>
     <string name="settings_radio_new_dj">Nouveau DJ</string>
     <string name="settings_radio_create_dj">Créer un nouveau DJ</string>
     <string name="tv_album_sort_order">Tri des albums</string>

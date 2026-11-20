@@ -16,7 +16,7 @@ import app.naviamp.domain.provider.normalizedSearchQuery
 import app.naviamp.domain.provider.searchResultsUpdate
 import app.naviamp.domain.cache.LocalLibraryIndexRepository
 import app.naviamp.domain.Artist
-import app.naviamp.domain.ArtistId
+import app.naviamp.domain.Track
 import app.naviamp.domain.provider.MediaPage
 import app.naviamp.ui.NaviampLibrarySyncStatusUi
 import app.naviamp.ui.NaviampLibraryCatalogUi
@@ -44,9 +44,9 @@ class NaviampCoreCatalogController(
     init {
         val order = stateStore.state.value.shell.general.interfaceSettings.libraryAlbumSortOrder
         updateLibraryCatalog(NaviampLibraryView.Albums) { it.copy(albumSortOrder = order) }
-        stateStore.updateShell { shell -> shell.copy(library = shell.library.copy(
-            supportsArtistFavorites = providerSource.current()?.capabilities?.supportsArtistFavorites == true,
-        )) }
+        NaviampLibraryView.entries.forEach { view ->
+            updateLibraryCatalog(view) { it.copy(supportsFavorites = supportsFavorites(view, providerSource.current())) }
+        }
     }
 
     private val fullIndexRefreshMutex = Mutex()
@@ -65,6 +65,8 @@ class NaviampCoreCatalogController(
         var loadedSource: Pair<String, String>? = null,
         var completeAlbumCatalog: Boolean = false,
         var browseSnapshot: LibraryBrowseSnapshot? = null,
+        var ordinarySnapshot: LibraryBrowseSnapshot? = null,
+        var scope: FavoritesScope? = null,
     )
 
     private val libraryLoads = NaviampLibraryView.entries.associateWith {
@@ -74,17 +76,98 @@ class NaviampCoreCatalogController(
     private var refreshGeneration = 0L
     private val explicitRefreshes = mutableMapOf<NaviampLibraryView, Long>()
 
-    private data class ArtistFavoritesScope(
+    private data class FavoritesScope(
         val sourceId: String?,
         val providerId: String,
         val namespace: String,
         val musicFolders: Set<String>,
     )
-    private var artistFavoritesScope: ArtistFavoritesScope? = null
-    private var favoriteArtists: MutableMap<ArtistId, Artist>? = null
-    private val artistMutations = mutableMapOf<ArtistId, Artist>()
-    private var artistFavoritesGeneration = 0L
-    private var artistFavoritesLoadingGeneration: Long? = null
+    private var favoriteScope: FavoritesScope? = null
+
+    /** Typed storage; completion, projection, mutation and invalidation policy is shared below. */
+    private class Favorites<T>(
+        val view: NaviampLibraryView,
+        val id: (T) -> String,
+        val title: (T) -> String,
+        val timestamp: (T) -> String?,
+        val withTimestamp: (T, String?) -> T,
+        val media: (MediaSearchResults) -> List<T>,
+        val withMedia: (MediaSearchResults, List<T>) -> MediaSearchResults,
+        val library: () -> List<T>,
+        val publish: (List<T>) -> Unit,
+        val catalog: (NaviampLibraryCatalogUi, List<T>, MediaProvider) -> NaviampLibraryCatalogUi,
+        val favoritePage: suspend (MediaProvider, MediaPageRequest) -> MediaPage<T>?,
+        val browsePage: suspend (MediaProvider, MediaPageRequest) -> MediaPage<T>,
+        val searchPage: suspend (MediaProvider, String, MediaPageRequest) -> MediaPage<T>,
+    ) {
+        var members: MutableMap<String, T>? = null
+        val mutations = mutableMapOf<String, T>()
+        var invalidated = false
+        var generation = 0L
+        var loadingGeneration: Long? = null
+        var searchQuery: String? = null
+        var searchItems: List<T> = emptyList()
+        var searchComplete = false
+        var browseItems: List<T> = emptyList()
+
+        fun cancel() {
+            generation++
+            loadingGeneration = null
+        }
+
+        fun clear() {
+            cancel()
+            members = null
+            mutations.clear()
+            searchQuery = null
+            searchItems = emptyList()
+            searchComplete = false
+            browseItems = emptyList()
+            invalidated = false
+        }
+    }
+
+    private val artistFavorites = Favorites(
+        NaviampLibraryView.Artists, { it: Artist -> it.id.value }, Artist::name, Artist::favoritedAtIso8601,
+        { item, timestamp -> item.copy(favoritedAtIso8601 = timestamp) },
+        MediaSearchResults::artists, { media, items -> media.copy(artists = items) },
+        { mediaRegistry.libraryArtists }, { mediaRegistry.updateLibraryArtists(it, true) },
+        { catalog, items, provider -> catalog.copy(items = artistItems(items, provider)) },
+        MediaProvider::favoriteArtistsPage, MediaProvider::artistsPage, MediaProvider::searchArtistsPage,
+    )
+    private val albumFavorites = Favorites(
+        NaviampLibraryView.Albums, { it: Album -> it.id.value }, Album::title, Album::favoritedAtIso8601,
+        { item, timestamp -> item.copy(favoritedAtIso8601 = timestamp) },
+        MediaSearchResults::albums, { media, items -> media.copy(albums = items) },
+        { mediaRegistry.libraryAlbums }, { mediaRegistry.updateLibraryAlbums(it, true) },
+        { catalog, items, provider -> catalog.copy(items = items.map {
+            it.toSharedMediaItemUi(coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
+                canFavorite = provider.capabilities.supportsAlbumFavorites)
+        }, albumSortOrder = currentAlbumSortOrder()) },
+        MediaProvider::favoriteAlbumsPage, MediaProvider::albumsPage, MediaProvider::searchAlbumsPage,
+    )
+    private val trackFavorites = Favorites(
+        NaviampLibraryView.Songs, { it: Track -> it.id.value }, Track::title, Track::favoritedAtIso8601,
+        { item, timestamp -> item.copy(favoritedAtIso8601 = timestamp) },
+        MediaSearchResults::tracks, { media, items -> media.copy(tracks = items) },
+        { mediaRegistry.libraryTracks }, { mediaRegistry.updateLibraryTracks(it, true) },
+        { catalog, items, provider -> catalog.copy(tracks = items.map {
+            it.toSharedTrackRowUi(coverArtUrl = { id -> id?.let(provider::coverArtUrl) })
+        }) },
+        MediaProvider::favoriteTracksPage, MediaProvider::tracksPage, MediaProvider::searchTracksPage,
+    )
+
+    private fun favorites(view: NaviampLibraryView): Favorites<*> = when (view) {
+        NaviampLibraryView.Artists -> artistFavorites
+        NaviampLibraryView.Albums -> albumFavorites
+        NaviampLibraryView.Songs -> trackFavorites
+    }
+
+    private fun supportsFavorites(view: NaviampLibraryView, provider: MediaProvider?): Boolean = when (view) {
+        NaviampLibraryView.Artists -> provider?.capabilities?.supportsArtistFavorites == true
+        NaviampLibraryView.Albums -> provider?.capabilities?.supportsAlbumFavorites == true
+        NaviampLibraryView.Songs -> provider?.capabilities?.supportsTrackFavorites == true
+    }
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.Search.ChangeQuery -> {
@@ -101,8 +184,8 @@ class NaviampCoreCatalogController(
             updateLibraryQuery(command.query)
             NaviampCoreImmediateCommandResult.Deferred
         }
-        is NaviampCoreCommand.Library.ChangeArtistFavoritesOnly -> {
-            changeArtistFavoritesOnly(command.enabled)
+        is NaviampCoreCommand.Library.ChangeFavoritesOnly -> {
+            changeFavoritesOnly(command.enabled)
             NaviampCoreImmediateCommandResult.Deferred
         }
         is NaviampCoreCommand.Library.JumpToLetter -> NaviampCoreImmediateCommandResult.Deferred
@@ -116,19 +199,21 @@ class NaviampCoreCatalogController(
     }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
+        if (command is NaviampCoreCommand.Library) useFavoritesScope(providerSource.current())
         when (command) {
             NaviampCoreCommand.Search.Submit,
             is NaviampCoreCommand.Search.ChangeQuery,
             -> search()
             is NaviampCoreCommand.Library.ChangeView -> {
                 val provider = providerSource.current()
+                useFavoritesScope(provider)
                 val library = stateStore.state.value.shell.library
                 if (library.selectedView == command.view) {
                     val catalog = library.catalog(command.view)
                     val loaded = libraryLoads.getValue(command.view).loadedSource ==
                         provider?.let { it.id.value to it.cacheNamespace }
-                    if (command.view == NaviampLibraryView.Artists && library.artistFavoritesOnly) {
-                        completeArtistFavorites()
+                    if (library.favoritesOnly) {
+                        completeFavorites(command.view)
                     } else if (catalog.query.isNotBlank()) {
                         if (!loaded) searchLibrary(catalog.query)
                     } else if (!loaded || command.view == NaviampLibraryView.Albums && albumIndex != null) {
@@ -137,20 +222,19 @@ class NaviampCoreCatalogController(
                 }
             }
             is NaviampCoreCommand.Library.ChangeQuery -> {
-                if (stateStore.state.value.shell.library.artists.query == command.query &&
-                    stateStore.state.value.shell.library.selectedView == NaviampLibraryView.Artists &&
-                    stateStore.state.value.shell.library.artistFavoritesOnly) {
-                    completeArtistFavorites()
+                val library = stateStore.state.value.shell.library
+                if (library.catalog(library.selectedView).query == command.query && library.favoritesOnly) {
+                    completeFavorites(library.selectedView)
                 } else searchLibrary(command.query)
             }
-            is NaviampCoreCommand.Library.ChangeArtistFavoritesOnly -> {
-                if (stateStore.state.value.shell.library.artistFavoritesOnly == command.enabled) {
-                    if (command.enabled) completeArtistFavorites()
-                    else if (stateStore.state.value.shell.library.selectedView == NaviampLibraryView.Artists) {
-                        val query = stateStore.state.value.shell.library.artists.query
-                        if (libraryLoads.getValue(NaviampLibraryView.Artists).loadedSource == null) {
-                            if (query.isBlank()) refreshLibrary(NaviampLibraryView.Artists) else searchLibrary(query)
-                        }
+            is NaviampCoreCommand.Library.ChangeFavoritesOnly -> {
+                val library = stateStore.state.value.shell.library
+                if (library.favoritesOnly == command.enabled) {
+                    val view = library.selectedView
+                    if (command.enabled) completeFavorites(view)
+                    else if (libraryLoads.getValue(view).loadedSource == null) {
+                        val query = library.catalog(view).query
+                        if (query.isBlank()) refreshLibrary(view) else searchLibrary(query)
                     }
                 }
             }
@@ -189,25 +273,25 @@ class NaviampCoreCatalogController(
         val provider = providerSource.current()
         val sourceId = activeLibrarySourceId()
         val query = stateStore.state.value.shell.library.catalog(view).query
+        useFavoritesScope(provider)
         val expectedLoadGeneration = libraryLoads.getValue(view).generation + 1
         val generation = ++refreshGeneration
-        val refreshFavorites = view == NaviampLibraryView.Artists && favoriteArtists != null
+        val favorites = favorites(view)
+        val refreshFavorites = favorites.members != null || favorites.invalidated
         explicitRefreshes[view] = generation
-        if (view == NaviampLibraryView.Artists) {
-            if (stateStore.state.value.shell.library.artistFavoritesOnly) {
-                invalidateArtistFavoritesWork()
-                libraryLoads.getValue(view).generation++
-                completeArtistFavorites(forceRefresh = true)
-                if (explicitRefreshes[view] == generation && activeLibrarySourceId() == sourceId &&
-                    provider != null && providerSource.isCurrent(provider)) {
-                    updateLibraryCatalog(view) { it.copy(refreshGeneration = generation) }
-                }
-                return
+        if (stateStore.state.value.shell.library.favoritesOnly) {
+            favorites.cancel()
+            libraryLoads.getValue(view).generation++
+            completeFavorites(view, forceRefresh = true)
+            if (explicitRefreshes[view] == generation && activeLibrarySourceId() == sourceId &&
+                provider != null && providerSource.isCurrent(provider)) {
+                updateLibraryCatalog(view) { it.copy(refreshGeneration = generation) }
             }
-            invalidateArtistFavoritesWork()
-            favoriteArtists = null
-            artistMutations.clear()
+            return
         }
+        favorites.cancel()
+        favorites.members = null
+        favorites.mutations.clear()
         refreshLibrary(view, forceRefresh = true)
         val refreshed = stateStore.state.value.shell.library.catalog(view)
         if (query.isNotBlank() && refreshed.query == query && !refreshed.searching &&
@@ -223,9 +307,9 @@ class NaviampCoreCatalogController(
         if (refreshFavorites && explicitRefreshes[view] == generation &&
             libraryLoads.getValue(view).generation == expectedLoadGeneration &&
             stateStore.state.value.shell.library.selectedView == view &&
-            stateStore.state.value.shell.library.artists.query == query &&
+            stateStore.state.value.shell.library.catalog(view).query == query &&
             activeLibrarySourceId() == sourceId && provider != null && providerSource.isCurrent(provider)) {
-            completeArtistFavorites(forceRefresh = true)
+            completeFavorites(view, forceRefresh = true)
         }
         // Publish after the replacement data so keyed lists cannot anchor to an old first item.
         if (explicitRefreshes[view] == generation && activeLibrarySourceId() == sourceId &&
@@ -239,6 +323,11 @@ class NaviampCoreCatalogController(
         view: NaviampLibraryView = stateStore.state.value.shell.library.selectedView,
         forceRefresh: Boolean = false,
     ) {
+        useFavoritesScope(providerSource.current())
+        if (stateStore.state.value.shell.library.favoritesOnly) {
+            completeFavorites(view, forceRefresh)
+            return
+        }
         if (view == NaviampLibraryView.Artists && libraryIndex != null &&
             (forceRefresh || stateStore.state.value.shell.library.artists.query.isBlank()) &&
             activeLibrarySourceId() != null && providerSource.current() != null
@@ -268,10 +357,11 @@ class NaviampCoreCatalogController(
         if (!force && load.loadingGeneration == load.generation) return
         val generation = ++load.generation
         val sourceKey = provider.id.value to provider.cacheNamespace
+        load.scope = favoritesScope(provider)
         val scope = index.scope(provider)
         fun current() = isCurrentLibraryLoad(load, generation, sourceKey)
         fun publish(albums: List<Album>) {
-            val ordered = orderAlbumCatalog(albums, currentAlbumSortOrder())
+            val ordered = orderAlbumCatalog(projectFavorites(albumFavorites, albums, mergeFavorites = true), currentAlbumSortOrder())
             mediaRegistry.updateLibraryAlbums(ordered, replace = true)
             val items = ordered.map { album -> album.toSharedMediaItemUi(
                 coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
@@ -284,7 +374,7 @@ class NaviampCoreCatalogController(
         load.completeAlbumCatalog = cached != null
         if (cached != null) publish(cached.albums)
         load.nextRequest = null
-        load.loadedSource = sourceKey
+        load.loadedSource = sourceKey.takeIf { cached != null }
         if (!force && cached != null && index.isFresh(cached)) {
             updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi()) }
             return
@@ -301,6 +391,7 @@ class NaviampCoreCatalogController(
             if (!current()) return
             publish(refreshed.albums)
             load.completeAlbumCatalog = true
+            load.loadedSource = sourceKey
             updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi()) }
             stateStore.state.value.shell.library.albums.pendingJump?.let { letter ->
                 if (stateStore.state.value.shell.library.selectedView == view) publishLibraryJump(letter)
@@ -321,10 +412,8 @@ class NaviampCoreCatalogController(
 
     fun resetForSourceChange() {
         explicitRefreshes.clear()
-        invalidateArtistFavoritesWork()
-        artistFavoritesScope = null
-        favoriteArtists = null
-        artistMutations.clear()
+        NaviampLibraryView.entries.forEach { favorites(it).clear() }
+        favoriteScope = null
         clearSearch()
         jumpGeneration++
         libraryLoads.values.forEach {
@@ -333,13 +422,16 @@ class NaviampCoreCatalogController(
             it.loadingGeneration = null
             it.completeAlbumCatalog = false
             it.browseSnapshot = null
+            it.ordinarySnapshot = null
             it.nextRequest = MediaPageRequest(limit = libraryPageSize)
         }
         stateStore.updateShell {
             it.copy(library = app.naviamp.ui.NaviampLibraryScreenUi(
                 selectedView = it.library.selectedView,
-                supportsArtistFavorites = providerSource.current()?.capabilities?.supportsArtistFavorites == true,
-                albums = NaviampLibraryCatalogUi(albumSortOrder = currentAlbumSortOrder()),
+                artists = NaviampLibraryCatalogUi(supportsFavorites = supportsFavorites(NaviampLibraryView.Artists, providerSource.current())),
+                albums = NaviampLibraryCatalogUi(albumSortOrder = currentAlbumSortOrder(),
+                    supportsFavorites = supportsFavorites(NaviampLibraryView.Albums, providerSource.current())),
+                songs = NaviampLibraryCatalogUi(supportsFavorites = supportsFavorites(NaviampLibraryView.Songs, providerSource.current())),
             ))
         }
         mediaRegistry.updateLibraryArtists(emptyList(), true)
@@ -413,6 +505,7 @@ class NaviampCoreCatalogController(
         val load = libraryLoads.getValue(NaviampLibraryView.Artists)
         val generation = load.generation
         val sourceKey = provider.id.value to provider.cacheNamespace
+        load.scope = favoritesScope(provider)
         publishLibraryArtists(cached, provider)
         load.nextRequest = null
         load.loadedSource = sourceKey
@@ -453,6 +546,7 @@ class NaviampCoreCatalogController(
         val load = libraryLoads.getValue(view)
         val generation = ++load.generation
         val sourceKey = provider.id.value to provider.cacheNamespace
+        load.scope = favoritesScope(provider)
         fun current() = isCurrentLibraryLoad(load, generation, sourceKey) && sourceId == activeLibrarySourceId()
         load.loadingGeneration = generation
         publishLibraryStatus(view, "Refreshing libraryâ€¦", loading = true)
@@ -479,274 +573,321 @@ class NaviampCoreCatalogController(
         }
     }
 
-    private fun favoritesScope(provider: MediaProvider) = ArtistFavoritesScope(
+    private fun favoritesScope(provider: MediaProvider) = FavoritesScope(
         activeLibrarySourceId(), provider.id.value, provider.cacheNamespace, provider.selectedMusicFolderIds.toSet(),
     )
 
-    private fun useFavoritesScope(provider: MediaProvider) {
+    private fun useFavoritesScope(provider: MediaProvider?) {
+        if (provider == null) return
         val scope = favoritesScope(provider)
-        if (artistFavoritesScope == scope) return
-        artistFavoritesScope = scope
-        favoriteArtists = null
-        artistMutations.clear()
+        if (favoriteScope == scope) return
+        val changed = favoriteScope != null
+        favoriteScope = scope
+        NaviampLibraryView.entries.forEach { view ->
+            favorites(view).clear()
+            if (changed) {
+                val load = libraryLoads.getValue(view)
+                load.generation++
+                load.loadingGeneration = null
+                load.loadedSource = null
+                load.browseSnapshot = null
+                load.ordinarySnapshot = null
+                load.nextRequest = MediaPageRequest(limit = libraryPageSize)
+                load.completeAlbumCatalog = false
+                clearLibraryMedia(view)
+            }
+            updateLibraryCatalog(view) { catalog ->
+                val current = if (changed) NaviampLibraryCatalogUi(query = catalog.query,
+                    albumSortOrder = currentAlbumSortOrder()) else catalog
+                current.copy(supportsFavorites = supportsFavorites(view, provider),
+                    favoritesLoading = stateStore.state.value.shell.library.favoritesOnly && supportsFavorites(view, provider),
+                    favoritesFailed = false)
+            }
+            if (changed && stateStore.state.value.shell.library.favoritesOnly) {
+                libraryLoads.getValue(view).ordinarySnapshot = captureSnapshot(view)
+            }
+        }
     }
 
-    private fun invalidateArtistFavoritesWork() {
-        artistFavoritesGeneration++
-        artistFavoritesLoadingGeneration = null
-    }
-
-    private fun updateArtistFavoritesStatus(loading: Boolean, failed: Boolean = false) {
-        stateStore.updateShell { shell -> shell.copy(library = shell.library.copy(
-            artistFavoritesLoading = loading, artistFavoritesFailed = failed,
-        )) }
-    }
-
-    private fun changeArtistFavoritesOnly(enabled: Boolean) {
+    private fun changeFavoritesOnly(enabled: Boolean) {
+        val provider = providerSource.current()
+        useFavoritesScope(provider)
         val library = stateStore.state.value.shell.library
-        if (enabled && providerSource.current()?.capabilities?.supportsArtistFavorites != true) return
-        if (library.artistFavoritesOnly == enabled) return
-        invalidateArtistFavoritesWork()
-        val load = libraryLoads.getValue(NaviampLibraryView.Artists)
-        load.generation++
-        load.loadingGeneration = null
-        updateLibraryCatalog(NaviampLibraryView.Artists) { it.copy(
-            pendingJump = null, searching = false, syncStatus = NaviampLibrarySyncStatusUi(),
-        ) }
-        stateStore.updateShell { shell -> shell.copy(library = shell.library.copy(
-            artistFavoritesOnly = enabled,
-            artistFavoritesLoading = enabled && library.selectedView == NaviampLibraryView.Artists,
-            artistFavoritesFailed = false,
-        )) }
+        if (enabled && !supportsFavorites(library.selectedView, provider)) return
+        if (library.favoritesOnly == enabled) return
+        NaviampLibraryView.entries.forEach { view ->
+            favorites(view).cancel()
+            val load = libraryLoads.getValue(view)
+            if (enabled) load.ordinarySnapshot = captureSnapshot(view)
+            load.generation++
+            load.loadingGeneration = null
+        }
+        // Selection/status and filter publish together: no frame can show an unfiltered empty state.
+        stateStore.updateShell { shell ->
+            fun catalog(view: NaviampLibraryView): NaviampLibraryCatalogUi {
+                val current = shell.library.catalog(view)
+                val retained = if (enabled) current else libraryLoads.getValue(view).ordinarySnapshot?.catalog ?: current
+                return retained.copy(query = current.query, pendingJump = null, searching = false,
+                    syncStatus = NaviampLibrarySyncStatusUi(), refreshGeneration = current.refreshGeneration,
+                    supportsFavorites = supportsFavorites(view, provider),
+                    favoritesLoading = enabled && supportsFavorites(view, provider), favoritesFailed = false,
+                    albumSortOrder = if (view == NaviampLibraryView.Albums) currentAlbumSortOrder() else retained.albumSortOrder)
+            }
+            shell.copy(library = shell.library.copy(favoritesOnly = enabled,
+                artists = catalog(NaviampLibraryView.Artists), albums = catalog(NaviampLibraryView.Albums),
+                songs = catalog(NaviampLibraryView.Songs)))
+        }
+        NaviampLibraryView.entries.forEach { view ->
+            val load = libraryLoads.getValue(view)
+            if (!enabled) {
+                load.ordinarySnapshot?.let { restoreSnapshot(view, it, publishCatalog = false) }
+                load.ordinarySnapshot = null
+            }
+            if (provider != null) reprojectFavorites(view, provider)
+        }
     }
 
-    /** A local mutation wins over in-flight provider pages and detached search browse snapshots. */
-    fun artistUpdated(provider: MediaProvider, artist: Artist) {
+    /** A local mutation wins over in-flight provider pages and detached ordinary/query snapshots. */
+    fun artistUpdated(provider: MediaProvider, artist: Artist) = favoriteUpdated(artistFavorites, provider, artist)
+
+    fun albumUpdated(provider: MediaProvider, album: Album) = favoriteUpdated(albumFavorites, provider, album)
+
+    fun trackUpdated(provider: MediaProvider, track: Track) = favoriteUpdated(trackFavorites, provider, track)
+
+    private fun <T> favoriteUpdated(favorites: Favorites<T>, provider: MediaProvider, item: T) {
         if (!providerSource.isCurrent(provider)) return
         useFavoritesScope(provider)
-        artistMutations[artist.id] = artist
-        favoriteArtists?.let { favorites ->
-            if (artist.favoritedAtIso8601 == null) favorites.remove(artist.id)
-            else favorites[artist.id] = artist
+        favorites.mutations[favorites.id(item)] = item
+        favorites.members?.let { members ->
+            if (favorites.timestamp(item) == null) members.remove(favorites.id(item))
+            else members[favorites.id(item)] = item
         }
-        mediaRegistry.updateArtist(artist)
-        reprojectArtistCatalog(provider)
+        reprojectFavorites(favorites, provider)
     }
 
-    private fun overlayArtistFavorite(artist: Artist): Artist {
-        artistMutations[artist.id]?.let { return it }
-        val favorites = favoriteArtists ?: return artist
-        val membershipTimestamp = favorites[artist.id]?.favoritedAtIso8601
-        val knownTimestamp = artist.favoritedAtIso8601?.takeUnless { it.isBlank() || it == "favorite" }
-        val timestamp = if (membershipTimestamp != null &&
-            (membershipTimestamp.isBlank() || membershipTimestamp == "favorite")) {
-            knownTimestamp ?: membershipTimestamp
-        } else membershipTimestamp
-        return if (artist.favoritedAtIso8601 == timestamp) artist else artist.copy(favoritedAtIso8601 = timestamp)
+    private fun <T> overlayFavorite(favorites: Favorites<T>, item: T): T {
+        val mutation = favorites.mutations[favorites.id(item)]
+        val base = mutation ?: item
+        if (mutation == null && favorites.members == null && !favorites.invalidated) return item
+        val membershipTimestamp = if (mutation != null) favorites.timestamp(mutation)
+            else favorites.members?.get(favorites.id(item))?.let(favorites.timestamp)
+        val knownTimestamp = favorites.timestamp(item)?.takeUnless { it.isBlank() || it == "favorite" }
+        val timestamp = if (membershipTimestamp != null && (membershipTimestamp.isBlank() || membershipTimestamp == "favorite"))
+            knownTimestamp ?: membershipTimestamp else membershipTimestamp
+        return if (favorites.timestamp(base) == timestamp) base else favorites.withTimestamp(base, timestamp)
     }
 
-    private fun projectArtists(
-        artists: List<Artist>,
-        mergeFavorites: Boolean,
-        sortByName: Boolean = mergeFavorites,
-    ): List<Artist> {
-        if (favoriteArtists == null && artistMutations.isEmpty()) return artists
-        val projected = if (mergeFavorites) {
-            val merged = artists.associateByTo(linkedMapOf(), Artist::id)
-            favoriteArtists?.values?.forEach { if (it.id !in merged) merged[it.id] = it }
-            artistMutations.values.forEach {
-                if (it.favoritedAtIso8601 != null && it.id !in merged) merged[it.id] = it
+    private fun <T> projectFavorites(favorites: Favorites<T>, items: List<T>, mergeFavorites: Boolean): List<T> {
+        if (favorites.members == null && favorites.mutations.isEmpty() && !favorites.invalidated) return items
+        val candidates = if (mergeFavorites) {
+            val merged = items.associateByTo(linkedMapOf(), favorites.id)
+            favorites.members?.values?.forEach { if (favorites.id(it) !in merged) merged[favorites.id(it)] = it }
+            favorites.mutations.values.forEach {
+                if (favorites.timestamp(it) != null && favorites.id(it) !in merged) merged[favorites.id(it)] = it
             }
-            merged.values.map(::overlayArtistFavorite)
-        } else artists.map(::overlayArtistFavorite)
-        return if (sortByName) projected.sortedWith(
-            compareBy<Artist>({ it.name.lowercase() }, { it.name }, { it.id.value }),
-        ) else projected
+            merged.values
+        } else items
+        return candidates.map { overlayFavorite(favorites, it) }
     }
 
     private fun artistItems(artists: List<Artist>, provider: MediaProvider) = artists.map { artist ->
-        artist.toSharedMediaItemUi(
-            coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
-            canFavorite = provider.capabilities.supportsArtistFavorites,
-        )
+        artist.toSharedMediaItemUi(coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
+            canFavorite = provider.capabilities.supportsArtistFavorites)
     }
 
-    private fun reprojectArtistCatalog(provider: MediaProvider) {
-        val load = libraryLoads.getValue(NaviampLibraryView.Artists)
+    private fun reprojectFavorites(view: NaviampLibraryView, provider: MediaProvider) =
+        reprojectFavorites(favorites(view), provider)
+
+    private fun <T> reprojectFavorites(favorites: Favorites<T>, provider: MediaProvider) {
+        val view = favorites.view
+        val load = libraryLoads.getValue(view)
         val library = stateStore.state.value.shell.library
-        val artists = projectArtists(mediaRegistry.libraryArtists,
-            mergeFavorites = library.artists.query.isBlank() && (library.artistFavoritesOnly || load.nextRequest == null),
-            sortByName = library.artists.query.isBlank())
+        val query = library.catalog(view).query
+        fun projectSnapshot(snapshot: LibraryBrowseSnapshot): LibraryBrowseSnapshot {
+            val items = projectFavorites(favorites, favorites.media(snapshot.media), mergeFavorites = false)
+            return snapshot.copy(media = favorites.withMedia(snapshot.media, items),
+                catalog = favorites.catalog(snapshot.catalog, items, provider))
+        }
+        load.ordinarySnapshot = load.ordinarySnapshot?.let(::projectSnapshot)
+        load.browseSnapshot = load.browseSnapshot?.let(::projectSnapshot)
+        val base = if (library.favoritesOnly) {
+            if (query.isNotBlank()) {
+                if (favorites.searchQuery == query) favorites.searchItems else emptyList()
+            } else {
+                val ordinary = load.browseSnapshot?.let { favorites.media(it.media) }
+                    ?: load.ordinarySnapshot?.let { favorites.media(it.media) }.orEmpty()
+                (ordinary + favorites.browseItems).distinctBy(favorites.id)
+            }
+        } else favorites.library()
+        val merge = query.isBlank() && (library.favoritesOnly || load.nextRequest == null)
+        val projected = projectFavorites(favorites, base, merge)
+        val ordered = if (view == NaviampLibraryView.Albums) projected else if (library.favoritesOnly && query.isBlank())
+            projected.sortedWith(compareBy({ favorites.title(it).lowercase() }, favorites.title, favorites.id)) else projected
+        if (library.favoritesOnly && query.isBlank()) favorites.browseItems = ordered
+        favorites.publish(ordered)
+        if (view == NaviampLibraryView.Albums) {
+            val albums = orderAlbumCatalog(mediaRegistry.libraryAlbums, currentAlbumSortOrder())
+            mediaRegistry.updateLibraryAlbums(albums, true)
+            updateLibraryCatalog(view) { albumFavorites.catalog(it, albums, provider) }
+        } else updateLibraryCatalog(view) { favorites.catalog(it, ordered, provider) }
+        if (!favorites.invalidated) overlayFavoriteMetadata(view)
+    }
+
+    /** Overlay each metadata copy independently so marker-only detail data cannot erase rich dates. */
+    private fun overlayFavoriteMetadata(view: NaviampLibraryView) {
         val home = mediaRegistry.home
         val search = mediaRegistry.search
-        // Updating detail metadata fans out through the registry. Restore each catalog's
-        // own overlay afterward so a timestamp-less detail cannot erase a known Home date.
-        mediaRegistry.artistDetails?.artist?.let { mediaRegistry.updateArtist(overlayArtistFavorite(it)) }
-        mediaRegistry.updateLibraryArtists(artists, replace = true)
-        updateLibraryCatalog(NaviampLibraryView.Artists) { it.copy(items = artistItems(artists, provider)) }
-        load.browseSnapshot?.let { snapshot ->
-            val browseArtists = projectArtists(snapshot.media.artists,
-                mergeFavorites = library.artistFavoritesOnly || snapshot.nextRequest == null, sortByName = true)
-            load.browseSnapshot = snapshot.copy(
-                media = snapshot.media.copy(artists = browseArtists),
-                catalog = snapshot.catalog.copy(items = artistItems(browseArtists, provider)),
-            )
+        when (view) {
+            NaviampLibraryView.Artists -> {
+                fun overlay(item: Artist) = overlayFavorite(artistFavorites, item)
+                mediaRegistry.artistDetails?.let { details -> mediaRegistry.updateArtist(
+                    details.copy(artist = overlay(details.artist)), mediaRegistry.artistPopularTracks,
+                    mediaRegistry.artistSimilarArtists, mediaRegistry.artistAppearanceAlbums, mediaRegistry.artistAppearanceTracks) }
+                mediaRegistry.updateHome(home.copy(artists = home.artists.map(::overlay),
+                    favoriteArtists = home.favoriteArtists.map(::overlay)), mediaRegistry.sonicRows)
+                mediaRegistry.updateSearch(search.copy(artists = search.artists.map(::overlay)))
+            }
+            NaviampLibraryView.Albums -> {
+                fun overlay(item: Album) = overlayFavorite(albumFavorites, item)
+                mediaRegistry.albumDetails?.let { mediaRegistry.updateAlbum(it.copy(album = overlay(it.album))) }
+                mediaRegistry.artistDetails?.let { details -> mediaRegistry.updateArtist(
+                    details.copy(albums = details.albums.map(::overlay)), mediaRegistry.artistPopularTracks,
+                    mediaRegistry.artistSimilarArtists, mediaRegistry.artistAppearanceAlbums.map(::overlay), mediaRegistry.artistAppearanceTracks) }
+                mediaRegistry.updateHome(home.copy(recentlyAddedAlbums = home.recentlyAddedAlbums.map(::overlay),
+                    mixAlbums = home.mixAlbums.map(::overlay), recentAlbums = home.recentAlbums.map(::overlay),
+                    frequentAlbums = home.frequentAlbums.map(::overlay), randomAlbums = home.randomAlbums.map(::overlay),
+                    genreSpotlightAlbums = home.genreSpotlightAlbums.map(::overlay), decadeAlbums = home.decadeAlbums.map(::overlay)), mediaRegistry.sonicRows)
+                mediaRegistry.updateSearch(search.copy(albums = search.albums.map(::overlay)))
+            }
+            NaviampLibraryView.Songs -> {
+                fun overlay(item: Track) = overlayFavorite(trackFavorites, item)
+                mediaRegistry.albumDetails?.let { mediaRegistry.updateAlbum(it.copy(tracks = it.tracks.map(::overlay))) }
+                mediaRegistry.updateArtist(mediaRegistry.artistDetails, mediaRegistry.artistPopularTracks.map(::overlay),
+                    mediaRegistry.artistSimilarArtists, mediaRegistry.artistAppearanceAlbums, mediaRegistry.artistAppearanceTracks.map(::overlay))
+                mediaRegistry.selectedPlaylist?.let { mediaRegistry.updateSelectedPlaylist(it, mediaRegistry.selectedPlaylistTracks.map(::overlay)) }
+                mediaRegistry.updateHome(home.copy(recentlyPlayedTracks = home.recentlyPlayedTracks.map(::overlay)),
+                    mediaRegistry.sonicRows.copy(rows = mediaRegistry.sonicRows.rows.map { it.copy(tracks = it.tracks.map(::overlay)) }))
+                mediaRegistry.updateSearch(search.copy(tracks = search.tracks.map(::overlay)))
+            }
         }
-        // Registry lookup prefers detail/Home/search metadata to Library rows.
-        mediaRegistry.updateHome(home.copy(
-            artists = home.artists.map(::overlayArtistFavorite),
-            favoriteArtists = home.favoriteArtists.map(::overlayArtistFavorite),
-        ), mediaRegistry.sonicRows)
-        mediaRegistry.updateSearch(search.copy(artists = search.artists.map(::overlayArtistFavorite)))
     }
 
-    private suspend fun completeArtistFavorites(forceRefresh: Boolean = false) {
-        val library = stateStore.state.value.shell.library
+    private suspend fun completeFavorites(view: NaviampLibraryView, forceRefresh: Boolean = false) =
+        completeFavorites(favorites(view), forceRefresh)
+
+    private suspend fun <T> completeFavorites(favorites: Favorites<T>, forceRefresh: Boolean) {
         val provider = providerSource.current() ?: return
-        if (library.selectedView != NaviampLibraryView.Artists || (!library.artistFavoritesOnly && !forceRefresh) ||
-            !provider.capabilities.supportsArtistFavorites) return
-        if (artistFavoritesLoadingGeneration == artistFavoritesGeneration) return
         useFavoritesScope(provider)
-        val sourceId = activeLibrarySourceId()
-        val token = artistFavoritesGeneration
-        val load = libraryLoads.getValue(NaviampLibraryView.Artists)
+        val library = stateStore.state.value.shell.library
+        val view = favorites.view
+        if (library.selectedView != view || (!library.favoritesOnly && !forceRefresh) || !supportsFavorites(view, provider)) return
+        if (favorites.loadingGeneration == favorites.generation) return
+        val scope = favoritesScope(provider)
+        val token = favorites.generation
+        val load = libraryLoads.getValue(view)
         val generation = load.generation
-        val query = library.artists.query
+        val query = library.catalog(view).query
         fun current(): Boolean {
             val active = stateStore.state.value.shell.library
-            return token == artistFavoritesGeneration && generation == load.generation &&
-                providerSource.isCurrent(provider) && activeLibrarySourceId() == sourceId &&
-                active.selectedView == NaviampLibraryView.Artists && active.artistFavoritesOnly == library.artistFavoritesOnly &&
-                active.artists.query == query
+            return token == favorites.generation && generation == load.generation && providerSource.isCurrent(provider) &&
+                favoritesScope(provider) == scope && active.selectedView == view && active.favoritesOnly == library.favoritesOnly &&
+                active.catalog(view).query == query
         }
-        artistFavoritesLoadingGeneration = token
-        updateArtistFavoritesStatus(loading = true)
+        favorites.loadingGeneration = token
+        updateLibraryCatalog(view) { it.copy(favoritesLoading = true, favoritesFailed = false,
+            resultsQuery = if (library.favoritesOnly) query.takeIf(String::isNotBlank) else it.resultsQuery) }
         if (forceRefresh) {
-            favoriteArtists = null
-            artistMutations.clear()
-            if (query.isNotBlank() && library.artistFavoritesOnly) {
-                load.loadedSource = null
-                load.nextRequest = MediaPageRequest(limit = libraryPageSize)
-            }
+            favorites.members = null
+            if (library.favoritesOnly) favorites.mutations.clear()
+            favorites.searchComplete = false
         }
         try {
-            if (favoriteArtists == null) {
-                val complete = loadArtistFavorites(provider, ::current) ?: return
+            if (favorites.members == null) {
+                val members = loadFavoriteMembers(favorites, provider, ::current) ?: return
                 if (!current()) return
-                favoriteArtists = complete.associateByTo(linkedMapOf(), Artist::id)
-                artistMutations.values.forEach { artist ->
-                    if (artist.favoritedAtIso8601 == null) favoriteArtists?.remove(artist.id)
-                    else favoriteArtists?.set(artist.id, artist)
+                favorites.members = members.associateByTo(linkedMapOf(), favorites.id)
+                favorites.invalidated = false
+                favorites.mutations.values.forEach { item ->
+                    if (favorites.timestamp(item) == null) favorites.members?.remove(favorites.id(item))
+                    else favorites.members?.set(favorites.id(item), item)
                 }
             }
-            reprojectArtistCatalog(provider)
-            if (query.isNotBlank() && library.artistFavoritesOnly) {
-                val sourceKey = provider.id.value to provider.cacheNamespace
-                var replace = load.loadedSource != sourceKey ||
-                    stateStore.state.value.shell.library.artists.resultsQuery != query
-                var request = if (replace) MediaPageRequest(limit = libraryPageSize) else load.nextRequest
-                val seen = mutableSetOf<MediaPageRequest>()
-                while (request != null) {
-                    check(seen.size < MaximumCachedLibraryArtists && seen.add(request)) {
-                        "Provider artist search paging did not advance."
-                    }
-                    val page = provider.searchArtistsPage(query.trim(), request)
-                    if (!current()) return
-                    validateArtistPage(page, request)
-                    val incoming = if (replace) page.items else
-                        (mediaRegistry.libraryArtists + page.items).distinctBy(Artist::id)
-                    check(incoming.size <= MaximumCachedLibraryArtists) { "Artist search exceeds the supported limit." }
-                    val artists = projectArtists(incoming, mergeFavorites = false)
-                    mediaRegistry.updateLibraryArtists(artists, replace = true)
-                    updateLibraryCatalog(NaviampLibraryView.Artists) { it.copy(
-                        items = artistItems(artists, provider), resultsQuery = query, searching = false,
-                        syncStatus = NaviampLibrarySyncStatusUi(),
-                    ) }
-                    load.loadedSource = sourceKey
-                    load.nextRequest = page.nextRequest
-                    request = page.nextRequest
-                    replace = false
-                }
+            if (query.isNotBlank() && library.favoritesOnly && (forceRefresh || !favorites.searchComplete || favorites.searchQuery != query)) {
+                val matches = collectCompletePages(favorites, ::current) { request ->
+                    favorites.searchPage(provider, query.trim(), request)
+                } ?: return
+                if (!current()) return
+                favorites.searchItems = matches
+                favorites.searchQuery = query
+                favorites.searchComplete = true
             }
-            if (current()) {
-                stateStore.state.value.shell.library.artists.pendingJump?.let(::publishLibraryJump)
-                updateLibraryCatalog(NaviampLibraryView.Artists) { it.copy(pendingJump = null, searching = false) }
-            }
+            if (!current()) return
+            reprojectFavorites(favorites, provider)
+            stateStore.state.value.shell.library.catalog(view).pendingJump?.let(::publishLibraryJump)
         } catch (cause: CancellationException) {
             throw cause
         } catch (_: Exception) {
             if (current()) {
-                if (favoriteArtists == null) {
-                    mediaRegistry.updateLibraryArtists(mediaRegistry.libraryArtists.map {
-                        if (it.favoritedAtIso8601 == null) it else it.copy(favoritedAtIso8601 = null)
-                    }, replace = true)
-                    load.browseSnapshot = load.browseSnapshot?.let { snapshot ->
-                        snapshot.copy(
-                            media = snapshot.media.copy(artists = snapshot.media.artists.map {
-                                if (it.favoritedAtIso8601 == null) it else it.copy(favoritedAtIso8601 = null)
-                            }),
-                            catalog = snapshot.catalog.copy(items = snapshot.catalog.items.map {
-                                if (it.favoriteActive) it.copy(favoriteActive = false) else it
-                            }),
-                        )
-                    }
-                    updateLibraryCatalog(NaviampLibraryView.Artists) { catalog ->
-                        catalog.copy(items = catalog.items.map { if (it.favoriteActive) it.copy(favoriteActive = false) else it })
-                    }
+                if (favorites.members == null) {
+                    // This tombstone survives later snapshot restoration and ordinary provider pages.
+                    favorites.invalidated = true
+                    reprojectFavorites(favorites, provider)
                 }
-                updateArtistFavoritesStatus(loading = true, failed = true)
+                updateLibraryCatalog(view) { it.copy(favoritesFailed = true) }
             }
         } finally {
             if (current()) {
-                artistFavoritesLoadingGeneration = null
-                updateLibraryCatalog(NaviampLibraryView.Artists) { it.copy(pendingJump = null, searching = false) }
-                updateArtistFavoritesStatus(loading = false,
-                    failed = stateStore.state.value.shell.library.artistFavoritesFailed)
+                favorites.loadingGeneration = null
+                updateLibraryCatalog(view) { it.copy(pendingJump = null, searching = false,
+                    syncStatus = NaviampLibrarySyncStatusUi(), favoritesLoading = false) }
             }
         }
     }
 
-    private suspend fun loadArtistFavorites(provider: MediaProvider, current: () -> Boolean): List<Artist>? {
-        var favoritesEndpoint = true
-        val artists = mutableListOf<Artist>()
-        val seen = mutableSetOf<MediaPageRequest>()
+    private suspend fun <T> loadFavoriteMembers(favorites: Favorites<T>, provider: MediaProvider, current: () -> Boolean): List<T>? {
+        val members = collectCompletePages(favorites, current) { favorites.favoritePage(provider, it) }
+        if (!current()) return null
+        if (members != null) return members.map {
+            if (favorites.timestamp(it) == null) favorites.withTimestamp(it, "") else it
+        }
+        // Only a null optional endpoint permits fallback, never an exception or partial failure.
+        return collectCompletePages(favorites, current) { favorites.browsePage(provider, it) }
+            ?.filter { favorites.timestamp(it) != null }
+    }
+
+    private suspend fun <T> collectCompletePages(
+        favorites: Favorites<T>,
+        current: () -> Boolean,
+        page: suspend (MediaPageRequest) -> MediaPage<T>?,
+    ): List<T>? {
+        val items = linkedMapOf<String, T>()
+        val requests = mutableSetOf<MediaPageRequest>()
+        val tokens = mutableSetOf<String>()
         var request: MediaPageRequest? = MediaPageRequest(limit = libraryPageSize)
         while (request != null) {
             if (!current()) return null
-            check(seen.add(request)) { "Provider favorite artist paging did not advance." }
-            val page = if (favoritesEndpoint) provider.favoriteArtistsPage(request) else provider.artistsPage(request)
+            check(requests.add(request)) { "Provider favorite paging did not advance." }
+            val result = page(request) ?: return null
             if (!current()) return null
-            if (page == null) {
-                // Only an unsupported endpoint permits fallback, never an exception or partial success.
-                favoritesEndpoint = false
-                artists.clear()
-                seen.clear()
-                request = MediaPageRequest(limit = libraryPageSize)
-                continue
+            require(result.offset == request.offset && result.limit == request.limit && result.items.size <= request.limit) {
+                "Provider page metadata must match the request."
             }
-            validateArtistPage(page, request)
-            check(artists.size + page.items.size <= MaximumCachedLibraryArtists) {
-                "Favorite artist enumeration exceeds the supported limit."
+            val before = items.size
+            result.items.forEach { items[favorites.id(it)] = it }
+            if (result.hasMore) {
+                check(items.size > before) { "Provider paging returned a nonadvancing continuing page." }
+                result.nextContinuationToken?.let { check(tokens.add(it)) { "Provider continuation token cycle." } }
             }
-            artists += page.items
-            request = page.nextRequest
+            val next = result.nextRequest
+            check(next == null || next.offset > request.offset) { "Provider page offset did not advance." }
+            request = next
         }
-        return if (favoritesEndpoint) artists.distinctBy(Artist::id).map {
-            // Membership is authoritative even when this provider omits favorite timestamps.
-            if (it.favoritedAtIso8601 == null) it.copy(favoritedAtIso8601 = "") else it
-        } else artists.filter { it.favoritedAtIso8601 != null }.distinctBy(Artist::id)
-    }
-
-    private fun validateArtistPage(page: MediaPage<Artist>, request: MediaPageRequest) {
-        require(page.offset == request.offset && page.limit == request.limit && page.items.size <= request.limit) {
-            "Provider artist page metadata must match the request."
-        }
-        check(!page.hasMore || page.items.isNotEmpty()) { "Provider artist paging returned an empty continuing page." }
+        return items.values.toList()
     }
 
     private fun publishLibraryArtists(artists: List<Artist>, provider: MediaProvider) {
         useFavoritesScope(provider)
-        val projected = projectArtists(artists, mergeFavorites = true)
+        val projected = projectFavorites(artistFavorites, artists, mergeFavorites = true)
         mediaRegistry.updateLibraryArtists(projected, replace = true)
         updateLibraryCatalog(NaviampLibraryView.Artists) {
             it.copy(items = artistItems(projected, provider), resultsQuery = null, syncStatus = NaviampLibrarySyncStatusUi())
@@ -755,7 +896,7 @@ class NaviampCoreCatalogController(
 
     private suspend fun loadMoreLibrary() {
         val view = stateStore.state.value.shell.library.selectedView
-        if (view == NaviampLibraryView.Artists && stateStore.state.value.shell.library.artistFavoritesOnly) return
+        if (stateStore.state.value.shell.library.favoritesOnly) return
         if (view == NaviampLibraryView.Albums && albumIndex != null &&
             stateStore.state.value.shell.library.albums.query.isBlank()) return
         val load = libraryLoads.getValue(view)
@@ -770,8 +911,8 @@ class NaviampCoreCatalogController(
         val library = stateStore.state.value.shell.library
         val view = library.selectedView
         if (query.isBlank() || library.catalog(view).query != query) return
-        if (view == NaviampLibraryView.Artists && library.artistFavoritesOnly) {
-            completeArtistFavorites()
+        if (library.favoritesOnly) {
+            completeFavorites(view)
             return
         }
         val load = libraryLoads.getValue(view)
@@ -793,6 +934,8 @@ class NaviampCoreCatalogController(
             return false
         }
         val load = libraryLoads.getValue(view)
+        if (generation != load.generation || stateStore.state.value.shell.library.favoritesOnly) return false
+        load.scope = favoritesScope(provider)
         val sourceKey = provider.id.value to provider.cacheNamespace
         val query = queryOverride ?: stateStore.state.value.shell.library.catalog(view).query
         load.loadingGeneration = generation
@@ -813,9 +956,8 @@ class NaviampCoreCatalogController(
                     useFavoritesScope(provider)
                     val incoming = if (replace) page.items else
                         (mediaRegistry.libraryArtists + page.items).distinctBy(Artist::id)
-                    val artists = projectArtists(incoming,
-                        mergeFavorites = query.isBlank() && (stateStore.state.value.shell.library.artistFavoritesOnly || !page.hasMore),
-                        sortByName = query.isBlank())
+                    val artists = projectFavorites(artistFavorites, incoming,
+                        mergeFavorites = query.isBlank() && !page.hasMore)
                     mediaRegistry.updateLibraryArtists(artists, replace = true)
                     updateLibraryCatalog(view) { current ->
                         current.copy(items = artistItems(artists, provider), resultsQuery = query.takeIf { it.isNotBlank() },
@@ -830,15 +972,12 @@ class NaviampCoreCatalogController(
                         provider.searchAlbumsPage(query.trim(), request)
                     }
                     if (!isCurrentLibraryLoad(load, generation, sourceKey)) return@runCatching false to null
-                    mediaRegistry.updateLibraryAlbums(page.items, replace)
-                    val mapped = page.items.map { album ->
-                        album.toSharedMediaItemUi(
-                            coverArtUrl = { id -> id?.let { provider.coverArtUrl(it) } },
-                            canFavorite = provider.capabilities.supportsAlbumFavorites,
-                        )
-                    }
+                    val incoming = if (replace) page.items else
+                        (mediaRegistry.libraryAlbums + page.items).distinctBy { it.id }
+                    val albums = projectFavorites(albumFavorites, incoming, mergeFavorites = query.isBlank() && !page.hasMore)
+                    mediaRegistry.updateLibraryAlbums(albums, true)
                     updateLibraryCatalog(view) { current ->
-                        current.copy(items = mergeItems(current.items, mapped, replace), resultsQuery = query.takeIf { it.isNotBlank() },
+                        albumFavorites.catalog(current, albums, provider).copy(resultsQuery = query.takeIf { it.isNotBlank() },
                             searching = false, syncStatus = NaviampLibrarySyncStatusUi())
                     }
                     true to page.nextRequest
@@ -855,10 +994,11 @@ class NaviampCoreCatalogController(
                     } else {
                         (mediaRegistry.libraryTracks + page.items).distinctBy { it.id }
                     }
+                    val projected = projectFavorites(trackFavorites, merged, mergeFavorites = query.isBlank() && !page.hasMore)
                     val ordered = if (page.alphabeticallySortedByTitle) {
-                        merged
+                        projected
                     } else {
-                        merged.sortedWith(
+                        projected.sortedWith(
                             compareBy<app.naviamp.domain.Track>(
                                 { it.title.lowercase() },
                                 { it.title },
@@ -940,40 +1080,45 @@ class NaviampCoreCatalogController(
     }
 
     private fun updateLibraryQuery(query: String) {
-        val view = stateStore.state.value.shell.library.selectedView
-        val catalog = stateStore.state.value.shell.library.catalog(view)
+        val provider = providerSource.current()
+        useFavoritesScope(provider)
+        val library = stateStore.state.value.shell.library
+        val view = library.selectedView
+        val catalog = library.catalog(view)
         if (catalog.query == query) return
-        if (view == NaviampLibraryView.Artists) {
-            invalidateArtistFavoritesWork()
-            updateArtistFavoritesStatus(loading = stateStore.state.value.shell.library.artistFavoritesOnly)
-        }
-        if (catalog.query.isBlank() && query.isBlank()) {
+        if (catalog.query.isBlank() && query.isBlank() && !library.favoritesOnly) {
             updateLibraryCatalog(view) { it.copy(query = query) }
             return
         }
+        favorites(view).cancel()
         val load = libraryLoads.getValue(view)
-        val sourceKey = providerSource.current()?.let { it.id.value to it.cacheNamespace }
+        val sourceKey = provider?.let { it.id.value to it.cacheNamespace }
         if (catalog.query.isBlank() && query.isNotBlank()) {
-            load.browseSnapshot = captureBrowseSnapshot(view)
+            load.browseSnapshot = if (library.favoritesOnly) load.ordinarySnapshot else captureBrowseSnapshot(view)
         }
-        load.generation += 1
+        load.generation++
         load.loadingGeneration = null
-        if (query.isBlank()) {
-            val snapshot = load.browseSnapshot
-            load.browseSnapshot = null
-            if (snapshot != null && snapshot.sourceKey == sourceKey) {
-                load.nextRequest = snapshot.nextRequest
-                load.loadedSource = snapshot.loadedSource
-                when (view) {
-                    NaviampLibraryView.Artists -> mediaRegistry.updateLibraryArtists(snapshot.media.artists, true)
-                    NaviampLibraryView.Albums -> mediaRegistry.updateLibraryAlbums(snapshot.media.albums, true)
-                    NaviampLibraryView.Songs -> mediaRegistry.updateLibraryTracks(snapshot.media.tracks, true)
-                }
-                updateLibraryCatalog(view) { snapshot.catalog.copy(query = query,
-                    refreshGeneration = it.refreshGeneration) }
-                if (view == NaviampLibraryView.Artists) providerSource.current()?.let(::reprojectArtistCatalog)
-                return
-            }
+        val snapshot = if (query.isBlank()) load.browseSnapshot?.takeIf { it.sourceKey == sourceKey } else null
+        if (query.isBlank()) load.browseSnapshot = null
+        if (library.favoritesOnly) {
+            val retained = snapshot ?: LibraryBrowseSnapshot(
+                NaviampLibraryCatalogUi(query = query, supportsFavorites = supportsFavorites(view, provider),
+                    albumSortOrder = currentAlbumSortOrder()),
+                MediaPageRequest(limit = libraryPageSize), sourceKey, null, MediaSearchResults(),
+            )
+            load.ordinarySnapshot = retained.copy(catalog = retained.catalog.copy(query = query))
+            load.nextRequest = retained.nextRequest
+            load.loadedSource = retained.loadedSource
+            updateLibraryCatalog(view) { it.copy(query = query, resultsQuery = query.takeIf(String::isNotBlank),
+                pendingJump = null, jumpFailed = false, searching = false, syncStatus = NaviampLibrarySyncStatusUi(),
+                favoritesLoading = supportsFavorites(view, provider), favoritesFailed = false) }
+            if (provider != null) reprojectFavorites(view, provider)
+            return
+        }
+        if (snapshot != null) {
+            restoreSnapshot(view, snapshot.copy(catalog = snapshot.catalog.copy(query = query)))
+            if (provider != null) reprojectFavorites(view, provider)
+            return
         }
         load.nextRequest = MediaPageRequest(limit = libraryPageSize)
         load.loadedSource = null
@@ -981,32 +1126,72 @@ class NaviampCoreCatalogController(
             searching = query.isNotBlank(), syncStatus = NaviampLibrarySyncStatusUi()) }
     }
 
-    private fun captureBrowseSnapshot(view: NaviampLibraryView): LibraryBrowseSnapshot {
+    private fun captureSnapshot(view: NaviampLibraryView): LibraryBrowseSnapshot {
         val load = libraryLoads.getValue(view)
         return LibraryBrowseSnapshot(
-            catalog = stateStore.state.value.shell.library.catalog(view).copy(query = "", pendingJump = null,
-                resultsQuery = null, searching = false, syncStatus = NaviampLibrarySyncStatusUi()),
+            catalog = stateStore.state.value.shell.library.catalog(view).copy(pendingJump = null,
+                searching = false, syncStatus = NaviampLibrarySyncStatusUi()),
             nextRequest = load.nextRequest,
             sourceKey = providerSource.current()?.let { it.id.value to it.cacheNamespace },
             loadedSource = load.loadedSource,
-            media = MediaSearchResults(artists = mediaRegistry.libraryArtists,
-                albums = mediaRegistry.libraryAlbums, tracks = mediaRegistry.libraryTracks),
+            media = when (view) {
+                NaviampLibraryView.Artists -> MediaSearchResults(artists = mediaRegistry.libraryArtists)
+                NaviampLibraryView.Albums -> MediaSearchResults(albums = mediaRegistry.libraryAlbums)
+                NaviampLibraryView.Songs -> MediaSearchResults(tracks = mediaRegistry.libraryTracks)
+            },
         )
     }
 
+    private fun captureBrowseSnapshot(view: NaviampLibraryView): LibraryBrowseSnapshot = captureSnapshot(view).let {
+        it.copy(catalog = it.catalog.copy(query = "", resultsQuery = null))
+    }
+
+    private fun clearLibraryMedia(view: NaviampLibraryView) {
+        when (view) {
+            NaviampLibraryView.Artists -> mediaRegistry.updateLibraryArtists(emptyList(), true)
+            NaviampLibraryView.Albums -> mediaRegistry.updateLibraryAlbums(emptyList(), true)
+            NaviampLibraryView.Songs -> mediaRegistry.updateLibraryTracks(emptyList(), true)
+        }
+    }
+
+    private fun restoreSnapshot(view: NaviampLibraryView, snapshot: LibraryBrowseSnapshot, publishCatalog: Boolean = true) {
+        val load = libraryLoads.getValue(view)
+        load.nextRequest = snapshot.nextRequest
+        load.loadedSource = snapshot.loadedSource
+        when (view) {
+            NaviampLibraryView.Artists -> mediaRegistry.updateLibraryArtists(snapshot.media.artists, true)
+            NaviampLibraryView.Albums -> mediaRegistry.updateLibraryAlbums(snapshot.media.albums, true)
+            NaviampLibraryView.Songs -> mediaRegistry.updateLibraryTracks(snapshot.media.tracks, true)
+        }
+        if (publishCatalog) updateLibraryCatalog(view) { snapshot.catalog.copy(refreshGeneration = it.refreshGeneration,
+            favoritesLoading = false, favoritesFailed = false,
+            albumSortOrder = if (view == NaviampLibraryView.Albums) currentAlbumSortOrder() else snapshot.catalog.albumSortOrder) }
+    }
+
     private fun selectLibraryView(view: NaviampLibraryView) {
+        useFavoritesScope(providerSource.current())
+        // The global heart remains selected across tabs; only the departing tab loses its work owner.
         val previous = stateStore.state.value.shell.library.selectedView
         if (previous == view) return
-        invalidateArtistFavoritesWork()
+        favorites(previous).cancel()
         val load = libraryLoads.getValue(previous)
         if (stateStore.state.value.shell.library.catalog(previous).searching) load.loadedSource = null
-        load.generation += 1
-        updateLibraryCatalog(previous) { it.copy(pendingJump = null, searching = false) }
-        stateStore.updateShell { shell -> shell.copy(library = shell.library.copy(
-            selectedView = view,
-            artistFavoritesLoading = view == NaviampLibraryView.Artists && shell.library.artistFavoritesOnly,
-            artistFavoritesFailed = false,
-        )) }
+        load.generation++
+        load.loadingGeneration = null
+        stateStore.updateShell { shell ->
+            fun catalog(kind: NaviampLibraryView): NaviampLibraryCatalogUi {
+                val current = shell.library.catalog(kind)
+                return when (kind) {
+                    previous -> current.copy(pendingJump = null, searching = false, favoritesLoading = false)
+                    view -> current.copy(favoritesLoading = shell.library.favoritesOnly && current.supportsFavorites,
+                        favoritesFailed = false)
+                    else -> current
+                }
+            }
+            shell.copy(library = shell.library.copy(selectedView = view,
+                artists = catalog(NaviampLibraryView.Artists), albums = catalog(NaviampLibraryView.Albums),
+                songs = catalog(NaviampLibraryView.Songs)))
+        }
     }
 
     private fun currentAlbumSortOrder(): LibraryAlbumSortOrder =
@@ -1029,18 +1214,8 @@ class NaviampCoreCatalogController(
             )
         }
         val provider = providerSource.current() ?: return
-        val albums = mediaRegistry.libraryAlbums
-        if (albums.isEmpty()) return
-        val ordered = orderAlbumCatalog(albums, settings.libraryAlbumSortOrder)
-        mediaRegistry.updateLibraryAlbums(ordered, replace = true)
-        updateLibraryCatalog(NaviampLibraryView.Albums) { catalog ->
-            catalog.copy(items = ordered.map { album ->
-                album.toSharedMediaItemUi(
-                    coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
-                    canFavorite = provider.capabilities.supportsAlbumFavorites,
-                )
-            })
-        }
+        useFavoritesScope(provider)
+        reprojectFavorites(NaviampLibraryView.Albums, provider)
     }
 
     private fun publishLibraryStatus(view: NaviampLibraryView, message: String?, loading: Boolean) {
@@ -1065,12 +1240,6 @@ class NaviampCoreCatalogController(
         }
     }
 
-    private fun mergeItems(
-        current: List<app.naviamp.ui.SharedMediaItemUi>,
-        incoming: List<app.naviamp.ui.SharedMediaItemUi>,
-        replace: Boolean,
-    ) = if (replace) incoming else (current + incoming).distinctBy { it.id }
-
     private fun isCurrentLibraryLoad(
         load: LibraryLoadState,
         generation: Long,
@@ -1078,7 +1247,8 @@ class NaviampCoreCatalogController(
     ): Boolean {
         val currentProvider = providerSource.current()
         return generation == load.generation &&
-            currentProvider?.let { it.id.value to it.cacheNamespace } == sourceKey
+            currentProvider?.let { it.id.value to it.cacheNamespace } == sourceKey &&
+            (load.scope == null || currentProvider?.let(::favoritesScope) == load.scope)
     }
 
     private fun publishLibraryJump(letter: Char) {
@@ -1102,9 +1272,11 @@ class NaviampCoreCatalogController(
         val library = stateStore.state.value.shell.library
         val view = library.selectedView
         val query = library.catalog(view).query
-        if (view == NaviampLibraryView.Artists && library.artistFavoritesOnly) {
+        if (view == NaviampLibraryView.Albums && currentAlbumSortOrder() != LibraryAlbumSortOrder.Title) return
+        if (library.favoritesOnly) {
+            if (!library.catalog(view).supportsFavorites) return
             updateLibraryCatalog(view) { it.copy(pendingJump = normalized, jumpFailed = false) }
-            completeArtistFavorites()
+            completeFavorites(view)
             return
         }
         if (view == NaviampLibraryView.Albums && albumIndex != null && query.isBlank()) {
@@ -1120,6 +1292,7 @@ class NaviampCoreCatalogController(
         val provider = providerSource.current() ?: return
         val sourceKey = provider.id.value to provider.cacheNamespace
         val load = libraryLoads.getValue(view)
+        load.scope = favoritesScope(provider)
         if (library.catalog(view).pendingJump == normalized) return
         val generation = ++load.generation
         updateLibraryCatalog(view) { it.copy(pendingJump = normalized, jumpFailed = false) }

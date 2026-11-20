@@ -34,6 +34,9 @@
     <string name="mini_player_open">فتح تفاصيل المشغل</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">المفضلة</string>
+    <string name="library_favorites_empty">لا توجد مفضلة بعد.</string>
+    <string name="library_favorites_failed">تعذر تحميل المفضلة. حدّث للمحاولة مرة أخرى.</string>
+    <string name="library_favorites_unsupported">هذا المصدر لا يدعم المفضلة.</string>
     <string name="settings_radio_new_dj">دي جي جديد</string>
     <string name="settings_radio_create_dj">إنشاء دي جي جديد</string>
     <string name="tv_album_sort_order">ترتيب الألبومات</string>

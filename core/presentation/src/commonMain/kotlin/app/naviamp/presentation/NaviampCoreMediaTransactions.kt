@@ -162,6 +162,7 @@ class NaviampCoreMediaTransactions(
     private val onFavoriteArtistActivityChanged: () -> Unit = {},
     private val onAlbumUpdated: (app.naviamp.domain.provider.MediaProvider, Album) -> Unit = { _, _ -> },
     private val onArtistUpdated: (app.naviamp.domain.provider.MediaProvider, Artist) -> Unit = { _, _ -> },
+    private val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { _, _ -> },
 ) : NaviampCoreTrackRadioTransactions {
     private val trackRadioBuild = Mutex()
     fun play(tracks: List<Track>, index: Int = 0, shuffle: Boolean = false) {
@@ -412,12 +413,15 @@ class NaviampCoreMediaTransactions(
 
     suspend fun toggleFavorite(track: Track) {
         val provider = providerOrPublish() ?: return
+        val sourceId = activeSourceId()
         mutate("Track favorites are not supported.", { favoriteTrackUpdate(provider, track, favoritedAtIso8601()) }) {
+            if (sourceId != activeSourceId() || !providerSource.isCurrent(provider)) return@mutate
             registry.updateTrack(it)
             val update = queue.updateTrack(it)
             if (update.changed) effects.applyQueue(update.queue, update.clearPreparedNext)
             if (playback.state.value.currentTrack?.id == it.id) playback.updateCurrentTrack(it)
             updateTrackFavoriteUi(it.id.value, it.favoritedAtIso8601 != null)
+            onTrackUpdated(provider, it)
             publishNowPlaying()
         }
     }
@@ -426,7 +430,7 @@ class NaviampCoreMediaTransactions(
         val provider = providerOrPublish() ?: return
         val sourceId = activeSourceId()
         mutate("Album favorites are not supported.", { favoriteAlbumUpdate(provider, album, favoritedAtIso8601()) }) {
-            if (sourceId != activeSourceId()) return@mutate
+            if (sourceId != activeSourceId() || !providerSource.isCurrent(provider)) return@mutate
             registry.updateAlbum(it)
             updateAlbumFavoriteUi(it.id.value, it.favoritedAtIso8601 != null)
             onAlbumUpdated(provider, it)

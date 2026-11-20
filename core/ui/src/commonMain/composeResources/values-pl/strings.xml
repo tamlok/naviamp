@@ -29,6 +29,9 @@
     <string name="mini_player_open">Otwórz szczegóły odtwarzacza</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Ulubione</string>
+    <string name="library_favorites_empty">Nie ma jeszcze ulubionych.</string>
+    <string name="library_favorites_failed">Nie udało się wczytać ulubionych. Odśwież, aby spróbować ponownie.</string>
+    <string name="library_favorites_unsupported">To źródło nie obsługuje ulubionych.</string>
     <string name="settings_radio_new_dj">Nowy DJ</string>
     <string name="settings_radio_create_dj">Utwórz nowego DJ-a</string>
     <string name="tv_album_sort_order">Sortowanie albumów</string>

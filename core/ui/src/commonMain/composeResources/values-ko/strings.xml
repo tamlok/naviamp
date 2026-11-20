@@ -34,6 +34,9 @@
     <string name="mini_player_open">플레이어 상세 정보 열기</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">즐겨찾기</string>
+    <string name="library_favorites_empty">아직 즐겨찾기가 없습니다.</string>
+    <string name="library_favorites_failed">즐겨찾기를 불러오지 못했습니다. 새로고침하여 다시 시도하세요.</string>
+    <string name="library_favorites_unsupported">이 소스는 즐겨찾기를 지원하지 않습니다.</string>
     <string name="settings_radio_new_dj">새 DJ</string>
     <string name="settings_radio_create_dj">새 DJ 만들기</string>
     <string name="tv_album_sort_order">앨범 정렬</string>

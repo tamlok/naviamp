@@ -63,6 +63,23 @@ class JellyfinProviderTest {
     }
 
     @Test
+    fun favoriteSongsPageThroughTheSelectedLibraryWithoutTheHomeLimit() = runTest {
+        val fixture = fixture(responses = mapOf(
+            "startIndex=0" to """{"Items":[{"Id":"first","Name":"First","UserData":{"IsFavorite":true}}],"TotalRecordCount":2}""",
+            "startIndex=1" to """{"Items":[{"Id":"last","Name":"Last","UserData":{"IsFavorite":true}}],"TotalRecordCount":2}""",
+        ), selectedMusicFolderIds = listOf("music"))
+        val first = fixture.provider.favoriteTracksPage(MediaPageRequest(limit = 1))
+        assertEquals("first", first.items.single().id.value)
+        assertNotNull(first.items.single().favoritedAtIso8601)
+        val last = fixture.provider.favoriteTracksPage(assertNotNull(first.nextRequest))
+        assertEquals("last", last.items.single().id.value)
+        assertNull(last.nextRequest)
+        assertTrue(fixture.http.requestedUrls.all {
+            "includeItemTypes=Audio" in it && "isFavorite=true" in it && "parentId=music" in it
+        })
+    }
+
+    @Test
     fun downloadMemberPagesUseAlbumAndArtistFiltersWithoutDetailLimits() = runTest {
         val fixture = fixture(responses = mapOf(
             "includeItemTypes=Audio" to """{"Items":[{"Id":"track","Name":"Track"}],"TotalRecordCount":401}""",

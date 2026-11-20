@@ -34,6 +34,9 @@
     <string name="mini_player_open">Oynatıcı ayrıntılarını aç</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favoriler</string>
+    <string name="library_favorites_empty">Henüz favori yok.</string>
+    <string name="library_favorites_failed">Favoriler yüklenemedi. Tekrar denemek için yenileyin.</string>
+    <string name="library_favorites_unsupported">Bu kaynak favorileri desteklemiyor.</string>
     <string name="settings_radio_new_dj">Yeni DJ</string>
     <string name="settings_radio_create_dj">Yeni DJ oluştur</string>
     <string name="tv_album_sort_order">Albüm sıralaması</string>

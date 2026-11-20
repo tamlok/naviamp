@@ -813,6 +813,9 @@ data class NaviampLibraryCatalogUi(
     val albumSortOrder: LibraryAlbumSortOrder = LibraryAlbumSortOrder.Title,
     /** Changes only after an explicit refresh; automatic loads preserve the viewport. */
     val refreshGeneration: Long = 0L,
+    val supportsFavorites: Boolean = false,
+    val favoritesLoading: Boolean = false,
+    val favoritesFailed: Boolean = false,
 )
 
 data class NaviampLibraryScreenUi(
@@ -822,10 +825,7 @@ data class NaviampLibraryScreenUi(
     val songs: NaviampLibraryCatalogUi = NaviampLibraryCatalogUi(),
     val jumpRequest: NaviampLibraryJumpUi? = null,
     val sourcePicker: NaviampLibrarySourcePickerUi = NaviampLibrarySourcePickerUi(),
-    val supportsArtistFavorites: Boolean = false,
-    val artistFavoritesOnly: Boolean = false,
-    val artistFavoritesLoading: Boolean = false,
-    val artistFavoritesFailed: Boolean = false,
+    val favoritesOnly: Boolean = false,
 ) {
     fun catalog(view: NaviampLibraryView): NaviampLibraryCatalogUi = when (view) {
         NaviampLibraryView.Artists -> artists
@@ -865,7 +865,7 @@ data class NaviampLibraryActions(
     val onLoadMore: () -> Unit,
     val onJumpToLetter: (Char) -> Unit,
     val onAlbumSortOrderChanged: (LibraryAlbumSortOrder) -> Unit = {},
-    val onArtistFavoritesOnlyChanged: (Boolean) -> Unit = {},
+    val onFavoritesOnlyChanged: (Boolean) -> Unit = {},
     val onTrackAction: (SharedTrackRowActionRequest) -> Unit,
     val onOpenSourcePicker: () -> Unit = {},
     val onToggleSource: (String) -> Unit = {},

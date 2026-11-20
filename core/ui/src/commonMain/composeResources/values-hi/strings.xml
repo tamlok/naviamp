@@ -34,6 +34,9 @@
     <string name="mini_player_open">प्लेयर का विवरण खोलें</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">पसंदीदा</string>
+    <string name="library_favorites_empty">अभी तक कोई पसंदीदा नहीं है।</string>
+    <string name="library_favorites_failed">पसंदीदा लोड नहीं हो सके। फिर से प्रयास करने के लिए रीफ़्रेश करें।</string>
+    <string name="library_favorites_unsupported">यह स्रोत पसंदीदा का समर्थन नहीं करता है।</string>
     <string name="settings_radio_new_dj">नया DJ</string>
     <string name="settings_radio_create_dj">नया DJ बनाएँ</string>
     <string name="tv_album_sort_order">एल्बम क्रम</string>

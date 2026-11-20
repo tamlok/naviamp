@@ -34,6 +34,9 @@
     <string name="mini_player_open">Spelerdetails openen</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favorieten</string>
+    <string name="library_favorites_empty">Nog geen favorieten.</string>
+    <string name="library_favorites_failed">Kan favorieten niet laden. Vernieuw om het opnieuw te proberen.</string>
+    <string name="library_favorites_unsupported">Deze bron ondersteunt geen favorieten.</string>
     <string name="settings_radio_new_dj">Nieuwe DJ</string>
     <string name="settings_radio_create_dj">Nieuwe DJ maken</string>
     <string name="tv_album_sort_order">Albumvolgorde</string>

@@ -34,6 +34,9 @@
     <string name="mini_player_open">プレーヤーの詳細を開く</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">お気に入り</string>
+    <string name="library_favorites_empty">お気に入りはまだありません。</string>
+    <string name="library_favorites_failed">お気に入りを読み込めませんでした。更新して再試行してください。</string>
+    <string name="library_favorites_unsupported">このソースはお気に入りに対応していません。</string>
     <string name="settings_radio_new_dj">新しいDJ</string>
     <string name="settings_radio_create_dj">新しいDJを作成</string>
     <string name="tv_album_sort_order">アルバムの並び順</string>

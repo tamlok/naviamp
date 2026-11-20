@@ -510,19 +510,34 @@ class NaviampCoreAppSmokeTest {
     }
 
     @Test
-    fun libraryFavoritesWorksWithHomeSectionHiddenAndMyHasNoShortcut() = runDesktopComposeUiTest(1000, 740) {
+    fun libraryHeartFiltersAllTabsWithHomeSectionHiddenAndMyHasNoShortcut() = runDesktopComposeUiTest(1000, 740) {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val base = FakeCoreMediaProvider()
         val favorite = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("favorite"), "Favorite Artist",
             favoritedAtIso8601 = "2026-11-20T00:00:00Z")
         val ordinary = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("ordinary"), "Ordinary Artist")
+        val favoriteAlbum = base.album.copy(id = app.naviamp.domain.AlbumId("favorite-album"), title = "Favorite Album",
+            favoritedAtIso8601 = "2026-11-20T00:00:00Z")
+        val ordinaryAlbum = base.album.copy(id = app.naviamp.domain.AlbumId("ordinary-album"), title = "Ordinary Album")
+        val favoriteSong = base.track.copy(id = app.naviamp.domain.TrackId("favorite-song"), title = "Favorite Song",
+            favoritedAtIso8601 = "2026-11-20T00:00:00Z")
+        val ordinarySong = base.track.copy(id = app.naviamp.domain.TrackId("ordinary-song"), title = "Ordinary Song")
         val provider = object : app.naviamp.domain.provider.MediaProvider by base {
-            override val capabilities = base.capabilities.copy(supportsArtistFavorites = true)
+            override val capabilities = base.capabilities.copy(
+                supportsArtistFavorites = true, supportsAlbumFavorites = true, supportsTrackFavorites = true)
             override suspend fun artists(limit: Int) = listOf(favorite.copy(favoritedAtIso8601 = null), ordinary)
             override suspend fun artistsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
                 app.naviamp.domain.provider.MediaPage(artists(request.limit), request.offset, request.limit, false)
             override suspend fun favoriteArtistsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
                 app.naviamp.domain.provider.MediaPage(listOf(favorite), request.offset, request.limit, false)
+            override suspend fun albumsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(listOf(favoriteAlbum.copy(favoritedAtIso8601 = null), ordinaryAlbum), request.offset, request.limit, false)
+            override suspend fun favoriteAlbumsPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(listOf(favoriteAlbum), request.offset, request.limit, false)
+            override suspend fun tracksPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(listOf(favoriteSong.copy(favoritedAtIso8601 = null), ordinarySong), request.offset, request.limit, false)
+            override suspend fun favoriteTracksPage(request: app.naviamp.domain.provider.MediaPageRequest) =
+                app.naviamp.domain.provider.MediaPage(listOf(favoriteSong), request.offset, request.limit, false)
         }
         val section = SharedHomeCollectionSectionUi("favorites", "Favorite artists", emptyList(),
             titleResource = SharedHomeCollectionTitleResource.FavoriteArtists, visible = false)
@@ -541,15 +556,27 @@ class NaviampCoreAppSmokeTest {
             onNodeWithTag("main-destination-Library").performClick()
             onNodeWithText("Artists").performClick()
             onNodeWithText("Ordinary Artist").assertIsDisplayed()
-            onNodeWithText("Favorites").assertIsNotSelected().performClick()
-            onNodeWithText("Favorites").assertIsSelected()
+            onNodeWithText("Favorites").assertDoesNotExist()
+            onNodeWithContentDescription("Favorites").assertIsNotSelected().performClick()
+            onNodeWithContentDescription("Favorites").assertIsSelected()
             onNodeWithText("Favorite Artist").assertIsDisplayed()
             onNodeWithText("Ordinary Artist").assertDoesNotExist()
-            runOnIdle { assertTrue(core.state.value.shell.library.artistFavoritesOnly) }
+            runOnIdle { assertTrue(core.state.value.shell.library.favoritesOnly) }
             onNodeWithText("Albums").performClick()
-            onNodeWithText("Favorites").assertDoesNotExist()
+            onNodeWithContentDescription("Favorites").assertIsSelected()
+            onNodeWithText("Favorite Album").assertIsDisplayed()
+            onNodeWithText("Ordinary Album").assertDoesNotExist()
+            onNodeWithText("Songs").performClick()
+            onNodeWithContentDescription("Favorites").assertIsSelected()
+            onNodeWithText("Favorite Song").assertIsDisplayed()
+            onNodeWithText("Ordinary Song").assertDoesNotExist()
+            onNodeWithContentDescription("Favorites").performClick().assertIsNotSelected()
+            onNodeWithText("Ordinary Song").assertIsDisplayed()
+            onNodeWithText("Albums").performClick()
+            onNodeWithContentDescription("Favorites").assertIsNotSelected()
+            onNodeWithText("Ordinary Album").assertIsDisplayed()
             onNodeWithText("Artists").performClick()
-            onNodeWithText("Favorites").assertIsSelected().performClick()
+            onNodeWithContentDescription("Favorites").assertIsNotSelected()
             onNodeWithText("Ordinary Artist").assertIsDisplayed()
         } finally { scope.cancel() }
     }

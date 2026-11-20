@@ -499,8 +499,12 @@ class NaviampCore private constructor(
                 navigation::openNowPlaying,
                 favoriteArtistActivity = services.content.homeLibrary,
                 onFavoriteArtistActivityChanged = { scope.launch { home.refreshAfterConnection() } },
-                onAlbumUpdated = { provider, album -> services.content.albumIndex?.updateAlbum(provider, album) },
+                onAlbumUpdated = { provider, album ->
+                    services.content.albumIndex?.updateAlbum(provider, album)
+                    catalog.albumUpdated(provider, album)
+                },
                 onArtistUpdated = catalog::artistUpdated,
+                onTrackUpdated = catalog::trackUpdated,
             )
             val playlistMembership = NaviampCorePlaylistMembershipCoordinator(
                 providerSource = providerSource,
@@ -531,6 +535,7 @@ class NaviampCore private constructor(
                 onPlaylistContentsReconciled = playlistBrowse::reconcileContents,
                 onPlaylistCreated = playlistBrowse::publishCreated,
                 membershipCoordinator = playlistMembership,
+                onTrackUpdated = catalog::trackUpdated,
             )
             val connectCatalog = NaviampCoreConnectCatalogController(
                 providerSource = providerSource,

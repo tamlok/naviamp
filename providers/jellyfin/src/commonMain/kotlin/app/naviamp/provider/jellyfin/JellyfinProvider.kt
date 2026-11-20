@@ -223,6 +223,14 @@ class JellyfinProvider(
     override suspend fun tracksPage(request: MediaPageRequest): MediaPage<Track> =
         trackPage(request)
 
+    override suspend fun favoriteTracksPage(request: MediaPageRequest): MediaPage<Track> =
+        itemPage(
+            request = request,
+            includeItemTypes = "Audio",
+            extraParameters = listOf("isFavorite" to "true"),
+            mapper = { it.toTrack() },
+        )
+
     override suspend fun alphabeticalLibraryOffset(kind: AlphabeticalLibraryKind, letter: Char): Int? {
         val boundary = letter.uppercaseChar().toString()
         suspend fun titleAt(offset: Int): Pair<String?, Int?> {

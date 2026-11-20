@@ -1012,6 +1012,13 @@ class NavidromeProvider(
         starredSnapshot().flatMap { it.arrayValue("song") }
             .mapNotNull { (it as? JsonObject)?.toTrack() }.distinctBy { it.id }.take(limit)
 
+    override suspend fun favoriteTracksPage(request: MediaPageRequest): MediaPage<Track> =
+        request.toMediaPage(
+            starredSnapshot().asSequence().flatMap { it.arrayValue("song") }
+                .mapNotNull { (it as? JsonObject)?.toTrack() }.distinctBy { it.id }
+                .drop(request.offset).take(request.limit).toList(),
+        )
+
     override suspend fun favoriteArtists(limit: Int): List<Artist> =
         starredSnapshot().flatMap { it.arrayValue("artist") }
             .mapNotNull { (it as? JsonObject)?.toArtist() }.distinctBy { it.id }.take(limit)

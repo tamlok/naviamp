@@ -1,7 +1,6 @@
 package app.naviamp.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -12,6 +11,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,14 +98,14 @@ internal fun TelevisionLibrary(
     NaviampLibrarySourcePicker(colors, screen.sourcePicker, actions)
     val view = screen.selectedView
     val catalog = screen.selectedCatalog
-    val showFavorites = view == NaviampLibraryView.Artists && screen.supportsArtistFavorites
-    val artistFavoritesOnly = view == NaviampLibraryView.Artists && screen.artistFavoritesOnly
-    val items = remember(catalog.items, catalog.query, catalog.resultsQuery, artistFavoritesOnly) {
-        libraryVisibleItems(catalog, artistFavoritesOnly)
+    val favoritesEnabled = catalog.supportsFavorites || screen.favoritesOnly
+    val items = remember(catalog, screen.favoritesOnly) {
+        libraryVisibleItems(catalog, screen.favoritesOnly)
     }
-    val canLoadMore = !artistFavoritesOnly && !screen.artistFavoritesLoading &&
-        !catalog.syncStatus.isSyncing && !catalog.searching
-    val tracks = catalog.tracks
+    val tracks = remember(catalog, screen.favoritesOnly) {
+        libraryVisibleTracks(catalog, screen.favoritesOnly)
+    }
+    val canLoadMore = !screen.favoritesOnly && !catalog.syncStatus.isSyncing && !catalog.searching
     val ids = if (view == NaviampLibraryView.Songs) tracks.map { it.id } else items.map { it.id }
     val titles = if (view == NaviampLibraryView.Songs) tracks.map { it.title } else items.map { it.title }
     val selectors = remember { NaviampLibraryView.entries.associateWith { FocusRequester() } }
@@ -290,9 +292,9 @@ internal fun TelevisionLibrary(
                         Key.DirectionLeft -> { selectors.getValue(NaviampLibraryView.Songs).requestFocus(); true }
                         Key.DirectionRight -> {
                             when {
-                                showFavorites -> favoritesFocus.requestFocus()
                                 view == NaviampLibraryView.Albums -> sortFocus.requestFocus()
-                                else -> refreshFocus.requestFocus()
+                                !catalog.syncStatus.isSyncing -> refreshFocus.requestFocus()
+                                favoritesEnabled -> favoritesFocus.requestFocus()
                             }
                             true
                         }
@@ -302,34 +304,6 @@ internal fun TelevisionLibrary(
                     }
                 },
             )
-            if (showFavorites) {
-                val selectionDescription = stringResource(
-                    if (screen.artistFavoritesOnly) Res.string.library_view_state_selected
-                    else Res.string.library_view_state_not_selected,
-                )
-                TelevisionTextButton(stringResource(Res.string.library_filter_favorites), colors,
-                    calmFocus = true,
-                    onClick = { actions.onArtistFavoritesOnlyChanged(!screen.artistFavoritesOnly) },
-                    modifier = Modifier.focusRequester(favoritesFocus)
-                        .border(
-                            2.dp,
-                            if (screen.artistFavoritesOnly) colors.accent else androidx.compose.ui.graphics.Color.Transparent,
-                            RoundedCornerShape(10.dp),
-                        )
-                        .semantics {
-                            selected = screen.artistFavoritesOnly
-                            stateDescription = selectionDescription
-                        }
-                        .onPreviewKeyEvent { event ->
-                            if (event.type != KeyEventType.KeyDown) false else when (event.key) {
-                                Key.DirectionLeft -> { sourcesFocus.requestFocus(); true }
-                                Key.DirectionRight -> { refreshFocus.requestFocus(); true }
-                                Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
-                                Key.DirectionDown -> { focusContent(); true }
-                                else -> false
-                            }
-                        })
-            }
             if (view == NaviampLibraryView.Albums) {
                 val sortLabel = stringResource(
                     if (catalog.albumSortOrder == LibraryAlbumSortOrder.Title) {
@@ -349,7 +323,11 @@ internal fun TelevisionLibrary(
                 }, modifier = Modifier.focusRequester(sortFocus).onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) false else when (event.key) {
                         Key.DirectionLeft -> { sourcesFocus.requestFocus(); true }
-                        Key.DirectionRight -> { refreshFocus.requestFocus(); true }
+                        Key.DirectionRight -> {
+                            if (!catalog.syncStatus.isSyncing) refreshFocus.requestFocus()
+                            else if (favoritesEnabled) favoritesFocus.requestFocus()
+                            true
+                        }
                         Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
                         Key.DirectionDown -> { focusContent(); true }
                         else -> false
@@ -360,13 +338,12 @@ internal fun TelevisionLibrary(
                 if (event.type != KeyEventType.KeyDown) false else when (event.key) {
                     Key.DirectionLeft -> {
                         when {
-                            showFavorites -> favoritesFocus.requestFocus()
                             view == NaviampLibraryView.Albums -> sortFocus.requestFocus()
                             else -> sourcesFocus.requestFocus()
                         }
                         true
                     }
-                    Key.DirectionRight -> true
+                    Key.DirectionRight -> { if (favoritesEnabled) favoritesFocus.requestFocus(); true }
                     Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
                     Key.DirectionDown -> { focusContent(); true }
                     else -> false
@@ -375,6 +352,58 @@ internal fun TelevisionLibrary(
             TelevisionTextButton(stringResource(Res.string.library_refresh), colors,
                 enabled = !catalog.syncStatus.isSyncing, onClick = actions.onRefresh,
                 modifier = refreshModifier)
+            val favoritesLabel = stringResource(Res.string.library_filter_favorites)
+            val favoritesState = stringResource(
+                if (screen.favoritesOnly) Res.string.library_view_state_selected
+                else Res.string.library_view_state_not_selected,
+            )
+            var favoritesFocused by remember { mutableStateOf(false) }
+            val favoritesShape = RoundedCornerShape(999.dp)
+            NaviampTooltip(favoritesLabel, colors) {
+                IconButton(
+                    onClick = { actions.onFavoritesOnlyChanged(!screen.favoritesOnly) },
+                    enabled = favoritesEnabled,
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = when {
+                            favoritesFocused -> colors.accent.copy(alpha = 0.82f)
+                            screen.favoritesOnly -> colors.accent.copy(alpha = 0.32f)
+                            else -> colors.controlSurface.copy(alpha = 0.9f)
+                        },
+                        contentColor = colors.primaryText,
+                        disabledContentColor = colors.mutedText,
+                    ),
+                    modifier = Modifier.size(48.dp)
+                        .focusRequester(favoritesFocus)
+                        .onFocusChanged { favoritesFocused = it.isFocused }
+                        .televisionFocusEffect(favoritesFocused, colors, favoritesShape)
+                        .semantics {
+                            selected = screen.favoritesOnly
+                            stateDescription = favoritesState
+                        }
+                        .onPreviewKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) false else when (event.key) {
+                                Key.DirectionLeft -> {
+                                    when {
+                                        !catalog.syncStatus.isSyncing -> refreshFocus.requestFocus()
+                                        view == NaviampLibraryView.Albums -> sortFocus.requestFocus()
+                                        else -> sourcesFocus.requestFocus()
+                                    }
+                                    true
+                                }
+                                Key.DirectionRight -> true
+                                Key.DirectionUp -> { topNavigationFocusRequester.requestFocus(); true }
+                                Key.DirectionDown -> { focusContent(); true }
+                                else -> false
+                            }
+                        },
+                ) {
+                    Icon(
+                        if (screen.favoritesOnly) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                        contentDescription = favoritesLabel,
+                        modifier = Modifier.size(25.dp),
+                    )
+                }
+            }
         }
         LibraryCatalogStatus(colors, screen)
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -413,15 +442,19 @@ internal fun TelevisionLibrary(
             Box(Modifier.weight(1f).fillMaxHeight().onFocusChanged { contentFocused = it.hasFocus }.focusGroup()) {
                 if (ids.isEmpty()) {
                     if (!catalog.syncStatus.isSyncing && !catalog.searching && catalog.pendingJump == null &&
-                        !(artistFavoritesOnly && (screen.artistFavoritesLoading || screen.artistFavoritesFailed))) Text(
-                        stringResource(when (view) {
-                            NaviampLibraryView.Artists -> when {
-                                catalog.query.isNotBlank() -> Res.string.library_no_artist_matches
-                                artistFavoritesOnly -> Res.string.favorite_artists_empty
-                                else -> Res.string.library_no_artists
-                            }
-                            NaviampLibraryView.Albums -> Res.string.library_no_albums
-                            NaviampLibraryView.Songs -> Res.string.library_no_songs
+                        (!screen.favoritesOnly || catalog.favoritesReady)) Text(
+                        stringResource(if (screen.favoritesOnly && catalog.query.isBlank()) {
+                            Res.string.library_favorites_empty
+                        } else when (view) {
+                            NaviampLibraryView.Artists -> if (catalog.query.isBlank()) {
+                                Res.string.library_no_artists
+                            } else Res.string.library_no_artist_matches
+                            NaviampLibraryView.Albums -> if (catalog.query.isBlank()) {
+                                Res.string.library_no_albums
+                            } else Res.string.library_no_album_matches
+                            NaviampLibraryView.Songs -> if (catalog.query.isBlank()) {
+                                Res.string.library_no_songs
+                            } else Res.string.library_no_song_matches
                         }), color = colors.secondaryText, fontSize = 20.sp,
                     )
                 } else key(view) {

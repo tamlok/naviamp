@@ -70,6 +70,44 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NaviampCoreNowPlayingMediaControllerTest {
+    @Test
+    fun playerConnectAndRowFavoritesUpdateTheLibrarySongFilterImmediately() = runTest {
+        val fixture = mediaFixture(this)
+        fixture.showFavoriteSongs()
+        assertTrue(fixture.store.state.value.shell.library.songs.tracks.isEmpty())
+
+        fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.ToggleFavorite))
+        assertEquals(listOf("current"), fixture.favoriteSongIds())
+        assertTrue(fixture.controller.setConnectFavorite("current", false))
+        assertTrue(fixture.favoriteSongIds().isEmpty())
+        fixture.transactions.toggleFavorite(nowPlayingTrack("next"))
+        assertEquals(listOf("next"), fixture.favoriteSongIds())
+    }
+
+    @Test
+    fun latePlayerConnectAndRowFavoritesCannotPublishIntoAnotherSource() = runTest {
+        repeat(3) { route ->
+            val fixture = mediaFixture(this)
+            fixture.showFavoriteSongs()
+            val gate = CompletableDeferred<Unit>()
+            fixture.provider.favoriteGate = gate
+            val mutation = launch {
+                when (route) {
+                    0 -> fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.ToggleFavorite))
+                    1 -> fixture.controller.setConnectFavorite("current", true)
+                    else -> fixture.transactions.toggleFavorite(nowPlayingTrack("current"))
+                }
+            }
+            runCurrent()
+            fixture.store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "other")) }
+            fixture.catalog.resetForSourceChange()
+            gate.complete(Unit)
+            mutation.join()
+            assertTrue(fixture.store.state.value.shell.library.songs.tracks.isEmpty())
+            assertNull(fixture.live.state.value.currentTrack?.favoritedAtIso8601)
+        }
+    }
+
     @Test fun automotiveRecentTrackTapAndVoiceSearchPlayHistoryWithEmptySearchResults() = runTest {
         val fixture = mediaFixture(this)
         val tracks = listOf(nowPlayingTrack("recent-first"), nowPlayingTrack("recent-second"))
@@ -1067,7 +1105,20 @@ private data class MediaFixture(
     val downloads: List<String>,
     val transactions: NaviampCoreMediaTransactions,
     val artistActivity: RecordingFavoriteArtistActivity,
+    val catalog: NaviampCoreCatalogController,
 )
+
+private suspend fun MediaFixture.showFavoriteSongs() {
+    val view = NaviampCoreCommand.Library.ChangeView(app.naviamp.ui.NaviampLibraryView.Songs)
+    catalog.dispatch(view)
+    catalog.execute(view)
+    val filter = NaviampCoreCommand.Library.ChangeFavoritesOnly(true)
+    catalog.dispatch(filter)
+    catalog.execute(filter)
+}
+
+private fun MediaFixture.favoriteSongIds() = store.state.value.shell.library.songs.tracks
+    .filter { it.favoriteActive }.map { it.id }
 
 private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture {
     val provider = NowPlayingTestProvider()
@@ -1153,11 +1204,13 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
     )
     var recentRadioStreams = emptyList<app.naviamp.domain.settings.RecentRadioStream>()
     val artistActivity = RecordingFavoriteArtistActivity()
+    val registry = NaviampCoreMediaRegistry()
+    val catalog = NaviampCoreCatalogController(store, { provider }, mediaRegistry = registry)
     val generatedRadio = NaviampCoreMediaTransactions(
         stateStore = store,
         busyIndicator = NaviampCoreBusyIndicator(store),
         providerSource = { provider },
-        registry = NaviampCoreMediaRegistry(),
+        registry = registry,
         playback = live,
         queue = queue,
         effects = effects,
@@ -1174,6 +1227,7 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
         publishNowPlaying = { presenter.publish() },
         openNowPlaying = {},
         favoriteArtistActivity = artistActivity,
+        onTrackUpdated = catalog::trackUpdated,
     )
     val controller = NaviampCoreNowPlayingMediaController(
         stateStore = store,
@@ -1194,6 +1248,8 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
         radio = radio,
         generatedRadio = generatedRadio,
         favoritedAtIso8601 = { "now" },
+        mediaRegistry = registry,
+        onTrackUpdated = catalog::trackUpdated,
     )
     presenter.publish()
     return MediaFixture(
@@ -1208,6 +1264,7 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
         downloaded,
         generatedRadio,
         artistActivity,
+        catalog,
     )
 }
 
@@ -1287,6 +1344,8 @@ private class NowPlayingTestProvider : MediaProvider {
     )
     val added = mutableListOf<String>()
     val favorites = mutableListOf<String>()
+    var favoriteGate: CompletableDeferred<Unit>? = null
+    private val favoriteIds = mutableSetOf<TrackId>()
     val ratings = mutableListOf<String>()
     var trackRadioFailure: Throwable? = null
     var artistRadioFailure: Throwable? = null
@@ -1318,6 +1377,11 @@ private class NowPlayingTestProvider : MediaProvider {
     )
     override suspend fun artists(limit: Int) = emptyList<Artist>()
     override suspend fun tracks(limit: Int) = emptyList<Track>()
+    override suspend fun favoriteTracksPage(request: app.naviamp.domain.provider.MediaPageRequest): app.naviamp.domain.provider.MediaPage<Track> {
+        val all = favoriteIds.map { nowPlayingTrack(it.value).copy(favoritedAtIso8601 = "now") }
+        val page = all.drop(request.offset).take(request.limit)
+        return app.naviamp.domain.provider.MediaPage(page, request.offset, request.limit, request.offset + page.size < all.size)
+    }
     override suspend fun search(query: String, limit: Int) = when {
         query.equals("David Guetta", ignoreCase = true) -> MediaSearchResults(
             artists = listOf(Artist(ArtistId("david-guetta"), "David Guetta")),
@@ -1364,7 +1428,11 @@ private class NowPlayingTestProvider : MediaProvider {
         playlistContents[playlistId] = trackIds.map { nowPlayingTrack(it.value) }.toMutableList()
     }
     override suspend fun createPlaylist(name: String, trackIds: List<TrackId>) = Playlist("created", name, trackIds.size)
-    override suspend fun setTrackFavorite(trackId: TrackId, favorite: Boolean) { favorites += "${trackId.value}:$favorite" }
+    override suspend fun setTrackFavorite(trackId: TrackId, favorite: Boolean) {
+        favoriteGate?.await()
+        favorites += "${trackId.value}:$favorite"
+        if (favorite) favoriteIds.add(trackId) else favoriteIds.remove(trackId)
+    }
     override suspend fun setTrackRating(trackId: TrackId, rating: Int?) { ratings += "${trackId.value}:$rating" }
     override suspend fun streamUrl(request: StreamRequest) = "https://stream.example"
     val heroArtworkRequests = mutableListOf<String>()

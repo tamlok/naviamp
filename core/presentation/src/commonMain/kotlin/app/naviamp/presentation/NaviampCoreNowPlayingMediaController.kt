@@ -48,6 +48,7 @@ class NaviampCoreNowPlayingMediaController(
     onPlaylistCreated: (app.naviamp.domain.Playlist) -> Unit = {},
     onPlaylistContentsReconciled: (String, List<Track>) -> Unit = { _, _ -> },
     membershipCoordinator: NaviampCorePlaylistMembershipCoordinator? = null,
+    private val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { _, _ -> },
 ) : NaviampCoreCommandController {
     private val membership = membershipCoordinator ?: NaviampCorePlaylistMembershipCoordinator(
         providerSource = providerSource,
@@ -113,11 +114,14 @@ class NaviampCoreNowPlayingMediaController(
             ?: return false
         if ((track.favoritedAtIso8601 != null) == favorite) return true
         val provider = providerSource.current() ?: return false
+        val sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId
         val updated = runCatching {
             favoriteTrackUpdate(provider, track, favoritedAtIso8601())
         }.getOrNull() ?: return false
+        if (!providerSource.isCurrent(provider) || sourceId != stateStore.state.value.shell.connectionSettings.currentSourceId) return false
         mediaRegistry.updateTrack(updated)
         replaceTrack(updated)
+        onTrackUpdated(provider, updated)
         return (updated.favoritedAtIso8601 != null) == favorite
     }
 
@@ -335,11 +339,14 @@ class NaviampCoreNowPlayingMediaController(
 
     private suspend fun toggleFavorite(track: Track) {
         val provider = providerOrPublish() ?: return
+        val sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId
         runCatching { favoriteTrackUpdate(provider, track, favoritedAtIso8601()) }
             .onSuccess { updated ->
+                if (!providerSource.isCurrent(provider) || sourceId != stateStore.state.value.shell.connectionSettings.currentSourceId) return@onSuccess
                 if (updated == null) publishStatus("Track favorites are not supported.") else {
                     mediaRegistry.updateTrack(updated)
                     replaceTrack(updated)
+                    onTrackUpdated(provider, updated)
                 }
             }
             .onFailure { publishStatus(it.message ?: "Could not update favorite.") }

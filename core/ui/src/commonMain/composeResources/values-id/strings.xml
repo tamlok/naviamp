@@ -34,6 +34,9 @@
     <string name="mini_player_open">Buka detail pemutar</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Favorit</string>
+    <string name="library_favorites_empty">Belum ada favorit.</string>
+    <string name="library_favorites_failed">Tidak dapat memuat favorit. Segarkan untuk mencoba lagi.</string>
+    <string name="library_favorites_unsupported">Sumber ini tidak mendukung favorit.</string>
     <string name="settings_radio_new_dj">DJ baru</string>
     <string name="settings_radio_create_dj">Buat DJ baru</string>
     <string name="tv_album_sort_order">Urutan album</string>

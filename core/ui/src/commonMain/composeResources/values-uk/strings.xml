@@ -34,6 +34,9 @@
     <string name="mini_player_open">Відкрити подробиці програвача</string>
     <string name="mini_player_time_separator">/</string>
     <string name="library_filter_favorites">Улюблене</string>
+    <string name="library_favorites_empty">Улюбленого ще немає.</string>
+    <string name="library_favorites_failed">Не вдалося завантажити улюблене. Оновіть, щоб спробувати ще раз.</string>
+    <string name="library_favorites_unsupported">Це джерело не підтримує улюблене.</string>
     <string name="settings_radio_new_dj">Новий діджей</string>
     <string name="settings_radio_create_dj">Створити нового діджея</string>
     <string name="tv_album_sort_order">Сортування альбомів</string>

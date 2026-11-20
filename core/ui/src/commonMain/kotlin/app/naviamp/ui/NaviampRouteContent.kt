@@ -1367,32 +1367,60 @@ internal fun MediaListContent(
     }
 }
 
+internal val NaviampLibraryCatalogUi.favoritesReady: Boolean
+    get() = supportsFavorites && !favoritesLoading && !favoritesFailed
+
 internal fun libraryVisibleItems(
     catalog: NaviampLibraryCatalogUi,
-    artistFavoritesOnly: Boolean,
+    favoritesOnly: Boolean,
 ): List<SharedMediaItemUi> {
+    if (favoritesOnly && !catalog.favoritesReady) return emptyList()
     val query = catalog.query.trim().lowercase()
     // Authoritative server matches may depend on aliases or metadata absent from the row.
     val serverMatches = catalog.query.isNotBlank() && catalog.resultsQuery == catalog.query
-    if ((query.isBlank() || serverMatches) && !artistFavoritesOnly) return catalog.items
+    if ((query.isBlank() || serverMatches) && !favoritesOnly) return catalog.items
     return catalog.items.filter { item ->
         (query.isBlank() || serverMatches || item.title.lowercase().contains(query) ||
             item.subtitle.lowercase().contains(query) || item.meta.lowercase().contains(query)) &&
-            (!artistFavoritesOnly || item.favoriteActive)
+            (!favoritesOnly || item.favoriteActive)
+    }
+}
+
+internal fun libraryVisibleTracks(
+    catalog: NaviampLibraryCatalogUi,
+    favoritesOnly: Boolean,
+): List<SharedTrackRowUi> {
+    if (favoritesOnly && !catalog.favoritesReady) return emptyList()
+    val query = catalog.query.trim().lowercase()
+    // Keep authoritative alias and metadata matches just as for artist and album rows.
+    val serverMatches = catalog.query.isNotBlank() && catalog.resultsQuery == catalog.query
+    if ((query.isBlank() || serverMatches) && !favoritesOnly) return catalog.tracks
+    return catalog.tracks.filter { track ->
+        (query.isBlank() || serverMatches || track.title.lowercase().contains(query) ||
+            track.subtitle.lowercase().contains(query)) && (!favoritesOnly || track.favoriteActive)
     }
 }
 
 @Composable
 internal fun LibraryCatalogStatus(colors: NaviampColors, screen: NaviampLibraryScreenUi) {
-    val favorites = screen.selectedView == NaviampLibraryView.Artists && screen.artistFavoritesOnly
+    val catalog = screen.selectedCatalog
+    if (!screen.favoritesOnly) {
+        NaviampLibraryLoadingStatus(colors, screen.selectedView, catalog)
+        return
+    }
     when {
-        favorites && screen.artistFavoritesLoading -> {
-            Text(stringResource(Res.string.library_loading_artists), color = colors.secondaryText)
+        !catalog.supportsFavorites ->
+            Text(stringResource(Res.string.library_favorites_unsupported), color = colors.secondaryText)
+        catalog.favoritesLoading -> {
+            Text(stringResource(when (screen.selectedView) {
+                NaviampLibraryView.Artists -> Res.string.library_loading_artists
+                NaviampLibraryView.Albums -> Res.string.library_loading_albums
+                NaviampLibraryView.Songs -> Res.string.library_loading_songs
+            }), color = colors.secondaryText)
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = colors.accent)
         }
-        favorites && screen.artistFavoritesFailed ->
-            Text(stringResource(Res.string.favorite_artists_failed), color = colors.secondaryText)
-        else -> NaviampLibraryLoadingStatus(colors, screen.selectedView, screen.selectedCatalog)
+        catalog.favoritesFailed ->
+            Text(stringResource(Res.string.library_favorites_failed), color = colors.secondaryText)
     }
 }
 
@@ -1418,16 +1446,11 @@ fun NaviampLibraryContent(
     }
     val restoredTarget = viewportState.focusedTarget(screen.selectedView)
     val restoredItemFocusRequester = remember(screen.selectedView, restoredTarget) { FocusRequester() }
-    val artistFavoritesOnly = screen.selectedView == NaviampLibraryView.Artists && screen.artistFavoritesOnly
-    val serverMatches = query.isNotBlank() && catalog.resultsQuery == query
-    val filteredItems = remember(items, query, serverMatches, artistFavoritesOnly) {
-        libraryVisibleItems(catalog, artistFavoritesOnly)
+    val filteredItems = remember(catalog, screen.favoritesOnly) {
+        libraryVisibleItems(catalog, screen.favoritesOnly)
     }
-    val filteredTracks = remember(tracks, query, serverMatches) {
-        val normalizedQuery = query.trim().lowercase()
-        if (normalizedQuery.isBlank() || serverMatches) tracks else tracks.filter { track ->
-            track.title.lowercase().contains(normalizedQuery) || track.subtitle.lowercase().contains(normalizedQuery)
-        }
+    val filteredTracks = remember(catalog, screen.favoritesOnly) {
+        libraryVisibleTracks(catalog, screen.favoritesOnly)
     }
     val focusIds = if (screen.selectedView == NaviampLibraryView.Songs) filteredTracks.map { it.id } else filteredItems.map { it.id }
     val restoredIndex = focusIds.indexOfFirst { libraryItemFocusTarget(it) == restoredTarget }
@@ -1532,6 +1555,14 @@ fun NaviampLibraryContent(
                     }
                 },
             )
+            NaviampPageHeaderAction(
+                icon = if (screen.favoritesOnly) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
+                contentDescription = stringResource(Res.string.library_filter_favorites),
+                colors = colors,
+                enabled = catalog.supportsFavorites || screen.favoritesOnly,
+                selected = screen.favoritesOnly,
+                onClick = { actions.onFavoritesOnlyChanged(!screen.favoritesOnly) },
+            )
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1606,24 +1637,6 @@ fun NaviampLibraryContent(
                     ) { Text(label, maxLines = 1) }
                 }
             }
-            if (screen.selectedView == NaviampLibraryView.Artists && screen.supportsArtistFavorites) {
-                val selectionState = stringResource(
-                    if (screen.artistFavoritesOnly) Res.string.library_view_state_selected
-                    else Res.string.library_view_state_not_selected,
-                )
-                TextButton(
-                    onClick = { actions.onArtistFavoritesOnlyChanged(!screen.artistFavoritesOnly) },
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.textButtonColors(
-                        containerColor = if (screen.artistFavoritesOnly) colors.accent else colors.controlSurface,
-                        contentColor = if (screen.artistFavoritesOnly) colors.onAccent else colors.primaryText,
-                    ),
-                    modifier = Modifier.padding(horizontal = 8.dp).semantics {
-                        selected = screen.artistFavoritesOnly
-                        stateDescription = selectionState
-                    },
-                ) { Text(stringResource(Res.string.library_filter_favorites)) }
-            }
             val searchPlaceholder = when (screen.selectedView) {
                 NaviampLibraryView.Artists -> stringResource(Res.string.library_search_artists)
                 NaviampLibraryView.Albums -> stringResource(Res.string.library_search_albums)
@@ -1670,11 +1683,13 @@ fun NaviampLibraryContent(
             ) {
             if (filteredItems.isEmpty() && filteredTracks.isEmpty() &&
                 !syncStatus.isSyncing && !catalog.searching && catalog.pendingJump == null &&
-                !(artistFavoritesOnly && (screen.artistFavoritesLoading || screen.artistFavoritesFailed))) {
+                (!screen.favoritesOnly || catalog.favoritesReady)) {
                 item {
-                val emptyMessage = when (screen.selectedView) {
+                val emptyMessage = if (screen.favoritesOnly && query.isBlank()) {
+                    stringResource(Res.string.library_favorites_empty)
+                } else when (screen.selectedView) {
                     NaviampLibraryView.Artists -> if (query.isBlank()) {
-                        stringResource(if (artistFavoritesOnly) Res.string.favorite_artists_empty else Res.string.library_no_artists)
+                        stringResource(Res.string.library_no_artists)
                     } else {
                         stringResource(Res.string.library_no_artist_matches)
                     }
@@ -1797,8 +1812,7 @@ fun NaviampLibraryContent(
                     )
                 }
             }
-            if (!artistFavoritesOnly && !screen.artistFavoritesLoading &&
-                (filteredItems.isNotEmpty() || filteredTracks.isNotEmpty())) {
+            if (!screen.favoritesOnly && (filteredItems.isNotEmpty() || filteredTracks.isNotEmpty())) {
                 item(key = "library-load-more-${screen.selectedView.name}") {
                     androidx.compose.runtime.LaunchedEffect(screen.selectedView, items.size, tracks.size, query, catalog.searching) {
                         if (!syncStatus.isSyncing && !catalog.searching) actions.onLoadMore()
