@@ -70,12 +70,12 @@ class NaviampNowPlayingLayoutTest {
         NaviampBuiltinTheme, NaviampThemeMode.Dark, expectedSurface = null,
     )
 
-    @Test fun forestLightPlayerSurfacesRemainOpaque() = checkPlayerSurfaces(
-        NaviampForestTheme, NaviampThemeMode.Light, expectedSurface = Color(0xFFE8F6EC),
+    @Test fun forestLightPlayerSurfacesUseSixtyFivePercentOpacity() = checkPlayerSurfaces(
+        NaviampForestTheme, NaviampThemeMode.Light, expectedSurface = Color(0xFFE8F6EC).copy(alpha = 0.65f),
     )
 
-    @Test fun forestDarkPlayerSurfacesRemainOpaque() = checkPlayerSurfaces(
-        NaviampForestTheme, NaviampThemeMode.Dark, expectedSurface = Color(0xFF132B1B),
+    @Test fun forestDarkPlayerSurfacesUseSixtyFivePercentOpacity() = checkPlayerSurfaces(
+        NaviampForestTheme, NaviampThemeMode.Dark, expectedSurface = Color(0xFF132B1B).copy(alpha = 0.65f),
     )
 
     @Test fun themedPlayerSurfacesCompositeOnceIncludingQueueRows() {

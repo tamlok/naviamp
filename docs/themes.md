@@ -148,8 +148,8 @@ No role is left on a default Material purple palette:
 
 Artwork color extraction is separate from application theming. Fixed black artwork fades use the
 selected pack's dark foreground palette. Naviamp sets `playerSurface = null` in both variants, so
-its controller, lyrics and queue cards reveal the selected Player Background. Forest retains its
-opaque player surfaces by default. A non-null color with a partial `playerSurfaceOpacityPercent`
+its controller, lyrics and queue cards reveal the selected Player Background. Forest uses 65% opacity
+for those card backgrounds in both Light and Dark. A non-null color with a partial `playerSurfaceOpacityPercent`
 blends over the selected Player Background without fading card content. Translucent fills are painted
 only by the card, not again by unselected queue/history/related/station rows. Opaque cards and the
 opaque drawer retain matching opaque row covers so swipe-action colors show only in the revealed

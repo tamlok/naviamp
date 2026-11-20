@@ -67,7 +67,7 @@ class NaviampThemeColorTest {
     @Test
     fun playerSurfacePercentChangesOnlyTheBackgroundAlpha() {
         for (palette in listOf(NaviampForestTheme.light, NaviampForestTheme.dark)) {
-            val opaque = palette.toNaviampColors()
+            val opaque = palette.copy(playerSurfaceOpacityPercent = 100).toNaviampColors()
             for (percent in listOf(0, 1, 37, 50, 99, 100)) {
                 val colors = palette.copy(playerSurfaceOpacityPercent = percent).toNaviampColors()
                 assertEquals(percent / 100f, colors.playerSurface.alpha, 1f / 255f)
