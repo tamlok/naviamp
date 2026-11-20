@@ -136,7 +136,7 @@ private fun MyAccountsContent(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("my-account-chooser"),
             colors = ButtonDefaults.textButtonColors(contentColor = colors.primaryText, containerColor = colors.controlSurface),
         ) {
-            Text(stringResource(Res.string.tv_accounts_description), modifier = Modifier.fillMaxWidth())
+            Text(stringResource(Res.string.my_view_accounts), modifier = Modifier.fillMaxWidth())
         }
     }
 }

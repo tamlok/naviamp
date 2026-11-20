@@ -160,6 +160,7 @@
     <string name="tv_accounts">Account</string>
     <string name="tv_accounts_title">Chi sta ascoltando?</string>
     <string name="tv_accounts_description">Scegli un account o aggiungine un altro.</string>
+    <string name="my_view_accounts">Visualizza account</string>
     <string name="tv_account_add">Aggiungi account</string>
     <string name="tv_account_switching">Cambio di account…</string>
     <string name="tv_account_switch_failed">Impossibile connettersi a questo account. Riprova o scegli un altro account.</string>

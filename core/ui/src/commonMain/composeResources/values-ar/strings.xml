@@ -160,6 +160,7 @@
     <string name="tv_accounts">الحسابات</string>
     <string name="tv_accounts_title">من يستمع؟</string>
     <string name="tv_accounts_description">اختر حسابًا أو أضف حسابًا آخر.</string>
+    <string name="my_view_accounts">عرض الحسابات</string>
     <string name="tv_account_add">إضافة حساب</string>
     <string name="tv_account_switching">جارٍ تبديل الحساب…</string>
     <string name="tv_account_switch_failed">تعذر الاتصال بهذا الحساب. حاول مرة أخرى أو اختر حسابًا آخر.</string>

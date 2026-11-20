@@ -160,6 +160,7 @@
     <string name="tv_accounts">Akun</string>
     <string name="tv_accounts_title">Siapa yang mendengarkan?</string>
     <string name="tv_accounts_description">Pilih akun atau tambahkan akun lain.</string>
+    <string name="my_view_accounts">Lihat Akun</string>
     <string name="tv_account_add">Tambah akun</string>
     <string name="tv_account_switching">Beralih akun…</string>
     <string name="tv_account_switch_failed">Tidak dapat terhubung ke akun ini. Coba lagi atau pilih akun lain.</string>

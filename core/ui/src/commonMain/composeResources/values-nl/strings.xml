@@ -160,6 +160,7 @@
     <string name="tv_accounts">Accounts</string>
     <string name="tv_accounts_title">Wie luistert er?</string>
     <string name="tv_accounts_description">Kies een account of voeg er nog een toe.</string>
+    <string name="my_view_accounts">Accounts bekijken</string>
     <string name="tv_account_add">Account toevoegen</string>
     <string name="tv_account_switching">Account wisselen…</string>
     <string name="tv_account_switch_failed">Kan geen verbinding maken met dit account. Probeer het opnieuw of kies een ander account.</string>

@@ -947,6 +947,7 @@
     <string name="tv_accounts">Accounts</string>
     <string name="tv_accounts_title">Who's listening?</string>
     <string name="tv_accounts_description">Choose an account or add another.</string>
+    <string name="my_view_accounts">View Accounts</string>
     <string name="tv_account_add">Add account</string>
     <string name="tv_account_switching">Switching account…</string>
     <string name="tv_account_switch_failed">Could not connect to this account. Try again or choose another account.</string>

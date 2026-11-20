@@ -918,6 +918,7 @@
     <string name="tv_accounts">Konten</string>
     <string name="tv_accounts_title">Wer hört zu?</string>
     <string name="tv_accounts_description">Wähle ein Konto aus oder füge ein weiteres hinzu.</string>
+    <string name="my_view_accounts">Konten anzeigen</string>
     <string name="tv_account_add">Konto hinzufügen</string>
     <string name="tv_account_switching">Konto wird gewechselt…</string>
     <string name="tv_account_switch_failed">Die Verbindung zu diesem Konto ist fehlgeschlagen. Versuche es erneut oder wähle ein anderes Konto.</string>
