@@ -2082,10 +2082,10 @@ fun NaviampInternetRadioContent(
         onStationAction = actions.onStationAction,
         onSaveStation = actions.onSaveStation,
         headerActions = {
-            NaviampRowOverflowMenu(
+            NaviampPageHeaderOverflow(
                 colors = colors,
                 items = listOf(
-                    NaviampRowMenuItem("Refresh", NaviampIcons.Refresh, actions.onRefresh, enabled = !screen.refreshing),
+                    NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh, enabled = !screen.refreshing),
                 ),
             )
         },
@@ -2120,24 +2120,16 @@ fun InternetRadioContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            NaviampPageTitle("Internet Radio", colors)
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (onSaveStation != null) {
-                    NaviampTransportIconButton(
-                        enabled = true,
-                        icon = NaviampIcons.Plus,
-                        contentDescription = stringResource(Res.string.tv_new_station),
-                        colors = colors,
-                        onClick = { creatingStation = true },
-                    )
-                }
-                headerActions()
+        NaviampPageHeader(stringResource(Res.string.tv_library_internet_radio), colors) {
+            if (onSaveStation != null) {
+                NaviampPageHeaderAction(
+                    icon = NaviampIcons.Plus,
+                    contentDescription = stringResource(Res.string.tv_new_station),
+                    colors = colors,
+                    onClick = { creatingStation = true },
+                )
             }
+            headerActions()
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -21,6 +21,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
 - Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
 - Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
+- Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
 
 ### Bug fixes

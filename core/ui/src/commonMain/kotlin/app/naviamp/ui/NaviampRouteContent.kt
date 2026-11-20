@@ -997,18 +997,10 @@ fun SharedHomeRoute(
         return
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            NaviampPageTitle(
-                title = stringResource(Res.string.home_music_title),
+        NaviampPageHeader(stringResource(Res.string.home_music_title), colors) {
+            NaviampPageHeaderOverflow(
                 colors = colors,
-                modifier = Modifier.weight(1f),
-            )
-            NaviampRowOverflowMenu(
-                colors = colors,
-                items = listOf(NaviampRowMenuItem("Refresh", NaviampIcons.Refresh, actions.onRefresh)),
+                items = listOf(NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh)),
             )
         }
         PullToRefreshBox(
@@ -1473,23 +1465,20 @@ fun NaviampLibraryContent(
         }
     }
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(Modifier.weight(1f)) { NaviampPageTitle(stringResource(Res.string.library_title), colors) }
-            IconButton(onClick = {
-                libraryScope.launch {
-                    activeListState.scrollToItem(0)
-                    withFrameNanos { }
-                    searchFocusRequester.requestFocus()
-                }
-            }) {
-                Icon(NaviampIcons.Search, contentDescription = stringResource(Res.string.library_return_to_search),
-                    tint = colors.primaryText)
-            }
-            NaviampRowOverflowMenu(
+        NaviampPageHeader(stringResource(Res.string.library_title), colors) {
+            NaviampPageHeaderAction(
+                icon = NaviampIcons.Search,
+                contentDescription = stringResource(Res.string.library_return_to_search),
+                colors = colors,
+                onClick = {
+                    libraryScope.launch {
+                        activeListState.scrollToItem(0)
+                        withFrameNanos { }
+                        searchFocusRequester.requestFocus()
+                    }
+                },
+            )
+            NaviampPageHeaderOverflow(
                 colors = colors,
                 items = buildList {
                     add(

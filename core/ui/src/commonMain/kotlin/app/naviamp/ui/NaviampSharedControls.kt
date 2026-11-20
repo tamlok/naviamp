@@ -655,25 +655,30 @@ fun NaviampRowOverflowMenu(
     iconSize: androidx.compose.ui.unit.Dp = 17.dp,
     selected: Boolean = false,
     contentDescription: String = stringResource(Res.string.playlist_item_more_actions),
+    button: (@Composable (onClick: () -> Unit) -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
 
     val menu = LocalNaviampItemMenu.current ?: remember { NaviampItemMenuState() }
     Box(modifier = modifier) {
-        NaviampTooltip(contentDescription, colors) {
-            IconButton(
-                onClick = menu::toggleFromButton,
-                modifier = Modifier
-                    .size(buttonSize)
-                    .clip(RoundedCornerShape(buttonSize / 2))
-                    .background(if (selected) colors.primaryText.copy(alpha = 0.14f) else Color.Transparent),
-            ) {
-                Icon(
-                    imageVector = NaviampTransportIcons.MoreVertical,
-                    contentDescription = contentDescription,
-                    tint = if (selected) colors.primaryText else colors.mutedText,
-                    modifier = Modifier.size(iconSize),
-                )
+        if (button != null) {
+            button(menu::toggleFromButton)
+        } else {
+            NaviampTooltip(contentDescription, colors) {
+                IconButton(
+                    onClick = menu::toggleFromButton,
+                    modifier = Modifier
+                        .size(buttonSize)
+                        .clip(RoundedCornerShape(buttonSize / 2))
+                        .background(if (selected) colors.primaryText.copy(alpha = 0.14f) else Color.Transparent),
+                ) {
+                    Icon(
+                        imageVector = NaviampTransportIcons.MoreVertical,
+                        contentDescription = contentDescription,
+                        tint = if (selected) colors.primaryText else colors.mutedText,
+                        modifier = Modifier.size(iconSize),
+                    )
+                }
             }
         }
         NaviampDropdownMenu(

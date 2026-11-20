@@ -157,39 +157,34 @@ private fun PlaylistsContent(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            NaviampPageTitle(stringResource(Res.string.playlists_title), colors)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconButton(
-                    onClick = { smartPlaylistBuilderOpen = true },
-                    modifier = Modifier.size(44.dp),
-                ) {
-                    Icon(
-                        NaviampIcons.Brain,
-                        contentDescription = stringResource(Res.string.playlists_create_smart),
-                        tint = colors.primaryText,
-                        modifier = Modifier.size(24.dp),
-                    )
-                }
-                SharedPlaylistSortMode.entries.forEach { mode ->
-                    PlaylistSortIconButton(
-                        mode = mode,
-                        selected = sortMode == mode,
-                        colors = colors,
-                        onClick = { onSortModeChanged(mode) },
-                    )
-                }
-                NaviampRowOverflowMenu(
+        NaviampPageHeader(stringResource(Res.string.playlists_title), colors) {
+            NaviampPageHeaderAction(
+                icon = NaviampIcons.Brain,
+                contentDescription = stringResource(Res.string.playlists_create_smart),
+                colors = colors,
+                onClick = { smartPlaylistBuilderOpen = true },
+            )
+            SharedPlaylistSortMode.entries.forEach { mode ->
+                NaviampPageHeaderAction(
+                    icon = when (mode) {
+                        SharedPlaylistSortMode.Alphabetical -> NaviampIcons.Alphabetical
+                        SharedPlaylistSortMode.RecentlyPlayed -> NaviampIcons.Clock
+                    },
+                    contentDescription = when (mode) {
+                        SharedPlaylistSortMode.Alphabetical -> stringResource(Res.string.tv_alphabetical_sort)
+                        SharedPlaylistSortMode.RecentlyPlayed -> stringResource(Res.string.tv_home_recently_played)
+                    },
                     colors = colors,
-                    items = listOf(
-                        NaviampRowMenuItem("Refresh", NaviampIcons.Refresh, onRefresh, enabled = !refreshing),
-                    ),
+                    selected = sortMode == mode,
+                    onClick = { onSortModeChanged(mode) },
                 )
             }
+            NaviampPageHeaderOverflow(
+                colors = colors,
+                items = listOf(
+                    NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, onRefresh, enabled = !refreshing),
+                ),
+            )
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -353,34 +348,6 @@ internal fun List<SharedMediaItemUi>.sortedForPlaylistScreen(
             if (index == -1) Int.MAX_VALUE else index
         }.thenBy { it.title.lowercase() },
     )
-}
-
-@Composable
-private fun PlaylistSortIconButton(
-    mode: SharedPlaylistSortMode,
-    selected: Boolean,
-    colors: NaviampColors,
-    onClick: () -> Unit,
-) {
-    val icon = when (mode) {
-        SharedPlaylistSortMode.Alphabetical -> NaviampIcons.Alphabetical
-        SharedPlaylistSortMode.RecentlyPlayed -> NaviampIcons.Clock
-    }
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(if (selected) colors.accent else colors.controlSurface.copy(alpha = 0.72f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = mode.label,
-            tint = if (selected) colors.onAccent else colors.secondaryText,
-            modifier = Modifier.size(22.dp),
-        )
-    }
 }
 
 @Composable
