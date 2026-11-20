@@ -2339,12 +2339,13 @@ private fun NowPlayingQueuePanel(
     modifier: Modifier = Modifier,
 ) {
     val pinned = presentation == NowPlayingQueuePresentation.Pinned
+    val surfaceColor = if (pinned) colors.playerSurface else colors.controlSurface
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
             .testTag(if (pinned) "now-playing-queue-card" else "now-playing-queue-drawer")
             .clip(RoundedCornerShape(8.dp))
-            .background(if (pinned) colors.playerSurface else colors.controlSurface)
+            .background(surfaceColor)
             .padding(16.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -2365,6 +2366,7 @@ private fun NowPlayingQueuePanel(
                 items = nowPlaying.radioStations,
                 listState = queueState.stations,
                 colors = colors,
+                surfaceColor = surfaceColor,
                 currentId = nowPlaying.id,
                 showActions = false,
                 onClick = { item ->
@@ -2435,6 +2437,7 @@ private fun NowPlayingQueuePanel(
         NowPlayingItemList(
             items = items,
             colors = colors,
+            surfaceColor = surfaceColor,
             listState = listState,
             emptyLabel = when (selectedTab) {
                 NaviampNowPlayingTab.BackTo -> "Playback history will appear here."
@@ -3383,6 +3386,7 @@ private fun NowPlayingTabButton(label: String, selected: Boolean, colors: Naviam
 private fun NowPlayingItemList(
     items: List<NaviampNowPlayingItemUi>,
     colors: NaviampColors,
+    surfaceColor: Color,
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
     currentId: String? = null,
@@ -3472,7 +3476,9 @@ private fun NowPlayingItemList(
                     modifier = swipeModifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(5.dp))
-                        .background(if (selected) colors.primaryText.copy(alpha = 0.12f) else colors.playerSurface)
+                        // Opaque rows cover swipe actions; translucent fills belong to the parent.
+                        .background(if (selected) colors.primaryText.copy(alpha = 0.12f)
+                            else if (surfaceColor.alpha == 1f) surfaceColor else Color.Transparent)
                         .naviampItemContextMenu(menu, enabled = showActions && visibleRowActions.isNotEmpty())
                         .clickable { onClick(item) }
                         .padding(horizontal = 6.dp, vertical = rowVerticalPadding),

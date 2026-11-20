@@ -101,6 +101,35 @@ class NaviampThemeTest {
         }
     }
 
+    @Test
+    fun playerSurfaceOpacityIsValidatedInEachVariantEvenWithoutAFillColor() {
+        for (percent in listOf(Int.MIN_VALUE, -1, 101, Int.MAX_VALUE)) {
+            for (surface in listOf(null, "#123456")) {
+                assertInvalid(NaviampForestTheme.copy(light = NaviampForestTheme.light.copy(
+                    playerSurface = surface, playerSurfaceOpacityPercent = percent,
+                )))
+                assertInvalid(NaviampForestTheme.copy(dark = NaviampForestTheme.dark.copy(
+                    playerSurface = surface, playerSurfaceOpacityPercent = percent,
+                )))
+            }
+        }
+    }
+
+    @Test
+    fun resolvedPalettesPreserveIndependentLightAndDarkOpacityPercentages() {
+        for (percent in listOf(0, 1, 37, 50, 99, 100)) {
+            val pack = NaviampForestTheme.copy(
+                light = NaviampForestTheme.light.copy(playerSurfaceOpacityPercent = percent),
+                dark = NaviampForestTheme.dark.copy(playerSurfaceOpacityPercent = 100 - percent),
+            )
+            val catalog = NaviampThemeCatalog(listOf(NaviampBuiltinTheme, pack))
+            for (mode in NaviampThemeMode.entries) for (systemDark in listOf(false, true)) {
+                val resolved = resolveNaviampTheme(NaviampThemeSettings(mode, pack.id), systemDark, catalog)
+                assertEquals(if (resolved.isDark) 100 - percent else percent, resolved.palette.playerSurfaceOpacityPercent)
+            }
+        }
+    }
+
     private fun assertInvalid(pack: NaviampThemePack) {
         assertFailsWith<IllegalArgumentException> { NaviampThemeCatalog(listOf(NaviampBuiltinTheme, pack)) }
     }

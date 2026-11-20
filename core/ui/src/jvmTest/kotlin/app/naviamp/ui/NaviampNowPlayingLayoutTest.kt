@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
@@ -24,7 +25,6 @@ import app.naviamp.domain.settings.NaviampBuiltinTheme
 import app.naviamp.domain.settings.NaviampForestTheme
 import app.naviamp.domain.settings.NaviampThemeMode
 import app.naviamp.domain.settings.NaviampThemePack
-import app.naviamp.domain.settings.NaviampThemeSettings
 import app.naviamp.domain.playback.EqualizerSettings
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import kotlin.test.*
@@ -78,14 +78,56 @@ class NaviampNowPlayingLayoutTest {
         NaviampForestTheme, NaviampThemeMode.Dark, expectedSurface = Color(0xFF132B1B),
     )
 
-    private fun checkPlayerSurfaces(pack: NaviampThemePack, mode: NaviampThemeMode, expectedSurface: Color?) =
-        runDesktopComposeUiTest(1280, 720) {
+    @Test fun themedPlayerSurfacesCompositeOnceIncludingQueueRows() {
+        for (mode in listOf(NaviampThemeMode.Light, NaviampThemeMode.Dark)) {
+            for (percent in listOf(0, 37, 100)) {
+                checkTranslucentPlayerSurfaces(mode, percent, width = 1280)
+            }
+        }
+    }
+
+    @Test fun narrowPlayerCardsShareTheThemeOpacity() {
+        for (mode in listOf(NaviampThemeMode.Light, NaviampThemeMode.Dark)) {
+            checkTranslucentPlayerSurfaces(mode, percent = 50, width = 420)
+        }
+    }
+
+    private fun checkTranslucentPlayerSurfaces(mode: NaviampThemeMode, percent: Int, width: Int) {
+        val pack = NaviampForestTheme.copy(
+            id = "translucent-test",
+            light = NaviampForestTheme.light.copy(playerSurface = "#B32A15", playerSurfaceOpacityPercent = percent),
+            dark = NaviampForestTheme.dark.copy(playerSurface = "#B32A15", playerSurfaceOpacityPercent = percent),
+        )
+        checkPlayerSurfaces(pack, mode, Color(0xFFB32A15).copy(alpha = percent / 100f), width)
+    }
+
+    private fun checkPlayerSurfaces(
+        pack: NaviampThemePack,
+        mode: NaviampThemeMode,
+        expectedSurface: Color?,
+        width: Int = 1280,
+    ) =
+        runDesktopComposeUiTest(width, if (width < 780) 900 else 720) {
             val backdrop = mutableStateOf(Color(0xFF2359A1))
             val live = mutableStateOf(false)
             val colors = (if (mode == NaviampThemeMode.Dark) pack.dark else pack.light).toNaviampColors()
+            fun assertOpaqueSwipeCover(expected: Color) {
+                val row = onNode(hasText("Queued item") and hasClickAction()).performScrollTo()
+                val bounds = row.fetchSemanticsNode().boundsInRoot
+                row.performTouchInput {
+                    down(center)
+                    moveBy(Offset(40f, 0f))
+                }
+                val pixels = onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()
+                assertEquals(expected, pixels[bounds.center.x.toInt(), (bounds.top + 2f).toInt()],
+                    "Opaque row must cover the swipe-action background")
+                assertNotEquals(expected, pixels[(bounds.left + 2f).toInt(), bounds.center.y.toInt()],
+                    "The revealed swipe strip must still show the action")
+                row.performTouchInput { up() }
+            }
             setContent {
-                NaviampTheme(NaviampThemeSettings(mode = mode, selectedPackId = pack.id)) {
-                    Box(Modifier.fillMaxSize().background(backdrop.value).padding(12.dp)) {
+                NaviampTheme(NaviampUiTheme(colors, mode == NaviampThemeMode.Dark, pack, colors.toMaterialColorScheme())) {
+                    Box(Modifier.testTag("player-surface-fixture").fillMaxSize().background(backdrop.value).padding(12.dp)) {
                         NaviampNowPlayingPanel(
                             nowPlaying = NowPlayingUi(
                                 id = "current", title = "Current title", subtitle = "Current artist", stateLabel = "Paused",
@@ -107,10 +149,15 @@ class NaviampNowPlayingLayoutTest {
             onNodeWithContentDescription("Queue").performClick()
             onNodeWithTag("now-playing-lyrics-card").assertDoesNotExist()
             val drawerBounds = onNodeWithTag("now-playing-queue-drawer").fetchSemanticsNode().boundsInRoot
-            val drawerPixels = onRoot().captureToImage().toPixelMap()
+            val drawerPixels = onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()
             assertEquals(colors.controlSurface,
                 drawerPixels[(drawerBounds.left + 2f).toInt(), drawerBounds.center.y.toInt()],
                 "Drawer must cover the lyrics with an opaque surface")
+            val drawerRow = onNode(hasText("Queued item") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+            assertEquals(colors.controlSurface,
+                drawerPixels[(drawerRow.left + 2f).toInt(), drawerRow.center.y.toInt()],
+                "Unselected drawer rows must use the opaque drawer surface, not a second player fill")
+            assertOpaqueSwipeCover(colors.controlSurface)
             onNodeWithContentDescription("Pin queue").performClick()
             for ((tab, title, subtitle) in listOf(
                 Triple("UP NEXT", "Queued item", "Queued artist"),
@@ -119,15 +166,15 @@ class NaviampNowPlayingLayoutTest {
                 Triple("STATIONS", "Other station", "Other broadcaster"),
             )) {
                 if (tab == "STATIONS") runOnIdle { live.value = true }
-                else onNodeWithText(tab).performClick()
-                onNodeWithText(title).assertIsDisplayed()
+                else onNodeWithText(tab).performScrollTo().performClick()
                 for (backingColor in listOf(Color(0xFF2359A1), Color(0xFFAF763B))) {
                     runOnIdle { backdrop.value = backingColor }
                     waitUntil(timeoutMillis = 5_000) {
-                        onRoot().captureToImage().toPixelMap()[0, 0] == backingColor
+                        onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()[0, 0] == backingColor
                     }
-                    val pixels = onRoot().captureToImage().toPixelMap()
                     fun assertSurface(node: SemanticsNodeInteraction, expected: Color, label: String) {
+                        node.performScrollTo().assertIsDisplayed()
+                        val pixels = onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()
                         val bounds = node.fetchSemanticsNode().boundsInRoot
                         val x = bounds.left + 2f
                         val y = bounds.center.y
@@ -137,29 +184,35 @@ class NaviampNowPlayingLayoutTest {
                         assertEquals(expected.blue, actual.blue, 1f / 255f, "$tab $label blue")
                         assertEquals(1f, actual.alpha, "$tab $label alpha")
                     }
-                    val surface = expectedSurface ?: backingColor
+                    val surface = expectedSurface?.compositeOver(backingColor) ?: backingColor
                     assertSurface(onNodeWithTag("now-playing-controller"), surface, "controller")
                     assertSurface(onNodeWithTag("now-playing-lyrics-card"), surface, "lyrics card")
                     assertSurface(onNodeWithTag("now-playing-queue-card"), surface, "queue card")
-                    val lyricsBounds = onNodeWithTag("now-playing-lyrics-card").fetchSemanticsNode().boundsInRoot
-                    val queueBounds = onNodeWithTag("now-playing-queue-card").fetchSemanticsNode().boundsInRoot
-                    assertEquals(backingColor, pixels[lyricsBounds.center.x.toInt(),
-                        ((lyricsBounds.bottom + queueBounds.top) / 2).toInt()], "Cards must not share a painted wrapper")
+                    if (width >= 780) {
+                        val lyricsBounds = onNodeWithTag("now-playing-lyrics-card").fetchSemanticsNode().boundsInRoot
+                        val queueBounds = onNodeWithTag("now-playing-queue-card").fetchSemanticsNode().boundsInRoot
+                        val pixels = onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()
+                        assertEquals(backingColor, pixels[lyricsBounds.center.x.toInt(),
+                            ((lyricsBounds.bottom + queueBounds.top) / 2).toInt()], "Cards must not share a painted wrapper")
+                    }
                     assertSurface(onNode(hasText(title) and hasClickAction()), surface, "unselected row")
+                    if (tab == "UP NEXT" && expectedSurface?.alpha == 1f) assertOpaqueSwipeCover(expectedSurface)
                     if (tab == "STATIONS") {
                         val selected = onNode(hasText("Selected station") and hasClickAction())
-                            .fetchSemanticsNode().boundsInRoot
+                            .performScrollTo().fetchSemanticsNode().boundsInRoot
+                        val pixels = onNodeWithTag("player-surface-fixture").captureToImage().toPixelMap()
                         assertNotEquals(surface, pixels[(selected.left + 2f).toInt(), selected.center.y.toInt()],
                             "Selected station must remain distinguishable from an unselected row")
                     }
-                    onNodeWithText("Current title", useUnmergedTree = true).assertIsDisplayed()
-                    onNodeWithText("Current artist", useUnmergedTree = true).assertIsDisplayed()
+                    onNodeWithText("Current title", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+                    onNodeWithText("Current artist", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
                     for ((text, expected) in listOf(
                         title to colors.primaryText,
                         subtitle to colors.playerSecondaryText,
                     )) {
                         val layouts = mutableListOf<TextLayoutResult>()
                         onNodeWithText(text, useUnmergedTree = true)
+                            .performScrollTo()
                             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
                         assertEquals(expected, layouts.single().layoutInput.style.color, "$tab $text color")
                     }

@@ -82,7 +82,7 @@ internal fun NaviampThemePalette.toNaviampColors(): NaviampColors = NaviampColor
     accent = accent.toThemeColor(),
     onAccent = onAccent.toThemeColor(),
     controlSurface = controlSurface.toThemeColor(),
-    playerSurface = playerSurface?.toThemeColor() ?: Color.Transparent,
+    playerSurface = playerSurface?.toThemeColor()?.copy(alpha = playerSurfaceOpacityPercent / 100f) ?: Color.Transparent,
     playerSecondaryText = playerSecondaryText.toThemeColor(),
     playerMutedText = playerMutedText.toThemeColor(),
     albumArtPlaceholder = albumArtPlaceholder.toThemeColor(),

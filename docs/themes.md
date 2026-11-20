@@ -68,14 +68,18 @@ A `NaviampThemePack` contains:
 | `id` | Stable, unique, case-sensitive `[a-z][a-z0-9-]{0,63}`. `naviamp` identifies the unchanged fallback. |
 | `name` | Nonblank, at most 80 characters, no control characters. |
 | `author` | Optional nonblank attribution, at most 120 characters, no control characters. |
-| `light`, `dark` | Complete `NaviampThemePalette` values; every token is required. |
+| `light`, `dark` | Complete `NaviampThemePalette` values; all color tokens are required, and `playerSurfaceOpacityPercent` defaults to `100`. |
 
 Color values are opaque `#RRGGBB` strings; hex digits may use either case. The required
-`playerSurface` token additionally accepts `null`, explicitly meaning transparent. Other color
-tokens cannot be null. Definitions contain no code execution hooks, URLs, external assets, fonts,
-widget overrides, or references to other themes.
-Kotlin type checking enforces required tokens; catalog validation checks version, identity,
-metadata, and color syntax. It does not certify accessibility: authors must verify contrast.
+`playerSurface` token additionally accepts `null`, explicitly meaning transparent regardless of
+`playerSurfaceOpacityPercent`. Other color tokens cannot be null. The optional integer percentage
+must be in `0..100`; omission preserves the existing opaque fill for non-null colors. Light and Dark
+can specify different percentages. This is an additive schema-1 field, not a new user preference:
+settings backup, restore, sync and Connect still preserve the theme selection, not palette values.
+Definitions contain no code execution hooks, URLs, external assets, fonts, widget overrides, or
+references to other themes. Kotlin type checking enforces required tokens; catalog validation checks
+version, identity, metadata, color syntax and percentage bounds. It does not certify accessibility:
+authors must verify contrast.
 
 | Palette tokens | Purpose |
 | --- | --- |
@@ -85,7 +89,8 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `border` | Outlines and separators. |
 | `accent`, `onAccent` | Selected/action background and its foreground. |
 | `controlSurface` | Navigation, app cards, controls and dialogs. Naviamp Dark uses `#393E46`. |
-| `playerSurface` | Standard full-player controller, lyrics, queue/history/related/station cards and unselected rows; null means transparent. |
+| `playerSurface` | Standard full-player Control, Lyrics and pinned Queue card fill color, including queue/history/related/station views; null means transparent. |
+| `playerSurfaceOpacityPercent` | Card background opacity: `0` transparent, `100` opaque (default). One percentage shared by the three cards, not their text, icons or controls. |
 | `playerSecondaryText`, `playerMutedText` | Shared full/mini-player metadata hierarchy, independent of ordinary app text. |
 | `albumArtPlaceholder` | Missing/loading artwork. |
 | `favorite` | Favorite indicator. |
@@ -93,6 +98,16 @@ metadata, and color syntax. It does not certify accessibility: authors must veri
 | `error`, `onError` | Destructive/error action pair. |
 | `errorContainer`, `onErrorContainer` | Error message panel pair. |
 | `success`, `onSuccess` | Positive action pair. |
+
+For example, set these fields in a palette definition for a 65%-opaque green card background:
+
+```kotlin
+playerSurface = "#132B1B",
+playerSurfaceOpacityPercent = 65,
+```
+
+Set a non-null `playerSurface` color to make an otherwise transparent theme's cards visible.
+The percentage is a bundled theme-authoring option, not an Appearance slider or theme-file import.
 
 ### Material3 mapping
 
@@ -118,7 +133,8 @@ No role is left on a default Material purple palette:
 ## Adding or generating a theme
 
 1. Create a common-domain definition beside `NaviampForestTheme.kt`, with its own stable ID and
-   **all twenty-three tokens in both variants**. Copy the complete example structure, not a runtime
+   **all twenty-three color tokens in both variants**, plus optional `playerSurfaceOpacityPercent`.
+   Copy the complete example structure, not a runtime
    inheritance/override chain.
 2. Register the definition in `NaviampThemes` in `NaviampTheme.kt`. Registration order is UI order.
    Never remove or mutate the Naviamp fallback.
@@ -133,19 +149,25 @@ No role is left on a default Material purple palette:
 Artwork color extraction is separate from application theming. Fixed black artwork fades use the
 selected pack's dark foreground palette. Naviamp sets `playerSurface = null` in both variants, so
 its controller, lyrics and queue cards reveal the selected Player Background. Forest retains its
-opaque player surfaces. Lyrics and queue are separate rounded cards with the same padding as the
+opaque player surfaces by default. A non-null color with a partial `playerSurfaceOpacityPercent`
+blends over the selected Player Background without fading card content. Translucent fills are painted
+only by the card, not again by unselected queue/history/related/station rows. Opaque cards and the
+opaque drawer retain matching opaque row covers so swipe-action colors show only in the revealed
+strip. Lyrics and queue are separate rounded cards with the same padding as the
 controller. Wide layouts split the available height equally between artwork and controls, separated by
 an 8 dp gap; an odd physical pixel goes to the lower row. Artwork fills the upper row's height while
 remaining square and fitting the left column. Pinned lyrics/queue cards use those same rows and edges.
 Short windows scroll both columns together; 14 dp outer bottom padding remains.
 **Queue** opens a drawer covering the whole right viewport, even if the queue was pinned.
-The drawer uses opaque `controlSurface` so covered lyrics cannot show through or receive input.
+The drawer uses opaque `controlSurface`, including unselected rows, so covered lyrics cannot show
+through or receive input. It does not use the card opacity percentage.
 The Queue header exposes only **Pin queue** or **Unpin queue**, switching between the card below
 lyrics and drawer mode. Clicking outside an open drawer dismisses it without activating controls
 underneath; pinned cards remain visible. Back/Escape dismiss an open drawer before leaving the player.
 Narrow and filled-artwork layouts use a full-width drawer and stack pinned cards below the controls.
 Queue presentation is transient view state, not an exported setting. Selected-row/tab feedback, menus and
-dialogs keep their existing fills. This token does not determine the mini-player fill: Player Background does.
+dialogs keep their existing fills. The filled-artwork controller stays backgroundless on its artwork
+fade. These tokens do not determine the mini-player fill: Player Background does.
 
 Full and mini players share `playerSecondaryText` and `playerMutedText`. Naviamp Light uses
 `#272C35` for secondary player text and `#353C47` for muted player text; its ordinary app
@@ -165,9 +187,10 @@ Filled artwork keeps the resolved app accent pair rather than switching to the d
 palette's accent. Backgrounds, waveform colors, and mini-player transport styling are unchanged.
 
 The darker Naviamp Light player text meets 4.5:1 contrast on the tested pale rose, sand, and blue
-Aurora regions, including the translucent album label. Transparent panels and user-selected
-backgrounds can still reduce contrast, particularly with dark artwork regions or custom Single
-Color choices. Aurora's tone and Album Blur's overlays do not guarantee contrast for every palette.
+Aurora regions, including the translucent album label. Transparent or partially opaque panels and
+user-selected backgrounds can still reduce contrast, particularly with dark artwork regions or
+custom Single Color choices. Aurora's tone and Album Blur's overlays do not guarantee contrast for
+every palette.
 
 TV promotes secondary/muted text to the selected primary foreground and keeps its separate opaque
 ten-foot reading background. Visualizer artwork, intentional white artwork labels and modal

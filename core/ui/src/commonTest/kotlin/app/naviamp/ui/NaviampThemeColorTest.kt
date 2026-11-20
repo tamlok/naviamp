@@ -64,6 +64,28 @@ class NaviampThemeColorTest {
         }
     }
 
+    @Test
+    fun playerSurfacePercentChangesOnlyTheBackgroundAlpha() {
+        for (palette in listOf(NaviampForestTheme.light, NaviampForestTheme.dark)) {
+            val opaque = palette.toNaviampColors()
+            for (percent in listOf(0, 1, 37, 50, 99, 100)) {
+                val colors = palette.copy(playerSurfaceOpacityPercent = percent).toNaviampColors()
+                assertEquals(percent / 100f, colors.playerSurface.alpha, 1f / 255f)
+                assertEquals(opaque.playerSurface.red, colors.playerSurface.red)
+                assertEquals(opaque.playerSurface.green, colors.playerSurface.green)
+                assertEquals(opaque.playerSurface.blue, colors.playerSurface.blue)
+                assertEquals(opaque, colors.copy(playerSurface = opaque.playerSurface))
+                val material = colors.toMaterialColorScheme()
+                assertEquals(opaque.controlSurface, material.surface)
+                assertEquals(opaque.primaryText, material.onSurface)
+                assertEquals(opaque.background, material.background)
+                assertEquals(Color.Transparent, palette.copy(
+                    playerSurface = null, playerSurfaceOpacityPercent = percent,
+                ).toNaviampColors().playerSurface)
+            }
+        }
+    }
+
     private fun contrast(a: Color, b: Color): Double =
         (max(a.luminance(), b.luminance()) + 0.05) / (min(a.luminance(), b.luminance()) + 0.05)
 }

@@ -29,6 +29,7 @@ data class NaviampThemePalette(
     val onErrorContainer: String,
     val success: String,
     val onSuccess: String,
+    val playerSurfaceOpacityPercent: Int = 100,
 )
 
 data class NaviampThemePack(
@@ -180,6 +181,7 @@ private fun NaviampThemePalette.validate() {
     onAccent.validateColor()
     controlSurface.validateColor()
     playerSurface?.validateColor()
+    require(playerSurfaceOpacityPercent in 0..100) { "Player surface opacity must be between 0 and 100 percent" }
     playerSecondaryText.validateColor()
     playerMutedText.validateColor()
     albumArtPlaceholder.validateColor()
