@@ -232,7 +232,7 @@ private fun NaviampTelevisionAppShellContent(
     LaunchedEffect(uiState.shellChrome.selectedRoute) {
         if (uiState.shellChrome.selectedRoute == SharedRoute.Settings) {
             settingsOpen = true
-            actions.navigationActions.onRouteSelected(settingsBackgroundRoute)
+            actions.navigationActions.onRouteReplaced(settingsBackgroundRoute)
         } else {
             settingsBackgroundRoute = uiState.shellChrome.selectedRoute
         }
@@ -307,9 +307,11 @@ private fun NaviampTelevisionAppShellContent(
                         val artistDetailOpen = uiState.artistDetail.selectedArtist != null
                         val playlistDetailOpen = uiState.playlistDetail.selectedPlaylist != null
                         val homeCollectionOpen = uiState.home.collectionPage != null
+                        val pageBackTarget = naviampBackTarget(uiState)
                         NaviampSystemBackHandler(
                             enabled = returnToNowPlayingFromSearch || nowPlayingPreview ||
                                 albumDetailOpen || artistDetailOpen || playlistDetailOpen || homeCollectionOpen ||
+                                pageBackTarget != null ||
                                 (!transientContentOpen && !navigationFocused),
                         ) {
                             if (
@@ -328,10 +330,9 @@ private fun NaviampTelevisionAppShellContent(
                                 navigationFocusRequesters.getValue(underlyingDestination).requestFocus()
                             } else {
                                 when {
-                                    albumDetailOpen -> actions.albumDetailActions.onBack()
-                                    artistDetailOpen -> actions.artistDetailActions.onBack()
-                                    playlistDetailOpen -> actions.playlistDetailActions.onBack()
+                                    albumDetailOpen || artistDetailOpen || playlistDetailOpen -> actions.navigationActions.onBack()
                                     homeCollectionOpen -> actions.homeActions.onCollectionBack()
+                                    pageBackTarget != null -> performNaviampBack(pageBackTarget, actions)
                                     else -> focusNavigation()
                                 }
                             }
@@ -713,16 +714,21 @@ private fun TelevisionConnectedContent(
             },
             onEntryFocusHandled = onContentEntryHandled,
         )
-        uiState.shellChrome.selectedRoute == SharedRoute.Search -> TelevisionSearch(
-            screen = uiState.search,
-            colors = colors,
-            actions = actions.searchActions,
-            mediaActions = televisionMediaActions,
-            entryFocusGeneration = contentEntryGeneration.takeIf {
-                contentEntryDestination == NaviampTelevisionDestination.Search
-            },
-            onEntryFocusHandled = onContentEntryHandled,
-        )
+        uiState.shellChrome.selectedRoute == SharedRoute.Search -> Column(Modifier.fillMaxSize()) {
+            NaviampPageBackHeader(uiState.shellChrome.canNavigateBack, actions.navigationActions.onBack, colors)
+            Box(Modifier.weight(1f)) {
+                TelevisionSearch(
+                    screen = uiState.search,
+                    colors = colors,
+                    actions = actions.searchActions,
+                    mediaActions = televisionMediaActions,
+                    entryFocusGeneration = contentEntryGeneration.takeIf {
+                        contentEntryDestination == NaviampTelevisionDestination.Search
+                    },
+                    onEntryFocusHandled = onContentEntryHandled,
+                )
+            }
+        }
         uiState.shellChrome.selectedRoute == SharedRoute.Playlists -> TelevisionPlaylists(
             screen = uiState.playlists,
             colors = colors,

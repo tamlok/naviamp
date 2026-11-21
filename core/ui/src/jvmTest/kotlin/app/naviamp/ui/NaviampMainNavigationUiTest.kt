@@ -35,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.common_back
+import org.jetbrains.compose.resources.stringResource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -532,6 +535,35 @@ class NaviampMainNavigationUiTest {
                     }
                 }
             }
+    }
+
+    @Test
+    fun pageBackHeaderIsLocalizedAccessibleAndDisappearsAtTheRoot() {
+        listOf(InterfaceLanguage.German, InterfaceLanguage.Arabic).forEach { language ->
+            runDesktopComposeUiTest(412, 818) {
+                var canNavigateBack by mutableStateOf(true)
+                var backCalls = 0
+                var backLabel = ""
+                val localeEffect = createNaviampLocaleEffect()
+                setContent {
+                    NaviampLocaleEnvironment(language, localeEffect) {
+                        backLabel = stringResource(Res.string.common_back)
+                        MaterialTheme {
+                            NaviampPageBackHeader(canNavigateBack, {
+                                backCalls++
+                                canNavigateBack = false
+                            }, NaviampColors.Dark)
+                        }
+                    }
+                }
+                onNodeWithTag("page-back").assertIsDisplayed()
+                runOnIdle { assertTrue(backLabel.isNotBlank() && backLabel != "Back") }
+                onNodeWithTag("page-back").assertContentDescriptionEquals(backLabel)
+                    .assertTextEquals(backLabel).performClick()
+                onNodeWithTag("page-back").assertDoesNotExist()
+                runOnIdle { assertEquals(1, backCalls) }
+            }
+        }
     }
 
     private fun ComposeUiTest.openDrawer() {

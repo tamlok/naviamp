@@ -861,6 +861,19 @@ internal fun ConnectedContent(
             FullNowPlaying(nowPlaying, effectivePlaybackProgress, colors,
                 visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings, playerBackground)
         }
+    } else if (
+        shellChrome.canNavigateBack && albumDetail.selectedAlbum == null &&
+        artistDetail.selectedArtist == null && playlistDetail.selectedPlaylist == null &&
+        when (selectedRoute) {
+            SharedRoute.Search, SharedRoute.ArtistMix, SharedRoute.AlbumMix, SharedRoute.GenreMix,
+            SharedRoute.SonicPath, SharedRoute.SonicMix -> true
+            else -> false
+        }
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            NaviampPageBackHeader(true, actions.navigationActions.onBack, colors)
+            Box(Modifier.weight(1f)) { browseContent() }
+        }
     } else {
         browseContent()
     }
@@ -889,6 +902,19 @@ internal fun ConnectedContent(
                 saveSonicMixDialogOpen = false
             },
         )
+    }
+}
+
+@Composable
+internal fun NaviampPageBackHeader(canNavigateBack: Boolean, onBack: () -> Unit, colors: NaviampColors) {
+    if (canNavigateBack) {
+        val backLabel = stringResource(Res.string.common_back)
+        Row(Modifier.fillMaxWidth()) {
+            TextButton(onClick = onBack, modifier = Modifier.testTag("page-back")
+                .semantics { contentDescription = backLabel }) {
+                Text(backLabel, color = colors.primaryText)
+            }
+        }
     }
 }
 

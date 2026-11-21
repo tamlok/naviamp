@@ -1,15 +1,15 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampNavigationController
-import app.naviamp.domain.Artist
-import app.naviamp.domain.ArtistId
 import app.naviamp.domain.app.NaviampNavigationState
 import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.ui.NaviampAlbumDetailScreenUi
 import app.naviamp.ui.NaviampArtistDetailScreenUi
 import app.naviamp.ui.NaviampPlaylistDetailScreenUi
 import app.naviamp.ui.SharedMediaItemUi
+import app.naviamp.ui.SharedProviderDiscoveryUi
 import app.naviamp.ui.SharedRoute
+import app.naviamp.ui.toSharedRoute
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -17,273 +17,167 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NaviampCoreNavigationControllerTest {
-    @Test fun discoveryFromRadioClosesTheExpandedPlayerAndPersistsTheVisiblePage() {
-        val store = NaviampCoreStateStore()
-        val persisted = mutableListOf<Boolean>()
-        val routes = NaviampNavigationController(NaviampNavigationState(route = NaviampRoute.Radio))
-        val navigation = NaviampCoreNavigationController(
-            routes, store, NaviampCoreArtistNavigator {}, persistNowPlayingOpen = persisted::add,
-        )
-        navigation.openNowPlaying()
-        assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
-        navigation.openDiscoveryPage()
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.Home, routes.state.value.route)
-        assertEquals(listOf(true, false), persisted)
-    }
-
-    @Test fun leavingDiscoveryStopsThePreviewAndClearsItsNestedDestinations() {
-        val store = NaviampCoreStateStore()
-        var stopped = 0
-        val navigation = NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {},
-            onLeaveDiscovery = { stopped++ })
-        store.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery = app.naviamp.ui.SharedProviderDiscoveryUi(
-            "aurral", artistPage = true, artistDetail = app.naviamp.ui.SharedProviderDiscoveryArtistUi(
-                app.naviamp.domain.provider.ProviderDiscoveryArtist("11111111-1111-1111-1111-111111111111", "Artist"))))) }
-        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
-        assertEquals(1, stopped)
-        assertNull(store.state.value.shell.home.providerDiscovery?.artistDetail)
-        assertFalse(store.state.value.shell.home.providerDiscovery!!.artistPage)
-    }
-    @Test fun explicitHomeNavigationDismissesTheNativeDiscoveryDialog() {
-        val store = NaviampCoreStateStore()
-        val navigation = controller(NaviampNavigationController(), store)
-        store.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery =
-            app.naviamp.ui.SharedProviderDiscoveryUi("aurral", artistDetail = app.naviamp.ui.SharedProviderDiscoveryArtistUi(
-                app.naviamp.domain.provider.ProviderDiscoveryArtist("mbid", "Artist"))))) }
-        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home))
-        assertNull(store.state.value.shell.home.providerDiscovery?.artistDetail)
-    }
-    @Test
-    fun selectingEveryPrimaryDestinationClosesThePlayerAndPersistsItsVisibility() {
-        for (route in listOf(SharedRoute.Home, SharedRoute.Playlists, SharedRoute.Library, SharedRoute.Radio, SharedRoute.My)) {
+    @Test fun everyRoutedChildReturnsToItsOpeningRoot() {
+        for (root in roots) for (child in children) {
+            val routes = NaviampNavigationController(NaviampNavigationState(root))
             val store = NaviampCoreStateStore()
-            val persisted = mutableListOf<Boolean>()
-            val controller = NaviampCoreNavigationController(
-                NaviampNavigationController(), store, NaviampCoreArtistNavigator {},
-                persistNowPlayingOpen = persisted::add,
-            )
-            controller.dispatch(NaviampCoreCommand.Navigation.OpenNowPlaying)
-            controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(route))
-            assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-            assertEquals(route, store.state.value.shell.shellChrome.selectedRoute)
-            assertEquals(listOf(true, false), persisted)
+            val controller = controller(routes, store)
+            controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(child))
+            assertEquals(child, store.state.value.shell.shellChrome.selectedRoute)
+            assertTrue(store.state.value.shell.shellChrome.canNavigateBack)
+            controller.back()
+            assertEquals(root, routes.state.value.route)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
         }
     }
 
-    @Test
-    fun albumOpenedFromPlayerClosesItAndBackReopensItWithTheOriginalSelection() {
-        val routes = NaviampNavigationController(NaviampNavigationState(route = NaviampRoute.Library))
-        val store = NaviampCoreStateStore()
-        val persisted = mutableListOf<Boolean>()
-        val controller = NaviampCoreNavigationController(
-            routes, store, NaviampCoreArtistNavigator {}, persistNowPlayingOpen = persisted::add,
-        )
-        controller.openNowPlaying()
-        controller.openAlbumDetail()
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.AlbumDetail, routes.state.value.route)
-        assertEquals(listOf(true, false), persisted)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromAlbum)
-
-        assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.Library, routes.state.value.route)
-        assertEquals(listOf(true, false, true), persisted)
+    @Test fun everyMediaKindReturnsToHomeOrItsActualOpeningPage() {
+        for (root in roots) for (kind in mediaKinds) {
+            val routes = NaviampNavigationController(NaviampNavigationState(root))
+            val store = NaviampCoreStateStore()
+            val controller = controller(routes, store)
+            controller.openMediaPage(kind, item("selected"))
+            store.updateShell { shell -> shell.copy(
+                albumDetail = NaviampAlbumDetailScreenUi(selectedAlbum = item("album")),
+                artistDetail = NaviampArtistDetailScreenUi(selectedArtist = item("artist")),
+                playlistDetail = NaviampPlaylistDetailScreenUi(selectedPlaylist = item("playlist")),
+            ) }
+            controller.dispatch(NaviampCoreCommand.Navigation.Back)
+            assertEquals(root, routes.state.value.route)
+            assertNull(store.state.value.shell.albumDetail.selectedAlbum)
+            assertNull(store.state.value.shell.artistDetail.selectedArtist)
+            assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+        }
     }
 
-    @Test
-    fun playlistNavigationClosesThePlayerWithoutReopeningItOnBack() {
+    @Test fun refreshedMediaMetadataDoesNotCreateADuplicateBackStep() {
         val store = NaviampCoreStateStore()
-        val persisted = mutableListOf<Boolean>()
-        val controller = NaviampCoreNavigationController(
-            NaviampNavigationController(), store, NaviampCoreArtistNavigator {},
-            persistNowPlayingOpen = persisted::add,
-        )
-        controller.openNowPlaying()
-        controller.openPlaylistDetail()
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(listOf(true, false), persisted)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromPlaylist)
-
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Playlists, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(listOf(true, false), persisted)
+        val routes = NaviampNavigationController()
+        val controller = controller(routes, store)
+        controller.openMediaPage(NaviampRoute.PlaylistDetail, item("playlist"))
+        controller.openMediaPage(NaviampRoute.PlaylistDetail, item("playlist").copy(title = "Renamed"))
+        controller.back()
+        assertEquals(NaviampRoute.Home, routes.state.value.route)
+        assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
     }
 
-    @Test
-    fun routeSelectionOwnsShellStateAndClearsTransientProductDetails() {
-        val store = NaviampCoreStateStore(
-            NaviampCoreState(
-                shell = NaviampCoreState().shell.copy(
-                    albumDetail = NaviampAlbumDetailScreenUi(selectedAlbum = item("album")),
-                    artistDetail = NaviampArtistDetailScreenUi(selectedArtist = item("artist")),
-                    playlistDetail = NaviampPlaylistDetailScreenUi(selectedPlaylist = item("playlist")),
-                ),
-            ),
-        )
-        val navigation = NaviampNavigationController()
-        val controller = controller(navigation, store)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Library))
-
-        assertEquals(NaviampRoute.Library, navigation.state.value.route)
-        assertEquals(NaviampRoute.Library, navigation.state.value.lastContentRoute)
-        assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertNull(store.state.value.shell.albumDetail.selectedAlbum)
-        assertNull(store.state.value.shell.artistDetail.selectedArtist)
-        assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+    @Test fun rootSelectionClearsHistoryDetailsAndDiscoveryWithoutRollingBackOtherState() {
+        for (root in roots) {
+            val store = NaviampCoreStateStore()
+            val routes = NaviampNavigationController()
+            var reset = 0
+            val controller = NaviampCoreNavigationController(routes, store, {}, onResetDiscovery = { reset++ })
+            controller.openMediaPage(NaviampRoute.PlaylistDetail, item("playlist"))
+            controller.openNowPlaying()
+            store.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery = SharedProviderDiscoveryUi(
+                "provider", artistPage = true, requestsOpen = true,
+            ))) }
+            val settings = store.state.value.shell.general
+            val playback = store.state.value.shell.playback
+            controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(root.toSharedRoute()))
+            assertEquals(root, routes.state.value.route)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+            assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
+            assertFalse(store.state.value.shell.home.providerDiscovery!!.artistPage)
+            assertFalse(store.state.value.shell.home.providerDiscovery!!.requestsOpen)
+            assertEquals(1, reset)
+            assertEquals(settings, store.state.value.shell.general)
+            assertEquals(playback, store.state.value.shell.playback)
+            controller.back()
+            assertEquals(root, routes.state.value.route)
+        }
     }
 
-    @Test
-    fun nowPlayingIsACoreOwnedOverlay() {
-        val store = NaviampCoreStateStore()
-        val persisted = mutableListOf<Boolean>()
-        val navigation = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.Search, lastContentRoute = NaviampRoute.Search),
-        )
-        val controller = NaviampCoreNavigationController(
-            navigation = navigation,
-            stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator { error("Unexpected artist navigation") },
-            persistNowPlayingOpen = persisted::add,
-        )
-
-        controller.dispatch(NaviampCoreCommand.Navigation.OpenNowPlaying)
-        assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Search, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.Search, navigation.state.value.lastContentRoute)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.CloseNowPlaying)
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(SharedRoute.Search, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.Search, navigation.state.value.route)
-        assertEquals(listOf(true, false), persisted)
+    @Test fun allMediaOpenedFromPlayerReturnToPlayerOverTheSamePage() {
+        for (kind in mediaKinds) {
+            val routes = NaviampNavigationController(NaviampNavigationState(NaviampRoute.Library))
+            val store = NaviampCoreStateStore()
+            val persisted = mutableListOf<Boolean>()
+            val controller = NaviampCoreNavigationController(routes, store, {}, persistNowPlayingOpen = persisted::add)
+            controller.openNowPlaying()
+            controller.openMediaPage(kind, item("media"))
+            assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
+            controller.back()
+            assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
+            assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
+            assertEquals(listOf(true, false, true), persisted)
+        }
     }
 
-    @Test
-    fun restoredNowPlayingVisibilityDoesNotWriteTheSessionAgain() {
+    @Test fun playerOverlayDoesNotConsumePageHistoryAndRestorationDoesNotPersistAgain() {
         val store = NaviampCoreStateStore()
         val persisted = mutableListOf<Boolean>()
-        val controller = NaviampCoreNavigationController(
-            navigation = NaviampNavigationController(),
-            stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator { error("Unexpected artist navigation") },
-            persistNowPlayingOpen = persisted::add,
-        )
-
+        val controller = NaviampCoreNavigationController(NaviampNavigationController(), store, {}, persistNowPlayingOpen = persisted::add)
+        controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+        persisted.clear()
         controller.restoreNowPlayingOpen()
-
-        assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
         assertTrue(persisted.isEmpty())
-    }
-
-    @Test
-    fun albumBackUsesSharedDetailHistoryAndPreservesArtistState() {
-        val navigation = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.ArtistDetail),
-        )
-        val store = NaviampCoreStateStore(
-            NaviampCoreState(
-                shell = NaviampCoreState().shell.copy(
-                    albumDetail = NaviampAlbumDetailScreenUi(selectedAlbum = item("album")),
-                    artistDetail = NaviampArtistDetailScreenUi(selectedArtist = item("artist")),
-                ),
-            ),
-        )
-        val controller = controller(navigation, store)
-        controller.recordAlbumOpened()
-        navigation.navigate(NaviampRoute.AlbumDetail)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromAlbum)
-
-        assertEquals(NaviampRoute.ArtistDetail, navigation.state.value.route)
-        assertNull(store.state.value.shell.albumDetail.selectedAlbum)
-        assertEquals("artist", store.state.value.shell.artistDetail.selectedArtist?.id)
-    }
-
-    @Test
-    fun nestedArtistBackAsksTheSharedArtistControllerToOpenThePreviousArtist() {
-        val navigation = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.Search),
-        )
-        val store = NaviampCoreStateStore()
-        val opened = mutableListOf<Artist>()
-        val controller = NaviampCoreNavigationController(
-            navigation = navigation,
-            stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator(opened::add),
-        )
-        val first = artist("first")
-        val second = artist("second")
-        controller.recordArtistOpened(first)
-        navigation.navigate(NaviampRoute.ArtistDetail)
-        controller.recordArtistOpened(second)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromArtist)
-
-        assertEquals(listOf(first), opened)
-    }
-
-    @Test
-    fun artistOpenedFromNowPlayingReturnsToNowPlaying() {
-        val navigation = NaviampNavigationController(NaviampNavigationState(route = NaviampRoute.Home))
-        val store = NaviampCoreStateStore()
-        val persisted = mutableListOf<Boolean>()
-        val controller = NaviampCoreNavigationController(
-            navigation, store, NaviampCoreArtistNavigator {}, persistNowPlayingOpen = persisted::add,
-        )
-        controller.openNowPlaying()
-        controller.openArtistDetail(artist("linked"))
-        assertFalse(store.state.value.shell.shellChrome.nowPlayingOpen)
+        controller.dispatch(NaviampCoreCommand.Navigation.CloseNowPlaying)
+        assertEquals(SharedRoute.Search, store.state.value.shell.shellChrome.selectedRoute)
+        assertTrue(store.state.value.shell.shellChrome.canNavigateBack)
+        controller.back()
         assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
-        assertEquals(NaviampRoute.ArtistDetail, navigation.state.value.route)
-        assertEquals(listOf(true, false), persisted)
+    }
 
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromArtist)
-
+    @Test fun discoveryBoundaryReturnsToRadioAndRepeatedEntryDoesNotPushAgain() {
+        val store = NaviampCoreStateStore()
+        val routes = NaviampNavigationController(NaviampNavigationState(NaviampRoute.Radio))
+        val controller = controller(routes, store)
+        store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("provider", sourceId = "source"))) }
+        controller.openDiscoveryPage()
+        controller.openDiscoveryPage()
         assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
-        assertTrue(store.state.value.shell.shellChrome.nowPlayingOpen)
-        assertEquals(NaviampRoute.Home, navigation.state.value.route)
-        assertEquals(listOf(true, false, true), persisted)
+        controller.closeDiscoveryPage()
+        assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
+        assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
     }
 
-    @Test
-    fun playlistBackClearsDetailAndReturnsToPlaylistList() {
-        val navigation = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.PlaylistDetail),
-        )
-        val store = NaviampCoreStateStore(
-            NaviampCoreState(
-                shell = NaviampCoreState().shell.copy(
-                    playlistDetail = NaviampPlaylistDetailScreenUi(selectedPlaylist = item("playlist")),
-                ),
-            ),
-        )
-        val controller = controller(navigation, store)
-
-        controller.dispatch(NaviampCoreCommand.Navigation.BackFromPlaylist)
-
-        assertEquals(NaviampRoute.Playlists, navigation.state.value.route)
-        assertEquals(SharedRoute.Playlists, store.state.value.shell.shellChrome.selectedRoute)
-        assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+    @Test fun staleDiscoveryOriginIsSkippedWithoutReopeningAnotherSource() {
+        val store = NaviampCoreStateStore()
+        val routes = NaviampNavigationController(NaviampNavigationState(NaviampRoute.Radio))
+        val controller = controller(routes, store)
+        store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("provider", sourceId = "old"))) }
+        controller.openDiscoveryPage()
+        controller.openMediaPage(NaviampRoute.AlbumDetail, item("album"))
+        store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("provider", sourceId = "new"))) }
+        controller.back()
+        assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
+        assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
     }
 
-    private fun controller(
-        navigation: NaviampNavigationController,
-        store: NaviampCoreStateStore,
-    ) = NaviampCoreNavigationController(
-        navigation = navigation,
-        stateStore = store,
-        artistNavigator = NaviampCoreArtistNavigator { error("Unexpected artist navigation") },
-    )
+    @Test fun sourceChangeDropsOldMediaOrigins() {
+        val store = NaviampCoreStateStore()
+        val routes = NaviampNavigationController()
+        val controller = controller(routes, store)
+        controller.openMediaPage(NaviampRoute.ArtistDetail, item("old-artist"))
+        controller.openMediaPage(NaviampRoute.AlbumDetail, item("old-album"))
+        controller.resetForSourceChange()
+        controller.back()
+        assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
+        assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+    }
 
-    private fun item(id: String) = SharedMediaItemUi(id = id, title = id, subtitle = "")
+    @Test fun replacingTvSettingsBackgroundDoesNotStackSettingsBehindSearchOrMixes() {
+        for (background in children) {
+            val store = NaviampCoreStateStore()
+            val controller = controller(NaviampNavigationController(), store)
+            controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(background))
+            controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Settings))
+            controller.dispatch(NaviampCoreCommand.Navigation.ReplaceRoute(background))
+            controller.back()
+            assertEquals(background, store.state.value.shell.shellChrome.selectedRoute)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+        }
+    }
 
-    private fun artist(id: String) = Artist(ArtistId(id), id)
+    private fun controller(routes: NaviampNavigationController, store: NaviampCoreStateStore) =
+        NaviampCoreNavigationController(routes, store, { error("Unexpected data restoration: $it") })
+
+    private fun item(id: String) = SharedMediaItemUi(id, id, "")
+    private val roots = listOf(NaviampRoute.Home, NaviampRoute.Playlists, NaviampRoute.Library,
+        NaviampRoute.Radio, NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings)
+    private val children = listOf(SharedRoute.Search, SharedRoute.ArtistMix, SharedRoute.AlbumMix,
+        SharedRoute.GenreMix, SharedRoute.SonicPath, SharedRoute.SonicMix)
+    private val mediaKinds = listOf(NaviampRoute.AlbumDetail, NaviampRoute.ArtistDetail, NaviampRoute.PlaylistDetail)
 }

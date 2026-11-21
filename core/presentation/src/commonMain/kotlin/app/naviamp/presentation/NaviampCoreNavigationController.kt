@@ -1,216 +1,169 @@
 package app.naviamp.presentation
 
-import app.naviamp.app.NaviampDetailBackCommand
-import app.naviamp.app.NaviampDetailKind
 import app.naviamp.app.NaviampNavigationController
-import app.naviamp.domain.Artist
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
 import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.ui.NaviampAlbumDetailScreenUi
 import app.naviamp.ui.NaviampArtistDetailScreenUi
 import app.naviamp.ui.NaviampPlaylistDetailScreenUi
+import app.naviamp.ui.NaviampMediaItemActionRequest
+import app.naviamp.ui.NaviampMediaItemCommand
+import app.naviamp.ui.NaviampArtistAlbumCommand
+import app.naviamp.ui.NaviampArtistMediaCommand
+import app.naviamp.ui.NaviampPlaylistMediaCommand
+import app.naviamp.ui.SharedMediaItemUi
 import app.naviamp.ui.toNaviampRoute
 import app.naviamp.ui.toSharedRoute
 
-/** Core-to-Core link used when artist-detail back navigation reveals a prior artist. */
-fun interface NaviampCoreArtistNavigator {
-    fun openArtist(artist: Artist)
+data class NaviampCoreMediaPage(override val route: NaviampRoute, val item: SharedMediaItemUi) : NaviampNavigationPage {
+    override fun sameDestination(other: NaviampNavigationPage): Boolean =
+        other is NaviampCoreMediaPage && route == other.route && item.id == other.item.id
 }
 
-/** Owns shell routes, overlays, detail back policy, and their complete UI-state publication. */
+data class NaviampCoreHomeCollectionPage(val sectionId: String) : NaviampNavigationPage {
+    override val route: NaviampRoute get() = NaviampRoute.Home
+}
+
+data class NaviampCoreDiscoveryPage(val sourceId: String?, val sourceGeneration: Long) : NaviampNavigationPage {
+    override val route: NaviampRoute get() = NaviampRoute.Home
+}
+
+/** Owns page history and shell publication; feature controllers restore their own data. */
 class NaviampCoreNavigationController(
     private val navigation: NaviampNavigationController,
     private val stateStore: NaviampCoreStateStore,
-    private val artistNavigator: NaviampCoreArtistNavigator,
+    private val restoreCommand: (NaviampCoreCommand) -> Unit,
     private val persistNowPlayingOpen: (Boolean) -> Unit = {},
-    private val onLeaveDiscovery: () -> Unit = {},
+    private val onPageChanging: () -> Unit = {},
+    private val onResetDiscovery: () -> Unit = {},
 ) : NaviampCoreCommandController {
-    init {
-        publishNavigation()
-    }
+    val epoch: Long get() = navigation.epoch
+
+    init { publishNavigation(clearDetails = false, nowPlayingOpen = navigation.currentEntry.reopenNowPlaying) }
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult {
-        val navigationCommand = command as? NaviampCoreCommand.Navigation
-            ?: return NaviampCoreImmediateCommandResult.Unhandled
-        when (navigationCommand) {
-            is NaviampCoreCommand.Navigation.SelectRoute -> selectRoute(navigationCommand.route.toNaviampRoute())
+        val request = command as? NaviampCoreCommand.Navigation ?: return NaviampCoreImmediateCommandResult.Unhandled
+        when (request) {
+            is NaviampCoreCommand.Navigation.SelectRoute -> selectRoute(request.route.toNaviampRoute())
+            is NaviampCoreCommand.Navigation.ReplaceRoute -> {
+                onPageChanging()
+                navigation.replaceRoute(request.route.toNaviampRoute())
+                publishNavigation(clearDetails = false, nowPlayingOpen = stateStore.state.value.shell.shellChrome.nowPlayingOpen)
+            }
             NaviampCoreCommand.Navigation.OpenNowPlaying -> openNowPlaying()
             NaviampCoreCommand.Navigation.CloseNowPlaying -> setNowPlayingOpen(false)
-            NaviampCoreCommand.Navigation.BackFromAlbum -> closeAlbum()
-            NaviampCoreCommand.Navigation.BackFromArtist -> closeArtist()
-            NaviampCoreCommand.Navigation.BackFromPlaylist -> closePlaylist()
+            NaviampCoreCommand.Navigation.Back -> back()
         }
         return NaviampCoreImmediateCommandResult.Handled()
     }
 
-    fun recordAlbumOpened(backRouteOverride: NaviampRoute? = null) {
-        navigation.recordAlbumDetailOpened(
-            backRouteOverride = backRouteOverride,
-            openedFromNowPlaying = stateStore.state.value.shell.shellChrome.nowPlayingOpen,
-        )
-    }
-
-    fun openAlbumDetail(backRouteOverride: NaviampRoute? = null) {
-        recordAlbumOpened(backRouteOverride)
-        navigation.navigate(NaviampRoute.AlbumDetail)
-        publishDetailRoute()
-    }
-
-    fun recordArtistOpened(
-        artist: Artist,
-        backRouteOverride: NaviampRoute? = null,
-        pushCurrentArtist: Boolean = true,
-    ) {
-        navigation.recordArtistDetailOpened(
-            artist = artist,
-            backRouteOverride = backRouteOverride,
-            pushCurrentArtist = pushCurrentArtist,
-            openedFromNowPlaying = stateStore.state.value.shell.shellChrome.nowPlayingOpen,
-        )
-    }
-
-    fun openArtistDetail(
-        artist: Artist,
-        backRouteOverride: NaviampRoute? = null,
-        pushCurrentArtist: Boolean = true,
-    ) {
-        recordArtistOpened(artist, backRouteOverride, pushCurrentArtist)
-        navigation.navigate(NaviampRoute.ArtistDetail)
-        publishDetailRoute()
-    }
-
-    fun updateActiveArtist(artist: Artist) {
-        navigation.updateActiveArtist(artist)
-    }
-
-    fun openDiscoveryPage() {
-        navigation.navigate(NaviampRoute.Home)
-        publishDetailRoute()
-        stateStore.updateShell { it.copy(shellChrome = it.shellChrome.copy(selectedRoute = app.naviamp.ui.SharedRoute.Home)) }
-    }
-
-    fun returnFromDiscoveryPage(route: app.naviamp.ui.SharedRoute) {
-        navigation.navigate(route.toNaviampRoute())
-        stateStore.updateShell { it.copy(shellChrome = it.shellChrome.copy(selectedRoute = route)) }
-    }
-
-    fun openPlaylistDetail() {
-        navigation.recordPlaylistDetailOpened()
-        navigation.navigate(NaviampRoute.PlaylistDetail)
-        publishDetailRoute()
-    }
-
-    fun openNowPlaying() {
-        setNowPlayingOpen(true)
-    }
-
-    fun restoreNowPlayingOpen() {
-        setNowPlayingOpen(open = true, persist = false)
-    }
-
-    fun resetAfterDatabaseClear() {
-        selectRoute(NaviampRoute.Settings)
-    }
-
-    private fun publishDetailRoute() {
-        setNowPlayingOpen(false)
-    }
-
-    private fun selectRoute(route: NaviampRoute) {
-        if (stateStore.state.value.shell.home.providerDiscovery?.let { it.artistPage || it.browser != null } == true) onLeaveDiscovery()
-        navigation.navigate(route)
-        navigation.updateLastContentRoute(route)
-        navigation.clearDetailHistory()
-        stateStore.updateShell { shell ->
-            shell.copy(
-                shellChrome = shell.shellChrome.copy(
-                    selectedRoute = route.toSharedRoute(),
-                    nowPlayingOpen = false,
-                ),
-                albumDetail = NaviampAlbumDetailScreenUi(),
-                artistDetail = NaviampArtistDetailScreenUi(),
-                playlistDetail = NaviampPlaylistDetailScreenUi(),
-                home = shell.home.copy(collectionPage = if (route == NaviampRoute.Home) null else shell.home.collectionPage,
-                    providerDiscovery = shell.home.providerDiscovery?.copy(artistDetail = null, artistPage = false,
-                        artistBackStack = emptyList(), releasePage = null)),
-            )
-        }
+    fun openPage(page: NaviampNavigationPage) {
+        val changing = !navigation.currentEntry.page.sameDestination(page)
+        if (changing) onPageChanging()
+        navigation.openPage(page, stateStore.state.value.shell.shellChrome.nowPlayingOpen)
+        publishNavigation(clearDetails = changing)
         persistNowPlayingOpen(false)
     }
 
-    private fun setNowPlayingOpen(open: Boolean, persist: Boolean = true) {
-        stateStore.updateShell { shell ->
-            shell.copy(shellChrome = shell.shellChrome.copy(nowPlayingOpen = open))
+    fun openMediaPage(route: NaviampRoute, item: SharedMediaItemUi) {
+        require(route == NaviampRoute.AlbumDetail || route == NaviampRoute.ArtistDetail || route == NaviampRoute.PlaylistDetail)
+        openPage(NaviampCoreMediaPage(route, item))
+    }
+
+    fun openHomeCollection(sectionId: String) = openPage(NaviampCoreHomeCollectionPage(sectionId))
+
+    fun openDiscoveryPage() {
+        val discovery = stateStore.state.value.shell.home.providerDiscovery
+        openPage(NaviampCoreDiscoveryPage(discovery?.sourceId, discovery?.sourceGeneration ?: 0))
+    }
+
+    fun closeDiscoveryPage() {
+        if (navigation.currentEntry.page is NaviampCoreDiscoveryPage) back()
+    }
+
+    fun back() {
+        if (!navigation.canGoBack) return
+        onPageChanging()
+        var entry = navigation.back() ?: return
+        while (!isRestorable(entry.page)) {
+            entry = navigation.back() ?: run {
+                navigation.reset(NaviampRoute.Home)
+                navigation.currentEntry
+            }
         }
+        publishNavigation(clearDetails = true)
+        when (val page = entry.page) {
+            is NaviampCoreMediaPage -> {
+                val action = when (page.route) {
+                    NaviampRoute.AlbumDetail -> NaviampMediaItemCommand.Album(NaviampArtistAlbumCommand.Select)
+                    NaviampRoute.ArtistDetail -> NaviampMediaItemCommand.Artist(NaviampArtistMediaCommand.Select)
+                    NaviampRoute.PlaylistDetail -> NaviampMediaItemCommand.Playlist(NaviampPlaylistMediaCommand.Select)
+                    else -> error("Invalid media destination: ${page.route}")
+                }
+                restoreCommand(NaviampCoreCommand.Media.ItemAction(NaviampMediaItemActionRequest(page.item, action)))
+            }
+            is NaviampCoreHomeCollectionPage -> restoreCommand(NaviampCoreCommand.Home.OpenCollection(page.sectionId))
+            is NaviampCoreDiscoveryPage, is NaviampRoutePage -> Unit
+            else -> error("Unknown navigation page: $page")
+        }
+        setNowPlayingOpen(entry.reopenNowPlaying)
+    }
+
+    fun openNowPlaying() = setNowPlayingOpen(true)
+
+    fun restoreNowPlayingOpen() = setNowPlayingOpen(open = true, persist = false)
+
+    fun resetAfterDatabaseClear() = resetRoot(NaviampRoute.Settings)
+
+    fun resetForSourceChange() = resetRoot(navigation.state.value.lastContentRoute)
+
+    private fun selectRoute(route: NaviampRoute) {
+        when (route) {
+            NaviampRoute.Home, NaviampRoute.Playlists, NaviampRoute.Library, NaviampRoute.Radio,
+            NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings -> resetRoot(route)
+            else -> openPage(NaviampRoutePage(route))
+        }
+    }
+
+    private fun resetRoot(route: NaviampRoute) {
+        onPageChanging()
+        onResetDiscovery()
+        navigation.reset(route)
+        stateStore.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery = shell.home.providerDiscovery?.copy(
+            artistDetail = null, artistPage = false, artistBackStack = emptyList(), releasePage = null,
+            browser = null, requestsOpen = false,
+        ))) }
+        publishNavigation(clearDetails = true)
+        persistNowPlayingOpen(false)
+    }
+
+    private fun isRestorable(page: NaviampNavigationPage): Boolean = when (page) {
+        is NaviampCoreDiscoveryPage -> stateStore.state.value.shell.home.providerDiscovery?.let {
+            it.sourceId == page.sourceId && it.sourceGeneration == page.sourceGeneration
+        } == true
+        is NaviampCoreHomeCollectionPage -> stateStore.state.value.shell.home.content.collectionSections.any {
+            it.id == page.sectionId && it.visible
+        }
+        else -> true
+    }
+
+    private fun setNowPlayingOpen(open: Boolean, persist: Boolean = true) {
+        stateStore.updateShell { shell -> shell.copy(shellChrome = shell.shellChrome.copy(nowPlayingOpen = open)) }
         if (persist) persistNowPlayingOpen(open)
     }
 
-    private fun closeAlbum() {
-        when (val result = navigation.closeActiveDetail(NaviampDetailKind.Album)) {
-            is NaviampDetailBackCommand.Navigate -> {
-                navigation.navigate(result.route)
-                stateStore.updateShell { shell ->
-                    shell.copy(
-                        shellChrome = shell.shellChrome.copy(selectedRoute = result.route.toSharedRoute()),
-                        albumDetail = NaviampAlbumDetailScreenUi(),
-                    )
-                }
-                if (result.reopenNowPlaying) setNowPlayingOpen(true)
-            }
-            is NaviampDetailBackCommand.OpenArtist ->
-                error("Album detail history returned an artist destination.")
-        }
-    }
-
-    private fun closeArtist() {
-        when (val result = navigation.closeActiveDetail(NaviampDetailKind.Artist)) {
-            is NaviampDetailBackCommand.Navigate -> {
-                navigation.navigate(result.route)
-                stateStore.updateShell { shell ->
-                    shell.copy(
-                        shellChrome = shell.shellChrome.copy(selectedRoute = result.route.toSharedRoute()),
-                        artistDetail = NaviampArtistDetailScreenUi(),
-                    )
-                }
-                if (result.reopenNowPlaying) setNowPlayingOpen(true)
-            }
-            is NaviampDetailBackCommand.OpenArtist -> artistNavigator.openArtist(result.artist)
-        }
-    }
-
-    private fun closePlaylist() {
-        val fallback = if (stateStore.state.value.shell.home.collectionPage != null) {
-            NaviampRoute.Home
-        } else {
-            NaviampRoute.Playlists
-        }
-        val result = navigation.closePlaylistDetail(fallback)
-        stateStore.updateShell { shell ->
-            shell.copy(playlistDetail = NaviampPlaylistDetailScreenUi())
-        }
-        when (result) {
-            is NaviampDetailBackCommand.OpenArtist -> {
-                // Mark this as a continuation before loading, preserving the artist's origin/stack.
-                navigation.navigate(NaviampRoute.ArtistDetail)
-                artistNavigator.openArtist(result.artist)
-            }
-            is NaviampDetailBackCommand.Navigate -> {
-                navigation.navigate(result.route)
-                stateStore.updateShell { shell -> shell.copy(
-                    shellChrome = shell.shellChrome.copy(selectedRoute = result.route.toSharedRoute()),
-                ) }
-            }
-        }
-    }
-
-    private fun publishNavigation() {
-        val navigationState = navigation.state.value
-        stateStore.updateShell { shell ->
-            shell.copy(
-                shellChrome = shell.shellChrome.copy(
-                    selectedRoute = navigationState.route.toSharedRoute(),
-                    nowPlayingOpen = navigationState.route == NaviampRoute.Player,
-                ),
-            )
-        }
+    private fun publishNavigation(clearDetails: Boolean, nowPlayingOpen: Boolean = false) {
+        stateStore.updateShell { shell -> shell.copy(
+            shellChrome = shell.shellChrome.copy(
+                selectedRoute = navigation.currentEntry.contentRoute.toSharedRoute(),
+                nowPlayingOpen = nowPlayingOpen,
+                canNavigateBack = navigation.canGoBack,
+            ),
+            albumDetail = if (clearDetails) NaviampAlbumDetailScreenUi() else shell.albumDetail,
+            artistDetail = if (clearDetails) NaviampArtistDetailScreenUi() else shell.artistDetail,
+            playlistDetail = if (clearDetails) NaviampPlaylistDetailScreenUi() else shell.playlistDetail,
+            home = if (clearDetails) shell.home.copy(collectionPage = null) else shell.home,
+        ) }
     }
 }

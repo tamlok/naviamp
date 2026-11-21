@@ -1,154 +1,79 @@
 package app.naviamp.app
 
-import app.naviamp.domain.Artist
-import app.naviamp.domain.ArtistId
 import app.naviamp.domain.app.NaviampNavigationState
 import app.naviamp.domain.app.NaviampRoute
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class NaviampNavigationControllerTest {
-    @Test fun playlistBackPreservesTheOpeningArtistAndItsNestedHistory() {
-        val controller = NaviampNavigationController(NaviampNavigationState(route = NaviampRoute.Library))
-        controller.recordArtistDetailOpened(artist("first"))
-        controller.navigate(NaviampRoute.ArtistDetail)
-        controller.recordArtistDetailOpened(artist("next"))
-        controller.recordPlaylistDetailOpened()
-        controller.navigate(NaviampRoute.PlaylistDetail)
-        controller.recordArtistDetailOpened(artist("playlist-track-artist"))
-        controller.navigate(NaviampRoute.ArtistDetail)
-        assertEquals(NaviampDetailBackCommand.Navigate(NaviampRoute.PlaylistDetail), controller.closeActiveDetail(NaviampDetailKind.Artist))
-        controller.navigate(NaviampRoute.PlaylistDetail)
-        assertEquals(NaviampDetailBackCommand.OpenArtist(artist("next")), controller.closePlaylistDetail(NaviampRoute.Playlists))
-        controller.navigate(NaviampRoute.ArtistDetail)
-        controller.recordArtistDetailOpened(artist("next"), pushCurrentArtist = false)
-        assertEquals(NaviampDetailBackCommand.OpenArtist(artist("first")), controller.closeActiveDetail(NaviampDetailKind.Artist))
-        assertEquals(NaviampDetailBackCommand.Navigate(NaviampRoute.Library), controller.closeActiveDetail(NaviampDetailKind.Artist))
+    @Test fun mixedPagesReturnInVisitOrderIncludingDifferentItemsOfTheSameKind() {
+        val navigation = NaviampNavigationController(NaviampNavigationState(NaviampRoute.Library))
+        val pages = listOf(
+            MediaPage(NaviampRoute.ArtistDetail, "first"),
+            MediaPage(NaviampRoute.ArtistDetail, "second"),
+            MediaPage(NaviampRoute.PlaylistDetail, "playlist"),
+            MediaPage(NaviampRoute.AlbumDetail, "album"),
+        )
+        pages.forEach { navigation.openPage(it) }
+        for (page in pages.dropLast(1).asReversed()) {
+            assertEquals(page, navigation.back()?.page)
+            assertEquals(page.route, navigation.state.value.route)
+            assertEquals(NaviampRoute.Library, navigation.state.value.lastContentRoute)
+        }
+        assertEquals(NaviampRoutePage(NaviampRoute.Library), navigation.back()?.page)
+        assertFalse(navigation.canGoBack)
+        assertNull(navigation.back())
+        assertEquals(NaviampRoute.Library, navigation.state.value.route)
     }
 
-    @Test fun otherPlaylistOriginsAndClearedHistoryDoNotResurrectAnArtist() {
-        val controller = NaviampNavigationController()
-        controller.recordArtistDetailOpened(artist("first"))
-        controller.navigate(NaviampRoute.ArtistDetail)
-        controller.recordPlaylistDetailOpened()
-        controller.clearDetailHistory()
-        assertEquals(NaviampDetailBackCommand.Navigate(NaviampRoute.Playlists), controller.closePlaylistDetail(NaviampRoute.Playlists))
-        controller.recordArtistDetailOpened(artist("second"))
-        controller.navigate(NaviampRoute.Home)
-        controller.recordPlaylistDetailOpened()
-        assertEquals(NaviampDetailBackCommand.Navigate(NaviampRoute.Home), controller.closePlaylistDetail(NaviampRoute.Home))
-    }
-    @Test
-    fun routeAndLastContentRouteChangeIndependently() {
-        val controller = NaviampNavigationController(
-            NaviampNavigationState(
-                route = NaviampRoute.Library,
-                lastContentRoute = NaviampRoute.Search,
-            ),
-        )
-
-        controller.navigate(NaviampRoute.Settings)
-
-        assertEquals(NaviampRoute.Settings, controller.state.value.route)
-        assertEquals(NaviampRoute.Search, controller.state.value.lastContentRoute)
-
-        controller.updateLastContentRoute(NaviampRoute.Playlists)
-
-        assertEquals(NaviampRoute.Settings, controller.state.value.route)
-        assertEquals(NaviampRoute.Playlists, controller.state.value.lastContentRoute)
+    @Test fun refreshingTheSameDestinationDoesNotAddAnotherBackStep() {
+        val navigation = NaviampNavigationController()
+        val page = MediaPage(NaviampRoute.PlaylistDetail, "playlist")
+        navigation.openPage(page)
+        navigation.openPage(page.copy())
+        assertEquals(NaviampRoute.Home, navigation.back()?.page?.route)
+        assertNull(navigation.back())
     }
 
-    @Test
-    fun replacesRestoredNavigationStateAsOneSnapshot() {
-        val controller = NaviampNavigationController()
-        val restored = NaviampNavigationState(
-            route = NaviampRoute.Player,
-            lastContentRoute = NaviampRoute.AlbumDetail,
-        )
-
-        controller.replace(restored)
-
-        assertEquals(restored, controller.state.value)
+    @Test fun rootResetDiscardsEveryNestedDestinationEvenWhenReselectingTheSameRoot() {
+        for (route in listOf(NaviampRoute.Home, NaviampRoute.Playlists, NaviampRoute.Library,
+            NaviampRoute.Radio, NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings)) {
+            val navigation = NaviampNavigationController(NaviampNavigationState(route))
+            navigation.openPage(NaviampRoutePage(NaviampRoute.Search))
+            navigation.openPage(MediaPage(NaviampRoute.AlbumDetail, "album"))
+            navigation.reset(route)
+            assertNull(navigation.back())
+            assertEquals(NaviampNavigationState(route, route), navigation.state.value)
+        }
     }
 
-    @Test
-    fun albumBackUsesTheOpeningRouteAndPlayerContentRoute() {
-        val controller = NaviampNavigationController(
-            NaviampNavigationState(
-                route = NaviampRoute.ArtistDetail,
-                lastContentRoute = NaviampRoute.Home,
-            ),
-        )
-
-        controller.recordAlbumDetailOpened()
-        assertEquals(
-            NaviampDetailBackCommand.Navigate(NaviampRoute.ArtistDetail),
-            controller.closeActiveDetail(NaviampDetailKind.Album),
-        )
-
-        controller.replace(controller.state.value.copy(route = NaviampRoute.Player))
-        controller.recordAlbumDetailOpened()
-        assertEquals(
-            NaviampDetailBackCommand.Navigate(NaviampRoute.Home),
-            controller.closeActiveDetail(NaviampDetailKind.Album),
-        )
+    @Test fun originRetainsPlayerVisibilityAndNestedContentSelection() {
+        val navigation = NaviampNavigationController()
+        navigation.openPage(NaviampRoutePage(NaviampRoute.Search))
+        navigation.openPage(MediaPage(NaviampRoute.ArtistDetail, "artist"), openedFromNowPlaying = true)
+        navigation.openPage(MediaPage(NaviampRoute.AlbumDetail, "album"))
+        assertFalse(navigation.back()!!.reopenNowPlaying)
+        val origin = navigation.back()!!
+        assertEquals(NaviampRoute.Search, origin.page.route)
+        assertEquals(NaviampRoute.Search, origin.contentRoute)
+        assertTrue(origin.reopenNowPlaying)
+        assertFalse(navigation.back()!!.reopenNowPlaying)
     }
 
-    @Test
-    fun detailBackPreservesNowPlayingAsTheVisibleOrigin() {
-        val controller = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.Home, lastContentRoute = NaviampRoute.Home),
-        )
-
-        controller.recordArtistDetailOpened(
-            artist = artist("linked"),
-            openedFromNowPlaying = true,
-        )
-
-        assertEquals(
-            NaviampDetailBackCommand.Navigate(NaviampRoute.Home, reopenNowPlaying = true),
-            controller.closeActiveDetail(NaviampDetailKind.Artist),
-        )
+    @Test fun replacingASurfaceRouteDoesNotAddHistoryAndProcessRestorationClearsIt() {
+        val navigation = NaviampNavigationController()
+        navigation.openPage(NaviampRoutePage(NaviampRoute.Search))
+        navigation.replaceRoute(NaviampRoute.ArtistMix)
+        assertEquals(NaviampRoute.Home, navigation.back()?.page?.route)
+        navigation.openPage(MediaPage(NaviampRoute.PlaylistDetail, "playlist"))
+        navigation.replace(NaviampNavigationState(NaviampRoute.Player, NaviampRoute.Radio))
+        assertEquals(NaviampNavigationState(NaviampRoute.Radio, NaviampRoute.Radio), navigation.state.value)
+        assertTrue(navigation.currentEntry.reopenNowPlaying)
+        assertNull(navigation.back())
     }
 
-    @Test
-    fun nestedArtistHistoryIsOwnedAndPoppedByTheSharedController() {
-        val current = artist("current")
-        val next = artist("next")
-        val controller = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.Library),
-        )
-        controller.recordArtistDetailOpened(current)
-        controller.navigate(NaviampRoute.ArtistDetail)
-        controller.recordArtistDetailOpened(next)
-
-        assertEquals(
-            NaviampDetailBackCommand.OpenArtist(current),
-            controller.closeActiveDetail(NaviampDetailKind.Artist),
-        )
-        assertEquals(
-            NaviampDetailBackCommand.Navigate(NaviampRoute.Library),
-            controller.closeActiveDetail(NaviampDetailKind.Artist),
-        )
-    }
-
-    @Test
-    fun enteringArtistFromAnotherRootClearsStaleHistory() {
-        val controller = NaviampNavigationController(
-            NaviampNavigationState(route = NaviampRoute.Library),
-        )
-        controller.recordArtistDetailOpened(artist("first"))
-        controller.navigate(NaviampRoute.ArtistDetail)
-        controller.recordArtistDetailOpened(artist("nested"))
-        controller.navigate(NaviampRoute.Search)
-
-        controller.recordArtistDetailOpened(artist("fresh"))
-
-        assertEquals(
-            NaviampDetailBackCommand.Navigate(NaviampRoute.Search),
-            controller.closeActiveDetail(NaviampDetailKind.Artist),
-        )
-    }
-
-    private fun artist(id: String) = Artist(ArtistId(id), "Artist $id")
+    private data class MediaPage(override val route: NaviampRoute, val id: String) : NaviampNavigationPage
 }

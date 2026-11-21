@@ -80,9 +80,7 @@ class NaviampCoreActionGraphTest {
         assertIs<NaviampCoreCommand.Settings.ChangePlayback>(handler.dispatched[2])
         assertIs<NaviampCoreCommand.Search.ChangeQuery>(handler.dispatched[4])
         assertIs<NaviampCoreCommand.Library.TrackAction>(handler.dispatched[6])
-        assertTrue(handler.dispatched.contains(NaviampCoreCommand.Navigation.BackFromAlbum))
-        assertTrue(handler.dispatched.contains(NaviampCoreCommand.Navigation.BackFromArtist))
-        assertTrue(handler.dispatched.contains(NaviampCoreCommand.Navigation.BackFromPlaylist))
+        assertTrue(handler.dispatched.contains(NaviampCoreCommand.Navigation.Back))
     }
 
     @Test

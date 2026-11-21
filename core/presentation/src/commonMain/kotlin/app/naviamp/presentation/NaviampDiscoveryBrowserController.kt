@@ -13,8 +13,10 @@ internal class NaviampDiscoveryBrowserController(
     private val provider: () -> MediaProvider?,
     private val nowMillis: () -> Long,
     private val showPage: () -> Unit,
+    private val leaveSurface: () -> Unit,
+    private val currentNavigationEpoch: () -> Long,
     private val stopPreview: () -> Unit,
-    private val openAlbum: suspend (ProviderCatalogAlbum) -> Unit,
+    private val openAlbum: suspend (ProviderCatalogAlbum, () -> Boolean) -> Unit,
     private val openExternal: (String) -> Unit,
     private val playPreview: suspend (app.naviamp.domain.Track) -> Unit,
     private val refreshHome: suspend (MediaProvider) -> Unit,
@@ -89,6 +91,7 @@ internal class NaviampDiscoveryBrowserController(
                 return NaviampCoreImmediateCommandResult.Handled()
             DiscoveryBrowseAction.Search -> { revision++; read?.cancel() }
             DiscoveryBrowseAction.Close -> {
+                if (state()?.browser == null) return NaviampCoreImmediateCommandResult.Handled()
                 revision++; read?.cancel(); stopPreview()
                 when {
                     state()?.browser?.chartGenreId != null -> change { it.copy(chartGenreId = null, status = it.charts.status, loading = false) }
@@ -99,7 +102,7 @@ internal class NaviampDiscoveryBrowserController(
                             genreOrder = latest?.genreOrder ?: previous.genreOrder,
                             blockedGenres = latest?.blockedGenres ?: previous.blockedGenres, uncertainGenres = latest?.uncertainGenres.orEmpty(),
                             total = latest?.total, nextOffset = latest?.nextOffset, charts = latest?.charts ?: previous.charts)) } }
-                    else -> reset()
+                    else -> { reset(); leaveSurface() }
                 }
                 return NaviampCoreImmediateCommandResult.Handled()
             }
@@ -138,12 +141,13 @@ internal class NaviampDiscoveryBrowserController(
     suspend fun execute(action: DiscoveryBrowseAction) {
         val index = scheduled.indexOfFirst { it.first === action }; if (index < 0) return
         val token = scheduled.removeAt(index).second; if (token != revision) return
+        val navigationEpoch = currentNavigationEpoch()
         val owner = provider()
         val native = owner?.discovery
         if (owner == null || native == null) { change { it.copy(loading = false, status = ProviderDiscoveryStatus.Unsupported) }; return }
         val task = currentCoroutineContext()[Job]
         read = task
-        fun current() = token == revision && isCurrentProvider(owner)
+        fun current() = token == revision && navigationEpoch == currentNavigationEpoch() && isCurrentProvider(owner)
         try {
             if (state()?.browser?.page == DiscoveryBrowsePage.Hub) return
             if (action is DiscoveryBrowseAction.BlockGenre) {
@@ -190,7 +194,7 @@ internal class NaviampDiscoveryBrowserController(
                 }
                 return
             }
-            if (action is DiscoveryBrowseAction.Album) { openAlbum(action.album); return }
+            if (action is DiscoveryBrowseAction.Album) { openAlbum(action.album, ::current); return }
             if (state()?.browser?.page == DiscoveryBrowsePage.Search) {
                 val screen = state()?.browser ?: return
                 val query = screen.query.trim()

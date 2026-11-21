@@ -40,6 +40,34 @@ Each platform host owns only operating-system integration and constructs impleme
 
 The composition boundary will use explicit dependency construction initially. A dependency-injection framework will be introduced only if concrete lifecycle or graph-management needs justify it.
 
+### Page navigation
+
+`NaviampNavigationController` owns one in-memory history of typed page descriptors. The shared
+presentation controller publishes the visible route and restores media through the ordinary Core
+selection commands; it never restores snapshots of playback, settings, providers, or the full shell.
+Media identity includes both kind and ID. Refreshing the same destination does not add a Back step.
+
+| Page family | Navigation policy |
+| --- | --- |
+| Home, Playlists, Library, Radio, My | Selecting a primary destination starts a new history. |
+| Downloads, Settings | My tabs replace the root; their existing Back-to-My behavior remains. |
+| Search and all five mix builders | Nested routes push the opening page and expose a shared Back control. |
+| Album, artist, playlist details | One mixed history restores the selected item and its actual opening page. |
+| Home collections | History records the section ID; unavailable sections are skipped on return. |
+| Provider discovery | History records a source-scoped surface boundary. Internal browser, artist and release history stays with the discovery controller, along with live request state. |
+| Expanded player | Opening/closing preserves browsing history; a page opened from the player records whether Back should reopen it. |
+| Settings subpages, connection/account forms, dialogs and drawers | Existing shared local Back/dismiss handlers run before page history. TV retains its focus and preview behavior. |
+
+Header, system and mouse Back follow the visible page; mouse Back uses the shared dispatcher so
+dialogs and drawers close first. Phone and TV resolve retained Home subpages in their respective
+render order. TV Settings restores its background route without adding a history entry.
+
+Selection commands prepare navigation before deferred loading. Navigation changes invalidate queued
+selection tokens and late detail responses, preventing Back or a root switch from reopening a departed
+page. Source changes clear page history; discovery returns also validate their source generation.
+Process restoration starts a fresh history rather than persisting this transient stack.
+
+
 ### Cross-platform naming
 
 Files and types that implement the same architectural role must use parallel, role-specific names so their relationship is apparent in search results and directory views. Use a neutral or `Naviamp` name for the shared contract/owner and a platform prefix for a genuine host implementation of that role. For example, a shared `NaviampAppShellActionAdapter` may have `AndroidAppShellActionAdapter`, `DesktopAppShellActionAdapter`, and `IosAppShellActionAdapter` counterparts.

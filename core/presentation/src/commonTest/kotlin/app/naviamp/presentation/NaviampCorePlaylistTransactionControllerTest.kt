@@ -353,7 +353,7 @@ class NaviampCorePlaylistTransactionControllerTest {
         val navigation = NaviampCoreNavigationController(
             NaviampNavigationController(),
             store,
-            NaviampCoreArtistNavigator { error("Not expected") },
+            restoreCommand = { error("Not expected") },
         )
         var active: MediaProvider? = provider
         val source = NaviampCoreMediaProviderSource { active }

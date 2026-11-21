@@ -36,17 +36,17 @@ class NaviampCoreSystemBackPolicyTest {
         assertNull(page.copy(shell = page.shell.copy(shellChrome = page.shell.shellChrome.copy(selectedRoute = app.naviamp.ui.SharedRoute.Search))).systemBackCommand())
     }
     @Test
-    fun detailScreensUseTheirSharedBackCommands() {
+    fun manuallyRenderedDetailsUseTheGenericPageBackCommand() {
         assertEquals(
-            NaviampCoreCommand.Navigation.BackFromPlaylist,
+            NaviampCoreCommand.Navigation.Back,
             stateWithPlaylist().systemBackCommand(),
         )
         assertEquals(
-            NaviampCoreCommand.Navigation.BackFromAlbum,
+            NaviampCoreCommand.Navigation.Back,
             stateWithAlbum().systemBackCommand(),
         )
         assertEquals(
-            NaviampCoreCommand.Navigation.BackFromArtist,
+            NaviampCoreCommand.Navigation.Back,
             stateWithArtist().systemBackCommand(),
         )
     }
@@ -72,6 +72,36 @@ class NaviampCoreSystemBackPolicyTest {
     @Test
     fun rootScreenLetsTheHostHandleBack() {
         assertNull(NaviampCoreState().systemBackCommand())
+    }
+
+    @Test
+    fun nestedRoutesConsumeBackOnlyWhenPageHistoryExists() {
+        val initial = NaviampCoreState()
+        listOf(app.naviamp.ui.SharedRoute.Search, app.naviamp.ui.SharedRoute.ArtistMix,
+            app.naviamp.ui.SharedRoute.AlbumMix, app.naviamp.ui.SharedRoute.GenreMix,
+            app.naviamp.ui.SharedRoute.SonicPath, app.naviamp.ui.SharedRoute.SonicMix).forEach { route ->
+            val page = initial.copy(shell = initial.shell.copy(
+                shellChrome = initial.shell.shellChrome.copy(selectedRoute = route, canNavigateBack = true)))
+            assertEquals(NaviampCoreCommand.Navigation.Back, page.systemBackCommand(), route.name)
+            assertNull(page.copy(shell = page.shell.copy(
+                shellChrome = page.shell.shellChrome.copy(canNavigateBack = false))).systemBackCommand(), route.name)
+        }
+    }
+
+    @Test
+    fun visibleMediaConsumesBackBeforeRetainedHomePages() {
+        val discovery = app.naviamp.ui.SharedProviderDiscoveryUi("aurral", requestsOpen = true,
+            artistPage = true,
+            artistDetail = app.naviamp.ui.SharedProviderDiscoveryArtistUi(
+                app.naviamp.domain.provider.ProviderDiscoveryArtist("artist", "Artist")),
+            browser = app.naviamp.domain.provider.DiscoveryBrowserState())
+        listOf(stateWithAlbum(), stateWithArtist(), stateWithPlaylist()).forEach { detail ->
+            val page = detail.copy(shell = detail.shell.copy(home = detail.shell.home.copy(
+                providerDiscovery = discovery,
+                collectionPage = SharedHomeCollectionPageUi(
+                    SharedHomeCollectionSectionUi("section", "SECTION", emptyList())))))
+            assertEquals(NaviampCoreCommand.Navigation.Back, page.systemBackCommand())
+        }
     }
 
     @Test

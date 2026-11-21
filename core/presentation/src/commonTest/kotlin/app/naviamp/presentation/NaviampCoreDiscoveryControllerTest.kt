@@ -14,6 +14,179 @@ import kotlin.test.*
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampCoreDiscoveryControllerTest {
+    @Test fun browserArtistAndReleaseParentsExhaustBeforeExactlyOneBoundaryBack() = runTest {
+        val h = DiscoveryHarness()
+        val origin = h.history.currentEntry
+        suspend fun send(action: DiscoveryBrowseAction) {
+            val command = NaviampCoreCommand.Home.Browse(action)
+            h.controller.dispatch(command); h.controller.execute(command)
+        }
+        repeat(2) { send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Hub)) }
+        send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+        h.open(First); h.open(Second); h.openRelease()
+        h.back()
+        assertEquals(Second.id, h.detail().artist.id)
+        h.back()
+        assertEquals(First.id, h.detail().artist.id)
+        h.back()
+        assertNull(h.discovery().artistDetail)
+        assertEquals(DiscoveryBrowsePage.Search, h.discovery().browser?.page)
+        assertTrue(h.returned.isEmpty())
+        assertIs<NaviampCoreDiscoveryPage>(h.history.currentEntry.page)
+        send(DiscoveryBrowseAction.Close)
+        assertEquals(DiscoveryBrowsePage.Hub, h.discovery().browser?.page)
+        assertTrue(h.returned.isEmpty())
+        send(DiscoveryBrowseAction.Close)
+        assertEquals(origin, h.history.currentEntry)
+        assertEquals(listOf(SharedRoute.Search), h.returned)
+        send(DiscoveryBrowseAction.Close); h.back()
+        h.controller.resetNavigation()
+        assertEquals(origin, h.history.currentEntry)
+        assertEquals(1, h.returned.size)
+        send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Hub))
+        send(DiscoveryBrowseAction.Close)
+        assertEquals(origin, h.history.currentEntry)
+        assertEquals(2, h.returned.size)
+    }
+
+    @Test fun navigationResetPreservesFeedSourceAndAcquisitionLedgerWithoutPopping() = runTest {
+        var submissions = 0
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun requestAlbum(artist: ProviderDiscoveryArtist, release: ProviderDiscoveryRelease): ProviderDiscoveryOperation {
+                submissions++
+                return ProviderDiscoveryOperation(ProviderDiscoveryOperationStatus.Queued)
+            }
+        })
+        h.open(First); h.openRelease()
+        val request = h.releaseAction(ProviderDiscoveryAction.RequestAlbum(Release.id))
+        h.controller.dispatch(request); h.controller.execute(request)
+        h.controller.dispatch(NaviampCoreCommand.Home.ShowDiscoveryRequests)
+        val before = h.discovery()
+        val entry = h.history.currentEntry
+        h.controller.resetNavigation()
+        assertEquals(entry, h.history.currentEntry)
+        assertTrue(h.returned.isEmpty())
+        assertNull(h.discovery().artistDetail)
+        assertNull(h.discovery().releasePage)
+        assertNull(h.discovery().browser)
+        assertFalse(h.discovery().requestsOpen)
+        assertEquals(before.feed, h.discovery().feed)
+        assertEquals(before.sourceId, h.discovery().sourceId)
+        assertEquals(before.sourceGeneration, h.discovery().sourceGeneration)
+        assertEquals(before.acquisitions, h.discovery().acquisitions)
+        h.open(First); h.openRelease()
+        assertTrue(h.controller.dispatch(h.releaseAction(ProviderDiscoveryAction.RequestAlbum(Release.id))) is NaviampCoreImmediateCommandResult.Handled)
+        assertEquals(1, submissions)
+    }
+
+    @Test fun queuedLibraryLinksRequireTheirSchedulingEpochEvenWhenDiscoveryIsRetained() = runTest {
+        val libraryArtist = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("owned"), "Owned")
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist) = ProviderDiscoveryArtistResult(
+                ProviderDiscoveryStatus.Ready, ProviderDiscoveryArtistDetails(artist, libraryArtist = libraryArtist))
+        })
+        h.open(First)
+        val command = NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(First.id)
+        h.controller.dispatch(command)
+        h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+        assertEquals(First.id, h.detail().artist.id)
+        h.controller.execute(command)
+        assertEquals(0, h.libraryOpens)
+        assertEquals(SharedRoute.Search, h.store.state.value.shell.shellChrome.selectedRoute)
+    }
+
+    @Test fun queuedLibraryAndRequestCommandsCannotNavigateAfterRootOrSourceChanges() = runTest {
+        val libraryArtist = app.naviamp.domain.Artist(app.naviamp.domain.ArtistId("owned-artist"), "Owned")
+        val album = app.naviamp.domain.Album(app.naviamp.domain.AlbumId("owned-album"), "Owned", "Artist", null, null)
+        val native = object : DiscoveryNative() {
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist) = ProviderDiscoveryArtistResult(
+                ProviderDiscoveryStatus.Ready, ProviderDiscoveryArtistDetails(artist, libraryArtist = libraryArtist, releases = listOf(Release)))
+            override suspend fun releaseOwnership(release: DiscoveryReleaseGroupMbid) = ProviderDiscoveryReleaseOwnership(
+                ProviderDiscoveryStatus.Ready, ProviderDiscoveryReleaseAvailability.Available, libraryAlbum = album)
+        }
+        for (sourceChange in listOf(false, true)) {
+            val repository = MemoryDiscoveryAcquisitionRepository()
+            val record = DiscoveryAcquisitionRecord("saved", First.id, First.name, Release.id, true, Release.id, Release.title,
+                ProviderDiscoveryOperation(ProviderDiscoveryOperationStatus.Queued), DiscoveryAcquisitionPhase.Queued, 42L)
+            repository.save(DiscoveryAcquisitionScope("account-one", "account-one"), record)
+            val h = DiscoveryHarness(native, repository)
+            h.open(First); h.openRelease()
+            h.controller.dispatch(NaviampCoreCommand.Home.ShowDiscoveryRequests)
+            val commands = listOf(
+                NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(First.id),
+                NaviampCoreCommand.Home.OpenDiscoveryLibraryRelease(h.account, h.discovery().sourceGeneration, Release.id),
+                NaviampCoreCommand.Home.OpenDiscoveryRequest(h.account, h.discovery().sourceGeneration, record.id),
+            )
+            commands.forEach { h.controller.dispatch(it) }
+            if (sourceChange) {
+                h.account = "account-two"
+                h.active = discoveryProvider(native, h.account)
+                h.controller.resetForSourceChange()
+                h.navigation.resetForSourceChange()
+            } else h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Library))
+            val root = h.history.currentEntry
+            commands.forEach { h.controller.execute(it) }
+            assertEquals(root, h.history.currentEntry)
+            assertNull(h.discovery().artistDetail)
+            assertEquals(0, h.libraryOpens)
+            assertTrue(h.albumsOpened.isEmpty())
+            h.browse(First); h.openRelease()
+            commands.forEach { h.controller.execute(it) }
+            assertEquals(0, h.libraryOpens)
+            assertTrue(h.albumsOpened.isEmpty())
+            val currentArtist = NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(First.id)
+            h.controller.dispatch(currentArtist); h.controller.execute(currentArtist)
+            val currentAlbum = NaviampCoreCommand.Home.OpenDiscoveryLibraryRelease(h.account, h.discovery().sourceGeneration, Release.id)
+            h.controller.dispatch(currentAlbum); h.controller.execute(currentAlbum)
+            assertEquals(1, h.libraryOpens)
+            assertEquals(listOf(album), h.albumsOpened)
+        }
+    }
+
+    @Test fun nonCancellableCatalogResolutionCannotReopenAcrossRootSourceOrEpochChanges() = runTest {
+        for (change in listOf("root", "source", "epoch")) {
+            val entered = CompletableDeferred<Unit>()
+            val gate = CompletableDeferred<Unit>()
+            val album = ProviderCatalogAlbum(Release, First.name)
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun searchCatalog(query: String, scope: ProviderCatalogScope, offset: Int, limit: Int) =
+                    ProviderCatalogPage(ProviderDiscoveryStatus.Ready, albums = listOf(album))
+                override suspend fun releaseDetails(release: DiscoveryReleaseGroupMbid): ProviderDiscoveryReleaseDetails {
+                    entered.complete(Unit)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { gate.await() }
+                    return ProviderDiscoveryReleaseDetails(ProviderDiscoveryStatus.Ready, Release,
+                        listOf(ProviderDiscoveryArtistCredit(First.name, First.artistMbid)))
+                }
+            })
+            suspend fun send(action: DiscoveryBrowseAction) {
+                val command = NaviampCoreCommand.Home.Browse(action)
+                h.controller.dispatch(command); h.controller.execute(command)
+            }
+            send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+            send(DiscoveryBrowseAction.Query("Album")); send(DiscoveryBrowseAction.Search)
+            val opening = NaviampCoreCommand.Home.Browse(DiscoveryBrowseAction.Album(album))
+            h.controller.dispatch(opening)
+            val reading = launch { h.controller.execute(opening) }
+            entered.await()
+            when (change) {
+                "root" -> h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Radio))
+                "source" -> {
+                    h.account = "account-two"
+                    h.active = discoveryProvider(DiscoveryNative(), h.account)
+                    h.controller.resetForSourceChange()
+                    h.navigation.resetForSourceChange()
+                }
+                else -> h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+            }
+            val destination = h.history.currentEntry
+            gate.complete(Unit); reading.join()
+            assertEquals(destination, h.history.currentEntry, change)
+            assertNull(h.discovery().artistDetail, change)
+            assertNull(h.discovery().releasePage, change)
+            assertTrue(h.returned.isEmpty(), change)
+        }
+    }
+
     @Test fun refreshedCompanionCapabilitiesSurviveTheFirstHubOpenAfterAnExplicitAccountReset() = runTest {
         val h = DiscoveryHarness()
         h.active = object : MediaProvider by h.active { override val discoveryAccountScope = "new-companion" }
@@ -288,6 +461,7 @@ class NaviampCoreDiscoveryControllerTest {
         val h = DiscoveryHarness(native, repository)
         h.controller.dispatch(NaviampCoreCommand.Home.ShowDiscoveryRequests)
         val command = NaviampCoreCommand.Home.OpenDiscoveryRequest(h.account, h.discovery().sourceGeneration, record.id)
+        h.controller.dispatch(command)
         val opening = launch { h.controller.execute(command) }
         entered.await()
         h.account = "account-two"; h.active = discoveryProvider(DiscoveryNative(), h.account)
@@ -679,7 +853,8 @@ class NaviampCoreDiscoveryControllerTest {
         assertEquals(Second, h.detail().similar?.artists?.first())
         assertFalse(h.detail().samplesLoading)
         assertFalse(h.detail().similarLoading)
-        h.controller.execute(NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(First.id))
+        val command = NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(First.id)
+        h.controller.dispatch(command); h.controller.execute(command)
         assertEquals(0, h.libraryOpens)
     }
 
@@ -842,10 +1017,20 @@ private class DiscoveryHarness(native: ProviderDiscovery = DiscoveryNative(),
     val played = mutableListOf<app.naviamp.domain.Track>()
     val albumsOpened = mutableListOf<app.naviamp.domain.Album>()
     val returned = mutableListOf<SharedRoute>()
-    init { store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("aurral",
-        ProviderDiscoveryFeed(trending = listOf(First)))), shellChrome = it.shellChrome.copy(selectedRoute = SharedRoute.Search)) } }
-    val controller = NaviampCoreDiscoveryController(store, { if (decorateProviders) object : MediaProvider by active {} else active }, { account }, {}, { played += it }, { stops++ }, { libraryOpens++ }, {},
-        restoreRoute = { returned += it }, openLibraryAlbum = { albumsOpened += it }, acquisitionRepository = repository)
+    lateinit var controller: NaviampCoreDiscoveryController
+        private set
+    val history = app.naviamp.app.NaviampNavigationController()
+    val navigation = NaviampCoreNavigationController(history, store, { error("Unexpected media restoration") },
+        onResetDiscovery = { controller.resetNavigation() })
+    init {
+        store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("aurral",
+            ProviderDiscoveryFeed(trending = listOf(First))))) }
+        controller = NaviampCoreDiscoveryController(store, { if (decorateProviders) object : MediaProvider by active {} else active }, { account }, {}, { played += it }, { stops++ }, { libraryOpens++ }, {},
+            showPage = navigation::openDiscoveryPage,
+            leaveSurface = { navigation.closeDiscoveryPage(); returned += store.state.value.shell.shellChrome.selectedRoute },
+            currentNavigationEpoch = { navigation.epoch }, openLibraryAlbum = { albumsOpened += it }, acquisitionRepository = repository)
+        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+    }
     fun discovery() = store.state.value.shell.home.providerDiscovery!!
     fun detail() = discovery().artistDetail!!
     fun releaseAction(action: ProviderDiscoveryAction) = NaviampCoreCommand.Home.DiscoveryReleaseAction(account, discovery().sourceGeneration, Release.id, action)

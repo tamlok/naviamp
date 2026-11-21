@@ -98,6 +98,8 @@ fun createNaviampCoreActions(
     val shell = NaviampAppShellActions(
         navigationActions = NaviampShellNavigationActions(
             onRouteSelected = { send(NaviampCoreCommand.Navigation.SelectRoute(it)) },
+            onRouteReplaced = { send(NaviampCoreCommand.Navigation.ReplaceRoute(it)) },
+            onBack = { send(NaviampCoreCommand.Navigation.Back) },
             onOpenNowPlaying = { send(NaviampCoreCommand.Navigation.OpenNowPlaying) },
             onCloseNowPlaying = { send(NaviampCoreCommand.Navigation.CloseNowPlaying) },
         ),
@@ -238,7 +240,7 @@ fun createNaviampCoreActions(
             onSaveStation = { send(NaviampCoreCommand.Radio.SaveStation(it)) },
         ),
         albumDetailActions = NaviampAlbumDetailActions(
-            onBack = { send(NaviampCoreCommand.Navigation.BackFromAlbum) },
+            onBack = { send(NaviampCoreCommand.Navigation.Back) },
             onAlbumAction = { send(NaviampCoreCommand.Detail.Album(it)) },
             onTrackAction = { send(NaviampCoreCommand.Detail.AlbumTrack(it)) },
             onKeepDownloaded = { send(NaviampCoreCommand.Downloads.PrepareAlbum(it.id, it.title)) },
@@ -257,7 +259,7 @@ fun createNaviampCoreActions(
         ),
         artistDetailActions = NaviampArtistDetailActions(
             onFindInAurral = { source, artist -> send(NaviampCoreCommand.Home.FindInAurral(source, artistId = artist)) },
-            onBack = { send(NaviampCoreCommand.Navigation.BackFromArtist) },
+            onBack = { send(NaviampCoreCommand.Navigation.Back) },
             onArtistAction = { send(NaviampCoreCommand.Detail.Artist(it)) },
             onAlbumAction = { send(NaviampCoreCommand.Detail.ArtistAlbum(it)) },
             onPopularTrackAction = { send(NaviampCoreCommand.Detail.ArtistPopularTrack(it)) },
@@ -269,7 +271,7 @@ fun createNaviampCoreActions(
             onPlaylistsRefresh = { send(NaviampCoreCommand.Detail.RefreshArtistPlaylists(it)) },
         ),
         playlistDetailActions = NaviampPlaylistDetailActions(
-            onBack = { send(NaviampCoreCommand.Navigation.BackFromPlaylist) },
+            onBack = { send(NaviampCoreCommand.Navigation.Back) },
             onPlaylistAction = { send(NaviampCoreCommand.Playlists.Detail(it)) },
             onUpdateStandardPlaylist = { playlist, expectedTracks, tracks ->
                 handler.execute(NaviampCoreCommand.Playlists.UpdateTracks(playlist, tracks, expectedTracks.map { it.id }))

@@ -12,9 +12,7 @@ fun NaviampCoreState.systemBackCommand(): NaviampCoreCommand? = when {
         app.naviamp.ui.NaviampBackTarget.DiscoveryArtist -> NaviampCoreCommand.Home.DismissDiscoveryArtist
         app.naviamp.ui.NaviampBackTarget.DiscoveryBrowser -> NaviampCoreCommand.Home.Browse(app.naviamp.domain.provider.DiscoveryBrowseAction.Close)
         app.naviamp.ui.NaviampBackTarget.HomeCollection -> NaviampCoreCommand.Home.CloseCollection
-        app.naviamp.ui.NaviampBackTarget.Playlist -> NaviampCoreCommand.Navigation.BackFromPlaylist
-        app.naviamp.ui.NaviampBackTarget.Album -> NaviampCoreCommand.Navigation.BackFromAlbum
-        app.naviamp.ui.NaviampBackTarget.Artist -> NaviampCoreCommand.Navigation.BackFromArtist
+        app.naviamp.ui.NaviampBackTarget.Page -> NaviampCoreCommand.Navigation.Back
         null -> null
     }
 }

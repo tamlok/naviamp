@@ -1,6 +1,7 @@
 package app.naviamp.presentation
 
 import app.naviamp.domain.Playlist
+import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.domain.cache.KeepDownloadedCollectionKind
 import app.naviamp.domain.cache.KeepDownloadedRepository
 import app.naviamp.domain.navibeat.navibeatMixOrNull
@@ -64,6 +65,22 @@ class NaviampCorePlaylistBrowseController(
     private var listGeneration = 0L
     private var detailGeneration = 0L
     private var playlistsById = emptyMap<String, Playlist>()
+    private data class PreparedSelection(
+        val command: NaviampCoreCommand?,
+        val generation: Long,
+        val navigationEpoch: Long,
+    )
+
+    // Invalidated dispatches remain distinguishable from direct execute calls until consumed.
+    private val pendingSelections = mutableListOf<PreparedSelection>()
+
+    private fun consumeSelection(command: NaviampCoreCommand): PreparedSelection? {
+        val index = pendingSelections.indexOfFirst { it.command === command }
+        return if (index < 0) null else pendingSelections.removeAt(index)
+    }
+
+    private fun PreparedSelection.isCurrent(): Boolean =
+        generation == detailGeneration && navigationEpoch == navigationController.epoch
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         NaviampCoreCommand.Playlists.Refresh -> NaviampCoreImmediateCommandResult.Deferred
@@ -76,6 +93,7 @@ class NaviampCorePlaylistBrowseController(
         is NaviampCoreCommand.Media.ItemAction -> {
             val playlistCommand = command.request.command as? NaviampMediaItemCommand.Playlist
             if (playlistCommand?.command == NaviampPlaylistMediaCommand.Select) {
+                pendingSelections += prepare(command.request.item, command)
                 NaviampCoreImmediateCommandResult.Deferred
             } else {
                 NaviampCoreImmediateCommandResult.Unhandled
@@ -90,7 +108,7 @@ class NaviampCorePlaylistBrowseController(
             is NaviampCoreCommand.Media.ItemAction -> {
                 val playlistCommand = command.request.command as? NaviampMediaItemCommand.Playlist ?: return null
                 if (playlistCommand.command != NaviampPlaylistMediaCommand.Select) return null
-                open(command.request.item)
+                open(command.request.item, consumeSelection(command) ?: prepare(command.request.item))
             }
             else -> return null
         }
@@ -149,10 +167,14 @@ class NaviampCorePlaylistBrowseController(
             }
     }
 
+    fun invalidateNavigation() {
+        detailGeneration++
+    }
+
     fun resetForSourceChange() {
         sourceGeneration++
         listGeneration++
-        detailGeneration++
+        invalidateNavigation()
         playlistsById = emptyMap()
         mediaRegistry.updatePlaylists(emptyList())
         mediaRegistry.updateSelectedPlaylist(null, emptyList())
@@ -269,7 +291,8 @@ class NaviampCorePlaylistBrowseController(
             canManage = item.canManagePlaylist,
         )
 
-    private suspend fun open(item: SharedMediaItemUi) {
+    private fun prepare(item: SharedMediaItemUi, command: NaviampCoreCommand? = null): PreparedSelection {
+        navigationController.openMediaPage(NaviampRoute.PlaylistDetail, item)
         val generation = ++detailGeneration
         mediaRegistry.updateSelectedPlaylist(null, emptyList())
         stateStore.updateShell { shell ->
@@ -284,7 +307,11 @@ class NaviampCorePlaylistBrowseController(
                 ),
             )
         }
-        navigationController.openPlaylistDetail()
+        return PreparedSelection(command, generation, navigationController.epoch)
+    }
+
+    private suspend fun open(item: SharedMediaItemUi, selection: PreparedSelection) {
+        if (!selection.isCurrent()) return
         val provider = providerSource.current()
         if (provider == null) {
             publishDetailFailure(item, "Connect to Navidrome to load a playlist.")
@@ -293,9 +320,10 @@ class NaviampCorePlaylistBrowseController(
         val playlist = resolvePlaylist(item)
         val coverArtUrl = { id: String? -> id?.let(provider::coverArtUrl) }
         loadLibraries(provider)
+        if (!selection.isCurrent() || !providerSource.isCurrent(provider)) return
         runCatching { provider.playlistTracks(playlist.id) }
             .onSuccess { tracks ->
-                if (generation != detailGeneration || !providerSource.isCurrent(provider)) return@onSuccess
+                if (!selection.isCurrent() || !providerSource.isCurrent(provider)) return@onSuccess
                 val resolvedPlaylist = playlist.copy(trackCount = tracks.size)
                 mediaRegistry.updateSelectedPlaylist(resolvedPlaylist, tracks)
                 val mappedPlaylist = resolvedPlaylist.toSharedMediaItemUi(
@@ -327,7 +355,7 @@ class NaviampCorePlaylistBrowseController(
                 }
             }
             .onFailure { cause ->
-                if (generation == detailGeneration && providerSource.isCurrent(provider)) {
+                if (selection.isCurrent() && providerSource.isCurrent(provider)) {
                     publishDetailFailure(item, cause.message ?: "Playlist failed to load.")
                 }
             }

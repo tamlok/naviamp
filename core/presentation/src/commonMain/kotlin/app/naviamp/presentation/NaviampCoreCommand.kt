@@ -44,11 +44,10 @@ import app.naviamp.ui.SharedRoute
 sealed interface NaviampCoreCommand {
     sealed interface Navigation : NaviampCoreCommand {
         data class SelectRoute(val route: SharedRoute) : Navigation
+        data class ReplaceRoute(val route: SharedRoute) : Navigation
         data object OpenNowPlaying : Navigation
         data object CloseNowPlaying : Navigation
-        data object BackFromAlbum : Navigation
-        data object BackFromArtist : Navigation
-        data object BackFromPlaylist : Navigation
+        data object Back : Navigation
     }
 
     sealed interface Connection : NaviampCoreCommand {

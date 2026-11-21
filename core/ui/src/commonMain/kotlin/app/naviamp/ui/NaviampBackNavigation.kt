@@ -10,17 +10,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import app.naviamp.domain.provider.DiscoveryBrowseAction
 
 /** One visible-destination policy for native phone Back and shared mouse navigation. */
-enum class NaviampBackTarget { NowPlaying, DiscoveryRequests, DiscoveryArtist, DiscoveryBrowser, HomeCollection, Playlist, Album, Artist }
+enum class NaviampBackTarget { NowPlaying, DiscoveryRequests, DiscoveryArtist, DiscoveryBrowser, HomeCollection, Page }
 
 fun naviampBackTarget(shell: NaviampAppShellUiState): NaviampBackTarget? = when {
     shell.shellChrome.nowPlayingOpen -> NaviampBackTarget.NowPlaying
+    shell.albumDetail.selectedAlbum != null -> NaviampBackTarget.Page
+    shell.artistDetail.selectedArtist != null -> NaviampBackTarget.Page
+    shell.playlistDetail.selectedPlaylist != null -> NaviampBackTarget.Page
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.requestsOpen == true -> NaviampBackTarget.DiscoveryRequests
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.let { it.artistPage && it.artistDetail != null } == true -> NaviampBackTarget.DiscoveryArtist
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.providerDiscovery?.browser != null -> NaviampBackTarget.DiscoveryBrowser
     shell.shellChrome.selectedRoute == SharedRoute.Home && shell.home.collectionPage != null -> NaviampBackTarget.HomeCollection
-    shell.playlistDetail.selectedPlaylist != null -> NaviampBackTarget.Playlist
-    shell.albumDetail.selectedAlbum != null -> NaviampBackTarget.Album
-    shell.artistDetail.selectedArtist != null -> NaviampBackTarget.Artist
+    shell.shellChrome.canNavigateBack -> NaviampBackTarget.Page
     else -> null
 }
 
@@ -30,9 +31,7 @@ internal fun performNaviampBack(target: NaviampBackTarget, actions: NaviampAppSh
     NaviampBackTarget.DiscoveryArtist -> actions.homeActions.onDiscoveryArtistDismiss()
     NaviampBackTarget.DiscoveryBrowser -> actions.homeActions.onDiscoveryBrowse(DiscoveryBrowseAction.Close)
     NaviampBackTarget.HomeCollection -> actions.homeActions.onCollectionBack()
-    NaviampBackTarget.Playlist -> actions.playlistDetailActions.onBack()
-    NaviampBackTarget.Album -> actions.albumDetailActions.onBack()
-    NaviampBackTarget.Artist -> actions.artistDetailActions.onBack()
+    NaviampBackTarget.Page -> actions.navigationActions.onBack()
 }
 
 /** React only to the press edge; held buttons and pointer moves never pop further pages. */

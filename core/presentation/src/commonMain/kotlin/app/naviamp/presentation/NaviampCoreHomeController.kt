@@ -192,7 +192,8 @@ class NaviampCoreHomeController(
         playDiscoverySample, stopDiscoverySample, openLibraryArtist,
         refreshFeed = { provider -> refreshProviderDiscovery(provider, refreshGeneration) },
         showPage = navigationController::openDiscoveryPage,
-        restoreRoute = navigationController::returnFromDiscoveryPage,
+        leaveSurface = navigationController::closeDiscoveryPage,
+        currentNavigationEpoch = { navigationController.epoch },
         openLibraryAlbum = openLibraryAlbum,
         acquisitionRepository = acquisitionRepository,
         nowMillis = nowMillis,
@@ -419,6 +420,8 @@ class NaviampCoreHomeController(
         }
     }
 
+    fun resetNavigation() = discoveryController.resetNavigation()
+
     fun resetForSourceChange() {
         discoveryController.resetForSourceChange()
         refreshGeneration += 1
@@ -449,16 +452,13 @@ class NaviampCoreHomeController(
             )
             return
         }
+        navigationController.openHomeCollection(sectionId)
         stateStore.updateShell { shell ->
             shell.copy(home = shell.home.copy(collectionPage = SharedHomeCollectionPageUi(section)))
         }
     }
 
-    private fun closeCollection() {
-        stateStore.updateShell { shell ->
-            shell.copy(home = shell.home.copy(collectionPage = null))
-        }
-    }
+    private fun closeCollection() = navigationController.back()
 
     private fun selectMixBuilder(id: String) {
         val route = when (id) {

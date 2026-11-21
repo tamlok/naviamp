@@ -45,4 +45,28 @@ class NaviampMainNavigationTest {
             assertEquals(it, naviampMainNavigationSelection(it))
         }
     }
+
+    @Test
+    fun phoneBackFollowsTheVisibleHomePageBeforeGenericHistory() {
+        var shell = NaviampAppShellUiState(
+            shellChrome = NaviampShellChromeUi(canNavigateBack = true),
+            home = NaviampHomeScreenUi(
+                collectionPage = SharedHomeCollectionPageUi(SharedHomeCollectionSectionUi("collection", "Collection", emptyList())),
+                providerDiscovery = SharedProviderDiscoveryUi("aurral", requestsOpen = true, artistPage = true,
+                    artistDetail = SharedProviderDiscoveryArtistUi(app.naviamp.domain.provider.ProviderDiscoveryArtist("artist", "Artist")),
+                    browser = app.naviamp.domain.provider.DiscoveryBrowserState()),
+            ),
+        )
+        assertEquals(NaviampBackTarget.DiscoveryRequests, naviampBackTarget(shell))
+        shell = shell.copy(home = shell.home.copy(providerDiscovery = shell.home.providerDiscovery?.copy(requestsOpen = false)))
+        assertEquals(NaviampBackTarget.DiscoveryArtist, naviampBackTarget(shell))
+        shell = shell.copy(home = shell.home.copy(providerDiscovery = shell.home.providerDiscovery?.copy(artistPage = false)))
+        assertEquals(NaviampBackTarget.DiscoveryBrowser, naviampBackTarget(shell))
+        shell = shell.copy(home = shell.home.copy(providerDiscovery = shell.home.providerDiscovery?.copy(browser = null)))
+        assertEquals(NaviampBackTarget.HomeCollection, naviampBackTarget(shell))
+        shell = shell.copy(home = shell.home.copy(collectionPage = null))
+        assertEquals(NaviampBackTarget.Page, naviampBackTarget(shell))
+        shell = shell.copy(shellChrome = shell.shellChrome.copy(canNavigateBack = false))
+        assertNull(naviampBackTarget(shell))
+    }
 }

@@ -1165,7 +1165,7 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
     val navigation = NaviampCoreNavigationController(
         app.naviamp.app.NaviampNavigationController(),
         store,
-        NaviampCoreArtistNavigator { error("Not expected") },
+        restoreCommand = { error("Not expected") },
     )
     val mediaDetails = NaviampCoreMediaDetailController(store, { provider }, navigation, scope)
     val playedStations = mutableListOf<String>()

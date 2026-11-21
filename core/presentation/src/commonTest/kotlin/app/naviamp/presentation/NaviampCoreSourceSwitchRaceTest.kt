@@ -7,6 +7,8 @@ import app.naviamp.domain.Playlist
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.ui.NaviampArtistAlbumCommand
+import app.naviamp.ui.NaviampArtistMediaCommand
+import app.naviamp.ui.artistActionRequest
 import app.naviamp.ui.NaviampPlaylistMediaCommand
 import app.naviamp.ui.SharedMediaItemUi
 import app.naviamp.ui.albumActionRequest
@@ -234,6 +236,65 @@ class NaviampCoreSourceSwitchRaceTest {
             assertEquals(expected, store.state.value.shell.playlists)
             assertEquals(listOf("new"), registry.playlists.map { it.id })
             assertFalse(store.state.value.shell.playlists.refreshing)
+        }
+    }
+
+    @Test fun queuedMediaSelectionsCannotRunAgainstAReplacementSource() = runTest {
+        val item = SharedMediaItemUi("queued", "Queued", "")
+        val requests = listOf(
+            item.albumActionRequest(NaviampArtistAlbumCommand.Select),
+            item.artistActionRequest(NaviampArtistMediaCommand.Select),
+            item.playlistActionRequest(NaviampPlaylistMediaCommand.Select),
+        )
+        for (request in requests) {
+            val base = FakeCoreMediaProvider()
+            var providerReads = 0
+            var active: MediaProvider = base
+            val store = NaviampCoreStateStore()
+            val registry = NaviampCoreMediaRegistry()
+            lateinit var router: NaviampCoreCommandRouter
+            lateinit var details: NaviampCoreMediaDetailController
+            lateinit var playlists: NaviampCorePlaylistBrowseController
+            val navigation = NaviampCoreNavigationController(
+                NaviampNavigationController(), store,
+                restoreCommand = { router.dispatch(it) },
+                onPageChanging = {
+                    details.invalidateNavigation()
+                    playlists.invalidateNavigation()
+                },
+            )
+            details = NaviampCoreMediaDetailController(store, { active }, navigation, backgroundScope, mediaRegistry = registry)
+            playlists = NaviampCorePlaylistBrowseController(store, { active }, navigation, mediaRegistry = registry)
+            router = NaviampCoreCommandRouter(backgroundScope, listOf(navigation, details, playlists))
+            router.dispatch(NaviampCoreCommand.Media.ItemAction(request))
+            details.resetForSourceChange()
+            playlists.resetForSourceChange()
+            navigation.resetForSourceChange()
+            active = object : MediaProvider by base {
+                override val cacheNamespace = "replacement-server"
+                override suspend fun album(albumId: AlbumId): AlbumDetails {
+                    providerReads++
+                    return base.album(albumId)
+                }
+                override suspend fun artistDiscography(artistId: app.naviamp.domain.ArtistId): app.naviamp.domain.media.ArtistDiscography {
+                    providerReads++
+                    return base.artistDiscography(artistId)
+                }
+                override suspend fun playlistTracks(playlistId: String): List<app.naviamp.domain.Track> {
+                    providerReads++
+                    return base.playlistTracks(playlistId)
+                }
+            }
+            runCurrent()
+
+            assertEquals(0, providerReads)
+            assertNull(registry.albumDetails)
+            assertNull(registry.artistDetails)
+            assertNull(registry.selectedPlaylist)
+            assertNull(store.state.value.shell.albumDetail.selectedAlbum)
+            assertNull(store.state.value.shell.artistDetail.selectedArtist)
+            assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
         }
     }
 

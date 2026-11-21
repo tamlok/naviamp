@@ -302,6 +302,39 @@ class NaviampCorePlaylistBrowseControllerTest {
         assertEquals("playlist-a", store.state.value.shell.playlistDetail.detail?.playlist?.id)
     }
 
+    @Test
+    fun navigationInvalidationPreservesSourceDataAndPendingListRefreshes() = runTest {
+        val base = PlaylistBrowseTestProvider()
+        val gate = CompletableDeferred<Unit>()
+        var blockRefresh = false
+        val provider = object : MediaProvider by base {
+            override suspend fun playlists(limit: Int): List<Playlist> {
+                if (!blockRefresh) return base.playlists(limit)
+                gate.await()
+                return listOf(Playlist("updated", "Updated", 0))
+            }
+        }
+        val registry = NaviampCoreMediaRegistry()
+        val (store, controller) = controller(provider, registry)
+        controller.execute(NaviampCoreCommand.Playlists.Refresh)
+        val rows = store.state.value.shell.playlists.playlists
+        val sourceGeneration = controller.sourceGeneration
+        blockRefresh = true
+        val pending = launch { controller.execute(NaviampCoreCommand.Playlists.Refresh) }
+        runCurrent()
+
+        controller.invalidateNavigation()
+        assertEquals(sourceGeneration, controller.sourceGeneration)
+        assertEquals(rows, store.state.value.shell.playlists.playlists)
+        assertEquals(listOf("playlist-a", "playlist-b"), registry.playlists.map { it.id })
+        gate.complete(Unit)
+        pending.join()
+
+        assertEquals(listOf("updated"), store.state.value.shell.playlists.playlists.map { it.id })
+        assertEquals(listOf("updated"), registry.playlists.map { it.id })
+        assertFalse(store.state.value.shell.playlists.refreshing)
+    }
+
     private fun controller(
         provider: MediaProvider?,
         mediaRegistry: NaviampCoreMediaRegistry = NaviampCoreMediaRegistry(),
@@ -310,7 +343,7 @@ class NaviampCorePlaylistBrowseControllerTest {
         val navigation = NaviampCoreNavigationController(
             NaviampNavigationController(),
             store,
-            NaviampCoreArtistNavigator { error("Not expected") },
+            restoreCommand = { error("Not expected") },
         )
         return store to NaviampCorePlaylistBrowseController(
             stateStore = store,

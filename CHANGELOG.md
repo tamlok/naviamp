@@ -36,6 +36,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Return to the page that opened an album, artist, or playlist when pressing Back, including playlists opened from Home. Preserve nested media and Home collection navigation, add Back controls to Search and mix builders, and prevent delayed loads from reopening pages after leaving them.
 - Keep the refresh indicator hidden when mouse-wheel scrolling back to the top of a page; touch pulls and primary-button mouse drags still refresh.
 - Keep playback paused when seeking, without briefly restarting audio; resume from the last selected position only after Play.
 - Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.

@@ -12,7 +12,6 @@ import app.naviamp.app.NaviampCastMediaEndpointController
 import app.naviamp.app.NaviampCastMediaLeaseController
 import app.naviamp.app.NaviampCastSessionController
 import app.naviamp.app.NaviampRecentRadioStreamController
-import app.naviamp.domain.Artist
 import app.naviamp.domain.Track
 import app.naviamp.domain.app.NaviampNavigationState
 import app.naviamp.domain.connect.NaviampConnectDeviceCapability
@@ -272,19 +271,27 @@ class NaviampCore private constructor(
                     stateStore.updateShell { shell -> shell.copy(home = shell.home.copy(samplePlayback = sample)) }
                 }, prepareMain = routedPlaybackEffects::prepareForPreview)
             routedPlaybackEffects.beforeStart = samplePlayback::stop
-            val deferredArtistNavigator = DeferredArtistNavigator()
+            lateinit var router: NaviampCoreCommandRouter
+            lateinit var mediaDetails: NaviampCoreMediaDetailController
+            lateinit var playlistBrowse: NaviampCorePlaylistBrowseController
+            lateinit var home: NaviampCoreHomeController
             val mediaRegistry = NaviampCoreMediaRegistry()
             val navigation = NaviampCoreNavigationController(
                 navigationState,
                 stateStore,
-                deferredArtistNavigator,
-                onLeaveDiscovery = samplePlayback::stop,
+                restoreCommand = { router.dispatch(it) },
+                onPageChanging = {
+                    mediaDetails.invalidateNavigation()
+                    playlistBrowse.invalidateNavigation()
+                    samplePlayback.stop()
+                },
+                onResetDiscovery = { home.resetNavigation() },
                 persistNowPlayingOpen = { open ->
                     val sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId
                     services.playback.sessions.updateNowPlayingOpen(open, sourceId)
                 },
             )
-            val mediaDetails = NaviampCoreMediaDetailController(
+            mediaDetails = NaviampCoreMediaDetailController(
                 stateStore,
                 providerSource,
                 navigation,
@@ -293,7 +300,6 @@ class NaviampCore private constructor(
                 mediaRegistry,
                 playbackProfiles,
             )
-            deferredArtistNavigator.target = mediaDetails
 
             var persistLibraryAlbumSortOrder: (app.naviamp.domain.settings.LibraryAlbumSortOrder) -> Unit = {}
             val catalog = NaviampCoreCatalogController(
@@ -308,7 +314,7 @@ class NaviampCore private constructor(
             var notifyLocalSettingsChanged: () -> Unit = services.settings.sync.controller::markLocalChanged
             var completeDatabaseReset: suspend () -> Unit = {}
             var notifyPlaybackSettingsChanged: (app.naviamp.domain.settings.PlaybackSettings, app.naviamp.domain.settings.PlaybackSettings) -> Unit = { _, _ -> }
-            val home = NaviampCoreHomeController(
+            home = NaviampCoreHomeController(
                 stateStore,
                 providerSource,
                 navigation,
@@ -360,7 +366,7 @@ class NaviampCore private constructor(
                     ),
                 )
             }
-            val playlistBrowse = NaviampCorePlaylistBrowseController(
+            playlistBrowse = NaviampCorePlaylistBrowseController(
                 stateStore,
                 providerSource,
                 navigation,
@@ -607,6 +613,7 @@ class NaviampCore private constructor(
                 initialState.connectionInventory,
                 certificateFiles = services.certificateFiles,
                   onSourceChanging = { previousSourceId, newSourceId ->
+                    navigation.resetForSourceChange()
                     similarity.resetForSourceChange()
                     stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(
                         similarityTest = app.naviamp.ui.NaviampSimilarityTestUi(), radioDiagnostics = null,
@@ -717,7 +724,7 @@ class NaviampCore private constructor(
             notifyLocalSettingsChanged = {
                 scope.launch { settingsSync.localSettingsChanged() }
             }
-            val router = NaviampCoreCommandRouter(
+            router = NaviampCoreCommandRouter(
                 scope = scope,
                 controllers = listOf(
                     navigation,
@@ -836,11 +843,3 @@ class NaviampCore private constructor(
 
 enum class NaviampCoreHostShortcutEffect { BringToFront }
 
-private class DeferredArtistNavigator : NaviampCoreArtistNavigator {
-    lateinit var target: NaviampCoreArtistNavigator
-
-    override fun openArtist(artist: Artist) {
-        check(::target.isInitialized) { "Naviamp Core artist navigation is not initialized." }
-        target.openArtist(artist)
-    }
-}

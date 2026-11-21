@@ -40,6 +40,120 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreHomeControllerTest {
+    @Test fun collectionMediaBackRestoresTheSectionWithoutDuplicatingHistory() = runTest {
+        for (route in listOf(app.naviamp.domain.app.NaviampRoute.AlbumDetail,
+            app.naviamp.domain.app.NaviampRoute.ArtistDetail, app.naviamp.domain.app.NaviampRoute.PlaylistDetail)) {
+            val store = NaviampCoreStateStore()
+            val history = NaviampNavigationController()
+            lateinit var home: NaviampCoreHomeController
+            val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) },
+                onResetDiscovery = { home.resetNavigation() })
+            home = NaviampCoreHomeController(store, { HomeTestProvider() }, navigation,
+                NaviampCoreHomeDateSource { HomeDate(2026, 100) })
+            home.execute(NaviampCoreCommand.Home.Refresh)
+            val section = store.state.value.shell.home.content.collectionSections.single {
+                it.items.any { item -> item.mediaItem.id == "playlist-1" }
+            }
+            home.dispatch(NaviampCoreCommand.Home.OpenCollection(section.id))
+            home.dispatch(NaviampCoreCommand.Home.OpenCollection(section.id))
+            navigation.openMediaPage(route, section.items.first().mediaItem)
+            assertEquals(null, store.state.value.shell.home.collectionPage)
+            navigation.dispatch(NaviampCoreCommand.Navigation.Back)
+            assertEquals(section.id, store.state.value.shell.home.collectionPage?.section?.id)
+            assertEquals(NaviampCoreHomeCollectionPage(section.id), history.currentEntry.page)
+            home.dispatch(NaviampCoreCommand.Home.CloseCollection)
+            assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
+            assertEquals(null, store.state.value.shell.home.collectionPage)
+            assertFalse(history.canGoBack)
+        }
+    }
+
+    @Test fun unavailableCollectionsDoNotPushAndMixBuildersReturnToTheirCollection() = runTest {
+        val store = NaviampCoreStateStore()
+        val history = NaviampNavigationController()
+        lateinit var home: NaviampCoreHomeController
+        val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) })
+        home = NaviampCoreHomeController(store, { HomeTestProvider() }, navigation,
+            NaviampCoreHomeDateSource { HomeDate(2026, 100) })
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        home.dispatch(NaviampCoreCommand.Home.OpenCollection("missing"))
+        assertFalse(history.canGoBack)
+        home.dispatch(NaviampCoreCommand.Home.OpenCollection(SharedHomeCollectionSectionIds.MixesForYou))
+        home.dispatch(NaviampCoreCommand.Home.SelectMixBuilder(SharedMixBuilderUi("artist", "Artist Mix", "")))
+        assertEquals(SharedRoute.ArtistMix, store.state.value.shell.shellChrome.selectedRoute)
+        navigation.back()
+        assertEquals(SharedHomeCollectionSectionIds.MixesForYou, store.state.value.shell.home.collectionPage?.section?.id)
+        home.dispatch(NaviampCoreCommand.Home.CloseCollection)
+        assertFalse(history.canGoBack)
+    }
+
+    @Test fun discoveryBoundariesPreserveRadioAndSearchOriginsAndCurrentSourceTokens() = runTest {
+        val artist = ProviderDiscoveryArtist("11111111-1111-1111-1111-111111111111", "Artist", detailsAvailable = true)
+        val provider = HomeTestProvider(discovery = object : ProviderDiscovery {
+            override suspend fun load() = ProviderDiscoveryFeed(trending = listOf(artist))
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist) = ProviderDiscoveryArtistResult(
+                ProviderDiscoveryStatus.Ready, ProviderDiscoveryArtistDetails(artist))
+        })
+        for (origin in listOf(SharedRoute.Radio, SharedRoute.Search)) {
+            for (artistPage in listOf(false, true)) {
+                val store = NaviampCoreStateStore()
+                val history = NaviampNavigationController()
+                lateinit var home: NaviampCoreHomeController
+                val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) },
+                    onResetDiscovery = { home.resetNavigation() })
+                home = NaviampCoreHomeController(store, { provider }, navigation,
+                    NaviampCoreHomeDateSource { HomeDate(2026, 100) },
+                    supplementSource = NaviampCoreHomeSupplementSource { NaviampCoreHomeSupplement(sourceId = "source") })
+                home.execute(NaviampCoreCommand.Home.Refresh)
+                navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(origin))
+                val originEntry = history.currentEntry
+                repeat(2) {
+                    val open = if (artistPage) NaviampCoreCommand.Home.SelectDiscoveryArtist(artist.id)
+                        else NaviampCoreCommand.Home.Browse(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Hub))
+                    home.dispatch(open); home.execute(open)
+                    val page = store.state.value.shell.home.providerDiscovery!!
+                    assertEquals("source", page.sourceId)
+                    assertEquals(NaviampCoreDiscoveryPage(page.sourceId, page.sourceGeneration), history.currentEntry.page)
+                }
+                home.dispatch(if (artistPage) NaviampCoreCommand.Home.DismissDiscoveryArtist
+                    else NaviampCoreCommand.Home.Browse(DiscoveryBrowseAction.Close))
+                assertEquals(originEntry, history.currentEntry)
+                assertEquals(origin, store.state.value.shell.shellChrome.selectedRoute)
+                assertEquals(listOf(artist), store.state.value.shell.home.providerDiscovery?.feed?.trending)
+            }
+        }
+    }
+
+    @Test fun rootChangesInvalidateQueuedDiscoveryWithoutDiscardingHomeOrFeedData() = runTest {
+        val artist = ProviderDiscoveryArtist("11111111-1111-1111-1111-111111111111", "Artist", detailsAvailable = true)
+        var reads = 0
+        val provider = HomeTestProvider(discovery = object : ProviderDiscovery {
+            override suspend fun load() = ProviderDiscoveryFeed(trending = listOf(artist))
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                reads++
+                return ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Ready, ProviderDiscoveryArtistDetails(artist))
+            }
+        })
+        val store = NaviampCoreStateStore()
+        val history = NaviampNavigationController()
+        lateinit var home: NaviampCoreHomeController
+        val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) },
+            onResetDiscovery = { home.resetNavigation() })
+        home = NaviampCoreHomeController(store, { provider }, navigation, NaviampCoreHomeDateSource { HomeDate(2026, 100) })
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        val content = store.state.value.shell.home.content
+        val queued = NaviampCoreCommand.Home.SelectDiscoveryArtist(artist.id)
+        home.dispatch(queued)
+        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Library))
+        home.execute(queued)
+        assertEquals(0, reads)
+        assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
+        assertEquals(null, store.state.value.shell.home.providerDiscovery?.artistDetail)
+        assertEquals(content, store.state.value.shell.home.content)
+        assertEquals(listOf(artist), store.state.value.shell.home.providerDiscovery?.feed?.trending)
+        assertFalse(history.canGoBack)
+    }
+
     @Test fun realListeningUpdatesRecentRowsRegistryAndRefreshWithoutUsingOldIndexMetadata() = runTest {
         val store = NaviampCoreStateStore()
         store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source")) }
@@ -60,7 +174,7 @@ class NaviampCoreHomeControllerTest {
             }
         }
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {}),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) },
             supplementSource = NaviampCoreHomeSupplementSource { NaviampCoreHomeSupplement(sourceId = "source") },
             libraryRepository = repository, mediaRegistry = registry,
@@ -115,7 +229,7 @@ class NaviampCoreHomeControllerTest {
             val provider = HomeTestProvider(discovery = discovery)
             val store = NaviampCoreStateStore()
             val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-                NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {}),
+                NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
                 NaviampCoreHomeDateSource { HomeDate(2026, 100) })
             controller.execute(NaviampCoreCommand.Home.Refresh)
             val select = NaviampCoreCommand.Home.SelectDiscoveryArtist(artist.id)
@@ -149,7 +263,7 @@ class NaviampCoreHomeControllerTest {
         val provider = HomeTestProvider(discovery = native)
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {}),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) })
         controller.execute(NaviampCoreCommand.Home.Refresh)
         val select = NaviampCoreCommand.Home.SelectDiscoveryArtist("a74b1b7f-71a5-4011-9441-d0b5e4122711")
@@ -188,7 +302,7 @@ class NaviampCoreHomeControllerTest {
         val provider = HomeTestProvider(discovery = native)
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {}),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) })
         controller.execute(NaviampCoreCommand.Home.Refresh)
         val old = NaviampCoreCommand.Home.SelectDiscoveryArtist("11111111-1111-1111-1111-111111111111")
@@ -227,7 +341,7 @@ class NaviampCoreHomeControllerTest {
         val store = NaviampCoreStateStore()
         var played: Track? = null
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator {}),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) }, playDiscoverySample = { played = it })
         controller.execute(NaviampCoreCommand.Home.Refresh)
         val select = NaviampCoreCommand.Home.SelectDiscoveryArtist("a74b1b7f-71a5-4011-9441-d0b5e4122711")
@@ -290,7 +404,7 @@ class NaviampCoreHomeControllerTest {
         val store = NaviampCoreStateStore()
         val opened = mutableListOf<String>()
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator { error("unused") }),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, { error("unused") }),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) }, openLibraryArtist = { opened += it.id.value })
         controller.execute(NaviampCoreCommand.Home.Refresh)
         val queued = NaviampCoreCommand.Home.SelectDiscoveryArtist("33333333-3333-3333-3333-333333333333")
@@ -310,7 +424,8 @@ class NaviampCoreHomeControllerTest {
         waitForDetails = false
         val current = NaviampCoreCommand.Home.SelectDiscoveryArtist("33333333-3333-3333-3333-333333333333")
         controller.dispatch(current); controller.execute(current)
-        controller.execute(NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist("33333333-3333-3333-3333-333333333333"))
+        val libraryArtist = NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist("33333333-3333-3333-3333-333333333333")
+        controller.dispatch(libraryArtist); controller.execute(libraryArtist)
         assertEquals(listOf("subsonic-library-id"), opened)
         val pendingFeed = kotlinx.coroutines.CompletableDeferred<app.naviamp.domain.provider.ProviderDiscoveryFeed>()
         slowFeed = pendingFeed
@@ -345,7 +460,7 @@ class NaviampCoreHomeControllerTest {
         val store = NaviampCoreStateStore()
         val opened = mutableListOf<String>()
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { active },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator { error("unused") }),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, { error("unused") }),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) }, externalUri = NaviampCoreExternalUriPort { opened += it })
         val refresh = backgroundScope.launch { controller.execute(NaviampCoreCommand.Home.Refresh) }
         runCurrent()
@@ -374,7 +489,7 @@ class NaviampCoreHomeControllerTest {
         val store = NaviampCoreStateStore()
         val opened = mutableListOf<String>()
         val controller = NaviampCoreHomeController(store, NaviampCoreMediaProviderSource { provider },
-            NaviampCoreNavigationController(NaviampNavigationController(), store, NaviampCoreArtistNavigator { error("unused") }),
+            NaviampCoreNavigationController(NaviampNavigationController(), store, { error("unused") }),
             NaviampCoreHomeDateSource { HomeDate(2026, 100) }, externalUri = NaviampCoreExternalUriPort { opened += it })
         controller.execute(NaviampCoreCommand.Home.Refresh)
         controller.dispatch(NaviampCoreCommand.Home.OpenDiscoveryArtist("unknown"))
@@ -391,7 +506,7 @@ class NaviampCoreHomeControllerTest {
             navigationController = NaviampCoreNavigationController(
                 NaviampNavigationController(),
                 store,
-                NaviampCoreArtistNavigator { error("Not expected") },
+                { error("Not expected") },
             ),
             dateSource = NaviampCoreHomeDateSource { HomeDate(2026, 100) },
         )
@@ -442,7 +557,7 @@ class NaviampCoreHomeControllerTest {
         val navigation = NaviampCoreNavigationController(
             navigation = NaviampNavigationController(),
             stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator { error("Not expected") },
+            restoreCommand = { error("Not expected") },
         )
         val controller = NaviampCoreHomeController(
             stateStore = store,
@@ -477,7 +592,7 @@ class NaviampCoreHomeControllerTest {
         val navigation = NaviampCoreNavigationController(
             navigation = NaviampNavigationController(),
             stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator { error("Not expected") },
+            restoreCommand = { error("Not expected") },
         )
         val controller = NaviampCoreHomeController(
             stateStore = store,
@@ -513,7 +628,7 @@ class NaviampCoreHomeControllerTest {
             navigationController = NaviampCoreNavigationController(
                 NaviampNavigationController(),
                 store,
-                NaviampCoreArtistNavigator { error("Not expected") },
+                { error("Not expected") },
             ),
             dateSource = NaviampCoreHomeDateSource { HomeDate(2026, 100) },
             supplementSource = NaviampCoreHomeSupplementSource {
@@ -549,7 +664,7 @@ class NaviampCoreHomeControllerTest {
         val navigation = NaviampCoreNavigationController(
             NaviampNavigationController(),
             store,
-            NaviampCoreArtistNavigator { error("Not expected") },
+            { error("Not expected") },
         )
         val controller = NaviampCoreHomeController(
             stateStore = store,
@@ -574,7 +689,7 @@ class NaviampCoreHomeControllerTest {
             navigationController = NaviampCoreNavigationController(
                 NaviampNavigationController(),
                 store,
-                NaviampCoreArtistNavigator { error("Not expected") },
+                { error("Not expected") },
             ),
             dateSource = NaviampCoreHomeDateSource { HomeDate(2026, 100) },
             mediaRegistry = registry,

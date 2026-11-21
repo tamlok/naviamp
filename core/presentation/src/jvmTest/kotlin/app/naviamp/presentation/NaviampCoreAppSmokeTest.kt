@@ -43,6 +43,69 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalTestApi::class)
 class NaviampCoreAppSmokeTest {
     @Test
+    fun searchAndEveryMixBuilderUseTheSharedPageBackControl() {
+        for ((width, height) in listOf(1280 to 720, 412 to 818)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val provider = FakeCoreMediaProvider(supportsSonicSimilarity = true)
+                val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+                    connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
+                ))
+                try {
+                    setContent { NaviampCoreApp(core) }
+                    for (route in listOf(SharedRoute.Search, SharedRoute.ArtistMix, SharedRoute.AlbumMix,
+                        SharedRoute.GenreMix, SharedRoute.SonicPath, SharedRoute.SonicMix)) {
+                        runOnIdle { core.actions.shell.navigationActions.onRouteSelected(route) }
+                        onNodeWithTag("page-back").assertIsDisplayed().performClick()
+                        onNodeWithTag("page-back").assertDoesNotExist()
+                        onNodeWithTag("main-destination-Home").assertIsSelected()
+                        onNode(hasText("Home") and hasAnyAncestor(hasTestTag("main-route-content"))).assertIsDisplayed()
+                        assertEquals(SharedRoute.Home, core.state.value.shell.shellChrome.selectedRoute)
+                    }
+                } finally { scope.cancel() }
+            }
+        }
+    }
+
+    @Test
+    fun playlistBackReturnsToThePageThatOpenedIt() {
+        for ((width, height) in listOf(1280 to 720, 412 to 818)) {
+            runDesktopComposeUiTest(width, height) {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val provider = FakeCoreMediaProvider()
+                val product = NaviampCoreState()
+                val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
+                    connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
+                    product = product.copy(shell = product.shell.copy(general = product.shell.general.copy(
+                        interfaceSettings = InterfaceSettings(homeSectionOrder = listOf(
+                            app.naviamp.domain.settings.HomeSectionIds.RecentPlaylists,
+                        )),
+                    ))),
+                ))
+                try {
+                    kotlinx.coroutines.runBlocking {
+                        core.execute(NaviampCoreCommand.Home.Refresh)
+                        core.execute(NaviampCoreCommand.Playlists.Refresh)
+                    }
+                    setContent { NaviampCoreApp(core) }
+                    for (route in listOf(SharedRoute.Home, SharedRoute.Playlists)) {
+                        onNodeWithTag("main-destination-${route.name}").performClick()
+                        onNodeWithText(provider.playlist.name).performScrollTo().performClick()
+                        onNodeWithTag("playlist-artwork-play").assertIsDisplayed()
+                        onNodeWithContentDescription("Back").performClick()
+                        onNodeWithTag("playlist-artwork-play").assertDoesNotExist()
+                        onNodeWithTag("main-destination-${route.name}").assertIsSelected()
+                        onNode(hasText(route.name) and hasAnyAncestor(hasTestTag("main-route-content")))
+                            .assertIsDisplayed()
+                        assertEquals(route, core.state.value.shell.shellChrome.selectedRoute)
+                        kotlin.test.assertNull(core.state.value.shell.playlistDetail.selectedPlaylist)
+                    }
+                } finally { scope.cancel() }
+            }
+        }
+    }
+
+    @Test
     fun homeScrollViewportUsesSmallInsetsWithoutAWidthCapOrBottomGap() {
         for ((width, height) in listOf(1280 to 720, 1920 to 1080, 412 to 818, 320 to 640)) {
             runDesktopComposeUiTest(width, height) {

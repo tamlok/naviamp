@@ -975,7 +975,6 @@ data class SharedProviderDiscoveryUi(
     val artistBackStack: List<SharedProviderDiscoveryArtistUi> = emptyList(),
     val releasePage: SharedDiscoveryReleaseUi? = null,
     val sourceId: String? = null,
-    val originRoute: SharedRoute? = null,
     val sourceGeneration: Long = 0,
     val requestsOpen: Boolean = false,
     val acquisitions: List<app.naviamp.domain.provider.DiscoveryAcquisitionRecord> = emptyList(),
@@ -1118,6 +1117,8 @@ val NaviampSharedMediaCapabilities = NaviampMediaCapabilities(
 
 data class NaviampShellNavigationActions(
     val onRouteSelected: (SharedRoute) -> Unit,
+    val onRouteReplaced: (SharedRoute) -> Unit,
+    val onBack: () -> Unit,
     val onOpenNowPlaying: () -> Unit,
     val onCloseNowPlaying: () -> Unit,
 )
@@ -1125,6 +1126,7 @@ data class NaviampShellNavigationActions(
 data class NaviampShellChromeUi(
     val selectedRoute: SharedRoute = SharedRoute.Home,
     val nowPlayingOpen: Boolean = false,
+    val canNavigateBack: Boolean = false,
     val supportsDownloads: Boolean = false,
     val supportsApplicationUpdates: Boolean = false,
     val selectedVisualizer: NaviampVisualizer = NaviampVisualizer.AudioSphere,

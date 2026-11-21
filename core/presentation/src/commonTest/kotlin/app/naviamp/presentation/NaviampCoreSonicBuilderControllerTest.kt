@@ -114,7 +114,7 @@ class NaviampCoreSonicBuilderControllerTest {
         val navigation = NaviampCoreNavigationController(
             NaviampNavigationController(),
             store,
-            NaviampCoreArtistNavigator { error("Not expected") },
+            restoreCommand = { error("Not expected") },
         )
         val browse = NaviampCorePlaylistBrowseController(store, source, navigation)
         val played = mutableListOf<String>()

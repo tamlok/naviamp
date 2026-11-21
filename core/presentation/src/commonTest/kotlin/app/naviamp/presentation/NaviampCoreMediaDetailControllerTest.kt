@@ -25,6 +25,9 @@ import app.naviamp.ui.NaviampArtistAlbumCommand
 import app.naviamp.ui.NaviampArtistMediaCommand
 import app.naviamp.ui.albumActionRequest
 import app.naviamp.ui.artistActionRequest
+import app.naviamp.ui.NaviampMediaItemCommand
+import app.naviamp.ui.NaviampPlaylistMediaCommand
+import app.naviamp.ui.playlistActionRequest
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -32,6 +35,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -86,18 +90,17 @@ class NaviampCoreMediaDetailControllerTest {
             .artistActionRequest(NaviampArtistMediaCommand.Select)))
         runCurrent()
         val match = store.state.value.shell.artistDetail.detail!!.playlists.items.single()
-        val playlists = NaviampCorePlaylistBrowseController(store, NaviampCoreMediaProviderSource { provider }, controller.navigation)
-        playlists.execute(NaviampCoreCommand.Media.ItemAction(
+        controller.execute(NaviampCoreCommand.Media.ItemAction(
             app.naviamp.ui.NaviampMediaItemActionRequest(match,
                 app.naviamp.ui.NaviampMediaItemCommand.Playlist(app.naviamp.ui.NaviampPlaylistMediaCommand.Select))))
         assertEquals("mine", store.state.value.shell.playlistDetail.detail?.playlist?.id)
         assertNull(store.state.value.shell.artistDetail.detail)
-        controller.navigation.dispatch(NaviampCoreCommand.Navigation.BackFromPlaylist)
+        controller.navigation.dispatch(NaviampCoreCommand.Navigation.Back)
         runCurrent()
         assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
         assertEquals("artist-a", store.state.value.shell.artistDetail.detail?.artist?.id)
         assertEquals(listOf("mine"), store.state.value.shell.artistDetail.detail!!.playlists.items.map { it.id })
-        controller.navigation.dispatch(NaviampCoreCommand.Navigation.BackFromArtist)
+        controller.navigation.dispatch(NaviampCoreCommand.Navigation.Back)
         runCurrent()
         assertEquals("artist-b", store.state.value.shell.artistDetail.detail?.artist?.id)
     }
@@ -318,7 +321,7 @@ class NaviampCoreMediaDetailControllerTest {
         controller.execute(NaviampCoreCommand.Media.ItemAction(mediaItem("artist-b", "Artist B").artistActionRequest(NaviampArtistMediaCommand.Select)))
         assertEquals("Artist B", store.state.value.shell.artistDetail.detail?.artist?.title)
 
-        controller.navigation.dispatch(NaviampCoreCommand.Navigation.BackFromArtist)
+        controller.navigation.dispatch(NaviampCoreCommand.Navigation.Back)
         runCurrent()
 
         val detail = assertNotNull(store.state.value.shell.artistDetail.detail)
@@ -449,7 +452,7 @@ class NaviampCoreMediaDetailControllerTest {
         )
         assertNotNull(store.state.value.shell.albumDetail.selectedAlbum)
 
-        controller.navigation.dispatch(NaviampCoreCommand.Navigation.BackFromAlbum)
+        controller.navigation.dispatch(NaviampCoreCommand.Navigation.Back)
         assertNull(store.state.value.shell.albumDetail.selectedAlbum)
 
         controller.media.interfaceSettingsChanged(InterfaceSettings(showAlbumInformation = false))
@@ -507,6 +510,190 @@ class NaviampCoreMediaDetailControllerTest {
         assertTrue(store.state.value.shell.albumDetail.detail?.tracks?.single()?.popular == true)
     }
 
+    @Test
+    fun queuedSelectionsCannotReopenPagesAfterARootReset() = runTest {
+        for (command in selectionCommands(mediaItem("queued", "Queued"))) {
+            val provider = MediaDetailTestProvider()
+            val (store, controllers) = controller(provider)
+            controllers.router.dispatch(command)
+            assertTrue(store.state.value.shell.shellChrome.canNavigateBack)
+            controllers.router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Library))
+            runCurrent()
+
+            assertTrue(provider.albumReads.isEmpty())
+            assertTrue(provider.artistReads.isEmpty())
+            assertEquals(0, provider.playlistReads)
+            assertEquals(SharedRoute.Library, store.state.value.shell.shellChrome.selectedRoute)
+            assertNull(store.state.value.shell.albumDetail.selectedAlbum)
+            assertNull(store.state.value.shell.artistDetail.selectedArtist)
+            assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+        }
+    }
+
+    @Test
+    fun queuedRestoresCannotReopenPagesAfterARootReset() = runTest {
+        val first = selectionCommands(mediaItem("first", "First"))
+        val second = selectionCommands(mediaItem("second", "Second"))
+        for (index in first.indices) {
+            val provider = MediaDetailTestProvider()
+            val (store, controllers) = controller(provider,
+                settings = InterfaceSettings(showArtistPlaylists = false, showArtistTopTracks = false))
+            controllers.execute(first[index])
+            controllers.execute(second[index])
+            val reads = Triple(provider.albumReads.size, provider.artistReads.size, provider.playlistReads)
+
+            controllers.router.dispatch(NaviampCoreCommand.Navigation.Back)
+            val shell = store.state.value.shell
+            assertEquals("first", shell.albumDetail.selectedAlbum?.id
+                ?: shell.artistDetail.selectedArtist?.id ?: shell.playlistDetail.selectedPlaylist?.id)
+            controllers.router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Radio))
+            runCurrent()
+
+            assertEquals(reads, Triple(provider.albumReads.size, provider.artistReads.size, provider.playlistReads))
+            assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
+            assertNull(store.state.value.shell.albumDetail.selectedAlbum)
+            assertNull(store.state.value.shell.artistDetail.selectedArtist)
+            assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+            assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+        }
+    }
+
+    @Test
+    fun queuedSelectionsKeepCommandIdentityAndRepeatedDispatchOrder() = runTest {
+        for (reuseInstance in listOf(false, true)) {
+            for (command in selectionCommands(mediaItem("same", "Same")).filterIsInstance<NaviampCoreCommand.Media.ItemAction>()) {
+                val provider = MediaDetailTestProvider()
+                val (store, controllers) = controller(provider,
+                    settings = InterfaceSettings(showArtistPlaylists = false, showArtistTopTracks = false))
+                controllers.router.dispatch(command)
+                controllers.router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home))
+                controllers.router.dispatch(if (reuseInstance) command else command.copy())
+                runCurrent()
+
+                assertEquals(1, provider.albumReads.size + provider.artistReads.size + provider.playlistReads)
+                val shell = store.state.value.shell
+                assertEquals("same", shell.albumDetail.detail?.album?.id
+                    ?: shell.artistDetail.detail?.artist?.id ?: shell.playlistDetail.detail?.playlist?.id)
+                controllers.router.dispatch(NaviampCoreCommand.Navigation.Back)
+                assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+            }
+        }
+    }
+
+    @Test
+    fun nestedMixedAndSameKindPagesReloadTheirOwnRegistryEntriesOnBack() = runTest {
+        val provider = MediaDetailTestProvider()
+        val (store, controllers) = controller(provider,
+            settings = InterfaceSettings(showArtistPlaylists = false, showArtistTopTracks = false))
+        val commands = listOf(
+            mediaItem("album-a", "Album A").albumActionRequest(NaviampArtistAlbumCommand.Select),
+            mediaItem("album-b", "Album B").albumActionRequest(NaviampArtistAlbumCommand.Select),
+            mediaItem("artist-a", "Artist A").artistActionRequest(NaviampArtistMediaCommand.Select),
+            mediaItem("artist-b", "Artist B").artistActionRequest(NaviampArtistMediaCommand.Select),
+            mediaItem("playlist-a", "Playlist A").playlistActionRequest(NaviampPlaylistMediaCommand.Select),
+            mediaItem("playlist-b", "Playlist B").playlistActionRequest(NaviampPlaylistMediaCommand.Select),
+        )
+        for (request in commands) controllers.execute(NaviampCoreCommand.Media.ItemAction(request))
+        // Refreshing the active identity must not add another history entry.
+        controllers.execute(NaviampCoreCommand.Media.ItemAction(commands.last()))
+
+        for (request in commands.dropLast(1).asReversed()) {
+            controllers.router.dispatch(NaviampCoreCommand.Navigation.Back)
+            runCurrent()
+            val shell = store.state.value.shell
+            when (request.command) {
+                is NaviampMediaItemCommand.Album -> {
+                    assertEquals(request.item.id, shell.albumDetail.detail?.album?.id)
+                    assertEquals(request.item.id, controllers.registry.albumDetails?.album?.id?.value)
+                    assertNull(shell.artistDetail.selectedArtist)
+                    assertNull(shell.playlistDetail.selectedPlaylist)
+                }
+                is NaviampMediaItemCommand.Artist -> {
+                    assertEquals(request.item.id, shell.artistDetail.detail?.artist?.id)
+                    assertEquals(request.item.id, controllers.registry.artistDetails?.artist?.id?.value)
+                    assertNull(shell.albumDetail.selectedAlbum)
+                    assertNull(shell.playlistDetail.selectedPlaylist)
+                }
+                is NaviampMediaItemCommand.Playlist -> {
+                    assertEquals(request.item.id, shell.playlistDetail.detail?.playlist?.id)
+                    assertEquals(request.item.id, controllers.registry.selectedPlaylist?.id)
+                    assertEquals(listOf("member"), controllers.registry.selectedPlaylistTracks.map { it.id.value })
+                    assertNull(shell.albumDetail.selectedAlbum)
+                    assertNull(shell.artistDetail.selectedArtist)
+                }
+                else -> error("Unexpected selection")
+            }
+        }
+        assertEquals(listOf("album-a", "album-b", "album-b", "album-a"), provider.albumReads)
+        assertEquals(listOf("artist-a", "artist-b", "artist-b", "artist-a"), provider.artistReads)
+        assertEquals(4, provider.playlistReads)
+        controllers.router.dispatch(NaviampCoreCommand.Navigation.Back)
+        assertEquals(SharedRoute.Home, store.state.value.shell.shellChrome.selectedRoute)
+        assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+    }
+
+    @Test
+    fun delayedMediaSuccessAndFailureCannotResurrectPoppedPages() = runTest {
+        for (fail in listOf(false, true)) {
+            for (command in selectionCommands(mediaItem("pending", "Pending"))) {
+                val base = MediaDetailTestProvider()
+                val gate = CompletableDeferred<Unit>()
+                val provider = object : MediaProvider by base {
+                    override suspend fun album(albumId: AlbumId): AlbumDetails {
+                        gate.await()
+                        if (fail) error("Old album failed")
+                        return base.album(albumId)
+                    }
+                    override suspend fun artistDiscography(artistId: ArtistId): app.naviamp.domain.media.ArtistDiscography {
+                        gate.await()
+                        if (fail) error("Old artist failed")
+                        return base.artistDiscography(artistId)
+                    }
+                    override suspend fun playlistTracks(playlistId: String): List<Track> {
+                        gate.await()
+                        if (fail) error("Old playlist failed")
+                        return base.playlistTracks(playlistId)
+                    }
+                }
+                val (store, controllers) = controller(provider)
+                controllers.router.dispatch(command)
+                runCurrent()
+                controllers.router.dispatch(NaviampCoreCommand.Navigation.Back)
+                gate.complete(Unit)
+                runCurrent()
+
+                assertNull(store.state.value.shell.albumDetail.selectedAlbum)
+                assertNull(store.state.value.shell.artistDetail.selectedArtist)
+                assertNull(store.state.value.shell.playlistDetail.selectedPlaylist)
+                assertNull(controllers.registry.albumDetails)
+                assertNull(controllers.registry.artistDetails)
+                assertNull(controllers.registry.selectedPlaylist)
+                assertFalse(store.state.value.shell.shellChrome.canNavigateBack)
+            }
+        }
+    }
+
+    @Test
+    fun directSelectionMethodsPrepareAndLoadWithoutADispatchToken() = runTest {
+        val provider = MediaDetailTestProvider()
+        val (store, controllers) = controller(provider)
+        controllers.media.selectArtist(mediaItem("artist-a", "Artist A"))
+        assertEquals("artist-a", store.state.value.shell.artistDetail.detail?.artist?.id)
+        controllers.media.selectAlbum(mediaItem("album-a", "Album A"))
+        assertEquals("album-a", store.state.value.shell.albumDetail.detail?.album?.id)
+        controllers.media.execute(NaviampCoreCommand.Media.ItemAction(
+            mediaItem("artist-b", "Artist B").artistActionRequest(NaviampArtistMediaCommand.Select)))
+        assertEquals("artist-b", store.state.value.shell.artistDetail.detail?.artist?.id)
+    }
+
+    private fun selectionCommands(item: SharedMediaItemUi): List<NaviampCoreCommand> = listOf(
+        NaviampCoreCommand.Media.ItemAction(item.albumActionRequest(NaviampArtistAlbumCommand.Select)),
+        NaviampCoreCommand.Media.ItemAction(item.artistActionRequest(NaviampArtistMediaCommand.Select)),
+        NaviampCoreCommand.Media.ItemAction(item.playlistActionRequest(NaviampPlaylistMediaCommand.Select)),
+        NaviampCoreCommand.Detail.ArtistAlbum(app.naviamp.ui.NaviampArtistAlbumActionRequest(item, NaviampArtistAlbumCommand.Select)),
+    )
+
     private fun kotlinx.coroutines.test.TestScope.controller(
         provider: MediaProvider?,
         popularTracksGate: CompletableDeferred<Unit>? = null,
@@ -518,15 +705,23 @@ class NaviampCoreMediaDetailControllerTest {
         val store = NaviampCoreStateStore()
         store.updateShell { it.copy(general = it.general.copy(interfaceSettings = settings)) }
         lateinit var media: NaviampCoreMediaDetailController
+        lateinit var playlists: NaviampCorePlaylistBrowseController
+        lateinit var router: NaviampCoreCommandRouter
+        val registry = NaviampCoreMediaRegistry()
         val navigation = NaviampCoreNavigationController(
             navigation = NaviampNavigationController(),
             stateStore = store,
-            artistNavigator = NaviampCoreArtistNavigator { media.openArtist(it) },
+            restoreCommand = { router.dispatch(it) },
+            onPageChanging = {
+                media.invalidateNavigation()
+                playlists.invalidateNavigation()
+            },
         )
         media = NaviampCoreMediaDetailController(
             stateStore = store,
             providerSource = NaviampCoreMediaProviderSource { provider },
             navigationController = navigation,
+            mediaRegistry = registry,
             scope = backgroundScope,
             discovery = NaviampCoreArtistDiscoveryServices(
                 sourceId = { "source" },
@@ -564,7 +759,9 @@ class NaviampCoreMediaDetailControllerTest {
                 } },
             ),
         )
-        return store to MediaDetailControllers(media, navigation)
+        playlists = NaviampCorePlaylistBrowseController(store, { provider }, navigation, mediaRegistry = registry)
+        router = NaviampCoreCommandRouter(backgroundScope, listOf(navigation, media, playlists))
+        return store to MediaDetailControllers(media, navigation, router, registry)
     }
 
     private fun mediaItem(id: String, title: String) = SharedMediaItemUi(id = id, title = title, subtitle = "")
@@ -573,8 +770,10 @@ class NaviampCoreMediaDetailControllerTest {
 private data class MediaDetailControllers(
     val media: NaviampCoreMediaDetailController,
     val navigation: NaviampCoreNavigationController,
+    val router: NaviampCoreCommandRouter,
+    val registry: NaviampCoreMediaRegistry,
 ) {
-    suspend fun execute(command: NaviampCoreCommand) = media.execute(command)
+    suspend fun execute(command: NaviampCoreCommand) = router.execute(command)
 }
 
 private class MediaDetailTestProvider(
@@ -586,6 +785,8 @@ private class MediaDetailTestProvider(
 ) : MediaProvider {
     var playlistReads = 0
     var cancelledPlaylistReads = 0
+    val albumReads = mutableListOf<String>()
+    val artistReads = mutableListOf<String>()
     override suspend fun playlists(limit: Int) = listOf(app.naviamp.domain.Playlist("mine", "My playlist", 1))
     override suspend fun playlistOwnedByCurrentUser(playlist: app.naviamp.domain.Playlist) = true
     override suspend fun playlistTracks(playlistId: String): List<Track> {
@@ -611,10 +812,13 @@ private class MediaDetailTestProvider(
 
     override suspend fun validateConnection() = ConnectionValidation(null, null)
     override suspend fun recentlyAddedAlbums(limit: Int) = emptyList<Album>()
-    override suspend fun album(albumId: AlbumId) = AlbumDetails(
-        album = Album(albumId, "Canonical album", "Artist", "cover", null),
-        tracks = listOf(track("track-1", "Track one", albumId)),
-    )
+    override suspend fun album(albumId: AlbumId): AlbumDetails {
+        albumReads += albumId.value
+        return AlbumDetails(
+            album = Album(albumId, "Canonical album", "Artist", "cover", null),
+            tracks = listOf(track("track-1", "Track one", albumId)),
+        )
+    }
 
     override suspend fun albumInfo(albumId: AlbumId): AlbumInfo {
         albumInfoGate?.await()
@@ -622,6 +826,7 @@ private class MediaDetailTestProvider(
     }
 
     override suspend fun artist(artistId: ArtistId): ArtistDetails {
+        artistReads += artistId.value
         if (artistId.value == "artist-a") firstArtistGate?.await()
         val artist = Artist(
             artistId,

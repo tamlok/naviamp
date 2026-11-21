@@ -1,177 +1,90 @@
 package app.naviamp.app
 
-import app.naviamp.domain.Artist
 import app.naviamp.domain.app.NaviampNavigationState
 import app.naviamp.domain.app.NaviampRoute
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 
-/**
- * Canonical cross-platform owner of top-level routes and detail-screen back policy.
- *
- * Hosts load detail data and adapt operating-system back events, but they all record detail opens
- * and consume the same [NaviampDetailBackCommand].
- */
-class NaviampNavigationController(
-    initialState: NaviampNavigationState = NaviampNavigationState(),
-) {
+/** A small destination descriptor; feature data and loading remain with their shared owners. */
+interface NaviampNavigationPage {
+    val route: NaviampRoute
+    fun sameDestination(other: NaviampNavigationPage): Boolean = this == other
+}
+
+data class NaviampRoutePage(override val route: NaviampRoute) : NaviampNavigationPage
+
+data class NaviampNavigationEntry(
+    val page: NaviampNavigationPage,
+    val contentRoute: NaviampRoute,
+    val reopenNowPlaying: Boolean = false,
+)
+
+/** In-memory page history. Root selection and process-state replacement start a new history. */
+class NaviampNavigationController(initialState: NaviampNavigationState = NaviampNavigationState()) {
+    private val history = ArrayDeque<NaviampNavigationEntry>()
     private val mutableState = MutableStateFlow(initialState)
-    private var detailState = NaviampDetailNavigationState()
-
     val state: StateFlow<NaviampNavigationState> = mutableState.asStateFlow()
+    var currentEntry: NaviampNavigationEntry = restoredEntry(initialState)
+        private set
+    var epoch: Long = 0
+        private set
+    val canGoBack: Boolean get() = history.isNotEmpty()
 
-    fun navigate(route: NaviampRoute) {
-        mutableState.update { current -> current.copy(route = route) }
+    init { publish() }
+
+    fun openPage(page: NaviampNavigationPage, openedFromNowPlaying: Boolean = false): Boolean {
+        if (currentEntry.page.sameDestination(page)) {
+            currentEntry = currentEntry.copy(page = page)
+            return false
+        }
+        history.addLast(currentEntry.copy(reopenNowPlaying = openedFromNowPlaying))
+        epoch++
+        val contentRoute = when (page.route) {
+            NaviampRoute.AlbumDetail, NaviampRoute.ArtistDetail, NaviampRoute.PlaylistDetail -> currentEntry.contentRoute
+            else -> page.route
+        }
+        currentEntry = NaviampNavigationEntry(page, contentRoute)
+        publish()
+        return true
     }
 
-    fun updateLastContentRoute(route: NaviampRoute) {
-        mutableState.update { current -> current.copy(lastContentRoute = route) }
+    fun back(): NaviampNavigationEntry? {
+        val entry = history.removeLastOrNull() ?: return null
+        epoch++
+        currentEntry = entry
+        publish()
+        return entry
+    }
+
+    fun reset(route: NaviampRoute) {
+        replace(NaviampNavigationState(route, route))
+    }
+
+    /** Replaces the active route without adding or removing history (for surface presentation). */
+    fun replaceRoute(route: NaviampRoute) {
+        epoch++
+        currentEntry = NaviampNavigationEntry(NaviampRoutePage(route), route)
+        publish()
     }
 
     fun replace(state: NaviampNavigationState) {
-        mutableState.value = state
+        epoch++
+        history.clear()
+        currentEntry = restoredEntry(state)
+        publish()
     }
 
-    val albumDetailBackRoute: NaviampRoute
-        get() = detailState.albumBackRoute
-
-    val artistDetailBackRoute: NaviampRoute
-        get() = detailState.artistBackRoute
-
-    fun recordAlbumDetailOpened(
-        backRouteOverride: NaviampRoute? = null,
-        openedFromNowPlaying: Boolean = false,
-    ) {
-        val navigation = state.value
-        detailState = detailState.copy(
-            albumBackRoute = backRouteOverride ?: when (navigation.route) {
-                NaviampRoute.AlbumDetail -> detailState.albumBackRoute
-                NaviampRoute.ArtistDetail -> NaviampRoute.ArtistDetail
-                NaviampRoute.Player -> navigation.lastContentRoute
-                else -> navigation.route
-            },
-            albumBackOpensNowPlaying = openedFromNowPlaying,
-        )
+    private fun publish() {
+        mutableState.value = NaviampNavigationState(currentEntry.page.route, currentEntry.contentRoute)
     }
 
-    fun recordArtistDetailOpened(
-        artist: Artist,
-        backRouteOverride: NaviampRoute? = null,
-        pushCurrentArtist: Boolean = true,
-        continuingArtistDetail: Boolean = state.value.route == NaviampRoute.ArtistDetail,
-        openedFromNowPlaying: Boolean = false,
-    ) {
-        val navigation = state.value
-        val backStack = if (pushCurrentArtist && continuingArtistDetail) {
-            detailState.activeArtist
-                ?.takeIf { current -> current.id != artist.id }
-                ?.let { current -> detailState.artistBackStack + current }
-                ?: detailState.artistBackStack
-        } else if (!continuingArtistDetail) {
-            emptyList()
-        } else {
-            detailState.artistBackStack
+    private fun restoredEntry(state: NaviampNavigationState): NaviampNavigationEntry {
+        val route = if (state.route == NaviampRoute.Player) state.lastContentRoute else state.route
+        val content = when (route) {
+            NaviampRoute.AlbumDetail, NaviampRoute.ArtistDetail, NaviampRoute.PlaylistDetail -> state.lastContentRoute
+            else -> route
         }
-        val backRoute = backRouteOverride ?: when (navigation.route) {
-            NaviampRoute.ArtistDetail -> detailState.artistBackRoute
-            NaviampRoute.Player -> navigation.lastContentRoute
-            else -> navigation.route
-        }
-        detailState = detailState.copy(
-            activeArtist = artist,
-            artistBackStack = backStack,
-            artistBackRoute = backRoute,
-            artistBackOpensNowPlaying = if (continuingArtistDetail) {
-                detailState.artistBackOpensNowPlaying
-            } else {
-                openedFromNowPlaying
-            },
-        )
-    }
-
-    /** Updates a fallback artist reference after the provider returns canonical metadata. */
-    fun updateActiveArtist(artist: Artist) {
-        detailState = detailState.copy(activeArtist = artist)
-    }
-
-    fun recordPlaylistDetailOpened() {
-        detailState = detailState.copy(playlistBackArtist = when (state.value.route) {
-            NaviampRoute.ArtistDetail -> detailState.activeArtist?.let { artist ->
-                NaviampPlaylistArtistOrigin(artist, detailState.artistBackStack,
-                    detailState.artistBackRoute, detailState.artistBackOpensNowPlaying)
-            }
-            NaviampRoute.PlaylistDetail -> detailState.playlistBackArtist
-            else -> null
-        })
-    }
-
-    /** Returning from a playlist must not pop the artist's own nested back history. */
-    fun closePlaylistDetail(fallbackRoute: NaviampRoute): NaviampDetailBackCommand {
-        val origin = detailState.playlistBackArtist
-        detailState = detailState.copy(playlistBackArtist = null)
-        if (origin == null) return NaviampDetailBackCommand.Navigate(fallbackRoute)
-        detailState = detailState.copy(activeArtist = origin.artist, artistBackStack = origin.backStack,
-            artistBackRoute = origin.backRoute, artistBackOpensNowPlaying = origin.reopenNowPlaying)
-        return NaviampDetailBackCommand.OpenArtist(origin.artist)
-    }
-
-    fun closeActiveDetail(kind: NaviampDetailKind): NaviampDetailBackCommand =
-        when (kind) {
-            NaviampDetailKind.Album -> NaviampDetailBackCommand.Navigate(
-                detailState.albumBackRoute,
-                reopenNowPlaying = detailState.albumBackOpensNowPlaying,
-            )
-            NaviampDetailKind.Artist -> {
-                val previousArtist = detailState.artistBackStack.lastOrNull()
-                if (previousArtist != null) {
-                    detailState = detailState.copy(
-                        activeArtist = previousArtist,
-                        artistBackStack = detailState.artistBackStack.dropLast(1),
-                    )
-                    NaviampDetailBackCommand.OpenArtist(previousArtist)
-                } else {
-                    detailState = detailState.copy(activeArtist = null, artistBackStack = emptyList())
-                    NaviampDetailBackCommand.Navigate(
-                        detailState.artistBackRoute,
-                        reopenNowPlaying = detailState.artistBackOpensNowPlaying,
-                    )
-                }
-            }
-        }
-
-    fun clearDetailHistory() {
-        detailState = NaviampDetailNavigationState()
+        return NaviampNavigationEntry(NaviampRoutePage(route), content, state.route == NaviampRoute.Player)
     }
 }
-
-enum class NaviampDetailKind {
-    Album,
-    Artist,
-}
-
-sealed interface NaviampDetailBackCommand {
-    data class Navigate(
-        val route: NaviampRoute,
-        val reopenNowPlaying: Boolean = false,
-    ) : NaviampDetailBackCommand
-    data class OpenArtist(val artist: Artist) : NaviampDetailBackCommand
-}
-
-private data class NaviampDetailNavigationState(
-    val activeArtist: Artist? = null,
-    val playlistBackArtist: NaviampPlaylistArtistOrigin? = null,
-    val artistBackStack: List<Artist> = emptyList(),
-    val albumBackRoute: NaviampRoute = NaviampRoute.Home,
-    val artistBackRoute: NaviampRoute = NaviampRoute.Search,
-    val albumBackOpensNowPlaying: Boolean = false,
-    val artistBackOpensNowPlaying: Boolean = false,
-)
-
-private data class NaviampPlaylistArtistOrigin(
-    val artist: Artist,
-    val backStack: List<Artist>,
-    val backRoute: NaviampRoute,
-    val reopenNowPlaying: Boolean,
-)
