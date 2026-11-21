@@ -383,7 +383,7 @@ private fun ArtistDetailContent(
                             NaviampDetailAction("Start artist radio", NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),
                             NaviampDetailAction(
                                 stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
-                                NaviampIcons.Downloads, onKeepDownloaded, detail.albums.isNotEmpty() || keptDownloaded,
+                                NaviampIcons.KeepDownloaded, onKeepDownloaded, detail.albums.isNotEmpty() || keptDownloaded,
                                 selected = keptDownloaded,
                             ),
                             NaviampDetailAction(

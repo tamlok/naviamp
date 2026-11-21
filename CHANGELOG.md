@@ -30,6 +30,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Cycle the current theme through Light, Dark, and System using the mode button before More actions in Home’s top-right header, without changing the selected theme or other appearance preferences.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
 - Use Lucide list-music for Playlists, palette for Appearance, and layers-2 for Playlist bulk tools, and clarify Experience settings with “Behave the way you want”.
+- Use Lucide database-arrow-down for Keep downloaded on album and artist details, distinct from the regular Download action.
 - Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
 - Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
 - Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. Preserve artwork colors while adjusting brightness for readable text, instead of washing them into gray. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.

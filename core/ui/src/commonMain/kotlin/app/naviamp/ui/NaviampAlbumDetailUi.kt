@@ -281,7 +281,7 @@ private fun AlbumDetailContent(
                             NaviampDetailAction("Download album", NaviampIcons.Downloads, onAlbumDownload, detail.tracks.isNotEmpty()),
                             NaviampDetailAction(
                                 stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
-                                NaviampIcons.Downloads, onKeepDownloaded, detail.tracks.isNotEmpty() || keptDownloaded,
+                                NaviampIcons.KeepDownloaded, onKeepDownloaded, detail.tracks.isNotEmpty() || keptDownloaded,
                                 selected = keptDownloaded,
                             ),
                             NaviampDetailAction("Add album to queue", NaviampIcons.Queue, onAlbumAddToQueue, detail.tracks.isNotEmpty()),
