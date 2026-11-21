@@ -634,6 +634,45 @@ object NaviampIcons {
         close()
     }
 
+    val Sun = icon("Sun") {
+        moveTo(17f, 12f)
+        arcToRelative(5f, 5f, 0f, false, true, -10f, 0f)
+        arcToRelative(5f, 5f, 0f, false, true, 10f, 0f)
+        close()
+        moveTo(12f, 2f); lineTo(12f, 4f)
+        moveTo(12f, 20f); lineTo(12f, 22f)
+        moveTo(2f, 12f); lineTo(4f, 12f)
+        moveTo(20f, 12f); lineTo(22f, 12f)
+        moveTo(4.93f, 4.93f); lineTo(6.34f, 6.34f)
+        moveTo(17.66f, 17.66f); lineTo(19.07f, 19.07f)
+        moveTo(4.93f, 19.07f); lineTo(6.34f, 17.66f)
+        moveTo(17.66f, 6.34f); lineTo(19.07f, 4.93f)
+    }
+    val Moon = icon("Moon") {
+        moveTo(20.9f, 13.3f)
+        arcToRelative(9f, 9f, 0f, true, true, -10.2f, -10.2f)
+        arcToRelative(7f, 7f, 0f, false, false, 10.2f, 10.2f)
+        close()
+    }
+    val BrightnessAuto = icon("BrightnessAuto") {
+        moveTo(18f, 12f)
+        arcToRelative(6f, 6f, 0f, false, true, -12f, 0f)
+        arcToRelative(6f, 6f, 0f, false, true, 12f, 0f)
+        close()
+        moveTo(12f, 2f); lineTo(12f, 3f)
+        moveTo(12f, 21f); lineTo(12f, 22f)
+        moveTo(2f, 12f); lineTo(3f, 12f)
+        moveTo(21f, 12f); lineTo(22f, 12f)
+        moveTo(4.93f, 4.93f); lineTo(5.64f, 5.64f)
+        moveTo(18.36f, 18.36f); lineTo(19.07f, 19.07f)
+        moveTo(4.93f, 19.07f); lineTo(5.64f, 18.36f)
+        moveTo(18.36f, 5.64f); lineTo(19.07f, 4.93f)
+        moveTo(9.5f, 15f)
+        lineTo(12f, 9f)
+        lineTo(14.5f, 15f)
+        moveTo(10.5f, 12.5f); lineTo(13.5f, 12.5f)
+    }
+
     private fun icon(name: String, strokeWidth: Float = 1.9f, block: androidx.compose.ui.graphics.vector.PathBuilder.() -> Unit): ImageVector =
         ImageVector.Builder(
             name = name,

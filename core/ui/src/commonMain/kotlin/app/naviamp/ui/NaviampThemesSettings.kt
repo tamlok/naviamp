@@ -118,3 +118,34 @@ private fun ThemePaletteSwatches(label: String, palette: NaviampThemePalette, co
         }
     }
 }
+
+@Composable
+internal fun NaviampThemeModeAction(
+    colors: NaviampColors,
+    interfaceSettings: InterfaceSettings,
+    onInterfaceSettingsChanged: (InterfaceSettings) -> Unit,
+) {
+    val mode = interfaceSettings.theme.mode
+    NaviampPageHeaderAction(
+        icon = when (mode) {
+            NaviampThemeMode.Light -> NaviampIcons.Sun
+            NaviampThemeMode.Dark -> NaviampIcons.Moon
+            NaviampThemeMode.System -> NaviampIcons.BrightnessAuto
+        },
+        contentDescription = stringResource(Res.string.settings_themes_mode),
+        stateDescription = stringResource(when (mode) {
+            NaviampThemeMode.Light -> Res.string.settings_themes_light
+            NaviampThemeMode.Dark -> Res.string.settings_themes_dark
+            NaviampThemeMode.System -> Res.string.settings_themes_system
+        }),
+        colors = colors,
+        onClick = {
+            val nextMode = when (mode) {
+                NaviampThemeMode.Light -> NaviampThemeMode.Dark
+                NaviampThemeMode.Dark -> NaviampThemeMode.System
+                NaviampThemeMode.System -> NaviampThemeMode.Light
+            }
+            onInterfaceSettingsChanged(interfaceSettings.copy(theme = interfaceSettings.theme.copy(mode = nextMode)))
+        },
+    )
+}

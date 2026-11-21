@@ -66,6 +66,10 @@ fun ColumnScope.NaviampProductRouteContent(
                     discoveryPlayback = shellState.home.samplePlayback,
                     actions = shellActions.homeActions,
                     mediaActions = shellActions.mediaActions,
+                    headerActions = {
+                        NaviampThemeModeAction(colors, shellState.general.interfaceSettings,
+                            shellActions.valueActions.onInterfaceSettingsChanged)
+                    },
                 )
                 NaviampRoute.AlbumDetail -> NaviampAlbumDetailContent(
                     colors = colors,

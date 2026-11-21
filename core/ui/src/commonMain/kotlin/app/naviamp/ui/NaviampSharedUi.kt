@@ -670,6 +670,9 @@ internal fun ConnectedContent(
                 actions = homeActions,
                 mediaActions = mediaActions,
                 scrollState = homeScrollState,
+                headerActions = {
+                    NaviampThemeModeAction(colors, interfaceSettings, valueActions.onInterfaceSettingsChanged)
+                },
             )
             SharedRoute.Playlists -> NaviampPlaylistsContent(
                 colors = colors,

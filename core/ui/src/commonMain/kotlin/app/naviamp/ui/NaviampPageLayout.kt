@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,6 +86,7 @@ internal fun NaviampPageHeaderAction(
     colors: NaviampColors,
     enabled: Boolean = true,
     selected: Boolean? = null,
+    stateDescription: String? = null,
     onClick: () -> Unit,
 ) {
     NaviampTooltip(contentDescription, colors) {
@@ -98,6 +100,7 @@ internal fun NaviampPageHeaderAction(
             ),
             modifier = Modifier.size(48.dp).semantics {
                 if (selected != null) this.selected = selected
+                if (stateDescription != null) this.stateDescription = stateDescription
             },
         ) {
             Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(24.dp))

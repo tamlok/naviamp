@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -960,6 +961,7 @@ fun SharedHomeRoute(
     mediaActions: NaviampMediaActions,
     discoveryPlayback: DiscoverySamplePlaybackUi,
     scrollState: ScrollState = rememberScrollState(),
+    headerActions: @Composable RowScope.() -> Unit = {},
 ) {
     val collectionScrollState = remember(home.collectionPage?.section?.id) { ScrollState(0) }
     home.providerDiscovery?.takeIf { it.requestsOpen }?.let {
@@ -995,6 +997,7 @@ fun SharedHomeRoute(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         NaviampPageHeader(stringResource(Res.string.home_music_title), colors) {
+            headerActions()
             NaviampPageHeaderOverflow(
                 colors = colors,
                 items = listOf(NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh)),

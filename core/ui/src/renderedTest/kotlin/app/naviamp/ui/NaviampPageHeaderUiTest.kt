@@ -19,6 +19,10 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.naviamp.domain.settings.InterfaceSettings
+import app.naviamp.domain.settings.NaviampForestTheme
+import app.naviamp.domain.settings.NaviampThemeMode
+import app.naviamp.domain.settings.NaviampThemeSettings
 import app.naviamp.domain.smartplaylist.*
 import kotlin.math.abs
 import kotlin.math.min
@@ -32,6 +36,64 @@ class NaviampPageHeaderUiTest {
     @Test fun narrowHeaderKeepsFourActionsReachable() = verifyLayout(320, 1f)
     @Test fun largeFontNarrowHeaderKeepsFourActionsReachable() = verifyLayout(320, 2f)
     @Test fun wideHeaderKeepsTitleAndFourActionsOnOneRow() = verifyLayout(800, 1f)
+
+    @Test fun narrowHomeThemeActionCyclesModesBeforeOverflow() = verifyHomeThemeAction(320, 1f)
+    @Test fun wideHomeThemeActionCyclesModesBeforeOverflow() = verifyHomeThemeAction(800, 1f)
+    @Test fun largeFontHomeThemeActionRemainsReachable() = verifyHomeThemeAction(320, 2f)
+
+    private fun verifyHomeThemeAction(width: Int, fontScale: Float) = runComposeUiTest {
+        val initial = InterfaceSettings(keepScreenAwake = true, showDesktopTooltips = false,
+            theme = NaviampThemeSettings(NaviampThemeMode.Light, NaviampForestTheme.id))
+        val settings = mutableStateOf(initial)
+        val changes = mutableListOf<InterfaceSettings>()
+        var refreshes = 0
+        var pixelsPerDp = 1f
+        setContent {
+            HeaderViewport(width, fontScale) {
+                pixelsPerDp = LocalDensity.current.density
+                SharedHomeRoute(
+                    colors = NaviampColors(),
+                    home = NaviampHomeScreenUi(),
+                    actions = NaviampHomeActions({ refreshes++ }, {}, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }),
+                    mediaActions = NaviampMediaActions({}, {}),
+                    discoveryPlayback = DiscoverySamplePlaybackUi(),
+                    headerActions = {
+                        NaviampThemeModeAction(NaviampColors(), settings.value) {
+                            changes += it
+                            settings.value = it
+                        }
+                    },
+                )
+            }
+        }
+        val action = onNodeWithContentDescription("Color mode").assertIsDisplayed().assertHasClickAction()
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        val bounds = action.fetchSemanticsNode().boundsInRoot
+        val more = onNodeWithContentDescription("More actions").assertIsDisplayed()
+        val moreBounds = more.fetchSemanticsNode().boundsInRoot
+        assertTrue(bounds.width >= 48f * pixelsPerDp - 1f && bounds.height >= 48f * pixelsPerDp - 1f)
+        assertTrue(bounds.left >= 0f && moreBounds.right <= width * pixelsPerDp + 1f)
+        assertTrue(bounds.right <= moreBounds.left && abs(bounds.center.y - moreBounds.center.y) <= 1f)
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Light"))
+        action.performTouchInput { click() }
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Dark"))
+        action.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        action.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "System"))
+        action.performTouchInput { click() }
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Light"))
+        runOnIdle {
+            assertEquals(listOf(NaviampThemeMode.Dark, NaviampThemeMode.System, NaviampThemeMode.Light)
+                .map { initial.copy(theme = initial.theme.copy(mode = it)) }, changes)
+            settings.value = initial.copy(theme = initial.theme.copy(mode = NaviampThemeMode.System))
+        }
+        action.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "System"))
+        action.performTouchInput { click() }
+        runOnIdle { assertEquals(initial, settings.value) }
+        more.performTouchInput { click() }
+        onNodeWithText("Refresh").assertIsDisplayed().performTouchInput { click() }
+        runOnIdle { assertEquals(1, refreshes) }
+    }
 
     private fun verifyLayout(width: Int, fontScale: Float) = runComposeUiTest {
         val clicks = IntArray(3)
