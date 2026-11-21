@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -93,12 +92,12 @@ fun PlaybackProfileDialog(
                     ) {
                         Text("Crossfade duration", color = colors.secondaryText, fontSize = 13.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(
+                            NaviampTextButton(
                                 enabled = crossfadeSeconds > MinPlaybackProfileCrossfadeSeconds,
                                 onClick = { crossfadeSeconds-- },
                             ) { Text("−") }
                             Text("$crossfadeSeconds seconds", color = colors.primaryText, fontSize = 13.sp)
-                            TextButton(
+                            NaviampTextButton(
                                 enabled = crossfadeSeconds < MaxPlaybackProfileCrossfadeSeconds,
                                 onClick = { crossfadeSeconds++ },
                             ) { Text("+") }
@@ -136,7 +135,7 @@ fun PlaybackProfileDialog(
         },
         dismissButton = {
             Row {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         if (initialArtworkPreference != null && initialArtworkPreference != AlbumArtworkPreference.Inherit) {
                             onSaveArtworkPreference?.invoke(AlbumArtworkPreference.Inherit)
@@ -145,11 +144,11 @@ fun PlaybackProfileDialog(
                         onDismissRequest()
                     },
                 ) { Text("Use global settings") }
-                TextButton(onClick = onDismissRequest) { Text("Cancel") }
+                NaviampTextButton(onClick = onDismissRequest) { Text("Cancel") }
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 onClick = {
                     if (initialArtworkPreference != null && artworkPreference != initialArtworkPreference) {
                         onSaveArtworkPreference?.invoke(artworkPreference)

@@ -36,7 +36,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -1051,7 +1050,7 @@ fun ArtistMixBuilderContent(
         ) {
             if (showTitle) NaviampPageTitle(stringResource(Res.string.mix_artist_builder_title), colors)
             if (builder.query.isNotBlank() || builder.selectedArtists.isNotEmpty()) {
-                TextButton(onClick = onReset) {
+                NaviampTextButton(onClick = onReset) {
                     Text(stringResource(Res.string.common_reset), fontSize = 12.sp)
                 }
             }
@@ -1137,7 +1136,7 @@ fun AlbumMixBuilderContent(
         ) {
             if (showTitle) NaviampPageTitle(stringResource(Res.string.mix_album_builder_title), colors)
             if (builder.query.isNotBlank() || builder.selectedAlbums.isNotEmpty()) {
-                TextButton(onClick = onReset) {
+                NaviampTextButton(onClick = onReset) {
                     Text(stringResource(Res.string.common_reset), fontSize = 12.sp)
                 }
             }
@@ -1228,7 +1227,7 @@ fun GenreMixBuilderContent(
         ) {
             if (showTitle) NaviampPageTitle(stringResource(Res.string.mix_genre_builder_title), colors)
             if (builder.query.isNotBlank() || builder.selectedGenres.isNotEmpty()) {
-                TextButton(onClick = onReset) {
+                NaviampTextButton(onClick = onReset) {
                     Text(stringResource(Res.string.common_reset), fontSize = 12.sp)
                 }
             }
@@ -1431,7 +1430,7 @@ fun SonicPathBuilderContent(
                 builder.endTrack != null ||
                 builder.hasPath
             ) {
-                TextButton(onClick = onReset) {
+                NaviampTextButton(onClick = onReset) {
                     Text(stringResource(Res.string.common_reset), fontSize = 12.sp)
                 }
             }
@@ -1566,7 +1565,7 @@ fun SonicMixBuilderContent(
                 builder.suggestedTracks.isNotEmpty() ||
                 builder.hasMix
             ) {
-                TextButton(onClick = onReset) {
+                NaviampTextButton(onClick = onReset) {
                     Text(stringResource(Res.string.common_reset), fontSize = 12.sp)
                 }
             }
@@ -2216,7 +2215,7 @@ fun InternetRadioContent(
             title = { Text("Delete station") },
             text = { Text("Delete ${station.item.title}? This removes the server internet radio station.") },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         stationBeingDeleted = null
                         onStationAction(
@@ -2231,7 +2230,7 @@ fun InternetRadioContent(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { stationBeingDeleted = null }) {
+                NaviampTextButton(onClick = { stationBeingDeleted = null }) {
                     Text("Cancel")
                 }
             },
@@ -2262,7 +2261,7 @@ internal fun InternetRadioStationDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 enabled = name.isNotBlank() && streamUrl.isNotBlank(),
                 onClick = {
                     onConfirm(
@@ -2279,7 +2278,7 @@ internal fun InternetRadioStationDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            NaviampTextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },

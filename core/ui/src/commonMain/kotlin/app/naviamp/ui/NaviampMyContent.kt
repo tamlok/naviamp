@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.SaveableStateHolder
@@ -64,7 +63,7 @@ internal fun NaviampMyContent(
                     SharedRoute.Settings -> "my-settings"
                     else -> "my-accounts"
                 }
-                TextButton(
+                NaviampTextButton(
                     onClick = { if (activeRoute != route) actions.navigationActions.onRouteSelected(route) },
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                     shape = RoundedCornerShape(8.dp),
@@ -131,7 +130,7 @@ private fun MyAccountsContent(
             Text(stringResource(if (settings.connection.savedConnections.isEmpty()) Res.string.settings_source_no_connections
                 else Res.string.tv_accounts_title), color = colors.secondaryText)
         }
-        TextButton(
+        NaviampTextButton(
             onClick = actions.onOpenAccounts,
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("my-account-chooser"),
             colors = ButtonDefaults.textButtonColors(contentColor = colors.primaryText, containerColor = colors.controlSurface),

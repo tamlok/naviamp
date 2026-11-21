@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,7 +28,7 @@ internal fun ArtistPlaylistsSection(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(Res.string.artist_playlists).uppercase(), color = colors.primaryText,
                 fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextButton(onClick = onRefresh, enabled = !state.loading) {
+            NaviampTextButton(onClick = onRefresh, enabled = !state.loading) {
                 Text(stringResource(if (state.failed) Res.string.artist_playlists_retry else Res.string.artist_playlists_refresh))
             }
         }

@@ -39,7 +39,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -421,7 +420,7 @@ private fun TelevisionControllersSettings(
                 )
             },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     enabled = deviceName.trim().isNotEmpty(),
                     onClick = {
                         actions.onLocalDeviceNameChanged(deviceName)
@@ -429,7 +428,7 @@ private fun TelevisionControllersSettings(
                     },
                 ) { Text(stringResource(Res.string.common_save)) }
             },
-            dismissButton = { TextButton(onClick = { renameOpen = false }) { Text(stringResource(Res.string.common_cancel)) } },
+            dismissButton = { NaviampTextButton(onClick = { renameOpen = false }) { Text(stringResource(Res.string.common_cancel)) } },
         )
     }
     TelevisionSettingsList {

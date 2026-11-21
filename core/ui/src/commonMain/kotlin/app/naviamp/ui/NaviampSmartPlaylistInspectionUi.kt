@@ -8,7 +8,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -52,7 +51,7 @@ internal fun SmartPlaylistInspectionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismissRequest) { Text(stringResource(Res.string.common_close)) }
+            NaviampTextButton(onClick = onDismissRequest) { Text(stringResource(Res.string.common_close)) }
         },
         containerColor = colors.controlSurface,
         titleContentColor = colors.primaryText,

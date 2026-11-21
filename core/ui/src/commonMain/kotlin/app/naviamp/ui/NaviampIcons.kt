@@ -110,7 +110,7 @@ object NaviampIcons {
         lineTo(7f, 17f)
         close()
     }
-    /* Lucide list-music and palette (https://lucide.dev), ISC License.
+    /* Lucide list-music, palette, and layers-2 (https://lucide.dev), ISC License.
      * Copyright (c) 2026 Lucide Icons and Contributors
      * Permission to use, copy, modify, and/or distribute this software for any purpose with or
      * without fee is hereby granted, provided that the above copyright notice and this permission
@@ -158,6 +158,25 @@ object NaviampIcons {
         arcToRelative(0.5f, 0.5f, 0f, true, true, -1f, 0f)
         arcToRelative(0.5f, 0.5f, 0f, true, true, 1f, 0f)
         close()
+    }
+    val Layers2 = icon("Layers2", strokeWidth = 2f) {
+        moveTo(13f, 13.74f)
+        arcToRelative(2f, 2f, 0f, false, true, -2f, 0f)
+        lineTo(2.5f, 8.87f)
+        arcToRelative(1f, 1f, 0f, false, true, 0f, -1.74f)
+        lineTo(11f, 2.26f)
+        arcToRelative(2f, 2f, 0f, false, true, 2f, 0f)
+        lineToRelative(8.5f, 4.87f)
+        arcToRelative(1f, 1f, 0f, false, true, 0f, 1.74f)
+        close()
+        moveTo(20f, 14.285f)
+        lineToRelative(1.5f, 0.845f)
+        arcToRelative(1f, 1f, 0f, false, true, 0f, 1.74f)
+        lineTo(13f, 21.74f)
+        arcToRelative(2f, 2f, 0f, false, true, -2f, 0f)
+        lineToRelative(-8.5f, -4.87f)
+        arcToRelative(1f, 1f, 0f, false, true, 0f, -1.74f)
+        lineToRelative(1.5f, -0.845f)
     }
     val Brain = thinIcon("Brain") {
         moveTo(9f, 5.8f)

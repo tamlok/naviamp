@@ -3,7 +3,6 @@ package app.naviamp.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.cache.ArtistAlbumScope
@@ -80,13 +79,13 @@ internal fun NaviampCollectionDownloadDialogs(
             },
             confirmButton = {
                 if (preview.error == null) {
-                    TextButton(onClick = actions.onConfirmCollection) {
+                    NaviampTextButton(onClick = actions.onConfirmCollection) {
                         Text(stringResource(Res.string.download_keep_collection))
                     }
                 }
             },
             dismissButton = {
-                TextButton(onClick = actions.onDismissCollection) {
+                NaviampTextButton(onClick = actions.onDismissCollection) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -100,15 +99,15 @@ internal fun NaviampCollectionDownloadDialogs(
             title = { Text(stringResource(Res.string.download_stop_title, removal.title), color = colors.primaryText) },
             text = { Text(stringResource(Res.string.download_stop_summary), color = colors.secondaryText) },
             confirmButton = {
-                TextButton(onClick = { actions.onStopCollection(false) }) {
+                NaviampTextButton(onClick = { actions.onStopCollection(false) }) {
                     Text(stringResource(Res.string.download_stop_keep_files))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { actions.onStopCollection(true) }) {
+                NaviampTextButton(onClick = { actions.onStopCollection(true) }) {
                     Text(stringResource(Res.string.download_stop_remove_files))
                 }
-                TextButton(onClick = actions.onDismissCollection) {
+                NaviampTextButton(onClick = actions.onDismissCollection) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },

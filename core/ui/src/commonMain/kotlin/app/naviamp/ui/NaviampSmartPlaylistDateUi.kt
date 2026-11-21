@@ -40,8 +40,8 @@ internal fun SmartPlaylistOperandField(
         )
         if (calendarDate) {
             Text(stringResource(Res.string.smart_playlist_date_format), color = colors.secondaryText, fontSize = 11.sp)
-            TextButton(onClick = { choosingDate = true }, modifier = Modifier.testTag("smart-playlist-choose-date")) {
-                Text(stringResource(Res.string.smart_playlist_choose_date), color = colors.accent)
+            NaviampTextButton(onClick = { choosingDate = true }, modifier = Modifier.testTag("smart-playlist-choose-date")) {
+                Text(stringResource(Res.string.smart_playlist_choose_date))
             }
         } else if (relativeDays) {
             Text(stringResource(Res.string.smart_playlist_days_hint), color = colors.secondaryText, fontSize = 11.sp)
@@ -79,15 +79,15 @@ internal fun SmartPlaylistOperandField(
                             dividerColor = colors.border,
                         ))
                     Row(Modifier.fillMaxWidth().padding(12.dp), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { choosingDate = false }) {
-                            Text(stringResource(Res.string.common_cancel), color = colors.secondaryText)
+                        NaviampTextButton(onClick = { choosingDate = false }) {
+                            Text(stringResource(Res.string.common_cancel))
                         }
-                        TextButton(enabled = state.selectedDateMillis != null,
+                        NaviampTextButton(enabled = state.selectedDateMillis != null,
                             onClick = {
                                 state.selectedDateMillis?.let(::smartPlaylistDateFromUtcMillis)?.let(onValueChange)
                                 choosingDate = false
                             }, modifier = Modifier.testTag("smart-playlist-use-date")) {
-                            Text(stringResource(Res.string.smart_playlist_use_date), color = colors.accent)
+                            Text(stringResource(Res.string.smart_playlist_use_date))
                         }
                     }
                 }

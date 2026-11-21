@@ -29,7 +29,6 @@ import app.naviamp.domain.library.LibrarySyncProgress
 import app.naviamp.domain.library.LibrarySyncProgressPhase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.key
 import app.naviamp.domain.smartplaylist.moveCondition
 import app.naviamp.domain.smartplaylist.moveGroup
@@ -250,14 +249,14 @@ fun SmartPlaylistBuilderDialog(
                                 Text(template.title, color = colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                                 Text(template.description, color = colors.secondaryText, fontSize = 11.sp)
                             }
-                            TextButton(
+                            NaviampTextButton(
                                 onClick = {
                                     draft = SmartPlaylistDraft.fromDefinition(template.definition)
                                     saveMessage = null
                                     importMessage = null
                                 },
                             ) {
-                                Text("Use", color = colors.accent)
+                                Text("Use")
                             }
                         }
                     }
@@ -274,14 +273,14 @@ fun SmartPlaylistBuilderDialog(
                     onReferencesRetry = { referencesRevision++ },
                     onDraftChange = { draft = it },
                 )
-                TextButton(modifier = Modifier.testTag("smart-playlist-options-toggle"), onClick = { optionsOpen = !optionsOpen }) {
+                NaviampTextButton(modifier = Modifier.testTag("smart-playlist-options-toggle"), onClick = { optionsOpen = !optionsOpen }) {
                     Text(stringResource(Res.string.smart_playlist_options))
                 }
                 if (optionsOpen) SmartPlaylistOptionsControls(colors, draft, availableLibraries, selectedConnectionLibraryIds) { draft = it }
                 if (availableLibraries.isEmpty() && definition.getOrNull()?.libraryIds?.isNotEmpty() == true) {
                     Text(stringResource(if (referencesLoading) Res.string.library_sources_loading else Res.string.library_sources_load_failed),
                         color = colors.secondaryText, fontSize = 12.sp)
-                    if (!referencesLoading) TextButton(onClick = { referencesRevision++ }) {
+                    if (!referencesLoading) NaviampTextButton(onClick = { referencesRevision++ }) {
                         Text(stringResource(Res.string.library_sources_retry))
                     }
                 }
@@ -304,7 +303,7 @@ fun SmartPlaylistBuilderDialog(
                         Text(stringResource(Res.string.smart_playlist_sync_description), color = colors.secondaryText,
                             fontSize = 12.sp, modifier = Modifier.testTag("smart-playlist-sync-hint"))
                     }
-                    TextButton(
+                    NaviampTextButton(
                         modifier = Modifier.testTag("smart-playlist-sync-library"),
                         enabled = !librarySyncing,
                         onClick = {
@@ -353,7 +352,7 @@ fun SmartPlaylistBuilderDialog(
                                     modifier = Modifier.fillMaxWidth(), color = colors.accent,
                                     trackColor = colors.mutedText.copy(alpha = 0.25f))
                             }
-                            TextButton(onClick = {
+                            NaviampTextButton(onClick = {
                                 librarySyncStopped = true
                                 librarySyncJob?.cancel()
                             }, modifier = Modifier.testTag("smart-playlist-stop-sync")) {
@@ -378,7 +377,7 @@ fun SmartPlaylistBuilderDialog(
                     loading = previewLoading || librarySyncing,
                     invalid = definition.isFailure,
                 )
-                TextButton(modifier = Modifier.testTag("smart-playlist-advanced-toggle"), onClick = { advancedOpen = !advancedOpen }) {
+                NaviampTextButton(modifier = Modifier.testTag("smart-playlist-advanced-toggle"), onClick = { advancedOpen = !advancedOpen }) {
                     Text(stringResource(Res.string.smart_playlist_advanced))
                 }
                 if (advancedOpen) {
@@ -387,8 +386,8 @@ fun SmartPlaylistBuilderDialog(
                         colors = colors,
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            TextButton(onClick = { importOpen = !importOpen }) {
-                                Text(if (importOpen) "Hide import" else "Import JSON", color = colors.accent)
+                            NaviampTextButton(onClick = { importOpen = !importOpen }) {
+                                Text(if (importOpen) "Hide import" else "Import JSON")
                             }
                             importMessage?.let { message ->
                                 Text(message, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
@@ -408,7 +407,7 @@ fun SmartPlaylistBuilderDialog(
                                 textStyle = TextStyle(fontSize = 12.sp),
                                 modifier = Modifier.fillMaxWidth().naviampTextInputFocus(),
                             )
-                            TextButton(
+                            NaviampTextButton(
                                 enabled = importJson.isNotBlank(),
                                 onClick = {
                                     runCatching {
@@ -426,7 +425,7 @@ fun SmartPlaylistBuilderDialog(
                                     }
                                 },
                             ) {
-                                Text("Validate and load", color = colors.accent)
+                                Text("Validate and load")
                             }
                         }
                     }
@@ -450,7 +449,7 @@ fun SmartPlaylistBuilderDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 modifier = Modifier.testTag(SmartPlaylistSaveTestTag),
                 enabled = definition.isSuccess && !saving,
                 onClick = {
@@ -483,7 +482,7 @@ fun SmartPlaylistBuilderDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -533,11 +532,11 @@ fun SmartPlaylistBuilderDialog(
                 }
             },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     modifier = Modifier.testTag(SmartPlaylistPasswordSaveTestTag),
                     enabled = pendingDefinition != null && password.isNotBlank() && !passwordSaving,
                     onClick = {
-                        val definitionToSave = pendingDefinition ?: return@TextButton
+                        val definitionToSave = pendingDefinition ?: return@NaviampTextButton
                         val passwordToUse = password
                         passwordSaving = true
                         passwordError = null
@@ -562,7 +561,7 @@ fun SmartPlaylistBuilderDialog(
                 }
             },
             dismissButton = {
-                TextButton(
+                NaviampTextButton(
                     enabled = !passwordSaving,
                     onClick = {
                         passwordPromptOpen = false
@@ -636,7 +635,7 @@ internal fun SmartPlaylistLoadPasswordDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 modifier = Modifier.testTag(SmartPlaylistLoadPasswordConfirmTestTag),
                 enabled = password.isNotBlank() && !loading,
                 onClick = {
@@ -662,7 +661,7 @@ internal fun SmartPlaylistLoadPasswordDialog(
             }
         },
         dismissButton = {
-            TextButton(enabled = !loading, onClick = onDismissRequest) {
+            NaviampTextButton(enabled = !loading, onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -726,10 +725,10 @@ internal fun SmartPlaylistCustomControls(
                 )
             }
         }
-        TextButton(
+        NaviampTextButton(
             onClick = { onDraftChange(draft.copy(conditions = draft.conditions + SmartPlaylistConditionDraft())) },
         ) {
-            Text("Add filter", color = colors.accent)
+            Text("Add filter")
         }
     }
 
@@ -744,10 +743,10 @@ internal fun SmartPlaylistCustomControls(
                             SmartPlaylistMovementControls("smart-playlist-group-${group.id}", groupIndex, draft.groups.size, colors) {
                                 onDraftChange(draft.moveGroup(group.id, it))
                             }
-                            TextButton(
+                            NaviampTextButton(
                                 onClick = { onDraftChange(draft.copy(groups = draft.groups.filterIndexed { i, _ -> i != groupIndex })) },
                             ) {
-                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp)
+                                Text("Remove", fontSize = 12.sp)
                             }
                         }
                     },
@@ -812,7 +811,7 @@ internal fun SmartPlaylistCustomControls(
                             )
                         }
                     }
-                    TextButton(
+                    NaviampTextButton(
                         onClick = {
                             onDraftChange(
                                 draft.copy(
@@ -824,15 +823,15 @@ internal fun SmartPlaylistCustomControls(
                             )
                         },
                     ) {
-                        Text("Add group filter", color = colors.accent)
+                        Text("Add group filter")
                     }
                 }
             }
         }
-        TextButton(
+        NaviampTextButton(
             onClick = { onDraftChange(draft.copy(groups = draft.groups + SmartPlaylistGroupDraft())) },
         ) {
-            Text("Add group", color = colors.accent)
+            Text("Add group")
         }
     }
 
@@ -847,10 +846,10 @@ internal fun SmartPlaylistCustomControls(
                             SmartPlaylistMovementControls("smart-playlist-sort-${sort.id}", index, draft.sort.size, colors) {
                                 onDraftChange(draft.moveSort(sort.id, it))
                             }
-                            TextButton(
+                            NaviampTextButton(
                                 onClick = { onDraftChange(draft.copy(sort = draft.sort.filterIndexed { i, _ -> i != index })) },
                             ) {
-                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp)
+                                Text("Remove", fontSize = 12.sp)
                             }
                         }
                     },
@@ -878,10 +877,10 @@ internal fun SmartPlaylistCustomControls(
                 }
             }
         }
-        TextButton(
+        NaviampTextButton(
             onClick = { onDraftChange(draft.copy(sort = draft.sort + SmartPlaylistSortDraft())) },
         ) {
-            Text("Add sort", color = colors.accent)
+            Text("Add sort")
         }
         SmartPlaylistDropdown(
             label = "Limit",
@@ -1007,7 +1006,7 @@ private fun SmartPlaylistRuleControls(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 movement()
                 onRemove?.let { remove ->
-                    TextButton(onClick = remove) { Text("Remove", color = colors.secondaryText, fontSize = 12.sp) }
+                    NaviampTextButton(onClick = remove) { Text("Remove", fontSize = 12.sp) }
                 }
             }
         },

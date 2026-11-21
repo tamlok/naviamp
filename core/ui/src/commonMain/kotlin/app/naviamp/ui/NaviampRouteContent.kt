@@ -33,7 +33,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -789,7 +788,7 @@ internal fun FavoriteArtistSortMenu(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        TextButton(
+        NaviampTextButton(
             onClick = { expanded = !expanded },
             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
             colors = ButtonDefaults.textButtonColors(contentColor = colors.secondaryText),
@@ -824,7 +823,7 @@ private fun HomeCollectionLayoutButton(
     colors: NaviampColors,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    NaviampTextButton(
         onClick = onClick,
         colors = ButtonDefaults.textButtonColors(
             contentColor = if (selected) colors.primaryText else colors.secondaryText,
@@ -1586,7 +1585,7 @@ fun NaviampLibraryContent(
                     } else {
                         stringResource(Res.string.library_view_state_not_selected)
                     }
-                    TextButton(
+                    NaviampTextButton(
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.textButtonColors(
@@ -2079,13 +2078,13 @@ fun NaviampDownloadsContent(
             title = { Text("Delete all downloads?") },
             text = { Text("This removes every downloaded file shown for the active source. This cannot be undone.") },
             confirmButton = {
-                TextButton(onClick = {
+                NaviampTextButton(onClick = {
                     confirmDeleteAll = false
                 actions.onDeleteAll()
                 }) { Text("Delete All") }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDeleteAll = false }) { Text("Cancel") }
+                NaviampTextButton(onClick = { confirmDeleteAll = false }) { Text("Cancel") }
             },
         )
     }
@@ -2116,10 +2115,10 @@ private fun DownloadJobCard(
                 contentColor = colors.primaryText,
             )
             if (job.canCancel) {
-                TextButton(onClick = onCancel, colors = jobActionColors) { Text("Cancel") }
+                NaviampTextButton(onClick = onCancel, colors = jobActionColors) { Text("Cancel") }
             }
             if (job.canRetry) {
-                TextButton(onClick = onRetry, colors = jobActionColors) { Text("Retry") }
+                NaviampTextButton(onClick = onRetry, colors = jobActionColors) { Text("Retry") }
             }
         }
         LinearProgressIndicator(

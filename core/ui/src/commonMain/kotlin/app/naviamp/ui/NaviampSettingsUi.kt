@@ -61,7 +61,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -1547,7 +1546,7 @@ private fun GlobalKeyboardShortcutsSettingsPage(
             capturingAction = action
         }
     }
-    TextButton(
+    NaviampTextButton(
         onClick = {
             onInterfaceSettingsChanged(
                 interfaceSettings.copy(
@@ -1630,10 +1629,10 @@ private fun KeyboardShortcutCaptureDialog(
             LaunchedEffect(Unit) { focusRequester.requestFocus() }
         },
         confirmButton = {
-            TextButton(onClick = { onCaptured(null) }) { Text("Disable shortcut") }
+            NaviampTextButton(onClick = { onCaptured(null) }) { Text("Disable shortcut") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            NaviampTextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
 }
@@ -2665,7 +2664,7 @@ private fun NaviampConnectionsSettingsSection(
                 title = { Text(stringResource(Res.string.settings_source_delete_title)) },
                 text = { Text(stringResource(Res.string.settings_source_delete_message, connection.displayName)) },
                 confirmButton = {
-                    TextButton(
+                    NaviampTextButton(
                         onClick = {
                             pendingDelete = null
                             onDeleteConnection(connection)
@@ -2675,7 +2674,7 @@ private fun NaviampConnectionsSettingsSection(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingDelete = null }) {
+                    NaviampTextButton(onClick = { pendingDelete = null }) {
                         Text(stringResource(Res.string.common_cancel))
                     }
                 },
@@ -2813,7 +2812,7 @@ private fun NaviampSavedConnectionRow(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        TextButton(
+        NaviampTextButton(
             enabled = enabled,
             onClick = onConnect,
             modifier = Modifier.fillMaxWidth(),
@@ -2968,7 +2967,7 @@ private fun SharedLocalDataActions(
             title = { Text(action.title()) },
             text = { Text(action.message()) },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         confirmAction = null
                         when (action) {
@@ -2982,7 +2981,7 @@ private fun SharedLocalDataActions(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirmAction = null }) {
+                NaviampTextButton(onClick = { confirmAction = null }) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -4013,7 +4012,7 @@ private fun AudioOutputSettings(
             title = { Text(stringResource(Res.string.settings_sample_rate_matching_strict_crossfade_title)) },
             text = { Text(stringResource(Res.string.settings_sample_rate_matching_strict_crossfade_message)) },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         pendingStrictCrossfadeConfirmation = false
                         onPlaybackSettingsChanged(
@@ -4028,7 +4027,7 @@ private fun AudioOutputSettings(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingStrictCrossfadeConfirmation = false }) {
+                NaviampTextButton(onClick = { pendingStrictCrossfadeConfirmation = false }) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -4411,7 +4410,7 @@ private fun GaplessCrossfadeSettings(
                 text = { Text(stringResource(Res.string.settings_crossfade_strict_rate_matching_message)) },
                 confirmButton = {
                     Row {
-                        TextButton(
+                        NaviampTextButton(
                             onClick = {
                                 pendingCrossfadeDurationForStrict = null
                                 onPlaybackSettingsChanged(
@@ -4425,7 +4424,7 @@ private fun GaplessCrossfadeSettings(
                         ) {
                             Text(stringResource(Res.string.settings_crossfade_strict_rate_matching_disabled))
                         }
-                        TextButton(
+                        NaviampTextButton(
                             onClick = {
                                 pendingCrossfadeDurationForStrict = null
                                 onPlaybackSettingsChanged(
@@ -4442,7 +4441,7 @@ private fun GaplessCrossfadeSettings(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { pendingCrossfadeDurationForStrict = null }) {
+                    NaviampTextButton(onClick = { pendingCrossfadeDurationForStrict = null }) {
                         Text(stringResource(Res.string.common_cancel))
                     }
                 },
@@ -4830,14 +4829,14 @@ private fun RadioDjSettingsSection(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        TextButton(onClick = {
+                        NaviampTextButton(onClick = {
                             editingId = null
                             onEditorOpenChanged(false)
                         }) {
-                            Text(stringResource(Res.string.common_cancel), color = colors.secondaryText)
+                            Text(stringResource(Res.string.common_cancel))
                         }
                         if (editingPreset != null) {
-                            TextButton(onClick = {
+                            NaviampTextButton(onClick = {
                                 val updated = playbackSettings.radioDjs.filterNot { it.id == editingPreset.id }
                                 onPlaybackSettingsChanged(
                                     playbackSettings.copy(
@@ -4848,7 +4847,7 @@ private fun RadioDjSettingsSection(
                                 editingId = null
                                 onEditorOpenChanged(false)
                             }) {
-                                Text(stringResource(Res.string.common_delete), color = colors.primaryText)
+                                Text(stringResource(Res.string.common_delete))
                             }
                         }
                     }
@@ -5466,7 +5465,7 @@ private fun EqualizerSettings(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(
+        NaviampTextButton(
             enabled = supportsEqualizer,
             onClick = {
                 onPlaybackSettingsChanged(playbackSettings.copy(equalizer = equalizer.withPreset(EqualizerPreset.Flat)))
@@ -5474,7 +5473,7 @@ private fun EqualizerSettings(
         ) {
             Text(stringResource(Res.string.common_reset), color = if (supportsEqualizer) colors.primaryText else colors.mutedText, fontSize = 12.sp)
         }
-        TextButton(
+        NaviampTextButton(
             enabled = supportsEqualizer,
             onClick = {
                 profileName = activeProfile?.name.orEmpty()
@@ -5516,7 +5515,7 @@ private fun EqualizerSettings(
                 )
             },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     enabled = profileName.isNotBlank(),
                     onClick = {
                         profileDialogOpen = false
@@ -5529,7 +5528,7 @@ private fun EqualizerSettings(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { profileDialogOpen = false }) {
+                NaviampTextButton(onClick = { profileDialogOpen = false }) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -5702,7 +5701,7 @@ private fun DownloadQualitySettings(
                 Text(stringResource(Res.string.settings_downloads_change_quality_message))
             },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         pendingDownloadQualitySettings = null
                         onPlaybackSettingsChanged(pendingSettings)
@@ -5713,7 +5712,7 @@ private fun DownloadQualitySettings(
             },
             dismissButton = {
                 Row {
-                    TextButton(
+                    NaviampTextButton(
                         onClick = {
                             pendingDownloadQualitySettings = null
                             onPlaybackSettingsChangedAndRedownload(pendingSettings)
@@ -5721,7 +5720,7 @@ private fun DownloadQualitySettings(
                     ) {
                         Text(stringResource(Res.string.settings_downloads_redownload))
                     }
-                    TextButton(onClick = { pendingDownloadQualitySettings = null }) {
+                    NaviampTextButton(onClick = { pendingDownloadQualitySettings = null }) {
                         Text(stringResource(Res.string.common_cancel))
                     }
                 }
@@ -5745,16 +5744,16 @@ private fun DownloadQualityChangeDialog(
             Text(stringResource(Res.string.settings_downloads_change_quality_message))
         },
         confirmButton = {
-            TextButton(onClick = onKeepExisting) {
+            NaviampTextButton(onClick = onKeepExisting) {
                 Text(stringResource(Res.string.settings_downloads_keep_existing))
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onRedownload) {
+                NaviampTextButton(onClick = onRedownload) {
                     Text(stringResource(Res.string.settings_downloads_redownload))
                 }
-                TextButton(onClick = onDismiss) {
+                NaviampTextButton(onClick = onDismiss) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             }

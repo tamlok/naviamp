@@ -57,7 +57,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -694,7 +693,7 @@ internal fun TelevisionInternetRadio(
             title = { Text(station.item.title) },
             text = { Text(station.streamUrl) },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         actionStation = null
                         editingStation = station
@@ -704,11 +703,11 @@ internal fun TelevisionInternetRadio(
             },
             dismissButton = {
                 Row {
-                    TextButton(onClick = {
+                    NaviampTextButton(onClick = {
                         actionStation = null
                         deletingStation = station
                     }) { Text(stringResource(Res.string.common_delete)) }
-                    TextButton(onClick = { actionStation = null }) { Text(stringResource(Res.string.common_cancel)) }
+                    NaviampTextButton(onClick = { actionStation = null }) { Text(stringResource(Res.string.common_cancel)) }
                 }
             },
         )
@@ -740,13 +739,13 @@ internal fun TelevisionInternetRadio(
             title = { Text(stringResource(Res.string.tv_delete_station)) },
             text = { Text(stringResource(Res.string.tv_delete_named_station, station.item.title)) },
             confirmButton = {
-                TextButton(onClick = {
+                NaviampTextButton(onClick = {
                     deletingStation = null
                     actions.onStationAction(StationRowActionRequest(station.item, StationRowAction.Delete))
                 }) { Text(stringResource(Res.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = { deletingStation = null },
                     modifier = Modifier.focusRequester(cancelDeleteFocusRequester),
                 ) { Text(stringResource(Res.string.common_cancel)) }

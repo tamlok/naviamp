@@ -28,7 +28,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Cycle the current theme through Light, Dark, and System using the mode button before More actions in Home’s top-right header, without changing the selected theme or other appearance preferences.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
-- Use Lucide list-music for Playlists and palette for Appearance, and clarify Experience settings with “Behave the way you want”.
+- Use Lucide list-music for Playlists, palette for Appearance, and layers-2 for Playlist bulk tools, and clarify Experience settings with “Behave the way you want”.
 - Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
 - Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
 - Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. Preserve artwork colors while adjusting brightness for readable text, instead of washing them into gray. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
@@ -36,6 +36,8 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Improve text-action readability across dialogs with theme-specific action colors, including brighter blue in Naviamp dark, without changing filled-button accents or disabled behavior.
+- Let Playlist bulk tools scroll through every destination playlist and the final create action while keeping Close visible in short windows.
 - Return to the page that opened an album, artist, or playlist when pressing Back, including playlists opened from Home. Preserve nested media and Home collection navigation, add Back controls to Search and mix builders, and prevent delayed loads from reopening pages after leaving them.
 - Keep the refresh indicator hidden when mouse-wheel scrolling back to the top of a page; touch pulls and primary-button mouse drags still refresh.
 - Keep playback paused when seeking, without briefly restarting audio; resume from the last selected position only after Play.

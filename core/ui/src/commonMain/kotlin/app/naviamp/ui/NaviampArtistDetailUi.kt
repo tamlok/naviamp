@@ -27,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -594,7 +593,7 @@ private fun ArtistDetailContent(
                         }
                     }
                     if (detail.appearanceTracks.size > visibleAppearances || detail.appearanceAlbums.size > visibleAppearances) {
-                        TextButton(onClick = appearanceState::showMore) {
+                        NaviampTextButton(onClick = appearanceState::showMore) {
                             Text(stringResource(Res.string.artist_appearances_load_more))
                         }
                     }

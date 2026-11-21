@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalUriHandler
 import app.naviamp.domain.network.KtorSharedHttpClient
 import app.naviamp.domain.network.SharedHttpClient
@@ -79,7 +78,7 @@ fun NaviampApplicationUpdateEffect(
                 Text("${update.name} is available. You are currently running $currentVersion.")
             },
             confirmButton = {
-                TextButton(
+                NaviampTextButton(
                     onClick = {
                         availableUpdate = null
                         uriHandler.openUri(update.releaseUrl)
@@ -89,7 +88,7 @@ fun NaviampApplicationUpdateEffect(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { availableUpdate = null }) {
+                NaviampTextButton(onClick = { availableUpdate = null }) {
                     Text("Later")
                 }
             },

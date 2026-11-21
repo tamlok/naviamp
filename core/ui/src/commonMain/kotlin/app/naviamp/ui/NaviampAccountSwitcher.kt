@@ -126,8 +126,8 @@ internal fun NaviampAccountSwitcher(settings: NaviampConnectionSettingsUi,
             }
             if (picker.error != null) Text(stringResource(Res.string.tv_account_switch_failed),
                 color = colors.primaryText, fontSize = 17.sp)
-            TextButton(onClick = actions.onCloseAccounts, modifier = Modifier.focusRequester(cancelFocus)) {
-                Text(stringResource(Res.string.common_cancel), color = colors.primaryText)
+            NaviampTextButton(onClick = actions.onCloseAccounts, modifier = Modifier.focusRequester(cancelFocus)) {
+                Text(stringResource(Res.string.common_cancel))
             }
         }
     }

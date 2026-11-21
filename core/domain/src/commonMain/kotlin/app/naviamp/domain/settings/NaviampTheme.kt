@@ -30,6 +30,7 @@ data class NaviampThemePalette(
     val success: String,
     val onSuccess: String,
     val playerSurfaceOpacityPercent: Int = 100,
+    val actionText: String = primaryText,
 )
 
 data class NaviampThemePack(
@@ -107,6 +108,7 @@ val NaviampBuiltinTheme = NaviampThemePack(
         border = "#BAC1CC",
         accent = "#315D9E",
         onAccent = "#FFFFFF",
+        actionText = "#315D9E",
         controlSurface = "#FFFFFF",
         playerSurface = null,
         playerSecondaryText = "#272C35",
@@ -132,6 +134,7 @@ val NaviampBuiltinTheme = NaviampThemePack(
         border = "#59606D",
         accent = "#315D9E",
         onAccent = "#FFFFFF",
+        actionText = "#8AB4F8",
         controlSurface = "#393E46",
         playerSurface = null,
         playerSecondaryText = "#B9BDC7",
@@ -179,6 +182,7 @@ private fun NaviampThemePalette.validate() {
     border.validateColor()
     accent.validateColor()
     onAccent.validateColor()
+    actionText.validateColor()
     controlSurface.validateColor()
     playerSurface?.validateColor()
     require(playerSurfaceOpacityPercent in 0..100) { "Player surface opacity must be between 0 and 100 percent" }

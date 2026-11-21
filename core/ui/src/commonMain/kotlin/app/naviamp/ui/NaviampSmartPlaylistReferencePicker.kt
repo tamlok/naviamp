@@ -9,7 +9,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,7 +58,7 @@ internal fun SmartPlaylistReferencePicker(
     fun needsId(reference: SmartPlaylistReference): Boolean =
         duplicateContexts[Triple(reference.name.lowercase(), reference.owner, reference.isSmart)]?.let { it > 1 } == true
     val selected = references.firstOrNull { it.id == value }
-    TextButton(modifier = Modifier.testTag("smart-playlist-reference-open"), onClick = { query = ""; open = true }) {
+    NaviampTextButton(modifier = Modifier.testTag("smart-playlist-reference-open"), onClick = { query = ""; open = true }) {
         Text(selected?.name ?: stringResource(Res.string.smart_playlist_reference_choose))
     }
     if (selected == null && value.isNotBlank()) Text(value, color = colors.secondaryText)
@@ -102,18 +101,18 @@ internal fun SmartPlaylistReferencePicker(
                         failed -> {
                             Text(stringResource(Res.string.smart_playlist_reference_failed),
                                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                            TextButton(onClick = onRetry) { Text(stringResource(Res.string.smart_playlist_reference_retry)) }
+                            NaviampTextButton(onClick = onRetry) { Text(stringResource(Res.string.smart_playlist_reference_retry)) }
                         }
                         else -> {
                             if (matches.isEmpty()) Text(stringResource(Res.string.smart_playlist_reference_empty))
                             Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
                                 matches.forEachIndexed { index, reference ->
-                                    TextButton(modifier = Modifier.fillMaxWidth().testTag("smart-playlist-reference-${reference.id}")
+                                    NaviampTextButton(modifier = Modifier.fillMaxWidth().testTag("smart-playlist-reference-${reference.id}")
                                         .focusProperties { canFocus = true }
                                         .then(if (index == 0) Modifier.focusRequester(firstResultFocus) else Modifier),
                                         onClick = { onSelected(reference.id); open = false }) {
                                         Column(Modifier.fillMaxWidth()) {
-                                            Text(reference.name.ifBlank { reference.id }, color = colors.primaryText)
+                                            Text(reference.name.ifBlank { reference.id })
                                             val context = referenceContext(reference, needsId(reference))
                                             if (context.isNotBlank()) Text(context, color = colors.secondaryText)
                                         }
@@ -125,7 +124,7 @@ internal fun SmartPlaylistReferencePicker(
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(Res.string.common_cancel)) } },
+            dismissButton = { NaviampTextButton(onClick = { open = false }) { Text(stringResource(Res.string.common_cancel)) } },
             containerColor = colors.controlSurface,
             titleContentColor = colors.primaryText,
             textContentColor = colors.secondaryText,

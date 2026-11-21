@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,18 +96,18 @@ internal fun NaviampLibrarySourcePicker(
         },
         confirmButton = {
             if (picker.libraries.isNotEmpty()) {
-                TextButton(
+                NaviampTextButton(
                     enabled = !picker.loading && !picker.saving && picker.selectedIds.isNotEmpty(),
                     onClick = actions.onSaveSources,
                 ) { Text(stringResource(Res.string.library_sources_save)) }
             } else if (!picker.loading && picker.errorKind == NaviampLibrarySourcePickerError.LoadFailed) {
-                TextButton(onClick = actions.onRetrySources) {
+                NaviampTextButton(onClick = actions.onRetrySources) {
                     Text(stringResource(Res.string.library_sources_retry))
                 }
             }
         },
         dismissButton = {
-            TextButton(enabled = !picker.saving, onClick = actions.onCancelSources) {
+            NaviampTextButton(enabled = !picker.saving, onClick = actions.onCancelSources) {
                 Text(stringResource(Res.string.library_sources_cancel))
             }
         },

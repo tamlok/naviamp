@@ -3,7 +3,6 @@ package app.naviamp.ui
 import app.naviamp.ui.generated.resources.*
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardActions
@@ -158,11 +157,11 @@ internal fun PlaylistTrackPositionDialog(
             )
         },
         confirmButton = {
-            TextButton(enabled = position != null && position != currentPosition, onClick = { position?.let(onMove) }) {
+            NaviampTextButton(enabled = position != null && position != currentPosition, onClick = { position?.let(onMove) }) {
                 Text(stringResource(Res.string.playlist_item_move))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) } },
+        dismissButton = { NaviampTextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) } },
         containerColor = colors.controlSurface,
         titleContentColor = colors.primaryText,
         textContentColor = colors.secondaryText,

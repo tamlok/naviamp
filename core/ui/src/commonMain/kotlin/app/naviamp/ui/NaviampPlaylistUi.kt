@@ -21,7 +21,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -843,7 +842,7 @@ private fun PlaylistDetailContent(
                             add(NaviampDetailAction("Playback profile", NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()))
                             if (!detail.playlist.isSmartPlaylist) {
                                 add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_playlist), NaviampIcons.Playlist, { addToPlaylistOpen = true }, detail.tracks.isNotEmpty()))
-                                if (detail.playlist.canEditPlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_bulk_tools_title), NaviampIcons.Settings, { bulkToolsOpen = true }, detail.tracks.isNotEmpty()))
+                                if (detail.playlist.canEditPlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_bulk_tools_title), NaviampIcons.Layers2, { bulkToolsOpen = true }, detail.tracks.isNotEmpty()))
                             }
                             if (detail.playlist.canManagePlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_delete_title), NaviampIcons.Trash, { deleteOpen = true }))
                         },
@@ -1038,7 +1037,10 @@ private fun PlaylistBulkToolsDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(Res.string.playlists_bulk_tools_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 Text(
                     stringResource(Res.string.playlists_bulk_count, detail.tracks.size, deduplicatedCount),
                     color = colors.secondaryText,
@@ -1052,25 +1054,25 @@ private fun PlaylistBulkToolsDialog(
                     singleLine = true,
                     modifier = Modifier.naviampTextInputFocus(),
                 )
-                TextButton(
+                NaviampTextButton(
                     enabled = detail.tracks.isNotEmpty() && copyName.isNotBlank(),
                     onClick = { onCopyPlaylist(copyName.trim(), false) },
                 ) {
                     Text(stringResource(Res.string.playlists_copy))
                 }
-                TextButton(
+                NaviampTextButton(
                     enabled = detail.tracks.isNotEmpty() && copyName.isNotBlank(),
                     onClick = { onCopyPlaylist(copyName.trim(), true) },
                 ) {
                     Text(stringResource(Res.string.playlists_copy_deduplicated))
                 }
                 Text(stringResource(Res.string.playlists_merge_copy), color = colors.secondaryText, fontSize = 12.sp)
-                playlists.take(6).forEach { playlist ->
-                    TextButton(onClick = { onAddToExisting(playlist) }) {
+                playlists.forEach { playlist ->
+                    NaviampTextButton(onClick = { onAddToExisting(playlist) }) {
                         Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                TextButton(
+                NaviampTextButton(
                     enabled = copyName.isNotBlank(),
                     onClick = { onCreateAndAdd(copyName.trim()) },
                 ) {
@@ -1079,10 +1081,13 @@ private fun PlaylistBulkToolsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text(stringResource(Res.string.common_close))
             }
         },
+        containerColor = colors.controlSurface,
+        titleContentColor = colors.primaryText,
+        textContentColor = colors.secondaryText,
     )
 }
 
@@ -1144,12 +1149,12 @@ fun RenamePlaylistDialog(
             )
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name) }) {
+            NaviampTextButton(enabled = name.isNotBlank(), onClick = { onConfirm(name) }) {
                 Text(stringResource(Res.string.common_save))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            NaviampTextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },
@@ -1172,12 +1177,12 @@ fun DeletePlaylistDialog(
         title = { Text(stringResource(Res.string.playlists_delete_title)) },
         text = { Text(stringResource(Res.string.playlists_delete_message, playlist.title)) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            NaviampTextButton(onClick = onConfirm) {
                 Text(stringResource(Res.string.common_delete))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            NaviampTextButton(onClick = onDismiss) {
                 Text(stringResource(Res.string.common_cancel))
             }
         },

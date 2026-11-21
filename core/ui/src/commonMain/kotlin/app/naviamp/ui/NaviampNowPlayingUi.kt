@@ -53,7 +53,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -3049,7 +3048,7 @@ fun TrackDetailsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text(stringResource(Res.string.common_close))
             }
         },
@@ -3071,12 +3070,12 @@ fun ConfirmActionDialog(
         title = { Text(title, fontWeight = FontWeight.Bold) },
         text = { Text(message, color = colors.secondaryText, fontSize = 12.sp) },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            NaviampTextButton(onClick = onConfirm) {
                 Text(confirmLabel)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -3189,7 +3188,7 @@ fun AddToPlaylistDialog(
         },
         confirmButton = {
             if (createNew) {
-                TextButton(
+                NaviampTextButton(
                     enabled = playlistName.isNotBlank(),
                     onClick = { onCreateAndAdd(playlistName.trim()) },
                 ) {
@@ -3198,7 +3197,7 @@ fun AddToPlaylistDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -3283,7 +3282,7 @@ fun TrackPlaylistMembershipDialog(
                 ) { Text(stringResource(Res.string.playlist_membership_create_and_add)) }
             },
             dismissButton = {
-                TextButton(enabled = !busy, onClick = { creatingPlaylist = false }) {
+                NaviampTextButton(enabled = !busy, onClick = { creatingPlaylist = false }) {
                     Text(stringResource(Res.string.common_cancel))
                 }
             },
@@ -3310,7 +3309,7 @@ fun TrackPlaylistMembershipDialog(
                     membership.rows.isEmpty() -> Text(stringResource(Res.string.playlist_membership_empty), color = colors.secondaryText)
                 }
                 if (membership.loadingFailed || membership.rows.any { it.failed }) {
-                    TextButton(enabled = !membership.loading && !membership.saving, onClick = onRetry) {
+                    NaviampTextButton(enabled = !membership.loading && !membership.saving, onClick = onRetry) {
                         Text(stringResource(Res.string.playlist_membership_retry))
                     }
                 }
@@ -3377,7 +3376,7 @@ fun TrackPlaylistMembershipDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 enabled = changed && !membership.loading && !membership.saving && !membership.unavailable,
                 onClick = onApply,
             ) {
@@ -3385,7 +3384,7 @@ fun TrackPlaylistMembershipDialog(
             }
         },
         dismissButton = {
-            TextButton(enabled = !membership.saving, onClick = onDismissRequest) {
+            NaviampTextButton(enabled = !membership.saving, onClick = onDismissRequest) {
                 Text(stringResource(if (membership.saved && !changed) Res.string.playlist_membership_done else Res.string.common_cancel))
             }
         },
@@ -3423,7 +3422,7 @@ fun SaveQueueAsPlaylistDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 enabled = playlistName.isNotBlank(),
                 onClick = { onSave(playlistName.trim()) },
             ) {
@@ -3431,7 +3430,7 @@ fun SaveQueueAsPlaylistDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -3476,13 +3475,13 @@ fun SleepTimerDialog(
         },
         confirmButton = {
             if (timer.active) {
-                TextButton(onClick = onCancelTimer) {
+                NaviampTextButton(onClick = onCancelTimer) {
                     Text("Cancel timer")
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismissRequest) {
+            NaviampTextButton(onClick = onDismissRequest) {
                 Text("Close")
             }
         },
@@ -3499,7 +3498,7 @@ private fun SleepTimerOptionRow(
         modifier = Modifier.fillMaxWidth(),
     ) {
         labels.forEach { label ->
-            TextButton(
+            NaviampTextButton(
                 onClick = { onClick(label) },
                 modifier = Modifier.weight(1f),
             ) {

@@ -48,6 +48,7 @@ data class NaviampColors(
     val onErrorContainer: Color = Dark.onErrorContainer,
     val success: Color = Dark.success,
     val onSuccess: Color = Dark.onSuccess,
+    val actionText: Color = primaryText,
 ) {
     companion object {
         val Dark = app.naviamp.domain.settings.NaviampBuiltinTheme.dark.toNaviampColors()

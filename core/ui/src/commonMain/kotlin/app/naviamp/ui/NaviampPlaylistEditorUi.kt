@@ -19,7 +19,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -150,7 +149,7 @@ fun StandardPlaylistEditorDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("${tracks.size} tracks", color = colors.secondaryText, fontSize = 12.sp)
-                    TextButton(
+                    NaviampTextButton(
                         enabled = undoTracks != null && !saving,
                         onClick = {
                             undoTracks?.let { previous ->
@@ -225,7 +224,7 @@ fun StandardPlaylistEditorDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            NaviampTextButton(
                 modifier = Modifier.testTag(StandardPlaylistSaveTestTag),
                 enabled = !saving && tracks != initialTracks,
                 onClick = {
@@ -247,7 +246,7 @@ fun StandardPlaylistEditorDialog(
             }
         },
         dismissButton = {
-            TextButton(enabled = !saving, onClick = onDismissRequest) {
+            NaviampTextButton(enabled = !saving, onClick = onDismissRequest) {
                 Text("Cancel")
             }
         },
@@ -658,7 +657,7 @@ private fun PlaylistManagementActionButton(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    NaviampTextButton(
         enabled = enabled,
         onClick = onClick,
         colors = ButtonDefaults.textButtonColors(

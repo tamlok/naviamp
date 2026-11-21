@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,7 +30,7 @@ fun NaviampSimilarityTestContent(
     var open by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(12.dp)) {
         Text(stringResource(Res.string.similarity_test_help), color = colors.secondaryText)
-        TextButton(onClick = { open = true; onTest?.invoke() }, enabled = onTest != null && test.state != SimilarityTestState.Running) {
+        NaviampTextButton(onClick = { open = true; onTest?.invoke() }, enabled = onTest != null && test.state != SimilarityTestState.Running) {
             Text(stringResource(if (test.state == SimilarityTestState.Running) Res.string.tv_loading else Res.string.similarity_test))
         }
     }
@@ -49,7 +48,7 @@ fun NaviampSimilarityTestContent(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { open = false }) { Text(stringResource(Res.string.common_close)) }
+                NaviampTextButton(onClick = { open = false }) { Text(stringResource(Res.string.common_close)) }
             },
         )
     }
@@ -168,6 +167,6 @@ private fun radioNoticeText(result: RadioBuildDiagnostics): String {
 fun NaviampRadioNotice(colors: NaviampColors, result: RadioBuildDiagnostics, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.background(colors.background).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(radioNoticeText(result), color = colors.primaryText, modifier = Modifier.weight(1f))
-        TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) }
+        NaviampTextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) }
     }
 }

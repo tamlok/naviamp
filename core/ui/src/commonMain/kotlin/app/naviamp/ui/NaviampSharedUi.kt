@@ -28,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -460,12 +459,12 @@ internal fun NaviampConnectSourceMismatchDialog(
         },
         confirmButton = {
             if (recovery.canProvisionTarget && onProvisionTarget != null) {
-                TextButton(
+                NaviampTextButton(
                     onClick = onProvisionTarget,
                     modifier = Modifier.testTag(NaviampConnectSourceMismatchProvisionTestTag),
                 ) { Text(stringResource(Res.string.connect_source_mismatch_set_up, targetName)) }
             } else {
-                TextButton(
+                NaviampTextButton(
                     onClick = onOpenSettings,
                     modifier = Modifier.testTag(NaviampConnectSourceMismatchSettingsTestTag),
                 ) { Text(stringResource(Res.string.connect_source_mismatch_open_settings)) }
@@ -473,12 +472,12 @@ internal fun NaviampConnectSourceMismatchDialog(
         },
         dismissButton = {
             if (recovery.canProvisionTarget && onProvisionTarget != null) {
-                TextButton(
+                NaviampTextButton(
                     onClick = onOpenSettings,
                     modifier = Modifier.testTag(NaviampConnectSourceMismatchSettingsTestTag),
                 ) { Text(stringResource(Res.string.connect_source_mismatch_open_settings)) }
             } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.connect_source_mismatch_not_now)) }
+                NaviampTextButton(onClick = onDismiss) { Text(stringResource(Res.string.connect_source_mismatch_not_now)) }
             }
         },
         modifier = Modifier.testTag(NaviampConnectSourceMismatchDialogTestTag),
@@ -910,7 +909,7 @@ internal fun NaviampPageBackHeader(canNavigateBack: Boolean, onBack: () -> Unit,
     if (canNavigateBack) {
         val backLabel = stringResource(Res.string.common_back)
         Row(Modifier.fillMaxWidth()) {
-            TextButton(onClick = onBack, modifier = Modifier.testTag("page-back")
+            NaviampTextButton(onClick = onBack, modifier = Modifier.testTag("page-back")
                 .semantics { contentDescription = backLabel }) {
                 Text(backLabel, color = colors.primaryText)
             }

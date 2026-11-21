@@ -86,6 +86,23 @@ class NaviampThemeColorTest {
         }
     }
 
+    @Test
+    fun actionTextIsReadableWithoutChangingFilledControlColors() {
+        for (pack in listOf(NaviampBuiltinTheme, NaviampForestTheme)) {
+            for (palette in listOf(pack.light, pack.dark)) {
+                val colors = palette.toNaviampColors()
+                assertTrue(contrast(colors.actionText, colors.controlSurface) >= 4.5, "${pack.id} dialog actions")
+                assertTrue(contrast(colors.actionText, colors.background) >= 4.5, "${pack.id} page actions")
+                val changed = palette.copy(actionText = "#123456").toNaviampColors()
+                assertEquals(Color(0xFF123456), changed.actionText)
+                assertEquals(colors.accent, changed.accent)
+                assertEquals(colors.onAccent, changed.onAccent)
+                assertEquals(colors.toMaterialColorScheme().primary, changed.toMaterialColorScheme().primary)
+                assertEquals(colors.toMaterialColorScheme().onPrimary, changed.toMaterialColorScheme().onPrimary)
+            }
+        }
+    }
+
     private fun contrast(a: Color, b: Color): Double =
         (max(a.luminance(), b.luminance()) + 0.05) / (min(a.luminance(), b.luminance()) + 0.05)
 }

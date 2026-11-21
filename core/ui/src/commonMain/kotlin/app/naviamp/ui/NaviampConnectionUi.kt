@@ -33,7 +33,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -337,7 +336,7 @@ fun NaviampConnectionForm(
                     inputKind = NaviampTextInputKind.Technical,
                 )
                 onChooseServerCertificate?.let { choose ->
-                    TextButton(onClick = choose, enabled = !isConnecting && !form.skipTlsVerification) {
+                    NaviampTextButton(onClick = choose, enabled = !isConnecting && !form.skipTlsVerification) {
                         Text(stringResource(Res.string.common_choose))
                     }
                 }
@@ -352,7 +351,7 @@ fun NaviampConnectionForm(
                     inputKind = NaviampTextInputKind.Technical,
                 )
                 onChooseClientCertificate?.let { choose ->
-                    TextButton(onClick = choose, enabled = !isConnecting) {
+                    NaviampTextButton(onClick = choose, enabled = !isConnecting) {
                         Text(stringResource(Res.string.common_choose))
                     }
                 }
@@ -391,12 +390,12 @@ fun NaviampConnectionForm(
                             colors = colors,
                             modifier = Modifier.weight(0.65f),
                         )
-                        TextButton(
+                        NaviampTextButton(
                             onClick = {
                                 onFormChanged(form.copy(secondaryUrls = form.secondaryUrls.removeAt(index)))
                             },
                         ) {
-                            Text(stringResource(Res.string.mix_remove), color = colors.secondaryText)
+                            Text(stringResource(Res.string.mix_remove))
                         }
                     }
                 }
@@ -437,12 +436,12 @@ fun NaviampConnectionForm(
                             inputKind = NaviampTextInputKind.Technical,
                             modifier = Modifier.weight(1f),
                         )
-                        TextButton(
+                        NaviampTextButton(
                             onClick = {
                                 onFormChanged(form.copy(customHeaders = form.customHeaders.removeAt(index)))
                             },
                         ) {
-                            Text(stringResource(Res.string.mix_remove), color = colors.secondaryText)
+                            Text(stringResource(Res.string.mix_remove))
                         }
                     }
                     Row(
@@ -525,8 +524,8 @@ fun NaviampConnectionForm(
                 onClick = onConnect,
             )
             onCancel?.let {
-                TextButton(enabled = !isConnecting, onClick = it) {
-                    Text(stringResource(Res.string.common_cancel), color = colors.secondaryText)
+                NaviampTextButton(enabled = !isConnecting, onClick = it) {
+                    Text(stringResource(Res.string.common_cancel))
                 }
             }
         }
@@ -651,7 +650,7 @@ private fun ConnectionFormTextAction(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    TextButton(
+    NaviampTextButton(
         enabled = enabled,
         onClick = onClick,
         colors = ButtonDefaults.textButtonColors(
