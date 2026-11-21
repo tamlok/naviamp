@@ -158,7 +158,8 @@ class NaviampCorePlaylistBrowseControllerTest {
         val (store, controller) = controller(provider)
 
         controller.execute(NaviampCoreCommand.Playlists.Refresh)
-        controller.dispatch(NaviampCoreCommand.Playlists.ChangeSort(SharedPlaylistSortMode.RecentlyPlayed))
+        assertEquals(SharedPlaylistSortMode.RecentlyPlayed, store.state.value.shell.playlists.sortMode)
+        controller.dispatch(NaviampCoreCommand.Playlists.ChangeSort(SharedPlaylistSortMode.Alphabetical))
 
         val state = store.state.value.shell.playlists
         assertFalse(state.refreshing)
@@ -166,7 +167,7 @@ class NaviampCorePlaylistBrowseControllerTest {
         assertEquals(listOf("playlist-b"), state.recentPlaylistIds)
         assertTrue(state.playlists.first().keepDownloadedActive)
         assertEquals(listOf("Dream Pop", "Jazz"), state.genreCatalog.map { it.canonicalName })
-        assertEquals(SharedPlaylistSortMode.RecentlyPlayed, state.sortMode)
+        assertEquals(SharedPlaylistSortMode.Alphabetical, state.sortMode)
         assertEquals(
             listOf("playlist-a"),
             store.state.value.shell.playlistChoices.map { it.id },

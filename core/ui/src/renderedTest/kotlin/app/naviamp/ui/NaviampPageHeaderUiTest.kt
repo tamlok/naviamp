@@ -160,18 +160,18 @@ class NaviampPageHeaderUiTest {
         }
         val alphabetical = onNodeWithContentDescription("A–Z")
         val recent = onNodeWithContentDescription("Recently Played")
-        alphabetical.assertIsSelected()
-        recent.assertIsNotSelected().assertIsEnabled()
-        recent.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
-        recent.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
-        recent.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         recent.assertIsSelected()
-        alphabetical.assertIsNotSelected()
+        alphabetical.assertIsNotSelected().assertIsEnabled()
+        alphabetical.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
         alphabetical.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
         alphabetical.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         alphabetical.assertIsSelected()
         recent.assertIsNotSelected()
-        runOnIdle { assertEquals(listOf(SharedPlaylistSortMode.RecentlyPlayed, SharedPlaylistSortMode.Alphabetical), selections) }
+        recent.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        recent.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        recent.assertIsSelected()
+        alphabetical.assertIsNotSelected()
+        runOnIdle { assertEquals(listOf(SharedPlaylistSortMode.Alphabetical, SharedPlaylistSortMode.RecentlyPlayed), selections) }
     }
 
     @Test fun disabledHeaderActionDoesNotInvokeCallback() = runComposeUiTest {

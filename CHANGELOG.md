@@ -19,6 +19,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Place the full-player favorite heart at the artwork card’s bottom-left corner, independent of the centered image, matching the Play button and icon sizes. Keep rating stars with track details; filled artwork places the heart above the controls without covering them.
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
+- Default the Playlists page to Recently played, while keeping A–Z sorting available.
 - Use the heart in Library’s top-right header to filter Artists, Albums, and Songs to favorites, with one toggle retained across all three tabs and independent of the optional Home section.
 - Organize My into Accounts, supported Downloads, and Settings tabs, with account details inside Accounts, the server address shown only once, and a View Accounts action to choose or add an account.
 - Keep navigation and browsing content theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
