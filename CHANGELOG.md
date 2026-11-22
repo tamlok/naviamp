@@ -40,6 +40,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, reject ambiguous matches, and avoid immediate search requests after rate-limit or server errors.
 - Improve text-action readability across dialogs with theme-specific action colors, including brighter blue in Naviamp dark, without changing filled-button accents or disabled behavior.
 - Let Playlist bulk tools scroll through every destination playlist and the final create action while keeping Close visible in short windows.
 - Return to the page that opened an album, artist, or playlist when pressing Back, including playlists opened from Home. Preserve nested media and Home collection navigation, add Back controls to Search and mix builders, and prevent delayed loads from reopening pages after leaving them.

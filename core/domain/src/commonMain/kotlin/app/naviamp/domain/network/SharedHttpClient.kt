@@ -22,6 +22,7 @@ interface SharedHttpClient {
         headers: Map<String, String> = emptyMap(),
     ): ByteArray?
 
+    /** Returns HTTP responses including non-success status codes; transport failures still throw. */
     suspend fun getResponse(
         url: String,
         headers: Map<String, String> = emptyMap(),
@@ -58,7 +59,7 @@ data class SharedHttpCall(
 class KtorSharedHttpClient(
     private val callRecorder: ((SharedHttpCall) -> Unit)? = null,
     private val defaultHeaders: Map<String, String> = DefaultSharedHttpHeaders,
-) : SharedHttpClient {
+) : SharedHttpClient, AutoCloseable {
     private val client = HttpClient {
         expectSuccess = false
         install(HttpTimeout) {
@@ -68,11 +69,14 @@ class KtorSharedHttpClient(
         }
     }
 
+    override fun close() = client.close()
+
     override suspend fun get(url: String, headers: Map<String, String>): String? =
-        getResponse(url, headers)?.bodyText()
+        getResponse(url, headers)?.takeIf { it.statusCode in 200..299 }?.bodyText()
 
     override suspend fun getBytes(url: String, headers: Map<String, String>): ByteArray? =
-        getResponse(url, mapOf(HttpHeaders.Accept to "*/*") + headers)?.body
+        getResponse(url, mapOf(HttpHeaders.Accept to "*/*") + headers)
+            ?.takeIf { it.statusCode in 200..299 }?.body
 
     override suspend fun getResponse(url: String, headers: Map<String, String>): SharedHttpResponse? {
         val startedAt = currentTimeMillis()
@@ -83,17 +87,6 @@ class KtorSharedHttpClient(
                 }
             }
             val statusCode = response.status.value
-            if (!response.status.isSuccess()) {
-                callRecorder?.invoke(
-                    sharedHttpCall(
-                        url = url,
-                        startedAt = startedAt,
-                        statusCode = statusCode,
-                        errorMessage = "HTTP $statusCode.",
-                    ),
-                )
-                return null
-            }
             val body = response.body<ByteArray>()
             SharedHttpResponse(
                 url = url,
@@ -107,7 +100,7 @@ class KtorSharedHttpClient(
                         url = url,
                         startedAt = startedAt,
                         statusCode = statusCode,
-                        errorMessage = null,
+                        errorMessage = if (response.status.isSuccess()) null else "HTTP $statusCode.",
                     ),
                 )
             }

@@ -7,6 +7,7 @@ class InternetRadioStreamResolver(
 ) {
     suspend fun resolve(stationUrl: String): String {
         val response = httpClient.getResponse(stationUrl) ?: return stationUrl
+        if (response.statusCode !in 200..299) return stationUrl
         val contentType = response.contentType.orEmpty().lowercase()
         val resolvedUrl = response.finalUrl
         if (!looksLikePlaylistUrl(resolvedUrl) &&

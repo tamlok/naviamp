@@ -359,6 +359,25 @@ class InternetRadioPlaybackTest {
         assertEquals("https://cdn.radio.example/live.mp3", resolver.resolve("https://radio.example/listen"))
     }
 
+    @Test
+    fun radioStreamResolverDoesNotPlayUrlsFromHttpErrorResponses() = kotlinx.coroutines.test.runTest {
+        for (status in listOf(404, 429, 503)) {
+            val original = "https://radio.example/listen"
+            val resolver = InternetRadioStreamResolver(
+                FakeHttpClient(
+                    SharedHttpResponse(
+                        url = original,
+                        finalUrl = "https://cdn.radio.example/error.mp3",
+                        statusCode = status,
+                        contentType = "audio/mpeg",
+                        body = "https://error.example/support.mp3".encodeToByteArray(),
+                    ),
+                ),
+            )
+            assertEquals(original, resolver.resolve(original))
+        }
+    }
+
     private fun station(
         id: String,
         name: String = "Station $id",
