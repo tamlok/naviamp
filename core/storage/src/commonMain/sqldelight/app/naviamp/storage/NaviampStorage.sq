@@ -1554,6 +1554,14 @@ WHERE source_id = ?
 AND remote_track_id = ?
 AND online_provider_id = ?;
 
+deleteCachedLyricsForTrack:
+DELETE FROM cached_lyrics
+WHERE source_id = ? AND remote_track_id = ?;
+
+deleteCachedOnlineLyricsForTrack:
+DELETE FROM cached_online_lyrics
+WHERE source_id = ? AND remote_track_id = ?;
+
 touchCachedLyrics:
 UPDATE cached_lyrics
 SET last_accessed_epoch_millis = ?

@@ -533,4 +533,7 @@
     <string name="connection_aurral_companion_invalid">Aurral の HTTP または HTTPS サーバー URL とユーザー名を入力してください。</string>
     <string name="discovery_find_in_aurral">Aurral で検索</string>
     <string name="connection_aurral_companion_save_failed">Aurral 連携を保存できませんでした。音楽サーバーへの接続は変更されていません。</string>
+    <string name="compact_lyrics_font_size">歌詞の文字サイズを切り替える（現在：%1$d）</string>
+    <string name="compact_lyrics_refresh">歌詞のキャッシュを削除して再読み込み</string>
+    <string name="compact_lyrics_loading">歌詞を読み込み中…</string>
 </resources>

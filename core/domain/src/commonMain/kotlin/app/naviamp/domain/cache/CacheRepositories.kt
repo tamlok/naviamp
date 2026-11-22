@@ -133,6 +133,8 @@ interface AudioWaveformRepository : AudioWaveformCacheRepository {
 interface LyricsSidecarRepository {
     val onlineProviders: List<app.naviamp.domain.lyrics.LyricsProvider>
 
+    suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId)
+
     suspend fun providerLyrics(
         sourceId: String,
         provider: MediaProvider,

@@ -15,6 +15,13 @@ import app.naviamp.domain.ProviderId
 import app.naviamp.domain.StreamRequest
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
+import app.naviamp.domain.StreamQuality
+import app.naviamp.domain.audio.AudioMetadataSidecarService
+import app.naviamp.domain.lyrics.LyricsSidecarService
+import app.naviamp.domain.playback.PlaybackAudioAssetRepository
+import app.naviamp.domain.playback.PlaybackLocalAudio
+import app.naviamp.domain.lyrics.LyricsProvider
+import app.naviamp.domain.lyrics.LyricsTiming
 import app.naviamp.domain.provider.ConnectionValidation
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
@@ -75,6 +82,81 @@ class LyricsSidecarCacheServiceTest {
         assertEquals(1, store.upserts)
     }
 
+    @Test
+    fun targetedClearReloadsProviderAndOnlineLyricsWithoutDiscardingOtherKeys() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L })
+        val provider = RecordingLyricsProvider(karaokeLyrics())
+        var onlineResult = karaokeLyrics().copy(source = LyricsSource.Lrclib)
+        var onlineRequests = 0
+        val online = object : LyricsProvider {
+            override val id = "online"
+            override val capabilities = LyricsTiming.entries.toSet()
+            override suspend fun lyrics(track: Track): Lyrics {
+                onlineRequests++
+                return onlineResult
+            }
+        }
+        val repository = CachedLyricsSidecarRepository(cache, listOf(online))
+        val track = Track(
+            id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+            durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+        )
+        repository.providerLyrics("source", provider, track.id)
+        repository.onlineLyrics("source", track, online)
+        repository.cacheEmbeddedLyrics("other", track.id, karaokeLyrics().copy(source = LyricsSource.Embedded))
+        repository.cacheEmbeddedLyrics("source", TrackId("other"), karaokeLyrics().copy(source = LyricsSource.Embedded))
+        repository.onlineLyrics("other", track, online)
+        repository.onlineLyrics("source", track.copy(id = TrackId("other")), online)
+        provider.result = karaokeLyrics().copy(lines = listOf(LyricLine(0, "Fresh provider")))
+        onlineResult = onlineResult.copy(lines = listOf(LyricLine(0, "Fresh online")))
+
+        repository.clearCachedLyrics("source", track.id)
+
+        assertEquals(null, repository.cachedLyrics("source", track.id))
+        assertEquals(null, repository.cachedOnlineLyrics("source", track.id, online.id))
+        assertEquals("Fresh provider", repository.providerLyrics("source", provider, track.id)?.lines?.single()?.text)
+        assertEquals("Fresh online", repository.onlineLyrics("source", track, online)?.lines?.single()?.text)
+        assertEquals(2, provider.lyricsRequests)
+        assertEquals(4, onlineRequests)
+        assertEquals(LyricsSource.Embedded, repository.cachedLyrics("other", track.id)?.source)
+        assertEquals(LyricsSource.Embedded, repository.cachedLyrics("source", TrackId("other"))?.source)
+        assertEquals("New line", repository.cachedOnlineLyrics("other", track.id, online.id)?.lines?.single()?.text)
+        assertEquals("New line", repository.cachedOnlineLyrics("source", TrackId("other"), online.id)?.lines?.single()?.text)
+    }
+
+    @Test
+    fun forcedResolverRefreshBypassesCompletedAndStoredLyricsAndDoesNotRestoreMisses() = runTest {
+        val cache = LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L })
+        val repository = CachedLyricsSidecarRepository(cache, emptyList())
+        val provider = RecordingLyricsProvider(karaokeLyrics())
+        val assets = object : PlaybackAudioAssetRepository {
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId): PlaybackLocalAudio? = null
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+            override suspend fun cachedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+        }
+        val resolver = LyricsSidecarService(repository, assets, AudioMetadataSidecarService(assets) { emptyList() })
+        val track = Track(
+            id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+            durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+        )
+        suspend fun load(refresh: Boolean = false) = resolver.loadLyrics(
+            "source", provider, track, StreamQuality.Original,
+            audioCachingEnabled = false, onlineLyricsEnabled = false, forceRefresh = refresh,
+        ).lyrics
+        assertEquals("New line", load()?.lines?.single()?.text)
+        provider.result = karaokeLyrics().copy(lines = listOf(LyricLine(0, "Fresh")))
+        assertEquals("New line", load()?.lines?.single()?.text)
+        assertEquals("Fresh", load(refresh = true)?.lines?.single()?.text)
+        assertEquals("Fresh", repository.cachedLyrics("source", track.id)?.lines?.single()?.text)
+        provider.result = null
+        assertEquals(null, load(refresh = true))
+        assertEquals(null, repository.cachedLyrics("source", track.id))
+        provider.result = karaokeLyrics()
+        assertEquals("New line", load()?.lines?.single()?.text)
+        assertEquals(4, provider.lyricsRequests)
+    }
+
     private fun karaokeLyrics(): Lyrics = Lyrics(
         source = LyricsSource.Provider,
         synced = true,
@@ -92,13 +174,21 @@ class LyricsSidecarCacheServiceTest {
 }
 
 private class InMemoryLyricsSidecarStore(
-    cached: CachedLyricsRow?,
+    cached: CachedLyricsRow? = null,
 ) : LyricsSidecarStore {
-    private var providerRow = cached
+    private val providerRows = mutableMapOf<Pair<String, String>, CachedLyricsRow>().apply {
+        cached?.let { put("source" to "track", it) }
+    }
+    private val onlineRows = mutableMapOf<Triple<String, String, String>, CachedLyricsRow>()
     var upserts: Int = 0
         private set
 
-    override fun cachedLyrics(sourceId: String, trackId: String): CachedLyricsRow? = providerRow
+    override fun clearCachedLyrics(sourceId: String, trackId: String) {
+        providerRows.remove(sourceId to trackId)
+        onlineRows.keys.removeAll { it.first == sourceId && it.second == trackId }
+    }
+
+    override fun cachedLyrics(sourceId: String, trackId: String): CachedLyricsRow? = providerRows[sourceId to trackId]
     override fun touchCachedLyrics(sourceId: String, trackId: String, lastAccessedEpochMillis: Long) = Unit
     override fun upsertCachedLyrics(
         sourceId: String,
@@ -115,7 +205,7 @@ private class InMemoryLyricsSidecarStore(
         lastAccessedEpochMillis: Long,
     ) {
         upserts += 1
-        providerRow = CachedLyricsRow(
+        providerRows[sourceId to trackId] = CachedLyricsRow(
             lyricSource = lyricSource,
             synced = synced,
             linesJson = linesJson,
@@ -126,7 +216,8 @@ private class InMemoryLyricsSidecarStore(
         )
     }
 
-    override fun cachedOnlineLyrics(sourceId: String, trackId: String, onlineProviderId: String): CachedLyricsRow? = null
+    override fun cachedOnlineLyrics(sourceId: String, trackId: String, onlineProviderId: String): CachedLyricsRow? =
+        onlineRows[Triple(sourceId, trackId, onlineProviderId)]
     override fun touchCachedOnlineLyrics(
         sourceId: String,
         trackId: String,
@@ -147,11 +238,15 @@ private class InMemoryLyricsSidecarStore(
         sizeBytes: Long,
         createdAtEpochMillis: Long,
         lastAccessedEpochMillis: Long,
-    ) = Unit
+    ) {
+        onlineRows[Triple(sourceId, trackId, onlineProviderId)] = CachedLyricsRow(
+            lyricSource, synced, linesJson, displayArtist, displayTitle, language, offsetMillis,
+        )
+    }
 }
 
 private class RecordingLyricsProvider(
-    private val result: Lyrics?,
+    var result: Lyrics?,
 ) : MediaProvider {
     var lyricsRequests: Int = 0
         private set

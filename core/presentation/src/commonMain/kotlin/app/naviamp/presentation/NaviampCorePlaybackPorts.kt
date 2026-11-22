@@ -74,6 +74,7 @@ data class NaviampCoreNowPlayingSidecars(
     val lyrics: Lyrics? = null,
     val lyricsAvailableTiming: LyricsTiming? = null,
     val lyricsStatus: String? = null,
+    val lyricsLoading: Boolean = false,
     val streamMetadata: PlaybackStreamMetadata = PlaybackStreamMetadata(),
     val visualizerFrame: PlaybackVisualizerFrame? = null,
     val relatedTracks: List<Track> = emptyList(),
@@ -98,7 +99,7 @@ enum class NaviampCoreRelatedTracksStatus {
 interface NaviampCoreNowPlayingSidecarPort {
     fun snapshot(): NaviampCoreNowPlayingSidecars
     suspend fun loadForTrack(track: Track)
-    suspend fun loadLyrics(track: Track)
+    suspend fun loadLyrics(track: Track, forceRefresh: Boolean = false)
     suspend fun changeLyricsOffset(track: Track, offsetMillis: Int)
     fun updateStreamMetadata(metadata: PlaybackStreamMetadata) = Unit
     suspend fun loadInternetRadioArtwork(

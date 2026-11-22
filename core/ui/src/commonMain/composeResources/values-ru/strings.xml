@@ -533,4 +533,7 @@
     <string name="connection_aurral_companion_invalid">Введите HTTP- или HTTPS-адрес сервера Aurral и имя пользователя.</string>
     <string name="discovery_find_in_aurral">Найти в Aurral</string>
     <string name="connection_aurral_companion_save_failed">Не удалось сохранить подключение Aurral. Подключение к музыкальному серверу не изменилось.</string>
+    <string name="compact_lyrics_font_size">Переключить размер шрифта текста песни (текущий: %1$d)</string>
+    <string name="compact_lyrics_refresh">Очистить кэш текста песни и обновить</string>
+    <string name="compact_lyrics_loading">Загрузка текста песни…</string>
 </resources>

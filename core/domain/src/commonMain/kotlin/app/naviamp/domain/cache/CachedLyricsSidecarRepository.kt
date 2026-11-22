@@ -16,6 +16,9 @@ class CachedLyricsSidecarRepository(
     private val cache: LyricsSidecarCacheService,
     override val onlineProviders: List<LyricsProvider>,
 ) : LyricsSidecarRepository {
+    override suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId) =
+        cache.clearCachedLyrics(sourceId, trackId)
+
     override suspend fun providerLyrics(
         sourceId: String,
         provider: MediaProvider,

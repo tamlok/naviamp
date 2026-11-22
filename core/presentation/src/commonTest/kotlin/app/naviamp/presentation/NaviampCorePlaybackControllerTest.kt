@@ -1412,7 +1412,7 @@ private class PlaybackTestSidecars(
             }
         }
     }
-    override suspend fun loadLyrics(track: Track) = Unit
+    override suspend fun loadLyrics(track: Track, forceRefresh: Boolean) = Unit
     override suspend fun changeLyricsOffset(track: Track, offsetMillis: Int) = Unit
 }
 

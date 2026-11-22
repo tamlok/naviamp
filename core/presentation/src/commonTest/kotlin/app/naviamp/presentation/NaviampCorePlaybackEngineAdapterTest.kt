@@ -46,6 +46,7 @@ import app.naviamp.domain.waveform.AudioWaveformAnalysisSource
 import app.naviamp.domain.waveform.AudioWaveformAnalyzer
 import app.naviamp.domain.waveform.AudioWaveformService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
@@ -61,6 +62,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampCorePlaybackEngineAdapterTest {
@@ -1574,27 +1576,10 @@ class NaviampCorePlaybackEngineAdapterTest {
             lines = listOf(LyricLine(null, "Core lyric")),
         )
         val lyricSourceIds = mutableListOf<String>()
-        val lyricsRepository = object : LyricsSidecarRepository {
-            override val onlineProviders = emptyList<app.naviamp.domain.lyrics.LyricsProvider>()
-            override suspend fun providerLyrics(
-                sourceId: String,
-                provider: MediaProvider,
-                trackId: TrackId,
-                acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>,
-            ): Lyrics {
-                lyricSourceIds += sourceId
-                kotlinx.coroutines.delay(200L)
-                return expectedLyrics
-            }
-            override suspend fun cacheEmbeddedLyrics(sourceId: String, trackId: TrackId, lyrics: Lyrics) = lyrics
-            override suspend fun cachedLyrics(sourceId: String, trackId: TrackId) = null
-            override suspend fun cachedOnlineLyrics(sourceId: String, trackId: TrackId, providerId: String) = null
-            override suspend fun onlineLyrics(
-                sourceId: String,
-                track: app.naviamp.domain.Track,
-                provider: app.naviamp.domain.lyrics.LyricsProvider,
-                acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>,
-            ) = null
+        val lyricsRepository = RefreshLyricsRepository { sourceId, _ ->
+            lyricSourceIds += sourceId
+            kotlinx.coroutines.delay(200L)
+            expectedLyrics
         }
         var savedOffset = 125
         val offsetSourceIds = mutableListOf<String>()
@@ -1667,6 +1652,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         val lyricsLoad = launch { sidecars.loadLyrics(provider.track) }
         runCurrent()
         assertEquals(null, sidecars.snapshot().lyricsStatus)
+        assertTrue(sidecars.snapshot().lyricsLoading)
         advanceTimeBy(151L)
         runCurrent()
         assertEquals(lyricsLoadingStatus(onlineLyricsEnabled = true), sidecars.snapshot().lyricsStatus)
@@ -1674,6 +1660,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         assertEquals("Core lyric", sidecars.snapshot().lyrics?.lines?.single()?.text)
         assertEquals(125, sidecars.snapshot().lyrics?.offsetMillis)
         assertEquals(null, sidecars.snapshot().lyricsStatus)
+        assertFalse(sidecars.snapshot().lyricsLoading)
         assertEquals(listOf("saved-source"), lyricSourceIds)
         assertEquals(listOf("saved-source"), offsetSourceIds)
 
@@ -1696,6 +1683,252 @@ class NaviampCorePlaybackEngineAdapterTest {
         assertEquals(listOf("saved-source", "saved-source", "saved-source"), offsetSourceIds)
         assertEquals(375, sidecars.snapshot().lyrics?.offsetMillis)
     }
+
+    @Test
+    fun sameTrackRefreshSuppressesEarlierSuccessFailureAndCancellationWithoutClearingLatestLoading() = runTest {
+        for (earlierFailure in listOf(null, IllegalStateException("Old request failed"), CancellationException("Old request cancelled"))) {
+            val fixture = LyricsRefreshFixture()
+            val oldRelease = CompletableDeferred<Unit>()
+            val freshRelease = CompletableDeferred<Unit>()
+            var requests = 0
+            fixture.repository.load = { _, _ ->
+                if (++requests == 1) {
+                    oldRelease.await()
+                    earlierFailure?.let { throw it }
+                    fixture.lyrics("Old")
+                } else {
+                    freshRelease.await()
+                    fixture.lyrics("Fresh")
+                }
+            }
+            fixture.sidecars.loadForTrack(fixture.provider.track)
+            val earlier = launch(start = CoroutineStart.UNDISPATCHED) { fixture.sidecars.loadLyrics(fixture.provider.track) }
+            assertTrue(fixture.sidecars.snapshot().lyricsLoading)
+            val refresh = launch(start = CoroutineStart.UNDISPATCHED) {
+                fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+            }
+            oldRelease.complete(Unit)
+            earlier.join()
+            assertEquals(null, fixture.sidecars.snapshot().lyrics)
+            assertEquals(null, fixture.sidecars.snapshot().lyricsStatus)
+            assertTrue(fixture.sidecars.snapshot().lyricsLoading)
+            freshRelease.complete(Unit)
+            refresh.join()
+            assertEquals("Fresh", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+            assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+            assertEquals(listOf("source" to fixture.provider.track.id), fixture.repository.cleared)
+            assertEquals(2, requests)
+        }
+    }
+
+    @Test
+    fun refreshMissAndFailureClearOldLyricsAndLoadingThenAllowRetry() = runTest {
+        for (failure in listOf(null, IllegalStateException("Offline"))) {
+            val fixture = LyricsRefreshFixture()
+            fixture.sidecars.loadForTrack(fixture.provider.track)
+            fixture.sidecars.loadLyrics(fixture.provider.track)
+            assertEquals("Initial", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+            fixture.repository.load = { _, _ ->
+                failure?.let { throw it }
+                null
+            }
+
+            fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+
+            assertEquals(null, fixture.sidecars.snapshot().lyrics)
+            assertTrue(fixture.sidecars.snapshot().lyricsStatus != null)
+            assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+            fixture.repository.load = { _, _ -> fixture.lyrics("Retry") }
+            fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+            assertEquals("Retry", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+            assertEquals(null, fixture.sidecars.snapshot().lyricsStatus)
+            assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+        }
+    }
+
+    @Test
+    fun changingTracksInvalidatesEarlierLyricsAndItsLoadingCleanup() = runTest {
+        val fixture = LyricsRefreshFixture()
+        val oldRelease = CompletableDeferred<Unit>()
+        val freshRelease = CompletableDeferred<Unit>()
+        val next = fixture.provider.track.copy(id = TrackId("next"))
+        fixture.repository.load = { _, trackId ->
+            if (trackId == fixture.provider.track.id) {
+                oldRelease.await()
+                fixture.lyrics("Old track")
+            } else {
+                freshRelease.await()
+                fixture.lyrics("Next track")
+            }
+        }
+        fixture.sidecars.loadForTrack(fixture.provider.track)
+        val earlier = launch(start = CoroutineStart.UNDISPATCHED) { fixture.sidecars.loadLyrics(fixture.provider.track) }
+        fixture.sidecars.loadForTrack(next)
+        val latest = launch(start = CoroutineStart.UNDISPATCHED) { fixture.sidecars.loadLyrics(next) }
+        oldRelease.complete(Unit)
+        earlier.join()
+        assertEquals(next.id, fixture.sidecars.snapshot().trackId)
+        assertEquals(null, fixture.sidecars.snapshot().lyrics)
+        assertTrue(fixture.sidecars.snapshot().lyricsLoading)
+        freshRelease.complete(Unit)
+        latest.join()
+        assertEquals("Next track", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+        assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+    }
+
+    @Test
+    fun refreshDoesNotInvalidateOrEraseUnrelatedTrackSidecars() = runTest {
+        val fixture = LyricsRefreshFixture()
+        val albumRelease = CompletableDeferred<Unit>()
+        fixture.activeProvider = object : MediaProvider by fixture.provider {
+            override suspend fun album(albumId: app.naviamp.domain.AlbumId): app.naviamp.domain.AlbumDetails {
+                albumRelease.await()
+                return fixture.provider.album(albumId)
+            }
+        }
+        val trackLoad = launch(start = CoroutineStart.UNDISPATCHED) { fixture.sidecars.loadForTrack(fixture.provider.track) }
+        fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+        albumRelease.complete(Unit)
+        trackLoad.join()
+        assertEquals(fixture.provider.album, fixture.sidecars.snapshot().album)
+        assertEquals(fixture.waveform, fixture.sidecars.snapshot().waveform)
+        assertEquals(listOf(AudioTag("LABEL", "Keep label")), fixture.sidecars.snapshot().audioTags)
+        assertEquals(NaviampCoreRelatedTracksStatus.Loaded, fixture.sidecars.snapshot().relatedTracksStatus)
+        val before = fixture.sidecars.snapshot()
+        fixture.repository.load = { _, _ -> fixture.lyrics("Refreshed") }
+
+        fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+
+        assertEquals(before.copy(lyrics = fixture.lyrics("Refreshed")), fixture.sidecars.snapshot())
+    }
+
+    @Test
+    fun lyricsFromReplacedProviderOrSourceAreNeverPublished() = runTest {
+        for (replaceProvider in listOf(false, true)) {
+            val fixture = LyricsRefreshFixture()
+            val release = CompletableDeferred<Unit>()
+            fixture.repository.load = { _, _ -> release.await(); fixture.lyrics("Wrong source") }
+            fixture.sidecars.loadForTrack(fixture.provider.track)
+            val loading = launch(start = CoroutineStart.UNDISPATCHED) { fixture.sidecars.loadLyrics(fixture.provider.track) }
+            if (replaceProvider) fixture.activeProvider = FakeCoreMediaProvider() else fixture.activeSource = "other"
+            release.complete(Unit)
+            loading.join()
+            assertEquals(null, fixture.sidecars.snapshot().lyrics)
+            assertEquals(null, fixture.sidecars.snapshot().lyricsStatus)
+            assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+        }
+    }
+
+    @Test
+    fun cancellingLyricsLoadPropagatesWithoutFailureStatusAndAllowsRetry() = runTest {
+        val fixture = LyricsRefreshFixture()
+        fixture.repository.load = { _, _ -> awaitCancellation() }
+        fixture.sidecars.loadForTrack(fixture.provider.track)
+        var cancellationPropagated = false
+        val loading = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+            } catch (error: CancellationException) {
+                cancellationPropagated = true
+                throw error
+            }
+        }
+        advanceTimeBy(151L)
+        runCurrent()
+        loading.cancel()
+        loading.join()
+        assertTrue(cancellationPropagated)
+        assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+        assertEquals(null, fixture.sidecars.snapshot().lyricsStatus)
+        fixture.repository.load = { _, _ -> fixture.lyrics("Retry") }
+        fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+        assertEquals("Retry", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+        assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+    }
+
+    @Test
+    fun lyricsPublicationRechecksGenerationAfterRestoringSavedOffset() = runTest {
+        lateinit var fixture: LyricsRefreshFixture
+        var offsetReads = 0
+        var refresh: kotlinx.coroutines.Job? = null
+        val offsets = object : LyricsOffsetRepository {
+            override fun lyricsOffsetMillis(sourceId: String, trackId: TrackId): Int {
+                if (++offsetReads == 1) {
+                    fixture.repository.load = { _, _ -> fixture.lyrics("Fresh") }
+                    refresh = launch(start = CoroutineStart.UNDISPATCHED) {
+                        fixture.sidecars.loadLyrics(fixture.provider.track, forceRefresh = true)
+                    }
+                }
+                return 375
+            }
+            override fun saveLyricsOffsetMillis(sourceId: String, trackId: TrackId, offsetMillis: Int) = error("Not used")
+        }
+        fixture = LyricsRefreshFixture(offsets)
+        fixture.sidecars.loadForTrack(fixture.provider.track)
+        fixture.sidecars.loadLyrics(fixture.provider.track)
+        assertTrue(fixture.sidecars.snapshot().lyrics?.lines?.single()?.text != "Initial")
+        refresh!!.join()
+        assertEquals("Fresh", fixture.sidecars.snapshot().lyrics?.lines?.single()?.text)
+        assertEquals(375, fixture.sidecars.snapshot().lyrics?.offsetMillis)
+        assertFalse(fixture.sidecars.snapshot().lyricsLoading)
+        assertEquals(2, offsetReads)
+    }
+}
+
+private class LyricsRefreshFixture(offsets: LyricsOffsetRepository? = null) {
+    val provider = FakeCoreMediaProvider(supportsSonicSimilarity = true)
+    var activeProvider: MediaProvider = provider
+    var activeSource = "source"
+    val repository = RefreshLyricsRepository { _, _ -> lyrics("Initial") }
+    val waveform = AudioWaveform(listOf(0.1f, 0.2f))
+    private val audio = PlaybackLocalAudio("/music/track.flac", "file:///music/track.flac")
+    private val assets = object : PlaybackAudioAssetRepository {
+        override suspend fun downloadedAudio(sourceId: String, trackId: TrackId) = audio
+        override suspend fun downloadedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality) = audio
+        override suspend fun cachedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality) = null
+    }
+    private val metadata = AudioMetadataSidecarService(assets) { listOf(AudioTag("LABEL", "Keep label")) }
+    val sidecars = NaviampCoreProviderNowPlayingSidecars(
+        providerSource = NaviampCoreMediaProviderSource { activeProvider },
+        sourceId = { activeSource },
+        waveformService = AudioWaveformService(
+            waveformRepository = object : AudioWaveformStorageRepository {
+                override suspend fun cachedAudioWaveform(sourceId: String, trackId: TrackId, quality: StreamQuality, bucketCount: Int) = waveform
+                override suspend fun storeAudioWaveform(sourceId: String, trackId: TrackId, quality: StreamQuality, audioFilePath: String?, waveform: AudioWaveform) = waveform
+            },
+            audioAssets = assets,
+            analyzer = object : AudioWaveformAnalyzer {
+                override suspend fun analyze(source: AudioWaveformAnalysisSource) = waveform
+            },
+        ),
+        playbackSettings = { PlaybackSettings(sonicSimilarityEnabled = true) },
+        audioCachingEnabled = { true },
+        audioMetadataSidecarService = metadata,
+        lyricsSidecarService = LyricsSidecarService(repository, assets, metadata),
+        lyricsOffsetController = offsets?.let(::LyricsOffsetController),
+    )
+
+    fun lyrics(text: String) = Lyrics(LyricsSource.Provider, false, listOf(LyricLine(null, text)))
+}
+
+private class RefreshLyricsRepository(
+    var load: suspend (String, TrackId) -> Lyrics?,
+) : LyricsSidecarRepository {
+    override val onlineProviders = emptyList<app.naviamp.domain.lyrics.LyricsProvider>()
+    val cleared = mutableListOf<Pair<String, TrackId>>()
+    private val cached = mutableMapOf<Pair<String, TrackId>, Lyrics>()
+
+    override suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId) {
+        cleared += sourceId to trackId
+        cached.remove(sourceId to trackId)
+    }
+    override suspend fun providerLyrics(sourceId: String, provider: MediaProvider, trackId: TrackId, acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>): Lyrics? =
+        load(sourceId, trackId)?.also { cached[sourceId to trackId] = it }
+    override suspend fun cacheEmbeddedLyrics(sourceId: String, trackId: TrackId, lyrics: Lyrics): Lyrics =
+        lyrics.also { cached[sourceId to trackId] = it }
+    override suspend fun cachedLyrics(sourceId: String, trackId: TrackId): Lyrics? = cached[sourceId to trackId]
+    override suspend fun cachedOnlineLyrics(sourceId: String, trackId: TrackId, providerId: String): Lyrics? = null
+    override suspend fun onlineLyrics(sourceId: String, track: app.naviamp.domain.Track, provider: app.naviamp.domain.lyrics.LyricsProvider, acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>): Lyrics? = error("No online providers")
 }
 
 private class RecordingPlaybackEngine :

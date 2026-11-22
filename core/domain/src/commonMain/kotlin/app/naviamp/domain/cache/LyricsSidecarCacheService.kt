@@ -20,6 +20,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 
 interface LyricsSidecarStore {
+    fun clearCachedLyrics(sourceId: String, trackId: String)
+
     fun cachedLyrics(
         sourceId: String,
         trackId: String,
@@ -94,6 +96,12 @@ class LyricsSidecarCacheService(
         encodeDefaults = true
     },
 ) {
+    suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId) {
+        withContext(Dispatchers.Default) {
+            store.clearCachedLyrics(sourceId, trackId.value)
+        }
+    }
+
     suspend fun providerLyrics(
         sourceId: String,
         provider: MediaProvider,

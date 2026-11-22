@@ -2428,13 +2428,18 @@ private fun NowPlayingSidePanel(
             ),
             verticalArrangement = Arrangement.spacedBy(gap),
         ) {
-            LyricsPanel(
+            NaviampCompactLyricsCard(
                 nowPlaying = nowPlaying,
                 playbackProgress = playbackProgress,
                 colors = colors,
-                onSeek = actions::seek,
-                onOffsetChanged = actions::changeLyricsOffset,
-                onDisplayTimingSelected = actions::selectLyricsDisplayTiming,
+                onCycleFontSize = { actions.display(NowPlayingDisplayAction.CycleCompactLyricsFontSize) },
+                onRefresh = {
+                    actions.onDisplayAction(NowPlayingDisplayActionRequest(
+                        NowPlayingDisplayAction.RefreshLyrics,
+                        lyricsTrackId = nowPlaying.id,
+                        lyricsSourceId = nowPlaying.lyricsSourceId,
+                    ))
+                },
                 modifier = Modifier.fillMaxWidth().height(lyricsHeight),
             )
             if (queuePinned) {

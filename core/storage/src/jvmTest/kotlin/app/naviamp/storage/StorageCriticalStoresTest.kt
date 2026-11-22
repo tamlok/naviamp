@@ -347,6 +347,55 @@ class StorageCriticalStoresTest {
     }
 
     @Test
+    fun clearingTrackLyricsPreservesOffsetsAudioDownloadsAndOtherCacheKeys() = withStorage { fixture ->
+        val queries = fixture.queries
+        val lyrics = StorageLyricsSidecarStore(queries)
+        val offsets = StorageLyricsOffsetStore(queries) { 50L }
+        val otherSource = StorageMediaSourceStore(queries, nowMillis = { 2L }).upsertProviderMediaSource(
+            ProviderMediaSourceConnection("Other", "https://other.test", "user", "token", "salt"),
+            cacheNamespace = "other-cache", providerId = "navidrome",
+        ).id
+        for (source in listOf(fixture.sourceId, otherSource)) {
+            for (track in listOf("track", "other-track")) {
+                lyrics.upsertCachedLyrics(source, track, "Embedded", false, "[]", null, null, null, 125L, 2L, 1L, 1L)
+                for (provider in listOf("lrclib", "lrcmux")) {
+                    lyrics.upsertCachedOnlineLyrics(source, track, provider, "Lrclib", false, "[]", null, null, null, 0L, 2L, 1L, 1L)
+                }
+                offsets.saveLyricsOffsetMillis(source, TrackId(track), 375)
+            }
+        }
+        queries.upsertCachedAudio(fixture.sourceId, "track", "original", "/cache.flac", 10L, "audio/flac", 1L, 1L)
+        queries.upsertDownloadedAudio(
+            fixture.sourceId, "track", "original", "/download.flac", 20L, "audio/flac", "Track",
+            null, "Artist", null, "Album", null, null, 120L, null, "flac", null, "audio/flac",
+            null, null, null, null, 1L, null, null, null, null,
+        )
+        queries.upsertCachedAudioWaveform(fixture.sourceId, "track", "original", "/cache.flac", 1L, "[0.5]", 3L, 1L, 1L)
+        queries.upsertCachedSidecarStatus(fixture.sourceId, "track", "original", "waveform", "ready", 1L, null, 1L)
+        val audio = queries.selectCachedAudioMetadata(fixture.sourceId, "track", "original").executeAsOne()
+        val download = queries.selectDownloadedAudioFile(fixture.sourceId, "track", "original").executeAsOne()
+
+        lyrics.clearCachedLyrics(fixture.sourceId, "track")
+
+        assertNull(lyrics.cachedLyrics(fixture.sourceId, "track"))
+        assertNull(lyrics.cachedOnlineLyrics(fixture.sourceId, "track", "lrclib"))
+        assertNull(lyrics.cachedOnlineLyrics(fixture.sourceId, "track", "lrcmux"))
+        assertEquals(3L, queries.lyricsCacheCount().executeAsOne())
+        assertEquals(6L, queries.onlineLyricsCacheCount().executeAsOne())
+        for ((source, track) in listOf(fixture.sourceId to "other-track", otherSource to "track", otherSource to "other-track")) {
+            assertEquals("Embedded", lyrics.cachedLyrics(source, track)?.lyricSource)
+            assertEquals("Lrclib", lyrics.cachedOnlineLyrics(source, track, "lrclib")?.lyricSource)
+            assertEquals("Lrclib", lyrics.cachedOnlineLyrics(source, track, "lrcmux")?.lyricSource)
+            assertEquals(375, offsets.lyricsOffsetMillis(source, TrackId(track)))
+        }
+        assertEquals(375, offsets.lyricsOffsetMillis(fixture.sourceId, TrackId("track")))
+        assertEquals(audio, queries.selectCachedAudioMetadata(fixture.sourceId, "track", "original").executeAsOne())
+        assertEquals(download, queries.selectDownloadedAudioFile(fixture.sourceId, "track", "original").executeAsOne())
+        assertEquals(1L, queries.audioWaveformCacheCount().executeAsOne())
+        assertEquals("ready", queries.selectCachedSidecarStatus(fixture.sourceId, "track", "original").executeAsOne().status)
+    }
+
+    @Test
     fun storageStatsExposePendingListenCountSeparately() = withStorage { fixture ->
         val pending = StoragePendingProviderActionStore(fixture.queries) { 60L }
         pending.enqueuePendingProviderAction(fixture.sourceId, "submit_listen", "track", longValue = 1_234L)

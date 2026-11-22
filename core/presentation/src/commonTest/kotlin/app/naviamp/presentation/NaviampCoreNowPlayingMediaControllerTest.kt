@@ -71,6 +71,48 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class NaviampCoreNowPlayingMediaControllerTest {
     @Test
+    fun compactLyricsFontCyclePersistsWithoutReloadingLyrics() = runTest {
+        val fixture = mediaFixture(this)
+        for (expected in listOf(20, 24, 14, 16)) {
+            fixture.controller.execute(displayCommand(NowPlayingDisplayAction.CycleCompactLyricsFontSize))
+            assertEquals(expected, fixture.store.state.value.shell.playback.settings.compactLyricsFontSizeSp)
+            assertEquals(expected, fixture.store.state.value.shell.nowPlaying?.compactLyricsFontSizeSp)
+        }
+        assertTrue(fixture.sidecars.lyricsLoads.isEmpty())
+    }
+
+    @Test
+    fun compactLyricsRefreshPublishesLoadingAndRejectsDuplicateStaleAndRemoteRequests() = runTest {
+        val fixture = mediaFixture(this)
+        val request = NowPlayingDisplayActionRequest(
+            NowPlayingDisplayAction.RefreshLyrics, lyricsTrackId = "current", lyricsSourceId = "source",
+        )
+        suspend fun refresh(value: NowPlayingDisplayActionRequest = request) {
+            fixture.controller.execute(NaviampCoreCommand.NowPlaying.Display(value))
+        }
+        refresh(request.copy(lyricsTrackId = "previous"))
+        refresh(request.copy(lyricsSourceId = "previous-source"))
+        fixture.store.updateShell { it.copy(connect = it.connect.copy(remotePlaybackAuthorityActive = true)) }
+        refresh()
+        assertTrue(fixture.sidecars.lyricsLoads.isEmpty())
+        fixture.store.updateShell { it.copy(connect = it.connect.copy(remotePlaybackAuthorityActive = false)) }
+        val gate = CompletableDeferred<Unit>()
+        fixture.sidecars.refreshGate = gate
+        val refreshing = launch { refresh() }
+        runCurrent()
+        assertTrue(fixture.store.state.value.shell.nowPlaying!!.lyricsLoading)
+        refresh()
+        assertEquals(listOf("current"), fixture.sidecars.refreshedTracks)
+        gate.complete(Unit)
+        refreshing.join()
+        assertFalse(fixture.store.state.value.shell.nowPlaying!!.lyricsLoading)
+        assertTrue(fixture.store.state.value.shell.nowPlaying!!.canRefreshLyrics)
+        // An empty result is retryable; no toggle or timing change is needed.
+        refresh()
+        assertEquals(listOf("current", "current"), fixture.sidecars.refreshedTracks)
+    }
+
+    @Test
     fun playerConnectAndRowFavoritesUpdateTheLibrarySongFilterImmediately() = runTest {
         val fixture = mediaFixture(this)
         fixture.showFavoriteSongs()
@@ -1316,6 +1358,8 @@ private class NowPlayingTestEffects : NaviampCorePlaybackEffectPort {
 
 private class NowPlayingTestSidecars : NaviampCoreNowPlayingSidecarPort {
     val lyricsLoads = mutableListOf<String>()
+    val refreshedTracks = mutableListOf<String>()
+    var refreshGate: CompletableDeferred<Unit>? = null
     var state = NaviampCoreNowPlayingSidecars(
         trackId = TrackId("current"),
         visualizerFrame = PlaybackVisualizerFrame(listOf(0.25f, 0.75f), 1L),
@@ -1327,9 +1371,14 @@ private class NowPlayingTestSidecars : NaviampCoreNowPlayingSidecarPort {
     override suspend fun loadForTrack(track: Track) {
         state = state.copy(trackId = track.id, lyrics = null, lyricsStatus = null)
     }
-    override suspend fun loadLyrics(track: Track) {
+    override suspend fun loadLyrics(track: Track, forceRefresh: Boolean) {
         lyricsLoads += track.id.value
-        state = state.copy(lyricsStatus = "Lyrics unavailable")
+        if (forceRefresh) {
+            refreshedTracks += track.id.value
+            state = state.copy(lyricsLoading = true)
+            refreshGate?.await()
+        }
+        state = state.copy(lyricsStatus = "Lyrics unavailable", lyricsLoading = false)
     }
     override suspend fun changeLyricsOffset(track: Track, offsetMillis: Int) = Unit
 }

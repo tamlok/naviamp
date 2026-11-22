@@ -14,6 +14,7 @@ import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.settings.LyricsSourcePreference
 import app.naviamp.domain.settings.LyricsTimingPreference
 import app.naviamp.domain.settings.normalizedLyricsSearchOrder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -34,7 +35,7 @@ class LyricsSidecarService(
     val onlineProviders: List<LyricsProvider>
         get() = lyricsRepository.onlineProviders
 
-    private val completedLookupMutex = Mutex()
+    private val lookupMutex = Mutex()
     private val completedLookups = linkedMapOf<LyricsLookupKey, LyricsSidecarResult>()
 
     suspend fun providerLyrics(
@@ -43,9 +44,11 @@ class LyricsSidecarService(
         track: Track,
         acceptedTimings: Set<LyricsTiming> = LyricsTiming.entries.toSet(),
     ): Lyrics? =
-        sourceId?.let { activeSourceId ->
-            lyricsRepository.providerLyrics(activeSourceId, provider, track.id, acceptedTimings)
-        } ?: provider.lyrics(track.id)
+        if (sourceId != null) {
+            lyricsRepository.providerLyrics(sourceId, provider, track.id, acceptedTimings)
+        } else {
+            provider.lyrics(track.id)
+        }
 
     suspend fun embeddedLyrics(
         sourceId: String?,
@@ -82,7 +85,8 @@ class LyricsSidecarService(
         timingPreference: LyricsTimingPreference = LyricsTimingPreference.FirstAvailable,
         displayTimingPreference: LyricsTimingPreference = timingPreference,
         searchOrder: List<LyricsSourcePreference> = emptyList(),
-    ): LyricsSidecarResult {
+        forceRefresh: Boolean = false,
+    ): LyricsSidecarResult = lookupMutex.withLock {
         val activeSearchOrder = searchOrder.normalizedLyricsSearchOrder()
             .filter { source -> onlineLyricsEnabled || source != LyricsSourcePreference.Online }
         val lookupKey = LyricsLookupKey(
@@ -95,7 +99,13 @@ class LyricsSidecarService(
             displayTimingPreference = displayTimingPreference,
             searchOrder = activeSearchOrder,
         )
-        completedLookupMutex.withLock { completedLookups[lookupKey] }?.let { return it }
+        if (forceRefresh) {
+            completedLookups.keys.removeAll { key ->
+                key.sourceId == lookupKey.sourceId && key.trackId == lookupKey.trackId
+            }
+            lyricsRepository.clearCachedLyrics(lookupKey.sourceId, track.id)
+        }
+        completedLookups[lookupKey]?.let { return@withLock it }
 
         val result = loadLyricsUncached(
             sourceId = sourceId,
@@ -108,13 +118,13 @@ class LyricsSidecarService(
             activeSearchOrder = activeSearchOrder,
         )
         // Only remember hits: a provider such as Octo can answer empty while it is still fetching.
-        if (result.lyrics != null) completedLookupMutex.withLock {
+        if (result.lyrics != null) {
             completedLookups[lookupKey] = result
             while (completedLookups.size > MaxCompletedLyricsLookups) {
                 completedLookups.remove(completedLookups.keys.first())
             }
         }
-        return result
+        result
     }
 
     private suspend fun loadLyricsUncached(
@@ -199,7 +209,10 @@ class LyricsSidecarService(
             when (source) {
                 LyricsSourcePreference.Provider -> runCatching {
                     providerLyrics(sourceId, provider, track, acceptedTimings)
-                }.onFailure { error -> if (firstError == null) firstError = error }
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                    if (firstError == null) firstError = error
+                }
                     .getOrNull()
                     ?.let { lyrics ->
                         loadedProviderLyrics = lyrics
@@ -216,7 +229,10 @@ class LyricsSidecarService(
                         lyricsRepository.cacheEmbeddedLyrics(sourceId, track.id, lyrics)
                     }
                     lyrics
-                }.onFailure { error -> if (firstError == null) firstError = error }
+                }.onFailure { error ->
+                    if (error is CancellationException) throw error
+                    if (firstError == null) firstError = error
+                }
                     .getOrNull()
                     ?.let { lyrics ->
                         loadedEmbeddedLyrics = lyrics
@@ -235,7 +251,10 @@ class LyricsSidecarService(
                         }
                         runCatching {
                             onlineLyrics(sourceId, track, onlineProvider, providerAcceptedTimings)
-                        }.onFailure { error -> if (firstError == null) firstError = error }
+                        }.onFailure { error ->
+                            if (error is CancellationException) throw error
+                            if (firstError == null) firstError = error
+                        }
                             .getOrNull()
                             ?.let { lyrics ->
                                 loadedOnlineLyrics[onlineProvider.id] = lyrics

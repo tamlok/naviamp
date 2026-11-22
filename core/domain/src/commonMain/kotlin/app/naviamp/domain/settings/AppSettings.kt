@@ -484,6 +484,7 @@ data class PlaybackSettings(
     val lrclibLyricsEnabled: Boolean = false,
     val lyricsTimingPreference: LyricsTimingPreference = LyricsTimingPreference.FirstAvailable,
     val lyricsDisplayPreference: LyricsDisplayPreference = LyricsDisplayPreference.MatchDownload,
+    val compactLyricsFontSizeSp: Int = 16,
     // Retained so existing v2 settings migrate without silently losing the user's preference.
     val preferSyncedLyrics: Boolean = false,
     val preferWordSyncedLyrics: Boolean = false,
@@ -518,6 +519,7 @@ fun PlaybackSettings.normalized(): PlaybackSettings =
         radioMinimumTracks = app.naviamp.domain.radio.normalizedRadioMinimumTracks(radioMinimumTracks),
         sonicAutoplayMinimumTracks = app.naviamp.domain.radio.normalizedRadioMinimumTracks(sonicAutoplayMinimumTracks),
         lyricsTimingPreference = effectiveLyricsTimingPreference(),
+        compactLyricsFontSizeSp = normalizedCompactLyricsFontSize(compactLyricsFontSizeSp),
         preferSyncedLyrics = false,
         preferWordSyncedLyrics = false,
         lyricsSearchOrder = lyricsSearchOrder.normalizedLyricsSearchOrder(),

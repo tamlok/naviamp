@@ -925,7 +925,7 @@ class NaviampCoreMutableNowPlayingSidecars : NaviampCoreNowPlayingSidecarPort {
         state = NaviampCoreNowPlayingSidecars(trackId = track.id)
     }
 
-    override suspend fun loadLyrics(track: app.naviamp.domain.Track) = Unit
+    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean) = Unit
 
     override suspend fun changeLyricsOffset(track: app.naviamp.domain.Track, offsetMillis: Int) = Unit
 
@@ -975,6 +975,10 @@ class NaviampCoreMutableNowPlayingSidecars : NaviampCoreNowPlayingSidecarPort {
         )
     }
 
+    fun updateLyricsLoading(loading: Boolean) {
+        state = state.copy(lyricsLoading = loading)
+    }
+
     fun updateInternetRadioArtwork(
         station: InternetRadioStation,
         key: String,
@@ -1002,9 +1006,11 @@ class NaviampCoreProviderNowPlayingSidecars(
     private val delegate: NaviampCoreMutableNowPlayingSidecars = NaviampCoreMutableNowPlayingSidecars(),
 ) : NaviampCoreNowPlayingSidecarPort by delegate {
     private var loadGeneration = 0L
+    private var lyricsGeneration = 0L
 
     override suspend fun loadForTrack(track: app.naviamp.domain.Track) {
         val generation = ++loadGeneration
+        ++lyricsGeneration
         val previousAlbum = delegate.snapshot().album?.takeIf { it.id == track.albumId }
         delegate.loadForTrack(track)
         if (track.id.isDiscoveryPreview()) return
@@ -1060,15 +1066,16 @@ class NaviampCoreProviderNowPlayingSidecars(
         }
     }
 
-    override suspend fun loadLyrics(track: app.naviamp.domain.Track) {
-        val generation = loadGeneration
+    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean) {
         if (delegate.snapshot().trackId != track.id) return
+        val generation = ++lyricsGeneration
         delegate.updateLyrics(null, null, null)
+        delegate.updateLyricsLoading(false)
         if (track.id.isDiscoveryPreview()) return
         val provider = providerSource.current()
         val service = lyricsSidecarService
         if (provider == null || service == null) {
-            if (generation == loadGeneration) delegate.updateLyrics(null, null, "Lyrics unavailable")
+            delegate.updateLyrics(null, null, "Lyrics unavailable")
             return
         }
         val settings = playbackSettings()
@@ -1076,11 +1083,17 @@ class NaviampCoreProviderNowPlayingSidecars(
         val quality = provider.capabilities.effectiveStreamingQuality(
             settings.streamQualityForNetwork(isMobileData()),
         )
-        runCatching {
-            coroutineScope {
+        fun isCurrentRequest(): Boolean =
+            generation == lyricsGeneration && delegate.snapshot().trackId == track.id &&
+                providerSource.current() === provider &&
+                (sourceId() ?: provider.cacheNamespace) == activeSourceId
+
+        delegate.updateLyricsLoading(true)
+        try {
+            val loaded = coroutineScope {
                 val loadingStatus = launch {
                     delay(CoreLyricsLoadingStatusDelayMillis)
-                    if (generation == loadGeneration) {
+                    if (isCurrentRequest()) {
                         delegate.updateLyrics(
                             lyrics = null,
                             availableTiming = null,
@@ -1099,28 +1112,35 @@ class NaviampCoreProviderNowPlayingSidecars(
                         timingPreference = settings.effectiveLyricsTimingPreference(),
                         displayTimingPreference = settings.effectiveLyricsDisplayTimingPreference(),
                         searchOrder = settings.lyricsSearchOrder,
+                        forceRefresh = forceRefresh,
                     )
                 } finally {
                     loadingStatus.cancel()
                 }
             }
-        }.onSuccess { loaded ->
-            if (generation == loadGeneration) {
-                val lyrics = lyricsOffsetController?.withSavedOffset(
-                    sourceId = activeSourceId,
-                    track = track,
-                    lyrics = loaded.lyrics,
-                ) ?: loaded.lyrics
+            if (!isCurrentRequest()) return
+            val lyrics = lyricsOffsetController?.withSavedOffset(
+                sourceId = activeSourceId,
+                track = track,
+                lyrics = loaded.lyrics,
+            ) ?: loaded.lyrics
+            if (isCurrentRequest()) {
                 delegate.updateLyrics(
                     lyrics = lyrics,
                     availableTiming = loaded.availableTiming,
                     status = if (lyrics == null) "Lyrics unavailable" else null,
                 )
             }
-        }.onFailure { error ->
-            if (generation == loadGeneration) {
+        } catch (error: Throwable) {
+            if (error is CancellationException) {
+                if (isCurrentRequest()) delegate.updateLyrics(null, null, null)
+                throw error
+            }
+            if (isCurrentRequest()) {
                 delegate.updateLyrics(null, null, lyricsUnavailableStatus(error))
             }
+        } finally {
+            if (generation == lyricsGeneration) delegate.updateLyricsLoading(false)
         }
     }
 

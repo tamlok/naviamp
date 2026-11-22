@@ -158,6 +158,11 @@ class NaviampCoreNowPlayingPresenter(
                 playlistChoices = shell.playlistChoices,
                 playlistActionStatus = display.playlistActionStatus,
             ).toNowPlayingUi().copy(
+                compactLyricsFontSizeSp = playbackSettings.compactLyricsFontSizeSp,
+                lyricsLoading = lyricsSidecar?.lyricsLoading == true,
+                canRefreshLyrics = provider != null && track != null && capabilities.lyricsAvailable &&
+                    !shell.connect.remotePlaybackAuthorityActive,
+                lyricsSourceId = shell.connectionSettings.currentSourceId,
                 aurralSourceId = shell.connectionSettings.currentSourceId.takeIf { provider?.discovery != null },
                 aurralRadioMetadata = sidecar.streamMetadata?.title?.trim()?.takeIf { isLive && it.isNotEmpty() },
                 visualizerFrame = sidecar.visualizerFrame,

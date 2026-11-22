@@ -533,4 +533,7 @@
     <string name="connection_aurral_companion_invalid">Aurral HTTP veya HTTPS sunucu adresini ve kullanıcı adını girin.</string>
     <string name="discovery_find_in_aurral">Aurral’da bul</string>
     <string name="connection_aurral_companion_save_failed">Aurral yardımcısı kaydedilemedi. Müzik bağlantınız değişmedi.</string>
+    <string name="compact_lyrics_font_size">Şarkı sözü yazı tipi boyutunu değiştir (geçerli: %1$d)</string>
+    <string name="compact_lyrics_refresh">Önbellekteki şarkı sözlerini temizle ve yenile</string>
+    <string name="compact_lyrics_loading">Şarkı sözleri yükleniyor…</string>
 </resources>

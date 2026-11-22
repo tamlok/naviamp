@@ -6,6 +6,13 @@ import app.naviamp.domain.cache.LyricsSidecarStore
 class StorageLyricsSidecarStore(
     private val queries: NaviampStorageQueries,
 ) : LyricsSidecarStore {
+    override fun clearCachedLyrics(sourceId: String, trackId: String) {
+        queries.transaction {
+            queries.deleteCachedLyricsForTrack(sourceId, trackId)
+            queries.deleteCachedOnlineLyricsForTrack(sourceId, trackId)
+        }
+    }
+
     override fun cachedLyrics(sourceId: String, trackId: String): CachedLyricsRow? =
         queries.selectCachedLyrics(
             source_id = sourceId,

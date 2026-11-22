@@ -29,8 +29,13 @@ import app.naviamp.domain.settings.LyricsSourcePreference
 import app.naviamp.domain.settings.LyricsTimingPreference
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 
 class LyricsSidecarServiceTest {
@@ -408,6 +413,133 @@ class LyricsSidecarServiceTest {
         assertSame(late, load())
     }
 
+    @Test
+    fun refreshInvalidatesEveryMatchingSettingsVariantButPreservesOtherSourcesAndTracks() = runTest {
+        val old = lyrics(LyricsSource.Provider, synced = true, text = "Old")
+        val fresh = lyrics(LyricsSource.Provider, synced = true, text = "Fresh")
+        val repository = RecordingLyricsRepository(providerLyrics = old)
+        val service = service(repository)
+        suspend fun load(
+            source: String = "source",
+            item: Track = track(),
+            timing: LyricsTimingPreference = LyricsTimingPreference.FirstAvailable,
+            refresh: Boolean = false,
+        ) = service.loadLyrics(
+            source, FakeMediaProvider(), item, StreamQuality.Original,
+            audioCachingEnabled = false, onlineLyricsEnabled = false,
+            timingPreference = timing, forceRefresh = refresh,
+        )
+
+        load()
+        load(timing = LyricsTimingPreference.Plain)
+        val otherSource = load(source = "other")
+        val otherTrack = load(item = track().copy(id = TrackId("other")))
+        repository.providerLyrics = fresh
+
+        assertSame(fresh, load(refresh = true).lyrics)
+        assertEquals("Fresh", load(timing = LyricsTimingPreference.Plain).lyrics?.lines?.single()?.text)
+        assertSame(otherSource, load(source = "other"))
+        assertSame(otherTrack, load(item = track().copy(id = TrackId("other"))))
+        assertEquals(listOf("source:track"), repository.cleared)
+        assertEquals(4, repository.providerRequests.size)
+    }
+
+    @Test
+    fun refreshMissesAndErrorsNeverRestoreDeletedLyricsAndRemainRetryable() = runTest {
+        for (failure in listOf(null, IllegalStateException("Offline"))) {
+            val repository = RecordingLyricsRepository(
+                providerLyrics = lyrics(LyricsSource.Provider, synced = false, text = "Old"),
+            )
+            val service = service(repository)
+            suspend fun load(refresh: Boolean = false) = service.loadLyrics(
+                "source", FakeMediaProvider(), track(), StreamQuality.Original,
+                audioCachingEnabled = false, onlineLyricsEnabled = false, forceRefresh = refresh,
+            )
+            load()
+            repository.providerLyrics = null
+            repository.providerError = failure
+            if (failure == null) {
+                assertEquals(null, load(refresh = true).lyrics)
+            } else {
+                assertSame(failure, assertFailsWith<IllegalStateException> { load(refresh = true) })
+            }
+            assertEquals(null, repository.cachedLyrics("source", track().id))
+            repository.providerError = null
+            val fresh = lyrics(LyricsSource.Provider, synced = false, text = "Retry")
+            repository.providerLyrics = fresh
+            assertSame(fresh, load().lyrics)
+        }
+    }
+
+    @Test
+    fun cancellationFromEveryResolverSourceStopsFallbackAndAllowsRetry() = runTest {
+        for (source in listOf(LyricsSourcePreference.Provider, LyricsSourcePreference.Embedded, LyricsSourcePreference.Online)) {
+            val cancellation = CancellationException("Cancelled $source")
+            val repository = RecordingLyricsRepository(
+                onlineError = cancellation.takeIf { source == LyricsSourcePreference.Online },
+            )
+            repository.providerError = cancellation.takeIf { source == LyricsSourcePreference.Provider }
+            val assets = RecordingAudioAssets(cached = localAudio("song.flac"))
+            var cancelEmbedded = source == LyricsSourcePreference.Embedded
+            val service = LyricsSidecarService(repository, assets, AudioMetadataSidecarService(assets) {
+                if (cancelEmbedded) throw cancellation
+                emptyList()
+            })
+            suspend fun load(refresh: Boolean) = service.loadLyrics(
+                "source", FakeMediaProvider(), track(), StreamQuality.Original,
+                audioCachingEnabled = true, onlineLyricsEnabled = true,
+                searchOrder = listOf(source), forceRefresh = refresh,
+            )
+
+            assertSame(cancellation, assertFailsWith<CancellationException> { load(refresh = true) })
+            assertEquals(emptyList(), repository.embeddedStores)
+            if (source != LyricsSourcePreference.Online) assertEquals(emptyList(), repository.onlineRequests)
+            repository.providerError = null
+            cancelEmbedded = false
+            val fresh = lyrics(LyricsSource.Provider, synced = false, text = "Retry")
+            repository.providerLyrics = fresh
+            assertSame(fresh, service.loadLyrics(
+                "source", FakeMediaProvider(), track(), StreamQuality.Original,
+                audioCachingEnabled = false, onlineLyricsEnabled = false,
+            ).lyrics)
+        }
+    }
+
+    @Test
+    fun refreshWaitsForInFlightPrefetchThenDeletesItsCompletedAndPersistedResults() = runTest {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val old = lyrics(LyricsSource.Provider, synced = false, text = "Prefetch")
+        val fresh = lyrics(LyricsSource.Provider, synced = false, text = "Refresh")
+        val repository = RecordingLyricsRepository(providerLyrics = old)
+        repository.beforeProviderLookup = {
+            if (repository.providerRequests.size == 1) {
+                entered.complete(Unit)
+                release.await()
+            } else {
+                repository.providerLyrics = fresh
+            }
+        }
+        val service = service(repository)
+        suspend fun load(refresh: Boolean = false) = service.loadLyrics(
+            "source", FakeMediaProvider(), track(), StreamQuality.Original,
+            audioCachingEnabled = false, onlineLyricsEnabled = false, forceRefresh = refresh,
+        )
+        val prefetch = async { load() }
+        entered.await()
+        val refresh = async(start = CoroutineStart.UNDISPATCHED) { load(refresh = true) }
+        assertEquals(emptyList(), repository.cleared)
+        assertEquals(1, repository.providerRequests.size)
+        release.complete(Unit)
+
+        assertSame(old, prefetch.await().lyrics)
+        assertSame(fresh, refresh.await().lyrics)
+        assertSame(fresh, load().lyrics)
+        assertSame(fresh, repository.cachedLyrics("source", track().id))
+        assertEquals(listOf("source:track"), repository.cleared)
+        assertEquals(2, repository.providerRequests.size)
+    }
+
     private fun service(
         repository: RecordingLyricsRepository,
         audioAssets: PlaybackAudioAssetRepository = RecordingAudioAssets(),
@@ -428,8 +560,8 @@ private class RecordingLyricsRepository(
     private val onlineLyrics: Lyrics? = null,
     private val onlineError: Throwable? = null,
     providers: List<LyricsProvider>? = null,
-    private val cachedLyrics: Lyrics? = null,
-    private val cachedOnlineLyrics: Map<String, Lyrics> = emptyMap(),
+    cachedLyrics: Lyrics? = null,
+    cachedOnlineLyrics: Map<String, Lyrics> = emptyMap(),
 ) : LyricsSidecarRepository {
     override val onlineProviders: List<LyricsProvider> = providers ?: listOf(
         StubOnlineLyricsProvider(onlineLyrics, onlineError),
@@ -437,6 +569,21 @@ private class RecordingLyricsRepository(
     val providerRequests = mutableListOf<String>()
     val onlineRequests = mutableListOf<String>()
     val embeddedStores = mutableListOf<String>()
+    val cleared = mutableListOf<String>()
+    var providerError: Throwable? = null
+    var beforeProviderLookup: suspend () -> Unit = {}
+    private val sharedCache = mutableMapOf<Pair<String, TrackId>, Lyrics>().apply {
+        cachedLyrics?.let { put("source" to TrackId("track"), it) }
+    }
+    private val onlineCache = cachedOnlineLyrics.mapKeys { (providerId, _) ->
+        Triple("source", TrackId("track"), providerId)
+    }.toMutableMap()
+
+    override suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId) {
+        cleared += "$sourceId:${trackId.value}"
+        sharedCache.remove(sourceId to trackId)
+        onlineCache.keys.removeAll { it.first == sourceId && it.second == trackId }
+    }
 
     override suspend fun providerLyrics(
         sourceId: String,
@@ -445,7 +592,9 @@ private class RecordingLyricsRepository(
         acceptedTimings: Set<LyricsTiming>,
     ): Lyrics? {
         providerRequests += "$sourceId:${trackId.value}"
-        return providerLyrics
+        beforeProviderLookup()
+        providerError?.let { throw it }
+        return providerLyrics?.also { sharedCache[sourceId to trackId] = it }
     }
 
     override suspend fun cacheEmbeddedLyrics(
@@ -454,16 +603,17 @@ private class RecordingLyricsRepository(
         lyrics: Lyrics,
     ): Lyrics {
         embeddedStores += "$sourceId:${trackId.value}:${lyrics.lines.single().text}"
+        sharedCache[sourceId to trackId] = lyrics
         return lyrics
     }
 
-    override suspend fun cachedLyrics(sourceId: String, trackId: TrackId): Lyrics? = cachedLyrics
+    override suspend fun cachedLyrics(sourceId: String, trackId: TrackId): Lyrics? = sharedCache[sourceId to trackId]
 
     override suspend fun cachedOnlineLyrics(
         sourceId: String,
         trackId: TrackId,
         providerId: String,
-    ): Lyrics? = cachedOnlineLyrics[providerId]
+    ): Lyrics? = onlineCache[Triple(sourceId, trackId, providerId)]
 
     override suspend fun onlineLyrics(
         sourceId: String,
@@ -472,7 +622,7 @@ private class RecordingLyricsRepository(
         acceptedTimings: Set<LyricsTiming>,
     ): Lyrics? {
         onlineRequests += "$sourceId:${track.id.value}"
-        return provider.lyrics(track)
+        return provider.lyrics(track)?.also { onlineCache[Triple(sourceId, track.id, provider.id)] = it }
     }
 }
 

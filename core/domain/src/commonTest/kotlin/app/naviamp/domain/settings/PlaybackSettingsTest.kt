@@ -20,6 +20,41 @@ import kotlin.test.assertTrue
 
 class PlaybackSettingsTest {
     @Test
+    fun compactLyricsFontSizeCyclesThroughSupportedSizesAndWraps() {
+        assertEquals(16, PlaybackSettings().compactLyricsFontSizeSp)
+        assertEquals(16, nextCompactLyricsFontSize(14))
+        assertEquals(20, nextCompactLyricsFontSize(16))
+        assertEquals(24, nextCompactLyricsFontSize(20))
+        assertEquals(14, nextCompactLyricsFontSize(24))
+    }
+
+    @Test
+    fun compactLyricsFontSizeNormalizesInvalidValuesToDefault() {
+        for (size in listOf(14, 16, 20, 24)) {
+            assertEquals(size, normalizedCompactLyricsFontSize(size))
+            assertEquals(size, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
+        }
+        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 18, 25, Int.MAX_VALUE)) {
+            assertEquals(16, normalizedCompactLyricsFontSize(size))
+            assertEquals(16, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
+            assertEquals(20, nextCompactLyricsFontSize(size))
+        }
+    }
+
+    @Test
+    fun compactLyricsFontSizeChangeDoesNotReloadLyricsSidecars() {
+        val previous = PlaybackSettings()
+        val changed = playbackSettingsChange(
+            requested = previous.copy(compactLyricsFontSizeSp = 24),
+            playbackEngine = FakePlaybackEngine(),
+            previous = previous,
+        )
+
+        assertEquals(24, changed.settings.compactLyricsFontSizeSp)
+        assertFalse(changed.shouldReloadLyricsSidecars)
+    }
+
+    @Test
     fun cachedAudioUpgradeOnlyRejectsMismatchedQualityOnTrustedNetworks() {
         val disabled = PlaybackSettings(upgradeCachedAudioOnWifi = false)
         val enabled = PlaybackSettings(upgradeCachedAudioOnWifi = true)

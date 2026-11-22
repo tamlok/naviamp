@@ -11,6 +11,46 @@ import kotlinx.serialization.json.jsonObject
 
 class SettingsSyncDocumentTest {
     @Test
+    fun compactLyricsFontSizesSurviveExportImportAndSyncDocumentRebuild() {
+        for (size in listOf(14, 16, 20, 24)) {
+            val settings = PlaybackSettings(compactLyricsFontSizeSp = size, lrclibLyricsEnabled = true)
+            val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = settings), 1L, "source")
+            val imported = SettingsSyncJson.decode(SettingsSyncJson.encode(document)).preferences.playback
+            assertEquals(size, imported.compactLyricsFontSizeSp)
+            assertTrue(imported.lrclibLyricsEnabled)
+
+            val synced = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = imported), 2L, "destination")
+            val restored = SettingsSyncJson.decode(SettingsSyncJson.encode(synced)).preferences.playback
+            assertEquals(size, restored.compactLyricsFontSizeSp)
+            assertTrue(restored.lrclibLyricsEnabled)
+        }
+    }
+
+    @Test
+    fun compactLyricsFontSizeDefaultsForOlderExportsAndNormalizesMalformedValues() {
+        val older = SettingsSyncJson.decode("""{"preferences":{"playback":{"volumePercent":37}}}""")
+            .preferences.playback
+        assertEquals(16, older.compactLyricsFontSizeSp)
+        assertEquals(37, older.volumePercent)
+        assertEquals(16, SettingsSyncJson.decode("""{}""").preferences.playback.compactLyricsFontSizeSp)
+
+        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 18, 25, Int.MAX_VALUE)) {
+            val imported = SettingsSyncJson.decode(
+                """{"preferences":{"playback":{"compactLyricsFontSizeSp":$size,"volumePercent":37}}}""",
+            ).preferences.playback
+            assertEquals(16, imported.compactLyricsFontSizeSp)
+            assertEquals(37, imported.volumePercent)
+
+            val document = buildSettingsSyncDocument(
+                SettingsSyncLocalSnapshot(playback = PlaybackSettings(compactLyricsFontSizeSp = size)),
+                1L,
+                "test",
+            )
+            assertEquals(16, document.preferences.playback.compactLyricsFontSizeSp)
+        }
+    }
+
+    @Test
     fun allThemeModesAndRegisteredSelectionsRoundTripWithoutChangingOtherPreferences() {
         for (pack in NaviampThemes.packs) for (mode in NaviampThemeMode.entries) {
             val settings = InterfaceSettings(language = InterfaceLanguage.German, keepScreenAwake = true,

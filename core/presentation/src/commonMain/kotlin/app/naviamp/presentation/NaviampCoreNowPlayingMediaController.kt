@@ -9,6 +9,10 @@ import app.naviamp.domain.media.resolveTrackArtistNavigation
 import app.naviamp.domain.media.favoriteTrackUpdate
 import app.naviamp.domain.media.ratedTrackUpdate
 import app.naviamp.domain.settings.LyricsDisplayPreference
+import app.naviamp.domain.settings.nextCompactLyricsFontSize
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import app.naviamp.ui.NaviampVisualizer
 import app.naviamp.ui.cycleNaviampVisualizer
 import app.naviamp.ui.NowPlayingCurrentTrackAction
@@ -134,9 +138,34 @@ class NaviampCoreNowPlayingMediaController(
                 playbackController.updateDisplay { it.copy(lyricsVisible = true) }
                 val sidecar = sidecars.snapshot()
                 // A pending track-sidecar load will observe lyricsVisible after it finishes.
-                if (sidecar.trackId == track.id && sidecar.lyrics == null && sidecar.lyricsStatus == null) {
+                if (sidecar.trackId == track.id && !sidecar.lyricsLoading && sidecar.lyrics == null && sidecar.lyricsStatus == null) {
                     sidecars.loadLyrics(track)
                 }
+            }
+            NowPlayingDisplayAction.RefreshLyrics -> {
+                val shell = stateStore.state.value.shell
+                val track = currentTrack() ?: return
+                if (shell.connect.remotePlaybackAuthorityActive ||
+                    track.id.value != request.lyricsTrackId ||
+                    shell.connectionSettings.currentSourceId != request.lyricsSourceId ||
+                    track.isInternetRadioTrack() || track.id.isDiscoveryPreview() ||
+                    providerSource.current() == null || sidecars.snapshot().lyricsLoading
+                ) return
+                coroutineScope {
+                    val refresh = async(start = CoroutineStart.UNDISPATCHED) {
+                        sidecars.loadLyrics(track, forceRefresh = true)
+                    }
+                    presenter.publish(playbackController.currentDisplay())
+                    refresh.await()
+                }
+            }
+            NowPlayingDisplayAction.CycleCompactLyricsFontSize -> {
+                val current = stateStore.state.value.shell.playback.settings
+                val updated = settings.apply(
+                    current.copy(compactLyricsFontSizeSp = nextCompactLyricsFontSize(current.compactLyricsFontSizeSp)),
+                    redownload = false,
+                )
+                stateStore.updateShell { it.copy(playback = it.playback.copy(settings = updated)) }
             }
             NowPlayingDisplayAction.ToggleLyrics -> {
                 val track = currentTrackOrPublish() ?: return
