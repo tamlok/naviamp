@@ -424,7 +424,7 @@ class NaviampCoreConnectController(
     }
 
     /** Consumes a resolved queue only when Connect owns the selected output; never starts local audio. */
-    internal fun playTracksOnSelectedDevice(tracks: List<app.naviamp.domain.Track>): Boolean {
+    internal fun playTracksOnSelectedDevice(tracks: List<app.naviamp.domain.Track>, index: Int = 0): Boolean {
         if (playbackDestination.selectedTrustedDeviceId() == null) return false
         if (!canControl || controllerSession == null || !playbackDestination.isConnectedRemote()) {
             notice = app.naviamp.ui.NaviampConnectStatusNotice.RemoteUnavailable
@@ -438,8 +438,8 @@ class NaviampCoreConnectController(
             return true
         }
         val requested = NaviampLivePlaybackState(
-            currentTrack = tracks.firstOrNull(),
-            queue = app.naviamp.domain.queue.PlaybackQueue(tracks, 0),
+            currentTrack = tracks.getOrNull(index),
+            queue = app.naviamp.domain.queue.PlaybackQueue(tracks, index),
         )
         sendRemoteCommand(
             naviampCoreConnectQueueHandoff(requested, identity, playing = true),

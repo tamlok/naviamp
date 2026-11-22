@@ -25,6 +25,10 @@ data class NaviampCoreHomeCollectionPage(val sectionId: String) : NaviampNavigat
     override val route: NaviampRoute get() = NaviampRoute.Home
 }
 
+data class NaviampCoreFavoriteSongsPage(val sourceId: String?) : NaviampNavigationPage {
+    override val route: NaviampRoute get() = NaviampRoute.Home
+}
+
 data class NaviampCoreDiscoveryPage(val sourceId: String?, val sourceGeneration: Long) : NaviampNavigationPage {
     override val route: NaviampRoute get() = NaviampRoute.Home
 }
@@ -104,6 +108,7 @@ class NaviampCoreNavigationController(
                 restoreCommand(NaviampCoreCommand.Media.ItemAction(NaviampMediaItemActionRequest(page.item, action)))
             }
             is NaviampCoreHomeCollectionPage -> restoreCommand(NaviampCoreCommand.Home.OpenCollection(page.sectionId))
+            is NaviampCoreFavoriteSongsPage -> restoreCommand(NaviampCoreCommand.Home.OpenFavoriteSongs)
             is NaviampCoreDiscoveryPage, is NaviampRoutePage -> Unit
             else -> error("Unknown navigation page: $page")
         }
@@ -139,6 +144,7 @@ class NaviampCoreNavigationController(
     }
 
     private fun isRestorable(page: NaviampNavigationPage): Boolean = when (page) {
+        is NaviampCoreFavoriteSongsPage -> page.sourceId == stateStore.state.value.shell.connectionSettings.currentSourceId
         is NaviampCoreDiscoveryPage -> stateStore.state.value.shell.home.providerDiscovery?.let {
             it.sourceId == page.sourceId && it.sourceGeneration == page.sourceGeneration
         } == true
@@ -163,7 +169,12 @@ class NaviampCoreNavigationController(
             albumDetail = if (clearDetails) NaviampAlbumDetailScreenUi() else shell.albumDetail,
             artistDetail = if (clearDetails) NaviampArtistDetailScreenUi() else shell.artistDetail,
             playlistDetail = if (clearDetails) NaviampPlaylistDetailScreenUi() else shell.playlistDetail,
-            home = if (clearDetails) shell.home.copy(collectionPage = null) else shell.home,
+            home = shell.home.copy(
+                collectionPage = if (clearDetails) null else shell.home.collectionPage,
+                favoriteSongsPage = if (navigation.currentEntry.page is NaviampCoreFavoriteSongsPage) {
+                    shell.home.favoriteSongsPage ?: app.naviamp.ui.SharedFavoriteSongsPageUi()
+                } else null,
+            ),
         ) }
     }
 }

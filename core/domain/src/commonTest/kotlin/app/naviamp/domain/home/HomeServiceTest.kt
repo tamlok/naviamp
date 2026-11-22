@@ -13,13 +13,19 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
 import app.naviamp.domain.provider.AlbumListType
 import app.naviamp.domain.provider.ConnectionValidation
+import app.naviamp.domain.provider.MediaPage
+import app.naviamp.domain.provider.MediaPageRequest
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
 import app.naviamp.domain.radio.libraryRecentRadioStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class HomeServiceTest {
@@ -89,6 +95,133 @@ class HomeServiceTest {
         assertEquals(listOf(nativeFavorite), home.favoriteArtists)
         assertEquals(listOf(album("newest")), home.recentlyAddedAlbums)
         assertEquals(listOf(Playlist("playlist", "Playlist", trackCount = 2)), home.playlists)
+    }
+
+    @Test
+    fun favoriteAlbumsLoadEveryPageWithoutTheOldFavoriteLimit() = runTest {
+        val albums = (5_000 downTo 0).map { index -> album(index.toString().padStart(4, '0')) }
+        val provider = FakeHomeProvider(
+            supportsTrackFavorites = true,
+            supportsAlbumFavorites = true,
+            favoriteAlbumPage = { request ->
+                val items = albums.subList(request.offset, minOf(request.offset + request.limit, albums.size))
+                MediaPage(items, request.offset, request.limit, request.offset + items.size < albums.size)
+            },
+        )
+
+        val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+        assertTrue(home.supportsFavoriteSongs)
+        assertFalse(home.favoriteAlbumsFailed)
+        assertEquals(albums.reversed().map { it.id }, home.favoriteAlbums.map { it.id })
+        assertEquals(5_001, home.favoriteAlbums.size)
+        assertTrue(home.favoriteAlbums.all { it.favoritedAtIso8601 == "favorite" })
+        assertEquals((0..5_000 step 200).toList(), provider.favoriteAlbumRequests.map { it.offset })
+    }
+
+    @Test
+    fun favoriteAlbumsDeduplicateAcrossPagesNormalizeMembershipAndSortStableTitles() = runTest {
+        val zulu = album("z").copy(title = "Zulu", favoritedAtIso8601 = "2026-01-01T00:00:00Z")
+        val alpha = album("a").copy(title = "alpha", favoritedAtIso8601 = "")
+        val upperAlpha = album("upper").copy(title = "Alpha")
+        val alphaTie = album("b").copy(title = "alpha")
+        val provider = FakeHomeProvider(
+            supportsAlbumFavorites = true,
+            favoriteAlbumPage = { request ->
+                val items = if (request.offset == 0) listOf(zulu, alpha) else listOf(zulu, alphaTie, upperAlpha)
+                MediaPage(items, request.offset, request.limit, request.offset == 0)
+            },
+        )
+
+        val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+        assertEquals(listOf(upperAlpha.id, alpha.id, alphaTie.id, zulu.id), home.favoriteAlbums.map { it.id })
+        assertEquals(listOf("favorite", "favorite", "favorite", zulu.favoritedAtIso8601), home.favoriteAlbums.map { it.favoritedAtIso8601 })
+        assertFalse(home.favoriteAlbumsFailed)
+        assertFalse(home.supportsFavoriteSongs)
+    }
+
+    @Test
+    fun favoriteAlbumPageFailureDiscardsPartialMembershipAndPreservesOtherHomeSections() = runTest {
+        val provider = FakeHomeProvider(
+            supportsAlbumFavorites = true,
+            favoriteAlbumPage = { request ->
+                if (request.offset > 0) error("favorite album lookup failed")
+                MediaPage(listOf(album("partial")), request.offset, request.limit, hasMore = true)
+            },
+        )
+
+        val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+        assertTrue(home.favoriteAlbumsFailed)
+        assertTrue(home.favoriteAlbums.isEmpty())
+        assertEquals(listOf(album("newest")), home.recentlyAddedAlbums)
+        assertEquals(listOf(0, 1), provider.favoriteAlbumRequests.map { it.offset })
+    }
+
+    @Test
+    fun supportedFavoriteAlbumsReportUnavailableOrMalformedEnumeration() = runTest {
+        val invalidPages: List<suspend (MediaPageRequest) -> MediaPage<Album>?> = listOf(
+            { null },
+            { request -> MediaPage(listOf(album("invalid")), request.offset + 1, request.limit, hasMore = false) },
+            { request -> MediaPage(emptyList(), request.offset, request.limit, hasMore = true) },
+        )
+        for (page in invalidPages) {
+            val provider = FakeHomeProvider(supportsAlbumFavorites = true, favoriteAlbumPage = page)
+
+            val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+            assertTrue(home.favoriteAlbumsFailed)
+            assertTrue(home.favoriteAlbums.isEmpty())
+        }
+    }
+
+    @Test
+    fun unsupportedFavoriteAlbumsAreNotQueriedAndSongCapabilityRemainsIndependent() = runTest {
+        val provider = FakeHomeProvider(
+            supportsTrackFavorites = true,
+            favoriteAlbumPage = { error("unsupported favorites must not be queried") },
+        )
+
+        val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+        assertTrue(home.supportsFavoriteSongs)
+        assertTrue(home.favoriteAlbums.isEmpty())
+        assertFalse(home.favoriteAlbumsFailed)
+        assertTrue(provider.favoriteAlbumRequests.isEmpty())
+    }
+
+    @Test
+    fun supportedEmptyFavoriteAlbumCatalogIsNotAFailure() = runTest {
+        val provider = FakeHomeProvider(supportsAlbumFavorites = true)
+
+        val home = HomeService(provider, date = HomeDate(2026, 1)).load()
+
+        assertTrue(home.favoriteAlbums.isEmpty())
+        assertFalse(home.favoriteAlbumsFailed)
+        assertFalse(home.supportsFavoriteSongs)
+        assertEquals(1, provider.favoriteAlbumRequests.size)
+    }
+
+    @Test
+    fun favoriteAlbumLoadingPropagatesCancellation() = runTest {
+        val provider = FakeHomeProvider(
+            supportsAlbumFavorites = true,
+            favoriteAlbumPage = { throw CancellationException("source changed") },
+        )
+
+        assertFailsWith<CancellationException> {
+            HomeService(provider, date = HomeDate(2026, 1)).load()
+        }
+    }
+
+    @Test
+    fun homeContentIsNotEmptyWhenRecommendationsHaveAnEntryOrStatus() {
+        assertTrue(HomeContent().isEmpty)
+        assertFalse(HomeContent(supportsFavoriteSongs = true).isEmpty)
+        assertFalse(HomeContent(favoriteAlbums = listOf(album("favorite"))).isEmpty)
+        assertFalse(HomeContent(favoriteAlbumsFailed = true).isEmpty)
+        assertFalse(HomeContent(favoriteArtistsStatus = FavoriteArtistsStatus.Failed).isEmpty)
     }
 
     @Test
@@ -255,6 +388,11 @@ class HomeServiceTest {
         private val playlists: List<Playlist> = listOf(Playlist("playlist", "Playlist", trackCount = 2)),
         supportsArtistFavorites: Boolean = false,
         private val favoriteArtists: List<Artist> = emptyList(),
+        supportsTrackFavorites: Boolean = false,
+        supportsAlbumFavorites: Boolean = false,
+        private val favoriteAlbumPage: suspend (MediaPageRequest) -> MediaPage<Album>? = { request ->
+            MediaPage(emptyList(), request.offset, request.limit, hasMore = false)
+        },
     ) : MediaProvider {
         override val id: ProviderId = ProviderId("fake-home")
         override val displayName: String = "Fake Home"
@@ -265,10 +403,13 @@ class HomeServiceTest {
             supportsAlbumRadio = false,
             supportsTrackRadio = false,
             supportsArtistFavorites = supportsArtistFavorites,
+            supportsTrackFavorites = supportsTrackFavorites,
+            supportsAlbumFavorites = supportsAlbumFavorites,
         )
 
         var artistLimit: Int? = null
         var favoriteFailure: Boolean = false
+        val favoriteAlbumRequests = mutableListOf<MediaPageRequest>()
 
         override suspend fun validateConnection(): ConnectionValidation =
             ConnectionValidation(serverVersion = null, apiVersion = null)
@@ -293,6 +434,11 @@ class HomeServiceTest {
         override suspend fun favoriteArtists(limit: Int): List<Artist> {
             if (favoriteFailure) error("favorite lookup failed")
             return favoriteArtists.take(limit)
+        }
+
+        override suspend fun favoriteAlbumsPage(request: MediaPageRequest): MediaPage<Album>? {
+            favoriteAlbumRequests += request
+            return favoriteAlbumPage(request)
         }
 
         override suspend fun playlists(limit: Int): List<Playlist> =

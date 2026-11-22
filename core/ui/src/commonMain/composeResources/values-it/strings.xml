@@ -387,8 +387,12 @@
     <string name="discovery_releases">Pubblicazioni</string>
     <string name="home_scroll_left">Scorri a sinistra</string>
     <string name="home_scroll_right">Scorri a destra</string>
-    <string name="home_play_favorite_songs">Riproduci i brani preferiti</string>
-    <string name="home_favorite_songs_failed">Impossibile caricare i brani preferiti. Riprova.</string>
+    <string name="home_recommendations">CONSIGLIATI PER TE</string>
+    <string name="settings_recommendations">Consigliati per te</string>
+    <string name="favorite_songs_title">Brani preferiti</string>
+    <string name="favorite_songs_subtitle">Tutti i brani che hai contrassegnato come preferiti</string>
+    <string name="favorite_songs_failed">Impossibile caricare i brani preferiti. Riprova.</string>
+    <string name="favorite_albums_failed">Impossibile caricare gli album preferiti. Aggiorna per riprovare.</string>
     <string name="discovery_all_releases">Tutte le uscite</string>
     <string name="discovery_action_busy">Operazione in corso…</string>
     <string name="discovery_samples">Anteprime</string>

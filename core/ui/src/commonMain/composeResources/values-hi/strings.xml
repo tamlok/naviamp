@@ -387,8 +387,12 @@
     <string name="discovery_releases">रिलीज़</string>
     <string name="home_scroll_left">बाईं ओर स्क्रॉल करें</string>
     <string name="home_scroll_right">दाईं ओर स्क्रॉल करें</string>
-    <string name="home_play_favorite_songs">पसंदीदा गाने चलाएँ</string>
-    <string name="home_favorite_songs_failed">पसंदीदा गाने लोड नहीं हो सके। फिर से कोशिश करें।</string>
+    <string name="home_recommendations">आपके लिए सुझाव</string>
+    <string name="settings_recommendations">आपके लिए सुझाव</string>
+    <string name="favorite_songs_title">पसंदीदा गाने</string>
+    <string name="favorite_songs_subtitle">वे सभी गाने जिन्हें आपने पसंदीदा के रूप में चिह्नित किया है</string>
+    <string name="favorite_songs_failed">पसंदीदा गाने लोड नहीं हो सके। फिर से कोशिश करें।</string>
+    <string name="favorite_albums_failed">पसंदीदा एल्बम लोड नहीं हो सके। फिर से कोशिश करने के लिए रीफ़्रेश करें।</string>
     <string name="discovery_all_releases">सभी रिलीज़</string>
     <string name="discovery_action_busy">कार्य जारी है…</string>
     <string name="discovery_samples">नमूने</string>

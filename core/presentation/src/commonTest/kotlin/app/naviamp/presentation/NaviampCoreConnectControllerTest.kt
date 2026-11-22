@@ -1156,14 +1156,14 @@ class NaviampCoreConnectControllerTest {
             queueHandoffSupported = true, sourceIdentity = source, localPlayback = local,
         ) { sent += it }
 
-        assertTrue(controller.playTracksOnSelectedDevice(favorites))
+        assertTrue(controller.playTracksOnSelectedDevice(favorites, index = 1))
         runCurrent()
 
         val request = sent.single().message as NaviampConnectCommandRequest
         val handoff = request.command as NaviampConnectHandoffQueue
         assertEquals(favorites.map { it.id.value }, handoff.queue.occurrences.map { it.mediaId })
         assertEquals(source, handoff.sourceIdentity)
-        assertEquals(0, handoff.queue.currentIndex)
+        assertEquals(1, handoff.queue.currentIndex)
         assertEquals(0L, handoff.positionMillis)
         assertTrue(handoff.playing, "A newly selected favorite queue must play even when local playback is paused")
         assertFalse(handoff.shuffled)

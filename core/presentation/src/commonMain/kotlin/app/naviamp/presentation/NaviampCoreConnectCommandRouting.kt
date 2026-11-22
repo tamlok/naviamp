@@ -49,6 +49,7 @@ internal fun NaviampCoreCommand.connectQueueSelectionOrNull(): NaviampCoreConnec
     is NaviampCoreCommand.Detail.ArtistPopularTrack -> request.connectQueueSelectionOrNull()
     is NaviampCoreCommand.Detail.PlaylistTrack -> request.connectQueueSelectionOrNull()
     is NaviampCoreCommand.Home.RecentTrackAction -> request.connectQueueSelectionOrNull()
+    is NaviampCoreCommand.Home.FavoriteSongAction -> request.connectQueueSelectionOrNull()
     is NaviampCoreCommand.Home.SonicTrackAction -> connectQueueSelectionOrNull(request.track.id, request.action)
     is NaviampCoreCommand.Media.ItemAction -> when (val itemCommand = request.command) {
         is NaviampMediaItemCommand.Album -> itemCommand.command.albumQueueSelection(request.item.id)
@@ -73,6 +74,8 @@ internal fun NaviampCoreCommand.connectMediaSelectionOrNull(): NaviampCoreConnec
     is NaviampCoreCommand.Detail.ArtistPopularTrack -> request.connectSelectionOrNull()
     is NaviampCoreCommand.Detail.PlaylistTrack -> request.connectSelectionOrNull()
     is NaviampCoreCommand.Home.RecentTrackAction -> request.connectSelectionOrNull()
+    is NaviampCoreCommand.Home.FavoriteSongAction ->
+        request.takeUnless { it.action == SharedTrackRowAction.Select }?.connectSelectionOrNull()
     is NaviampCoreCommand.Home.SonicTrackAction -> when (request.action) {
         SharedTrackRowAction.Select -> NaviampCoreConnectMediaSelection(
             NaviampConnectMediaType.Track,

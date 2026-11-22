@@ -437,8 +437,10 @@
     <string name="transport_next">Nächste</string>
     <string name="transport_repeat">Wiederholen</string>
     <string name="home_music_title">Heim</string>
-    <string name="home_play_favorite_songs">Lieblingssongs abspielen</string>
-    <string name="home_favorite_songs_failed">Lieblingssongs konnten nicht geladen werden. Versuche es erneut.</string>
+    <string name="favorite_songs_title">Lieblingssongs</string>
+    <string name="favorite_songs_subtitle">Alle Songs, die du als Favoriten markiert hast</string>
+    <string name="favorite_songs_failed">Lieblingssongs konnten nicht geladen werden. Versuche es erneut.</string>
+    <string name="favorite_albums_failed">Lieblingsalben konnten nicht geladen werden. Aktualisiere die Ansicht, um es erneut zu versuchen.</string>
     <string name="home_empty">Nach der Verbindung werden die Home-Bereiche angezeigt.</string>
     <string name="home_recently_played_radio">Kürzlich gespieltes Radio</string>
     <string name="home_recent_playlists">Aktuelle Playlists</string>
@@ -449,7 +451,7 @@
     <string name="home_more_in">Mehr in %1$s</string>
     <string name="home_from_decade">Von %1$s</string>
     <string name="home_recently_played">ZULETZT GESPIELT</string>
-    <string name="home_favorite_artists">LIEBLINGSKÜNSTLER</string>
+    <string name="home_recommendations">EMPFEHLUNGEN FÜR DICH</string>
     <string name="search_title">Suchen</string>
     <string name="search_music_label">Musik suchen</string>
     <string name="search_searching">Suche...</string>
@@ -606,7 +608,7 @@
     <string name="playlist_membership_create_description">Erstellen Sie eine Playlist mit „%1$s“.</string>
     <string name="library_indexing_albums">Alben werden indiziert… %1$d gefunden</string>
     <string name="library_album_index_failed">Alben konnten nicht aktualisiert werden. Ihre geladenen Alben sind weiterhin verfügbar; Verwenden Sie „Aktualisieren“, um es erneut zu versuchen.</string>
-    <string name="settings_favorite_artists">Lieblingskünstler</string>
+    <string name="settings_recommendations">Empfehlungen für dich</string>
     <string name="home_settings_visible">Sichtbar</string>
     <string name="home_settings_hidden">Versteckt</string>
     <string name="home_settings_reorder_hint">Zum Neuanordnen ziehen. Wählen Sie einen Abschnitt aus, um dessen Sichtbarkeit und Layout zu ändern.</string>

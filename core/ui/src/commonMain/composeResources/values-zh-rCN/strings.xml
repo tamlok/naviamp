@@ -387,8 +387,12 @@
     <string name="discovery_releases">发行作品</string>
     <string name="home_scroll_left">向左滚动</string>
     <string name="home_scroll_right">向右滚动</string>
-    <string name="home_play_favorite_songs">播放收藏的歌曲</string>
-    <string name="home_favorite_songs_failed">无法加载收藏的歌曲。请重试。</string>
+    <string name="home_recommendations">为你推荐</string>
+    <string name="settings_recommendations">为你推荐</string>
+    <string name="favorite_songs_title">收藏的歌曲</string>
+    <string name="favorite_songs_subtitle">您收藏的所有歌曲</string>
+    <string name="favorite_songs_failed">无法加载收藏的歌曲。请重试。</string>
+    <string name="favorite_albums_failed">无法加载收藏的专辑。请刷新后重试。</string>
     <string name="discovery_all_releases">所有发行</string>
     <string name="discovery_action_busy">处理中…</string>
     <string name="discovery_samples">试听</string>

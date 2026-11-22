@@ -43,7 +43,7 @@ class NaviampFavoriteArtistSettingsUiTest {
                 HomeScreenExperienceSettings(NaviampColors(), settings.value) { settings.value = it }
             }
         }
-        onNodeWithText("Favorite Artists").assertIsDisplayed().performClick()
+        onNodeWithText("Recommendations for you").assertIsDisplayed().performClick()
         onNodeWithText("Last radio played").performScrollTo().performClick()
         runOnIdle { assertEquals(FavoriteArtistSort.LastRadioPlayed, settings.value.favoriteArtistSort) }
         onNodeWithText("Date favorited").performScrollTo().performClick()
@@ -58,7 +58,7 @@ class NaviampFavoriteArtistSettingsUiTest {
         runOnIdle { assertEquals(HomeSectionLayout.Grid, settings.value.homeSectionPresentation(HomeSectionIds.FavoriteArtists).homeLayout) }
         onNodeWithContentDescription("Back").performScrollTo().performClick()
         onNodeWithText("Hidden").assertIsDisplayed()
-        onNodeWithText("Favorite Artists").performClick()
+        onNodeWithText("Recommendations for you").performClick()
         onNodeWithText("Visible").performClick()
         runOnIdle { kotlin.test.assertTrue(settings.value.homeSectionPresentation(HomeSectionIds.FavoriteArtists).visible) }
     }
@@ -71,7 +71,7 @@ class NaviampFavoriteArtistSettingsUiTest {
                 HomeScreenExperienceSettings(NaviampColors(), settings.value) { settings.value = it }
             }
         }
-        onNodeWithContentDescription("Drag Favorite Artists to reorder", useUnmergedTree = true).performTouchInput {
+        onNodeWithContentDescription("Drag Recommendations for you to reorder", useUnmergedTree = true).performTouchInput {
             swipe(center, center + Offset(0f, 110f), 500)
         }
         runOnIdle { assertEquals(3, settings.value.resolvedHomeSectionOrder().indexOf(HomeSectionIds.FavoriteArtists)) }
@@ -128,8 +128,8 @@ class NaviampFavoriteArtistSettingsUiTest {
             }
         }
         onNodeWithText("Section order").assertDoesNotExist()
-        onNodeWithText("Favorite Artists").assertIsDisplayed()
-        onNodeWithContentDescription("Drag Favorite Artists to reorder").assertExists()
+        onNodeWithText("Recommendations for you").assertIsDisplayed()
+        onNodeWithContentDescription("Drag Recommendations for you to reorder").assertExists()
         writeHomeSettingsImage(onRoot().captureToImage(), "section-list")
     }
 }

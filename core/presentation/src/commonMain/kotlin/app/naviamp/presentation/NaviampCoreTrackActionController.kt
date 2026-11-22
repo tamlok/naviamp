@@ -44,11 +44,20 @@ class NaviampCoreTrackActionController(
             ) to registry.sonicRows.rows.firstOrNull { it.id.value == command.request.rowId }?.tracks.orEmpty()
             else -> return null
         }
+        executeTrackAction(request, tracks, albumContext)
+        return NaviampCoreCommandResult.Completed
+    }
+
+    internal suspend fun executeTrackAction(
+        request: SharedTrackRowActionRequest,
+        tracks: List<Track>,
+        albumContext: app.naviamp.domain.AlbumDetails? = null,
+    ) {
         val index = tracks.indexOfFirst { it.id.value == request.track.id }
         val track = tracks.getOrNull(index)
         if (track == null) {
             media.publish("Track is no longer available.")
-            return NaviampCoreCommandResult.Completed
+            return
         }
         when (request.action) {
             app.naviamp.ui.SharedTrackRowAction.Select -> if (albumContext != null) {
@@ -71,6 +80,5 @@ class NaviampCoreTrackActionController(
             app.naviamp.ui.SharedTrackRowAction.GoToAlbum -> media.openAlbum(track)
             app.naviamp.ui.SharedTrackRowAction.GoToArtist -> media.openArtist(track, request.artistId, request.artistName)
         }
-        return NaviampCoreCommandResult.Completed
     }
 }

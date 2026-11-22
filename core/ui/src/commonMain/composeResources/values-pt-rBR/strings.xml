@@ -731,8 +731,10 @@
     <string name="transport_next">Próxima</string>
     <string name="transport_repeat">Repetir</string>
     <string name="home_music_title">Início</string>
-    <string name="home_play_favorite_songs">Reproduzir músicas favoritas</string>
-    <string name="home_favorite_songs_failed">Não foi possível carregar as músicas favoritas. Tente novamente.</string>
+    <string name="favorite_songs_title">Músicas favoritas</string>
+    <string name="favorite_songs_subtitle">Todas as músicas que você marcou como favoritas</string>
+    <string name="favorite_songs_failed">Não foi possível carregar as músicas favoritas. Tente novamente.</string>
+    <string name="favorite_albums_failed">Não foi possível carregar os álbuns favoritos. Atualize para tentar novamente.</string>
     <string name="home_empty">As seções do início aparecerão após a conexão.</string>
     <string name="home_recently_played_radio">Rádios tocadas recentemente</string>
     <string name="home_recent_playlists">Playlists recentes</string>
@@ -743,7 +745,7 @@
     <string name="home_more_in">Mais em %1$s</string>
     <string name="home_from_decade">Da década de %1$s</string>
     <string name="home_recently_played">TOCADAS RECENTEMENTE</string>
-    <string name="home_favorite_artists">ARTISTAS FAVORITOS</string>
+    <string name="home_recommendations">RECOMENDAÇÕES PARA VOCÊ</string>
     <string name="search_title">Buscar</string>
     <string name="search_music_label">Buscar músicas</string>
     <string name="search_searching">Buscando...</string>
@@ -900,7 +902,7 @@
     <string name="playlist_membership_create_description">Crie uma playlist contendo “%1$s”.</string>
     <string name="library_indexing_albums">Indexando álbuns… %1$d encontrados</string>
     <string name="library_album_index_failed">Não foi possível atualizar os álbuns. Os álbuns já carregados continuam disponíveis; use Atualizar para tentar novamente.</string>
-    <string name="settings_favorite_artists">Artistas favoritos</string>
+    <string name="settings_recommendations">Recomendações para você</string>
     <string name="home_settings_visible">Visível</string>
     <string name="home_settings_hidden">Oculto</string>
     <string name="home_settings_reorder_hint">Arraste para reordenar. Selecione uma seção para alterar sua visibilidade e layout.</string>

@@ -658,6 +658,7 @@ enum class SharedHomeCollectionArtwork {
     NavibeatGenerated,
     StationGenerated,
     MixBuilderGenerated,
+    FavoriteSongs,
 }
 
 enum class SharedHomeCollectionItemAction {
@@ -672,6 +673,7 @@ enum class SharedHomeCollectionItemAction {
     SelectMixBuilder,
     SelectRecentTrack,
     SelectSonicTrack,
+    OpenFavoriteSongs,
 }
 
 data class SharedHomeCollectionItemUi(
@@ -689,7 +691,7 @@ data class SharedHomeCollectionItemUi(
 )
 
 enum class SharedHomeCollectionTitleResource {
-    FavoriteArtists,
+    Recommendations,
 }
 
 data class SharedHomeCollectionSectionUi(
@@ -700,6 +702,7 @@ data class SharedHomeCollectionSectionUi(
     val titleArgument: String? = null,
     val favoriteArtistSort: app.naviamp.domain.settings.FavoriteArtistSort? = null,
     val favoriteArtistsStatus: app.naviamp.domain.home.FavoriteArtistsStatus? = null,
+    val favoriteAlbumsFailed: Boolean = false,
     val visible: Boolean = true,
     val supportedHomeLayouts: Set<HomeSectionLayout> = HomeSectionLayout.entries.toSet(),
     val homeLayout: HomeSectionLayout = HomeSectionLayout.Carousel,
@@ -964,11 +967,18 @@ data class NaviampHomeScreenUi(
     val collectionPage: SharedHomeCollectionPageUi? = null,
     val providerDiscovery: SharedProviderDiscoveryUi? = null,
     val samplePlayback: DiscoverySamplePlaybackUi = DiscoverySamplePlaybackUi(),
-    val supportsFavoriteSongs: Boolean = false,
-    val favoriteSongsPlaybackStatus: FavoriteSongsPlaybackStatus? = null,
+    val favoriteSongsPage: SharedFavoriteSongsPageUi? = null,
 )
 
-enum class FavoriteSongsPlaybackStatus { Loading, Empty, Failed, Unsupported }
+enum class FavoriteSongsStatus { Idle, Loading, Ready, Empty, Failed, Unsupported }
+
+data class SharedFavoriteSongsPageUi(
+    val tracks: List<SharedTrackRowUi> = emptyList(),
+    val totalDurationLabel: String = "",
+    val status: FavoriteSongsStatus = FavoriteSongsStatus.Loading,
+    val canDownload: Boolean = false,
+    val canStartRadio: Boolean = false,
+)
 
 data class SharedProviderDiscoveryUi(
     val providerId: String,
@@ -1038,7 +1048,11 @@ data class NaviampHomeActions(
     val onCollectionSelected: (String) -> Unit,
     val onCollectionBack: () -> Unit,
     val onCollectionPageLayoutChanged: (String, HomeSectionPageLayout) -> Unit,
-    val onPlayFavoriteSongs: () -> Unit = {},
+    val onFavoriteSongsSelected: () -> Unit = {},
+    val onFavoriteSongsRefresh: () -> Unit = {},
+    val onFavoriteSongsPlay: (Boolean) -> Unit = {},
+    val onFavoriteSongAction: (SharedTrackRowActionRequest) -> Unit = {},
+    val onFavoriteSongsBack: () -> Unit = {},
     val onFavoriteArtistSortChanged: (app.naviamp.domain.settings.FavoriteArtistSort) -> Unit = {},
     val onDiscoveryArtistSelected: (String) -> Unit = {},
     val onDiscoveryArtistDetails: (String) -> Unit = {},

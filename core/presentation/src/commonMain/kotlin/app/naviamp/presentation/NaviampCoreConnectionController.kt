@@ -51,6 +51,7 @@ class NaviampCoreConnectionController(
     private val onOfflineRestored: (String) -> Unit = {},
     private val certificateFiles: NaviampCoreCertificateFilePort? = null,
     private val onCompanionChanged: (String) -> Unit = {},
+    private val onSourceDisconnected: () -> Unit = {},
 ) : NaviampCoreCommandController {
     private var inventory = initialInventory
     private var editingConnectionId: String? = null
@@ -533,15 +534,14 @@ class NaviampCoreConnectionController(
         runCatching { sessionPort.deleteConnection(saved.id) }
             .onSuccess { updated ->
                 inventory = updated
-                if (connection.state.value.sourceId == saved.id && updated.currentSourceId == null) {
+                val deletedActiveSource = connection.state.value.sourceId == saved.id && updated.currentSourceId == null
+                if (deletedActiveSource) {
                     connection.disconnected("Deleted ${saved.displayName}.")
-                    stateStore.updateShell { shell ->
-                        shell.copy(home = shell.home.copy(supportsFavoriteSongs = false, favoriteSongsPlaybackStatus = null))
-                    }
                 } else {
                     publishStatus("Deleted ${saved.displayName}.")
                 }
                 publishConnection()
+                if (deletedActiveSource) onSourceDisconnected()
             }
             .onFailure { cause -> publishStatus(cause.message ?: "Could not delete ${saved.displayName}.") }
     }

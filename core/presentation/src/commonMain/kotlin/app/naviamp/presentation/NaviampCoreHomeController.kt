@@ -1,6 +1,6 @@
 package app.naviamp.presentation
 
-import app.naviamp.domain.home.sortedFavoriteArtists
+import app.naviamp.ui.toSharedRecommendationsSection
 
 import app.naviamp.domain.InternetRadioStation
 import app.naviamp.domain.Track
@@ -156,13 +156,6 @@ class NaviampCoreHomeController(
 ) : NaviampCoreCommandController {
     private val recentHistoryMutex = Mutex()
     private var recentHistoryRevision = 0L
-    private data class FavoriteSongsBinding(
-        val sourceId: String?,
-        val providerId: String,
-        val cacheNamespace: String,
-        val musicFolderIds: Set<String>,
-    )
-    private var favoriteSongsBinding: FavoriteSongsBinding? = null
 
     /** A real local play refreshes Home and external browsing without a provider/catalog reload. */
     suspend fun recordPlayedTrack(sourceId: String, track: Track, playedAtEpochMillis: Long): Unit = recentHistoryMutex.withLock {
@@ -250,18 +243,6 @@ class NaviampCoreHomeController(
         val generation = ++refreshGeneration
         val historyRevision = recentHistoryRevision
         val provider = providerSource.current()
-        val binding = provider?.let {
-            FavoriteSongsBinding(stateStore.state.value.shell.connectionSettings.currentSourceId,
-                it.id.value, it.cacheNamespace, it.selectedMusicFolderIds.toSet())
-        }
-        val bindingChanged = binding != favoriteSongsBinding
-        favoriteSongsBinding = binding
-        stateStore.updateShell { shell ->
-            shell.copy(home = shell.home.copy(
-                supportsFavoriteSongs = provider?.capabilities?.supportsTrackFavorites == true,
-                favoriteSongsPlaybackStatus = shell.home.favoriteSongsPlaybackStatus.takeUnless { bindingChanged },
-            ))
-        }
         if (provider == null) {
             stateStore.updateShell { it.copy(home = it.home.copy(providerDiscovery = null)) }
             publish(refreshing = false, status = "Connect to Navidrome to load Home.")
@@ -396,24 +377,29 @@ class NaviampCoreHomeController(
         }
     }
 
+    internal fun favoritesChanged(provider: MediaProvider) {
+        if (providerSource.isCurrent(provider)) interfaceSettingsChanged(stateStore.state.value.shell.general.interfaceSettings)
+    }
+
     internal fun interfaceSettingsChanged(settings: InterfaceSettings) {
-        val favoriteOrder = mediaRegistry.home.favoriteArtists
-            .sortedFavoriteArtists(settings.favoriteArtistSort, mediaRegistry.home.favoriteArtistLastPlayed)
-            .withIndex().associate { it.value.id.value to it.index }
+        val provider = providerSource.current()
+        val recommendations = mediaRegistry.home.toSharedRecommendationsSection(
+            coverArtUrl = { id -> id?.let { provider?.coverArtUrl(it) } },
+            canFavoriteAlbums = provider?.capabilities?.supportsAlbumFavorites == true,
+            interfaceSettings = settings,
+        )
         stateStore.updateShell { shell ->
-            val updatedSections = shell.home.content.collectionSections.map { section ->
-                val presentation = settings.homeSectionPresentation(section.id)
-                section.copy(
-                    items = if (section.favoriteArtistSort != null) section.items.sortedBy {
-                        favoriteOrder[it.mediaItem.id] ?: Int.MAX_VALUE
-                    } else section.items,
-                    favoriteArtistSort = section.favoriteArtistSort?.let { settings.favoriteArtistSort },
-                    visible = presentation.visible,
-                    homeLayout = presentation.homeLayout,
-                    homeItemLimit = presentation.homeItemLimit,
-                    defaultPageLayout = presentation.pageLayout,
-                )
-            }
+            val updatedSections = listOfNotNull(recommendations) + shell.home.content.collectionSections
+                .filterNot { it.id == app.naviamp.domain.settings.HomeSectionIds.FavoriteArtists }
+                .map { section ->
+                    val presentation = settings.homeSectionPresentation(section.id)
+                    section.copy(
+                        visible = presentation.visible,
+                        homeLayout = presentation.homeLayout,
+                        homeItemLimit = presentation.homeItemLimit,
+                        defaultPageLayout = presentation.pageLayout,
+                    )
+                }
             val orderIndex = settings.resolvedHomeSectionOrder(updatedSections.map { it.id })
                 .withIndex()
                 .associate { it.value to it.index }
@@ -445,7 +431,6 @@ class NaviampCoreHomeController(
         discoveryController.resetForSourceChange()
         refreshGeneration += 1
         discoveryFeedGeneration++
-        favoriteSongsBinding = null
         mediaRegistry.updateHome(
             app.naviamp.domain.home.HomeContent(),
             SonicHomeDiscoveryRows(),
@@ -457,8 +442,7 @@ class NaviampCoreHomeController(
                     refreshing = false,
                     collectionPage = null,
                     providerDiscovery = null,
-                    supportsFavoriteSongs = false,
-                    favoriteSongsPlaybackStatus = null,
+                    favoriteSongsPage = null,
                 ),
             )
         }

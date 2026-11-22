@@ -372,8 +372,10 @@
     <string name="transport_repeat">Repeat</string>
 
     <string name="home_music_title">Home</string>
-    <string name="home_play_favorite_songs">Play favorite songs</string>
-    <string name="home_favorite_songs_failed">Could not load favorite songs. Try again.</string>
+    <string name="favorite_songs_title">Favorite Songs</string>
+    <string name="favorite_songs_subtitle">All songs you have marked as favorites</string>
+    <string name="favorite_songs_failed">Could not load favorite songs. Try again.</string>
+    <string name="favorite_albums_failed">Could not load favorite albums. Refresh to try again.</string>
     <string name="home_empty">Home sections will appear after connection.</string>
     <string name="home_recently_played_radio">Recently Played Radio</string>
     <string name="home_recent_playlists">Recent Playlists</string>
@@ -384,7 +386,7 @@
     <string name="home_more_in">More In %1$s</string>
     <string name="home_from_decade">From %1$s</string>
     <string name="home_recently_played">RECENTLY PLAYED</string>
-    <string name="home_favorite_artists">FAVORITE ARTISTS</string>
+    <string name="home_recommendations">RECOMMENDATIONS FOR YOU</string>
 
     <string name="search_title">Search</string>
     <string name="search_music_label">Search music</string>
@@ -557,7 +559,7 @@
     <string name="playlist_membership_create_description">Create a playlist containing “%1$s”.</string>
     <string name="library_indexing_albums">Indexing albums… %1$d found</string>
     <string name="library_album_index_failed">Could not refresh albums. Your loaded albums are still available; use Refresh to try again.</string>
-    <string name="settings_favorite_artists">Favorite Artists</string>
+    <string name="settings_recommendations">Recommendations for you</string>
     <string name="home_settings_visible">Visible</string>
     <string name="home_settings_hidden">Hidden</string>
     <string name="home_settings_reorder_hint">Drag to reorder. Select a section to change its visibility and layout.</string>

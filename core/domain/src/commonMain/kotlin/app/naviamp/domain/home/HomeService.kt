@@ -6,6 +6,8 @@ import app.naviamp.domain.Genre
 import app.naviamp.domain.InternetRadioStation
 import app.naviamp.domain.Playlist
 import app.naviamp.domain.Track
+import app.naviamp.domain.cache.FavoriteDownloadCatalog
+import app.naviamp.domain.cache.enumerateFavoriteDownloadCatalog
 import app.naviamp.domain.cache.ProviderResponseService
 import app.naviamp.domain.navibeat.NavibeatMix
 import app.naviamp.domain.navibeat.partitionNavibeatMixes
@@ -25,6 +27,9 @@ data class HomeContent(
     val favoriteArtists: List<Artist> = emptyList(),
     val favoriteArtistsStatus: FavoriteArtistsStatus = FavoriteArtistsStatus.Unsupported,
     val favoriteArtistLastPlayed: Map<app.naviamp.domain.ArtistId, String> = emptyMap(),
+    val supportsFavoriteSongs: Boolean = false,
+    val favoriteAlbums: List<Album> = emptyList(),
+    val favoriteAlbumsFailed: Boolean = false,
     val playlists: List<Playlist> = emptyList(),
     val navibeatMixes: List<NavibeatMix> = emptyList(),
     val recentRadioStreams: List<RecentRadioStream> = emptyList(),
@@ -47,6 +52,10 @@ data class HomeContent(
             randomAlbums.isEmpty() &&
             artists.isEmpty() &&
             favoriteArtists.isEmpty() &&
+            favoriteArtistsStatus == FavoriteArtistsStatus.Unsupported &&
+            !supportsFavoriteSongs &&
+            favoriteAlbums.isEmpty() &&
+            !favoriteAlbumsFailed &&
             playlists.isEmpty() &&
             navibeatMixes.isEmpty() &&
             recentRadioStreams.isEmpty() &&
@@ -158,6 +167,9 @@ class HomeService(
             .partitionNavibeatMixes()
 
         val favoriteArtists = loadFavoriteArtists()
+        val favoriteAlbums = try { Result.success(loadFavoriteAlbums()) }
+        catch (cause: kotlinx.coroutines.CancellationException) { throw cause }
+        catch (cause: Exception) { Result.failure(cause) }
         val randomPool = runCatching { albumList(AlbumListType.Random, limit = 14) }.getOrDefault(emptyList())
         return HomeContent(
             date = date,
@@ -178,6 +190,9 @@ class HomeService(
             favoriteArtistLastPlayed = sourceId?.let { id ->
                 runCatching { libraryRepository?.favoriteArtistRadioLastPlayed(id) }.getOrNull()
             }.orEmpty(),
+            supportsFavoriteSongs = provider.capabilities.supportsTrackFavorites,
+            favoriteAlbums = favoriteAlbums.getOrDefault(emptyList()),
+            favoriteAlbumsFailed = favoriteAlbums.isFailure,
             playlists = playlistPartition.ordinary,
             navibeatMixes = playlistPartition.mixes.prioritizedForHour(date.hourOfDay),
             recentRadioStreams = recentRadioStreams,
@@ -222,6 +237,20 @@ class HomeService(
                     }
             },
         )
+    }
+
+    private suspend fun loadFavoriteAlbums(): List<Album> {
+        if (!provider.capabilities.supportsAlbumFavorites) return emptyList()
+        val albums = when (val catalog = enumerateFavoriteDownloadCatalog(Int.MAX_VALUE, provider::favoriteAlbumsPage)) {
+            is FavoriteDownloadCatalog.Complete -> catalog.items
+            is FavoriteDownloadCatalog.TooLarge -> error("Favorite album catalog exceeds the supported size.")
+            FavoriteDownloadCatalog.Unsupported -> error("Favorite album enumeration is unavailable.")
+        }
+        return albums.distinctBy { it.id }
+            .map { album ->
+                if (album.favoritedAtIso8601.isNullOrBlank()) album.copy(favoritedAtIso8601 = "favorite") else album
+            }
+            .sortedWith(compareBy<Album> { it.title.lowercase() }.thenBy { it.title }.thenBy { it.id.value })
     }
 
     private suspend fun pickHomeDecade(): HomeDecadePick? {

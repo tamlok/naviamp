@@ -17,7 +17,7 @@ internal data class HomeScreenSectionOption(
 
 internal val HomeScreenSectionOptions = listOf(
     HomeScreenSectionOption(HomeSectionIds.Aurral, "", Res.string.connection_provider_aurral),
-    HomeScreenSectionOption(HomeSectionIds.FavoriteArtists, "", Res.string.settings_favorite_artists),
+    HomeScreenSectionOption(HomeSectionIds.FavoriteArtists, "", Res.string.settings_recommendations),
     HomeScreenSectionOption(HomeSectionIds.MixesForYou, "Mixes for You", Res.string.tv_home_mixes_for_you),
     HomeScreenSectionOption(HomeSectionIds.NavibeatMixes, "NaviBeat Mixes", Res.string.tv_home_navibeat_mixes),
     HomeScreenSectionOption(HomeSectionIds.RecentRadio, "Recently Played Radio", Res.string.home_recently_played_radio),

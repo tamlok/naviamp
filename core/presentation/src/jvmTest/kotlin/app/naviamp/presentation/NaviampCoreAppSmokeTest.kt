@@ -769,8 +769,8 @@ class NaviampCoreAppSmokeTest {
             override suspend fun favoriteTracksPage(request: app.naviamp.domain.provider.MediaPageRequest) =
                 app.naviamp.domain.provider.MediaPage(listOf(favoriteSong), request.offset, request.limit, false)
         }
-        val section = SharedHomeCollectionSectionUi("favorites", "Favorite artists", emptyList(),
-            titleResource = SharedHomeCollectionTitleResource.FavoriteArtists, visible = false)
+        val section = SharedHomeCollectionSectionUi("favorites", "Recommendations for you", emptyList(),
+            titleResource = SharedHomeCollectionTitleResource.Recommendations, visible = false)
         val core = NaviampCore.create(scope, fakeCoreServices(provider), initialState = NaviampCoreInitialState(
             connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = provider.id.value),
             product = NaviampCoreState(shell = NaviampAppShellUiState(home = NaviampHomeScreenUi(

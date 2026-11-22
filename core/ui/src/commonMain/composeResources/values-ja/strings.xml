@@ -387,8 +387,12 @@
     <string name="discovery_releases">リリース</string>
     <string name="home_scroll_left">左にスクロール</string>
     <string name="home_scroll_right">右にスクロール</string>
-    <string name="home_play_favorite_songs">お気に入りの曲を再生</string>
-    <string name="home_favorite_songs_failed">お気に入りの曲を読み込めませんでした。もう一度お試しください。</string>
+    <string name="home_recommendations">あなたへのおすすめ</string>
+    <string name="settings_recommendations">あなたへのおすすめ</string>
+    <string name="favorite_songs_title">お気に入りの曲</string>
+    <string name="favorite_songs_subtitle">お気に入りに登録したすべての曲</string>
+    <string name="favorite_songs_failed">お気に入りの曲を読み込めませんでした。もう一度お試しください。</string>
+    <string name="favorite_albums_failed">お気に入りのアルバムを読み込めませんでした。更新してもう一度お試しください。</string>
     <string name="discovery_all_releases">すべてのリリース</string>
     <string name="discovery_action_busy">処理中…</string>
     <string name="discovery_samples">試聴</string>

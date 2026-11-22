@@ -3,66 +3,263 @@ package app.naviamp.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
-import app.naviamp.domain.home.HomeContent
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampHomeFavoriteSongsUiTest {
     @Test
-    fun compactHomeRetainsThemeAndFavoritesActionsAndAllowsRetryAfterFailure() = runDesktopComposeUiTest(280, 500) {
-        val home = mutableStateOf(NaviampHomeScreenUi(supportsFavoriteSongs = true))
-        var attempts = 0
-        val actions = favoriteSongsActions {
-            attempts++
-            home.value = home.value.copy(favoriteSongsPlaybackStatus = FavoriteSongsPlaybackStatus.Loading)
-        }
+    fun completeFavoriteLibraryIsVirtualizedAndLastSongRemainsSelectable() = runDesktopComposeUiTest(900, 650) {
+        val tracks = List(5_003, ::favoriteTrack)
+        val requests = mutableListOf<SharedTrackRowActionRequest>()
         setContent {
             MaterialTheme {
-                SharedHomeRoute(NaviampColors.Dark, home.value, actions, NaviampMediaActions({}, {}),
-                    DiscoverySamplePlaybackUi(), headerActions = {
-                        NaviampPageHeaderAction(NaviampIcons.Settings, "Theme", NaviampColors.Dark, onClick = {})
-                    })
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark,
+                    SharedFavoriteSongsPageUi(tracks, "250h 9m", FavoriteSongsStatus.Ready),
+                    favoriteSongsActions(trackAction = { requests += it }),
+                )
             }
         }
-        onNodeWithContentDescription("Play favorite songs").assertIsDisplayed().performClick()
-        onNodeWithContentDescription("Play favorite songs").assertIsNotEnabled()
-        onNodeWithContentDescription("Theme").assertIsDisplayed()
-        runOnIdle { home.value = home.value.copy(favoriteSongsPlaybackStatus = FavoriteSongsPlaybackStatus.Failed) }
-        onNodeWithText("Could not load favorite songs. Try again.").assertIsDisplayed()
-        onNodeWithContentDescription("Play favorite songs").assertIsEnabled().performClick()
+        onNodeWithText("Favorite Songs").assertIsDisplayed()
+        onNodeWithText("All songs you have marked as favorites").assertIsDisplayed()
+        onNodeWithText("5003 tracks • 250h 9m").assertIsDisplayed()
+        onNodeWithText("Song 0").assertIsDisplayed()
+        onNodeWithText("Artist 0 - Album 0").assertIsDisplayed()
+        onAllNodesWithText("3:00")[0].assertIsDisplayed()
+        onNodeWithText("Song 5002").assertDoesNotExist()
+        assertTrue(onAllNodes(hasText("Song ", substring = true)).fetchSemanticsNodes().size < 100)
+
+        onNodeWithTag("favorite-songs-tracks").performScrollToIndex(tracks.lastIndex)
+        onNodeWithText("Song 5002").assertIsDisplayed().performClick()
+        onNodeWithText("Artist 5002 - Album 5002").assertIsDisplayed()
+        onNodeWithText("Song 0").assertDoesNotExist()
         runOnIdle {
-            assertEquals(2, attempts)
-            home.value = home.value.copy(supportsFavoriteSongs = false)
+            assertEquals(SharedTrackRowActionRequest(tracks.last(), SharedTrackRowAction.Select), requests.single())
         }
-        onNodeWithContentDescription("Play favorite songs").assertDoesNotExist()
-        onNodeWithText("Could not load favorite songs. Try again.").assertDoesNotExist()
     }
 
     @Test
-    fun televisionRetainsSectionEntryFocusAndCanReachFavoriteSongs() = runDesktopComposeUiTest(1000, 650) {
-        val home = NaviampHomeScreenUi(
-            content = HomeContent().toSharedHomeUi(coverArtUrl = { null }),
-            supportsFavoriteSongs = true,
-        )
-        var played = false
+    fun playAndShuffleEmitDistinctIntentsWithoutPlayingOnOpen() = runDesktopComposeUiTest(700, 550) {
+        val intents = mutableListOf<Boolean>()
+        val rows = mutableListOf<SharedTrackRowActionRequest>()
         setContent {
             MaterialTheme {
-                TelevisionHome(home, NaviampColors.Dark, favoriteSongsActions { played = true },
-                    NaviampMediaActions({}, {}), DiscoverySamplePlaybackUi(), entryFocusGeneration = 1)
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark,
+                    SharedFavoriteSongsPageUi(List(2, ::favoriteTrack), "6m", FavoriteSongsStatus.Ready),
+                    favoriteSongsActions(play = { intents += it }, trackAction = { rows += it }),
+                )
             }
         }
-        onNodeWithContentDescription("Play favorite songs").assertIsDisplayed().assertIsNotFocused()
-        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
-        onNodeWithContentDescription("Play favorite songs").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
-        runOnIdle { kotlin.test.assertTrue(played) }
+        runOnIdle { assertTrue(intents.isEmpty()) }
+        onNodeWithText("Play").assertIsEnabled().performClick()
+        onNodeWithText("Shuffle").assertIsEnabled().performClick()
+        runOnIdle {
+            assertEquals(listOf(false, true), intents)
+            assertTrue(rows.isEmpty())
+        }
+    }
+
+    @Test
+    fun playbackAvailabilityTracksStatusAndSongCountWhileRefreshStaysUsable() = runDesktopComposeUiTest(700, 600) {
+        val page = mutableStateOf(SharedFavoriteSongsPageUi())
+        var refreshes = 0
+        val intents = mutableListOf<Boolean>()
+        setContent {
+            MaterialTheme {
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark, page.value,
+                    favoriteSongsActions(play = { intents += it }, refresh = { refreshes++ }),
+                )
+            }
+        }
+        val inactiveStates = listOf(
+            FavoriteSongsStatus.Loading to "Loading songs…",
+            FavoriteSongsStatus.Empty to "No favorites yet.",
+            FavoriteSongsStatus.Failed to "Could not load favorite songs. Try again.",
+            FavoriteSongsStatus.Unsupported to "Favorites are not supported by this source.",
+            FavoriteSongsStatus.Idle to null,
+        )
+        inactiveStates.forEach { (status, label) ->
+            runOnIdle { page.value = SharedFavoriteSongsPageUi(status = status) }
+            onNodeWithText("Play").assertIsNotEnabled()
+            onNodeWithText("Shuffle").assertIsNotEnabled()
+            label?.let { onNodeWithText(it).assertIsDisplayed() }
+            onNodeWithContentDescription("Back").assertIsEnabled()
+            onNodeWithContentDescription(if (status == FavoriteSongsStatus.Failed) "Retry" else "Refresh")
+                .assertIsEnabled().performClick()
+        }
+        runOnIdle {
+            assertEquals(inactiveStates.size, refreshes)
+            assertTrue(intents.isEmpty())
+            page.value = SharedFavoriteSongsPageUi(status = FavoriteSongsStatus.Ready)
+        }
+        onNodeWithText("0 tracks").assertIsDisplayed()
+        onNodeWithText("Play").assertIsNotEnabled()
+        onNodeWithText("Shuffle").assertIsNotEnabled()
+        runOnIdle { page.value = page.value.copy(tracks = listOf(favoriteTrack(0)), totalDurationLabel = "3m") }
+        onNodeWithText("1 track • 3m").assertIsDisplayed()
+        onNodeWithText("Play").assertIsEnabled()
+        onNodeWithText("Shuffle").assertIsNotEnabled()
+        runOnIdle { page.value = page.value.copy(tracks = List(2, ::favoriteTrack), totalDurationLabel = "6m") }
+        onNodeWithText("2 tracks • 6m").assertIsDisplayed()
+        onNodeWithText("Shuffle").assertIsEnabled()
+        runOnIdle { page.value = page.value.copy(status = FavoriteSongsStatus.Loading) }
+        onNodeWithText("Play").assertIsNotEnabled()
+        onNodeWithText("Shuffle").assertIsNotEnabled()
+        onNodeWithText("Song 0").assertDoesNotExist()
+    }
+
+    @Test
+    fun compactPageKeepsBothPlaybackButtonsBackAndRefreshVisible() = runDesktopComposeUiTest(280, 500) {
+        var backs = 0
+        var refreshes = 0
+        val intents = mutableListOf<Boolean>()
+        setContent {
+            MaterialTheme {
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark,
+                    SharedFavoriteSongsPageUi(List(2, ::favoriteTrack), "6m", FavoriteSongsStatus.Ready),
+                    favoriteSongsActions(play = { intents += it }, refresh = { refreshes++ }, back = { backs++ }),
+                )
+            }
+        }
+        onNodeWithText("Favorite Songs").assertIsDisplayed()
+        onNodeWithText("2 tracks • 6m").assertIsDisplayed()
+        onNodeWithText("Play").assertIsDisplayed().performClick()
+        onNodeWithText("Shuffle").assertIsDisplayed().performClick()
+        onNodeWithContentDescription("Refresh").assertIsDisplayed().performClick()
+        onNodeWithContentDescription("Back").assertIsDisplayed().performClick()
+        onNodeWithTag("favorite-songs-tracks").performScrollToIndex(1)
+        onNodeWithText("Song 1").assertIsDisplayed()
+        runOnIdle {
+            assertEquals(listOf(false, true), intents)
+            assertEquals(1, backs)
+            assertEquals(1, refreshes)
+        }
+    }
+
+    @Test
+    fun rowMenuUsesStandardTrackCapabilitiesWithoutPlaylistManagement() = runDesktopComposeUiTest(800, 700) {
+        val page = mutableStateOf(SharedFavoriteSongsPageUi(
+            tracks = listOf(favoriteTrack(0)), status = FavoriteSongsStatus.Ready,
+        ))
+        val requests = mutableListOf<SharedTrackRowActionRequest>()
+        setContent {
+            MaterialTheme {
+                NaviampFavoriteSongsPage(NaviampColors.Dark, page.value, favoriteSongsActions(trackAction = { requests += it }))
+            }
+        }
+        onNodeWithContentDescription("More actions").performClick()
+        onNodeWithText("Download track").assertDoesNotExist()
+        onNodeWithText("Start Radio").assertDoesNotExist()
+        onNodeWithText("Add to playlist").assertIsDisplayed()
+        onNodeWithText("Remove from This Playlist").assertDoesNotExist()
+        onNodeWithText("Move to Top").assertDoesNotExist()
+        onNodeWithText("Add to queue").performClick()
+        runOnIdle { page.value = page.value.copy(canDownload = true, canStartRadio = true) }
+        onNodeWithContentDescription("More actions").performClick()
+        onNodeWithText("Download track").assertIsDisplayed().performClick()
+        onNodeWithContentDescription("More actions").performClick()
+        onNodeWithText("Start Radio").assertIsDisplayed().performClick()
+        onNodeWithContentDescription("More actions").performClick()
+        onNodeWithText("Add to playlist").performClick()
+        runOnIdle {
+            assertEquals(
+                listOf(SharedTrackRowAction.AddToQueue, SharedTrackRowAction.Download,
+                    SharedTrackRowAction.StartRadio, SharedTrackRowAction.AddToPlaylist),
+                requests.map { it.action },
+            )
+            assertTrue(requests.all { it.track.id == "song-0" })
+        }
+    }
+
+    @Test
+    fun keyboardCanActivatePlaybackRefreshAndBack() = runDesktopComposeUiTest(700, 550) {
+        val intents = mutableListOf<Boolean>()
+        var backs = 0
+        var refreshes = 0
+        setContent {
+            MaterialTheme {
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark,
+                    SharedFavoriteSongsPageUi(List(2, ::favoriteTrack), status = FavoriteSongsStatus.Ready),
+                    favoriteSongsActions(play = { intents += it }, refresh = { refreshes++ }, back = { backs++ }),
+                )
+            }
+        }
+        onNodeWithText("Play").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        onNodeWithText("Play").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.Tab) }
+        onNodeWithText("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithContentDescription("Refresh").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        onNodeWithContentDescription("Refresh").performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.Escape) }
+        runOnIdle {
+            assertEquals(listOf(false, true), intents)
+            assertEquals(1, refreshes)
+            assertEquals(1, backs)
+        }
+    }
+
+    @Test
+    fun televisionDpadReachesPlaybackTracksAndBack() = runDesktopComposeUiTest(1000, 650) {
+        val intents = mutableListOf<Boolean>()
+        val requests = mutableListOf<SharedTrackRowActionRequest>()
+        var backs = 0
+        setContent {
+            MaterialTheme {
+                NaviampFavoriteSongsPage(
+                    NaviampColors.Dark,
+                    SharedFavoriteSongsPageUi(List(20, ::favoriteTrack), "1h", FavoriteSongsStatus.Ready),
+                    favoriteSongsActions(play = { intents += it }, trackAction = { requests += it }, back = { backs++ }),
+                    television = true,
+                )
+            }
+        }
+        onNodeWithContentDescription("Back").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        onNodeWithText("Play").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        onNodeWithText("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        onNodeWithText("Song 0").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        repeat(10) { onRoot().performKeyInput { pressKey(Key.DirectionDown) } }
+        onNodeWithText("Song 10").assertIsDisplayed().assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.Back) }
+        runOnIdle {
+            assertEquals(listOf(false, true), intents)
+            assertEquals(listOf("song-0", "song-10"), requests.map { it.track.id })
+            assertTrue(requests.all { it.action == SharedTrackRowAction.Select })
+            assertEquals(1, backs)
+        }
     }
 }
 
-private fun favoriteSongsActions(play: () -> Unit) = NaviampHomeActions(
+private fun favoriteTrack(index: Int) = SharedTrackRowUi(
+    id = "song-$index",
+    title = "Song $index",
+    subtitle = "Artist $index - Album $index",
+    durationLabel = "3:00",
+    favoriteActive = true,
+    hasArtist = true,
+    hasAlbum = true,
+    albumTitle = "Album $index",
+)
+
+private fun favoriteSongsActions(
+    play: (Boolean) -> Unit = {},
+    refresh: () -> Unit = {},
+    trackAction: (SharedTrackRowActionRequest) -> Unit = {},
+    back: () -> Unit = {},
+) = NaviampHomeActions(
     onRefresh = {}, onRecentRadioSelected = {}, onInternetRadioStationSelected = {},
     onMixBuilderSelected = {}, onStationSelected = {}, onSonicDiscoveryTrackAction = {},
     onRecentlyPlayedTrackAction = {}, onCollectionSelected = {}, onCollectionBack = {},
-    onCollectionPageLayoutChanged = { _, _ -> }, onPlayFavoriteSongs = play,
+    onCollectionPageLayoutChanged = { _, _ -> }, onFavoriteSongsPlay = play,
+    onFavoriteSongsRefresh = refresh, onFavoriteSongAction = trackAction, onFavoriteSongsBack = back,
 )

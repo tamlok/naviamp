@@ -487,7 +487,12 @@ class NaviampCore private constructor(
                 currentSourceId = { stateStore.state.value.shell.connectionSettings.currentSourceId },
                 nowEpochMillis = services.clockEpochMillis,
             )
-            lateinit var routeFavoriteSongs: (List<Track>) -> Boolean
+            lateinit var routeFavoriteSongs: (List<Track>, Int) -> Boolean
+            lateinit var favoriteSongs: NaviampCoreFavoriteSongsController
+            val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { provider, track ->
+                catalog.trackUpdated(provider, track)
+                favoriteSongs.trackUpdated(provider, track)
+            }
             val mediaTransactions = NaviampCoreMediaTransactions(
                 stateStore,
                 busyIndicator,
@@ -509,10 +514,14 @@ class NaviampCore private constructor(
                 onAlbumUpdated = { provider, album ->
                     services.content.albumIndex?.updateAlbum(provider, album)
                     catalog.albumUpdated(provider, album)
+                    home.favoritesChanged(provider)
                 },
-                onArtistUpdated = catalog::artistUpdated,
-                onTrackUpdated = catalog::trackUpdated,
-                playOnSelectedDevice = { tracks -> routeFavoriteSongs(tracks) },
+                onArtistUpdated = { provider, artist ->
+                    catalog.artistUpdated(provider, artist)
+                    home.favoritesChanged(provider)
+                },
+                onTrackUpdated = onTrackUpdated,
+                playOnSelectedDevice = { tracks, index -> routeFavoriteSongs(tracks, index) },
             )
             val playlistMembership = NaviampCorePlaylistMembershipCoordinator(
                 providerSource = providerSource,
@@ -543,7 +552,7 @@ class NaviampCore private constructor(
                 onPlaylistContentsReconciled = playlistBrowse::reconcileContents,
                 onPlaylistCreated = playlistBrowse::publishCreated,
                 membershipCoordinator = playlistMembership,
-                onTrackUpdated = catalog::trackUpdated,
+                onTrackUpdated = onTrackUpdated,
             )
             val connectCatalog = NaviampCoreConnectCatalogController(
                 providerSource = providerSource,
@@ -588,6 +597,7 @@ class NaviampCore private constructor(
             )
             playback.attachNativePlayback()
             val trackActions = NaviampCoreTrackActionController(mediaRegistry, mediaTransactions, playlistMembership::open)
+            favoriteSongs = NaviampCoreFavoriteSongsController(stateStore, providerSource, navigation, mediaRegistry, mediaTransactions, trackActions)
             val collectionActions = NaviampCoreCollectionActionController(
                 providerSource,
                 mediaRegistry,
@@ -627,11 +637,17 @@ class NaviampCore private constructor(
                     downloads.resetForSourceChange()
                     radio.resetForSourceChange()
                     home.resetForSourceChange()
+                    favoriteSongs.resetForSourceChange()
                     catalog.resetForSourceChange()
                     playlistBrowse.resetForSourceChange()
                     mediaDetails.resetForSourceChange()
                     standardMixes.resetForSourceChange()
                     sonicBuilders.resetForSourceChange()
+                },
+                onSourceDisconnected = {
+                    navigation.resetForSourceChange()
+                    favoriteSongs.resetForSourceChange()
+                    home.resetForSourceChange()
                 },
                 onCompanionChanged = { sourceId ->
                     notifyLocalSettingsChanged()
@@ -735,6 +751,7 @@ class NaviampCore private constructor(
                     settingsSync,
                     catalog,
                     home,
+                    favoriteSongs,
                     mediaDetails,
                     playlistBrowse,
                     playlistTransactions,
@@ -772,7 +789,7 @@ class NaviampCore private constructor(
                     playbackOutputs = playbackOutputs,
                 )
             }
-            routeFavoriteSongs = { tracks -> connect?.playTracksOnSelectedDevice(tracks) == true }
+            routeFavoriteSongs = { tracks, index -> connect?.playTracksOnSelectedDevice(tracks, index) == true }
             val castEffect = services.cast?.let { castServices ->
                 castServices.session ?: checkNotNull(castServices.channel).let { native ->
                     app.naviamp.app.NaviampCastChannelSessionEffect(scope, native.transport,

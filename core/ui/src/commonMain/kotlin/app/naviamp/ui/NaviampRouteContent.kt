@@ -167,15 +167,16 @@ private fun FavoriteArtistStatus(section: SharedHomeCollectionSectionUi, colors:
     val status = when {
         section.favoriteArtistsStatus == app.naviamp.domain.home.FavoriteArtistsStatus.Failed -> Res.string.favorite_artists_failed
         section.favoriteArtistsStatus == app.naviamp.domain.home.FavoriteArtistsStatus.Cached -> Res.string.favorite_artists_cached
-        section.items.isEmpty() -> Res.string.favorite_artists_empty
+        section.items.isEmpty() && section.favoriteArtistsStatus != app.naviamp.domain.home.FavoriteArtistsStatus.Unsupported -> Res.string.favorite_artists_empty
         else -> null
     }
     status?.let { Text(stringResource(it), color = colors.secondaryText) }
+    if (section.favoriteAlbumsFailed) Text(stringResource(Res.string.favorite_albums_failed), color = colors.secondaryText)
 }
 
 @Composable
 internal fun SharedHomeCollectionSectionUi.localizedTitle(): String = when (titleResource) {
-    SharedHomeCollectionTitleResource.FavoriteArtists -> stringResource(Res.string.home_favorite_artists)
+    SharedHomeCollectionTitleResource.Recommendations -> stringResource(Res.string.home_recommendations)
     null -> when {
         id == app.naviamp.domain.settings.HomeSectionIds.GenreSpotlight && titleArgument != null ->
             stringResource(Res.string.home_more_in, titleArgument).uppercase()
@@ -418,7 +419,7 @@ internal fun HomeCollectionGridCard(
             )
         }
         Text(
-            text = item.title,
+            text = item.localizedTitle(),
             color = colors.primaryText,
             fontSize = 12.sp,
             lineHeight = 14.sp,
@@ -428,7 +429,7 @@ internal fun HomeCollectionGridCard(
             modifier = Modifier.padding(horizontal = 2.dp),
         )
         Text(
-            text = item.subtitle,
+            text = item.localizedSubtitle(),
             color = colors.secondaryText,
             fontSize = 10.sp,
             lineHeight = 12.sp,
@@ -453,6 +454,7 @@ internal fun HomeCollectionArtwork(
             return
         }
         SharedHomeCollectionArtwork.NavibeatGenerated -> navibeatMixArtwork(item.artworkKey.orEmpty())
+        SharedHomeCollectionArtwork.FavoriteSongs -> NavibeatMixArtwork(NaviampTransportIcons.HeartFilled, listOf(colors.accent, colors.favorite))
         SharedHomeCollectionArtwork.StationGenerated -> stationArtwork(item.artworkKey.orEmpty())
         SharedHomeCollectionArtwork.MixBuilderGenerated -> mixBuilderArtwork(item.artworkKey.orEmpty()).let {
             NavibeatMixArtwork(it.icon, it.colors)
@@ -526,6 +528,7 @@ internal fun dispatchHomeCollectionItem(
     mediaActions: NaviampMediaActions,
 ) {
     when (item.action) {
+        SharedHomeCollectionItemAction.OpenFavoriteSongs -> actions.onFavoriteSongsSelected()
         SharedHomeCollectionItemAction.PlayAlbum -> mediaActions.onMediaItemAction(item.mediaItem.playAlbumRequest())
         SharedHomeCollectionItemAction.OpenAlbum ->
             mediaActions.onMediaItemAction(item.mediaItem.albumActionRequest(NaviampArtistAlbumCommand.Select))
@@ -569,6 +572,7 @@ private fun homeCollectionMenuItems(
     mediaActions: NaviampMediaActions,
     includeFavorite: Boolean = false,
 ): List<NaviampRowMenuItem> = buildList {
+    if (item.action == SharedHomeCollectionItemAction.OpenFavoriteSongs) return@buildList
     if (item.artwork == SharedHomeCollectionArtwork.NavibeatGenerated) {
         add(NaviampRowMenuItem("Shuffle mix", NaviampTransportIcons.Shuffle, {
             mediaActions.onMediaItemAction(
@@ -852,7 +856,7 @@ private fun HomeCollectionListRow(
         HomeCollectionArtwork(item, colors, 48.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = item.title,
+                text = item.localizedTitle(),
                 color = colors.primaryText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -860,7 +864,7 @@ private fun HomeCollectionListRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = item.subtitle,
+                text = item.localizedSubtitle(),
                 color = colors.secondaryText,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -928,7 +932,8 @@ private fun HomeCollectionItemListRow(
         SharedHomeCollectionItemAction.SelectMixBuilder -> item.mixBuilder?.let { builder ->
             MixBuilderRow(builder, colors) { actions.onMixBuilderSelected(builder) }
         }
-        SharedHomeCollectionItemAction.SelectStation -> HomeCollectionListRow(
+        SharedHomeCollectionItemAction.SelectStation,
+        SharedHomeCollectionItemAction.OpenFavoriteSongs -> HomeCollectionListRow(
             item = item,
             colors = colors,
             onClick = { dispatchHomeCollectionItem(item, actions, mediaActions) },
@@ -953,30 +958,12 @@ private fun HomeCollectionItemListRow(
 }
 
 @Composable
-internal fun HomeFavoriteSongsAction(home: NaviampHomeScreenUi, colors: NaviampColors, onPlay: () -> Unit) {
-    if (home.supportsFavoriteSongs) {
-        NaviampPageHeaderAction(
-            icon = NaviampTransportIcons.Heart,
-            contentDescription = stringResource(Res.string.home_play_favorite_songs),
-            colors = colors,
-            enabled = home.favoriteSongsPlaybackStatus != FavoriteSongsPlaybackStatus.Loading,
-            onClick = onPlay,
-        )
-    }
-}
+internal fun SharedHomeCollectionItemUi.localizedTitle(): String =
+    if (action == SharedHomeCollectionItemAction.OpenFavoriteSongs) stringResource(Res.string.favorite_songs_title) else title
 
 @Composable
-internal fun HomeFavoriteSongsStatus(home: NaviampHomeScreenUi, colors: NaviampColors) {
-    if (!home.supportsFavoriteSongs) return
-    val message = when (home.favoriteSongsPlaybackStatus) {
-        FavoriteSongsPlaybackStatus.Loading -> Res.string.library_loading_songs
-        FavoriteSongsPlaybackStatus.Empty -> Res.string.library_favorites_empty
-        FavoriteSongsPlaybackStatus.Failed -> Res.string.home_favorite_songs_failed
-        FavoriteSongsPlaybackStatus.Unsupported -> Res.string.library_favorites_unsupported
-        null -> return
-    }
-    Text(stringResource(message), color = colors.secondaryText, modifier = Modifier.padding(8.dp))
-}
+internal fun SharedHomeCollectionItemUi.localizedSubtitle(): String =
+    if (action == SharedHomeCollectionItemAction.OpenFavoriteSongs) stringResource(Res.string.favorite_songs_subtitle) else subtitle
 
 @Composable
 fun SharedHomeRoute(
@@ -988,6 +975,10 @@ fun SharedHomeRoute(
     scrollState: ScrollState = rememberScrollState(),
     headerActions: @Composable RowScope.() -> Unit = {},
 ) {
+    home.favoriteSongsPage?.let { page ->
+        NaviampFavoriteSongsPage(colors, page, actions)
+        return
+    }
     val collectionScrollState = remember(home.collectionPage?.section?.id) { ScrollState(0) }
     home.providerDiscovery?.takeIf { it.requestsOpen }?.let {
         NaviampDiscoveryRequestsUi(it, colors, actions)
@@ -1022,14 +1013,12 @@ fun SharedHomeRoute(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         NaviampPageHeader(stringResource(Res.string.home_music_title), colors) {
-            HomeFavoriteSongsAction(home, colors, actions.onPlayFavoriteSongs)
             headerActions()
             NaviampPageHeaderOverflow(
                 colors = colors,
                 items = listOf(NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh)),
             )
         }
-        HomeFavoriteSongsStatus(home, colors)
         NaviampPullToRefreshBox(
             isRefreshing = home.refreshing,
             onRefresh = actions.onRefresh,

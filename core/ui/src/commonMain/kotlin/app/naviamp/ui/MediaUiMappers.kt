@@ -210,6 +210,62 @@ private val GenreDisplayAcronyms = setOf("aor", "dnb", "ebm", "edm", "idm", "r&b
 fun InternetRadioStation.defaultRadioArtworkUrl(): String =
     radioStationArtworkUrl(this)
 
+fun HomeContent.toSharedRecommendationsSection(
+    coverArtUrl: (String?) -> String?,
+    canFavoriteAlbums: Boolean = false,
+    interfaceSettings: InterfaceSettings = InterfaceSettings(),
+): SharedHomeCollectionSectionUi? {
+    if (!supportsFavoriteSongs && favoriteArtists.isEmpty() &&
+        favoriteArtistsStatus == app.naviamp.domain.home.FavoriteArtistsStatus.Unsupported &&
+        favoriteAlbums.isEmpty() && !favoriteAlbumsFailed
+    ) return null
+    val presentation = interfaceSettings.homeSectionPresentation(HomeSectionIds.FavoriteArtists)
+    return SharedHomeCollectionSectionUi(
+        id = HomeSectionIds.FavoriteArtists,
+        title = "",
+        titleResource = SharedHomeCollectionTitleResource.Recommendations,
+        favoriteArtistSort = interfaceSettings.favoriteArtistSort,
+        favoriteArtistsStatus = favoriteArtistsStatus,
+        favoriteAlbumsFailed = favoriteAlbumsFailed,
+        items = buildList {
+            if (supportsFavoriteSongs) {
+                add(
+                    SharedHomeCollectionItemUi(
+                        mediaItem = SharedMediaItemUi(id = "favorite-songs", title = "", subtitle = ""),
+                        mediaKind = SharedMediaItemKind.Playlist,
+                        artwork = SharedHomeCollectionArtwork.FavoriteSongs,
+                        action = SharedHomeCollectionItemAction.OpenFavoriteSongs,
+                    ),
+                )
+            }
+            favoriteArtists.sortedFavoriteArtists(interfaceSettings.favoriteArtistSort, favoriteArtistLastPlayed)
+                .forEach { artist ->
+                    add(
+                        SharedHomeCollectionItemUi(
+                            mediaItem = artist.toSharedMediaItemUi(coverArtUrl, canFavorite = true),
+                            mediaKind = SharedMediaItemKind.Artist,
+                            action = SharedHomeCollectionItemAction.OpenArtist,
+                        ),
+                    )
+                }
+            favoriteAlbums.sortedWith(compareBy<Album> { it.title.lowercase() }.thenBy { it.title }.thenBy { it.id.value })
+                .forEach { album ->
+                    add(
+                        SharedHomeCollectionItemUi(
+                            mediaItem = album.toSharedMediaItemUi(coverArtUrl, canFavoriteAlbums),
+                            mediaKind = SharedMediaItemKind.Album,
+                            action = SharedHomeCollectionItemAction.OpenAlbum,
+                        ),
+                    )
+                }
+        },
+        visible = presentation.visible,
+        homeLayout = presentation.homeLayout,
+        homeItemLimit = presentation.homeItemLimit,
+        defaultPageLayout = presentation.pageLayout,
+    )
+}
+
 fun HomeContent.toSharedHomeUi(
     coverArtUrl: (String?) -> String?,
     playlistTracksById: Map<String, List<Track>> = emptyMap(),
@@ -253,30 +309,7 @@ fun HomeContent.toSharedHomeUi(
             )
         }
 
-        if (favoriteArtists.isNotEmpty() || favoriteArtistsStatus != app.naviamp.domain.home.FavoriteArtistsStatus.Unsupported) {
-            val presentation = interfaceSettings.homeSectionPresentation(HomeSectionIds.FavoriteArtists)
-            add(
-                SharedHomeCollectionSectionUi(
-                    id = HomeSectionIds.FavoriteArtists,
-                    title = "",
-                    titleResource = SharedHomeCollectionTitleResource.FavoriteArtists,
-                    favoriteArtistSort = interfaceSettings.favoriteArtistSort,
-                    favoriteArtistsStatus = favoriteArtistsStatus,
-                    items = favoriteArtists
-                        .sortedFavoriteArtists(interfaceSettings.favoriteArtistSort, favoriteArtistLastPlayed)
-                        .map { artist ->
-                            SharedHomeCollectionItemUi(
-                                mediaItem = artist.toSharedMediaItemUi(coverArtUrl, canFavorite = true),
-                                mediaKind = SharedMediaItemKind.Artist,
-                                action = SharedHomeCollectionItemAction.OpenArtist,
-                            )
-                        },
-                    visible = presentation.visible,
-                    homeLayout = presentation.homeLayout,
-                    defaultPageLayout = presentation.pageLayout,
-                ),
-            )
-        }
+        toSharedRecommendationsSection(coverArtUrl, canFavoriteAlbums, interfaceSettings)?.let { add(it) }
 
         addSection(HomeSectionIds.MixesForYou, "MIXES FOR YOU", mixAlbums.map { album ->
             val mediaItem = album.toSharedMediaItemUi(coverArtUrl, canFavoriteAlbums)

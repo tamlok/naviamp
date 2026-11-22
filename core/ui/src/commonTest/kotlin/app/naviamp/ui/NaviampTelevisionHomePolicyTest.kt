@@ -94,6 +94,13 @@ class NaviampTelevisionHomePolicyTest {
         assertEquals(listOf(30, 7), televisionHomeSections(sections).map { it.items.size })
     }
 
+    @Test
+    fun keepsAnEmptyRecommendationsFailureVisibleForRecovery() {
+        val failed = section(HomeSectionIds.FavoriteArtists, itemCount = 0).copy(favoriteAlbumsFailed = true)
+        assertEquals(listOf(failed), televisionHomeSections(listOf(failed)))
+        assertTrue(televisionHomeSections(listOf(failed.copy(visible = false))).isEmpty())
+    }
+
     private fun section(
         id: String,
         visible: Boolean = true,

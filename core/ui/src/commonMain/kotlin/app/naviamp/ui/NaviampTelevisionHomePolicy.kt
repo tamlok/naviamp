@@ -16,7 +16,7 @@ internal fun televisionHomeSections(
     sections: List<SharedHomeCollectionSectionUi>,
 ): List<SharedHomeCollectionSectionUi> {
     return sections.filter {
-        it.id !in TelevisionUnsupportedHomeSectionIds && it.visible && it.items.isNotEmpty()
+        it.id !in TelevisionUnsupportedHomeSectionIds && it.visible && (it.items.isNotEmpty() || it.favoriteAlbumsFailed)
     }.map { section ->
         section.copy(
             items = section.items.take(

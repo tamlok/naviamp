@@ -387,8 +387,12 @@
     <string name="discovery_releases">Uitgaven</string>
     <string name="home_scroll_left">Naar links scrollen</string>
     <string name="home_scroll_right">Naar rechts scrollen</string>
-    <string name="home_play_favorite_songs">Favoriete nummers afspelen</string>
-    <string name="home_favorite_songs_failed">Kan favoriete nummers niet laden. Probeer het opnieuw.</string>
+    <string name="home_recommendations">AANBEVELINGEN VOOR JOU</string>
+    <string name="settings_recommendations">Aanbevelingen voor jou</string>
+    <string name="favorite_songs_title">Favoriete nummers</string>
+    <string name="favorite_songs_subtitle">Alle nummers die je als favoriet hebt gemarkeerd</string>
+    <string name="favorite_songs_failed">Kan favoriete nummers niet laden. Probeer het opnieuw.</string>
+    <string name="favorite_albums_failed">Kan favoriete albums niet laden. Vernieuw om het opnieuw te proberen.</string>
     <string name="discovery_all_releases">Alle uitgaven</string>
     <string name="discovery_action_busy">Bezig…</string>
     <string name="discovery_samples">Fragmenten</string>

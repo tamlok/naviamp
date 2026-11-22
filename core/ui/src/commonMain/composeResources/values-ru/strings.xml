@@ -387,8 +387,12 @@
     <string name="discovery_releases">Релизы</string>
     <string name="home_scroll_left">Прокрутить влево</string>
     <string name="home_scroll_right">Прокрутить вправо</string>
-    <string name="home_play_favorite_songs">Воспроизвести избранные песни</string>
-    <string name="home_favorite_songs_failed">Не удалось загрузить избранные песни. Попробуйте ещё раз.</string>
+    <string name="home_recommendations">РЕКОМЕНДАЦИИ ДЛЯ ВАС</string>
+    <string name="settings_recommendations">Рекомендации для вас</string>
+    <string name="favorite_songs_title">Избранные песни</string>
+    <string name="favorite_songs_subtitle">Все песни, которые вы добавили в избранное</string>
+    <string name="favorite_songs_failed">Не удалось загрузить избранные песни. Попробуйте ещё раз.</string>
+    <string name="favorite_albums_failed">Не удалось загрузить избранные альбомы. Обновите страницу, чтобы попробовать ещё раз.</string>
     <string name="discovery_all_releases">Все релизы</string>
     <string name="discovery_action_busy">Обработка…</string>
     <string name="discovery_samples">Фрагменты</string>
