@@ -187,6 +187,7 @@ sealed interface NaviampCoreCommand {
         data class OpenDiscoveryRequest(val sourceId: String?, val generation: Long, val id: String) : Home
         data class OpenDiscoveryRequestsExternal(val sourceId: String?, val generation: Long) : Home
         data object Refresh : Home
+        data object PlayFavoriteSongs : Home
         data class OpenDiscoveryArtist(val id: String) : Home
         data class SelectDiscoveryArtist(val id: String) : Home
         data class BrowseDiscoveryArtist(val sourceId: String?, val artist: app.naviamp.domain.provider.ProviderDiscoveryArtist) : Home

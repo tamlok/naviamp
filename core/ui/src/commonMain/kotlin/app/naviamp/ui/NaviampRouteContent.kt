@@ -953,6 +953,32 @@ private fun HomeCollectionItemListRow(
 }
 
 @Composable
+internal fun HomeFavoriteSongsAction(home: NaviampHomeScreenUi, colors: NaviampColors, onPlay: () -> Unit) {
+    if (home.supportsFavoriteSongs) {
+        NaviampPageHeaderAction(
+            icon = NaviampTransportIcons.Heart,
+            contentDescription = stringResource(Res.string.home_play_favorite_songs),
+            colors = colors,
+            enabled = home.favoriteSongsPlaybackStatus != FavoriteSongsPlaybackStatus.Loading,
+            onClick = onPlay,
+        )
+    }
+}
+
+@Composable
+internal fun HomeFavoriteSongsStatus(home: NaviampHomeScreenUi, colors: NaviampColors) {
+    if (!home.supportsFavoriteSongs) return
+    val message = when (home.favoriteSongsPlaybackStatus) {
+        FavoriteSongsPlaybackStatus.Loading -> Res.string.library_loading_songs
+        FavoriteSongsPlaybackStatus.Empty -> Res.string.library_favorites_empty
+        FavoriteSongsPlaybackStatus.Failed -> Res.string.home_favorite_songs_failed
+        FavoriteSongsPlaybackStatus.Unsupported -> Res.string.library_favorites_unsupported
+        null -> return
+    }
+    Text(stringResource(message), color = colors.secondaryText, modifier = Modifier.padding(8.dp))
+}
+
+@Composable
 fun SharedHomeRoute(
     colors: NaviampColors,
     home: NaviampHomeScreenUi,
@@ -996,12 +1022,14 @@ fun SharedHomeRoute(
     }
     Column(modifier = Modifier.fillMaxSize()) {
         NaviampPageHeader(stringResource(Res.string.home_music_title), colors) {
+            HomeFavoriteSongsAction(home, colors, actions.onPlayFavoriteSongs)
             headerActions()
             NaviampPageHeaderOverflow(
                 colors = colors,
                 items = listOf(NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh)),
             )
         }
+        HomeFavoriteSongsStatus(home, colors)
         NaviampPullToRefreshBox(
             isRefreshing = home.refreshing,
             onRefresh = actions.onRefresh,

@@ -297,6 +297,7 @@ fun createNaviampCoreActions(
             onDiscoveryLibraryArtist = { send(NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist(it)) },
             onFavoriteArtistSortChanged = { send(NaviampCoreCommand.Settings.ChangeFavoriteArtistSort(it)) },
             onRefresh = { send(NaviampCoreCommand.Home.Refresh) },
+            onPlayFavoriteSongs = { send(NaviampCoreCommand.Home.PlayFavoriteSongs) },
             onRecentRadioSelected = { send(NaviampCoreCommand.Home.SelectRecentRadio(it)) },
             onInternetRadioStationSelected = { send(NaviampCoreCommand.Home.SelectInternetRadio(it)) },
             onMixBuilderSelected = { send(NaviampCoreCommand.Home.SelectMixBuilder(it)) },

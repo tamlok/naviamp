@@ -24,6 +24,7 @@ class NaviampCoreCollectionActionController(
     private val settings: NaviampCoreSettingsController? = null,
 ) : NaviampCoreCommandController {
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
+        NaviampCoreCommand.Home.PlayFavoriteSongs,
         is NaviampCoreCommand.Home.SelectStation,
         is NaviampCoreCommand.Detail.Album,
         -> NaviampCoreImmediateCommandResult.Deferred
@@ -46,6 +47,7 @@ class NaviampCoreCollectionActionController(
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         when (command) {
+            NaviampCoreCommand.Home.PlayFavoriteSongs -> transactions.playFavoriteSongs()
             is NaviampCoreCommand.Home.SelectStation -> executeStation(command.station.id)
             is NaviampCoreCommand.Detail.Album -> executeAlbum(command.request.album.id, command.request.command)
             is NaviampCoreCommand.Detail.Artist -> executeArtist(command.request.artist.id, command.request.artist, command.request.command)

@@ -387,6 +387,8 @@
     <string name="discovery_releases">Релизы</string>
     <string name="home_scroll_left">Прокрутить влево</string>
     <string name="home_scroll_right">Прокрутить вправо</string>
+    <string name="home_play_favorite_songs">Воспроизвести избранные песни</string>
+    <string name="home_favorite_songs_failed">Не удалось загрузить избранные песни. Попробуйте ещё раз.</string>
     <string name="discovery_all_releases">Все релизы</string>
     <string name="discovery_action_busy">Обработка…</string>
     <string name="discovery_samples">Фрагменты</string>

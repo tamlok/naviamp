@@ -27,6 +27,17 @@ import app.naviamp.app.NaviampConnectTransportFactory
 import app.naviamp.app.NaviampConnectTransportListener
 import app.naviamp.app.NaviampConnectTrustRepository
 import app.naviamp.app.NaviampConnectTrustStorageEffect
+import app.naviamp.app.NaviampLivePlaybackController
+import app.naviamp.app.NaviampLivePlaybackState
+import app.naviamp.app.NaviampPlaybackQueueCoordinator
+import app.naviamp.domain.TrackId
+import app.naviamp.domain.connect.NaviampConnectCapability
+import app.naviamp.domain.connect.NaviampConnectCommandRequest
+import app.naviamp.domain.connect.NaviampConnectEnvelope
+import app.naviamp.domain.connect.NaviampConnectHandoffQueue
+import app.naviamp.domain.connect.NaviampConnectSourceIdentity
+import app.naviamp.domain.playback.PlaybackState
+import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.ui.NaviampConnectPairingUiPhase
 import app.naviamp.ui.NaviampConnectUiRole
 import app.naviamp.domain.connect.NaviampConnectAdvertisement
@@ -1131,11 +1142,83 @@ class NaviampCoreConnectControllerTest {
         }
     }
 
+    @Test
+    fun favoriteTracksAreHandedOffPlayingWithoutReplacingTheLocalQueue() = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val track = FakeCoreMediaProvider().track
+        val favorites = listOf("favorite-a", "favorite-b").map { track.copy(id = TrackId(it), title = it) }
+        val local = NaviampLivePlaybackController(NaviampLivePlaybackState(
+            queue = PlaybackQueue(listOf(track), 0), currentTrack = track, playbackState = PlaybackState.Paused,
+        ))
+        val before = local.state.value
+        val sent = mutableListOf<NaviampConnectEnvelope>()
+        val (controller, _, _) = remoteFixture(
+            queueHandoffSupported = true, sourceIdentity = source, localPlayback = local,
+        ) { sent += it }
+
+        assertTrue(controller.playTracksOnSelectedDevice(favorites))
+        runCurrent()
+
+        val request = sent.single().message as NaviampConnectCommandRequest
+        val handoff = request.command as NaviampConnectHandoffQueue
+        assertEquals(favorites.map { it.id.value }, handoff.queue.occurrences.map { it.mediaId })
+        assertEquals(source, handoff.sourceIdentity)
+        assertEquals(0, handoff.queue.currentIndex)
+        assertEquals(0L, handoff.positionMillis)
+        assertTrue(handoff.playing, "A newly selected favorite queue must play even when local playback is paused")
+        assertFalse(handoff.shuffled)
+        assertEquals(before, local.state.value)
+        controller.close()
+    }
+
+    @Test
+    fun unavailableSelectedTargetConsumesFavoritePlaybackWithoutLocalFallback() = runTest {
+        val track = FakeCoreMediaProvider().track
+        val local = NaviampLivePlaybackController(NaviampLivePlaybackState(
+            queue = PlaybackQueue(listOf(track), 0), currentTrack = track,
+        ))
+        val (controller, store, session) = remoteFixture(
+            queueHandoffSupported = true,
+            sourceIdentity = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener"),
+            localPlayback = local,
+        ) { error("Target is unavailable") }
+        controller.actions.onRemotePlayPause()
+        runCurrent()
+        assertEquals(NaviampConnectControllerConnectionStatus.Disconnected, session.state.value.status)
+        assertNotNull(store.state.value.shell.connect.selectedPlaybackDeviceId)
+        val before = local.state.value
+
+        assertTrue(controller.playTracksOnSelectedDevice(listOf(track.copy(id = TrackId("favorite")))))
+        runCurrent()
+
+        assertEquals(before, local.state.value)
+        assertEquals(app.naviamp.ui.NaviampConnectStatusNotice.RemoteUnavailable, store.state.value.shell.connect.notice)
+        controller.actions.onPlaybackDeviceSelected(null)
+        assertFalse(controller.playTracksOnSelectedDevice(listOf(track)))
+        assertEquals(before, local.state.value)
+        controller.close()
+    }
+
+    @Test
+    fun selectedTargetWithoutSourceIdentityConsumesFavoritesWithoutSendingAQueue() = runTest {
+        val sent = mutableListOf<NaviampConnectEnvelope>()
+        val (controller, _, _) = remoteFixture(queueHandoffSupported = true) { sent += it }
+
+        assertTrue(controller.playTracksOnSelectedDevice(listOf(FakeCoreMediaProvider().track)))
+        runCurrent()
+
+        assertTrue(sent.isEmpty())
+        controller.close()
+    }
+
     private fun kotlinx.coroutines.test.TestScope.remoteFixture(
         discovery: NaviampConnectDiscoveryEffect? = null,
         permissionSettings: app.naviamp.app.NaviampConnectPermissionSettingsEffect? = null,
         providerSessions: NaviampCoreProviderSessionPort? = null,
         companionProvisioningSupported: Boolean = false,
+        queueHandoffSupported: Boolean = false,
+        sourceIdentity: NaviampConnectSourceIdentity? = null,
+        localPlayback: NaviampLivePlaybackController? = null,
         send: suspend (app.naviamp.domain.connect.NaviampConnectEnvelope) -> Unit,
     ): Triple<NaviampCoreConnectController, NaviampCoreStateStore, NaviampConnectControllerSession> {
         var stored: String? = null
@@ -1146,6 +1229,24 @@ class NaviampCoreConnectControllerTest {
         val target = NaviampConnectDevice("tv", "TV", NaviampConnectDeviceRole.Target)
         trust.upsert(NaviampConnectTrustRecord("trusted-tv", target, "fingerprint", "public-key", 1L))
         val store = NaviampCoreStateStore()
+        val playback = localPlayback?.let { live ->
+            val defaults = fakeCoreServices()
+            val queue = NaviampPlaybackQueueCoordinator(live)
+            NaviampCorePlaybackController(
+                scope = this,
+                stateStore = store,
+                providerSource = defaults.content.providerSource,
+                playback = live,
+                queue = queue,
+                effects = defaults.playback.effects,
+                settings = defaults.playback.settings,
+                sidecars = defaults.playback.sidecars,
+                sessions = defaults.playback.sessions,
+                presenter = NaviampCoreNowPlayingPresenter(store, defaults.content.providerSource,
+                    live, queue, defaults.playback.effects, defaults.playback.sidecars),
+                nowEpochMillis = { testScheduler.currentTime },
+            )
+        }
         val controller = NaviampCoreConnectController(this, store, NaviampCoreConnectServices(
                 networkDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
             deviceCapabilities = setOf(NaviampConnectDeviceCapability.ControlPlayback), displayName = "Controller",
@@ -1153,13 +1254,16 @@ class NaviampCoreConnectControllerTest {
             pake = UnusedPakeFactory, cipher = UnusedCipherFactory, trust = trust,
             discovery = discovery, permissionSettings = permissionSettings,
             newOpaqueId = { "unused" }, newPairingCode = { "123456" }, nowEpochMillis = { testScheduler.currentTime },
-        ), providerSessions = providerSessions)
+        ), providerSessions = providerSessions, sourceIdentity = { sourceIdentity }, localPlayback = playback)
         if (discovery != null) controller.actions.onRefreshTargets()
         var next = 0
         val session = NaviampConnectControllerSession(NaviampConnectSessionTransport(send),
             NaviampConnectRequestIdFactory { "request-${++next}" })
-        session.connect("session", 1, target, setOf(app.naviamp.domain.connect.NaviampConnectCapability.TransportControls,
-                app.naviamp.domain.connect.NaviampConnectCapability.ConnectionProvisioning),
+        session.connect("session", 1, target, buildSet {
+            add(NaviampConnectCapability.TransportControls)
+            add(NaviampConnectCapability.ConnectionProvisioning)
+            if (queueHandoffSupported) add(NaviampConnectCapability.QueueHandoff)
+        },
             NaviampConnectTargetSnapshot(0, target, emptySet()))
         controller.adoptControllerSession(session, companionProvisioningSupported)
         return Triple(controller, store, session)

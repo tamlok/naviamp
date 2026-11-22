@@ -9,6 +9,8 @@ import app.naviamp.domain.Album
 import app.naviamp.domain.Artist
 import app.naviamp.domain.Track
 import app.naviamp.domain.home.FavoriteArtistActivityRepository
+import app.naviamp.domain.cache.FavoriteDownloadCatalog
+import app.naviamp.domain.cache.enumerateFavoriteDownloadCatalog
 import app.naviamp.domain.playback.EmptyPlaybackProfileRepository
 import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileRepository
@@ -41,6 +43,7 @@ import app.naviamp.domain.Genre
 import app.naviamp.domain.settings.RecentRadioStream
 import app.naviamp.domain.settings.effectiveSonicSimilarityEnabled
 import app.naviamp.ui.NaviampPlaylistChoiceUi
+import app.naviamp.ui.FavoriteSongsPlaybackStatus
 import app.naviamp.ui.SharedMediaItemUi
 import app.naviamp.ui.withRecentRadioStreams
 import kotlinx.coroutines.CancellationException
@@ -163,8 +166,66 @@ class NaviampCoreMediaTransactions(
     private val onAlbumUpdated: (app.naviamp.domain.provider.MediaProvider, Album) -> Unit = { _, _ -> },
     private val onArtistUpdated: (app.naviamp.domain.provider.MediaProvider, Artist) -> Unit = { _, _ -> },
     private val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { _, _ -> },
+    private val playOnSelectedDevice: (List<Track>) -> Boolean = { false },
 ) : NaviampCoreTrackRadioTransactions {
     private val trackRadioBuild = Mutex()
+    private val favoriteSongsLoad = Mutex()
+
+    suspend fun playFavoriteSongs() {
+        if (!favoriteSongsLoad.tryLock()) return
+        val provider = providerSource.current()
+        val sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId
+        val originalTracks = playback.state.value.queue.tracks
+        fun current() = provider != null && providerSource.isCurrent(provider) &&
+            sourceId == stateStore.state.value.shell.connectionSettings.currentSourceId
+        fun status(value: FavoriteSongsPlaybackStatus?) {
+            if (current()) stateStore.updateShell { shell ->
+                shell.copy(home = shell.home.copy(favoriteSongsPlaybackStatus = value))
+            }
+        }
+        try {
+            if (provider == null) return
+            if (!provider.capabilities.supportsTrackFavorites) {
+                status(FavoriteSongsPlaybackStatus.Unsupported)
+                return
+            }
+            status(FavoriteSongsPlaybackStatus.Loading)
+            val result = enumerateFavoriteDownloadCatalog(Int.MAX_VALUE) { request ->
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
+                if (!current()) return@enumerateFavoriteDownloadCatalog null
+                provider.favoriteTracksPage(request)
+            }
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            if (!current() || playback.state.value.queue.tracks !== originalTracks) return
+            when (result) {
+                is FavoriteDownloadCatalog.Complete -> {
+                    val tracks = result.items.distinctBy(Track::id).sortedWith(
+                        compareBy<Track>({ it.title.lowercase() }, { it.title }, { it.id.value }),
+                    )
+                    if (tracks.isEmpty()) status(FavoriteSongsPlaybackStatus.Empty)
+                    else {
+                        status(null)
+                        if (!playOnSelectedDevice(tracks)) play(tracks)
+                    }
+                }
+                FavoriteDownloadCatalog.Unsupported -> status(FavoriteSongsPlaybackStatus.Unsupported)
+                is FavoriteDownloadCatalog.TooLarge -> status(FavoriteSongsPlaybackStatus.Failed)
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            status(FavoriteSongsPlaybackStatus.Failed)
+        } finally {
+            // The mutex still owns Loading, even when the request's source is no longer active.
+            stateStore.updateShell { shell ->
+                if (shell.home.favoriteSongsPlaybackStatus == FavoriteSongsPlaybackStatus.Loading) {
+                    shell.copy(home = shell.home.copy(favoriteSongsPlaybackStatus = null))
+                } else shell
+            }
+            favoriteSongsLoad.unlock()
+        }
+    }
+
     fun play(tracks: List<Track>, index: Int = 0, shuffle: Boolean = false) {
         if (!queuePlayback.play(tracks, index, shuffle)) publish("No tracks are available.")
     }

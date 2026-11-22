@@ -147,6 +147,7 @@ internal fun TelevisionHome(
     val itemFocusRequesters = remember(sectionItemKeys) {
         sectionItemKeys.map { itemKeys -> List(itemKeys.size) { FocusRequester() } }
     }
+    val favoriteSongsFocusRequester = remember { FocusRequester() }
     var rememberedItemIndices by remember(sectionItemKeys) { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var focusedSectionIndex by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(entryFocusGeneration, sectionItemKeys) {
@@ -167,83 +168,106 @@ internal fun TelevisionHome(
             )
         }
     }
-    CompositionLocalProvider(LocalBringIntoViewSpec provides TelevisionHomeBringIntoViewSpec) {
-        LazyColumn(
-            state = listState,
-            verticalArrangement = Arrangement.spacedBy(TelevisionHomeRailSpacing),
-            contentPadding = PaddingValues(bottom = TelevisionHomeBottomFocusClearance),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            if (sections.isEmpty()) {
-                item(key = "television-home-empty") {
-                    Text(
-                        if (home.refreshing) stringResource(Res.string.tv_loading_your_music) else stringResource(Res.string.tv_your_home_sections_are_empty),
-                        color = colors.secondaryText,
-                        fontSize = 20.sp,
+    Column(Modifier.fillMaxSize()) {
+        if (home.supportsFavoriteSongs) {
+            Row(
+                Modifier.fillMaxWidth().focusRequester(favoriteSongsFocusRequester).onPreviewKeyEvent { event ->
+                    val target = itemFocusRequesters.firstOrNull()?.firstOrNull()
+                    if (event.key != Key.DirectionDown || target == null) false else {
+                        if (event.type == KeyEventType.KeyDown) target.requestFocus()
+                        true
+                    }
+                },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HomeFavoriteSongsAction(home, colors, actions.onPlayFavoriteSongs)
+                HomeFavoriteSongsStatus(home, colors)
+            }
+        }
+        CompositionLocalProvider(LocalBringIntoViewSpec provides TelevisionHomeBringIntoViewSpec) {
+            LazyColumn(
+                state = listState,
+                verticalArrangement = Arrangement.spacedBy(TelevisionHomeRailSpacing),
+                contentPadding = PaddingValues(bottom = TelevisionHomeBottomFocusClearance),
+                modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
+                    if (event.key != Key.DirectionUp || focusedSectionIndex != 0 || !home.supportsFavoriteSongs ||
+                        home.favoriteSongsPlaybackStatus == FavoriteSongsPlaybackStatus.Loading) false else {
+                        if (event.type == KeyEventType.KeyDown) favoriteSongsFocusRequester.requestFocus()
+                        true
+                    }
+                },
+            ) {
+                if (sections.isEmpty()) {
+                    item(key = "television-home-empty") {
+                        Text(
+                            if (home.refreshing) stringResource(Res.string.tv_loading_your_music) else stringResource(Res.string.tv_your_home_sections_are_empty),
+                            color = colors.secondaryText,
+                            fontSize = 20.sp,
+                        )
+                    }
+                }
+                itemsIndexed(sections, key = { _, slot -> slot.id }) { sectionIndex, slot ->
+                    val nextSectionIndex = televisionHomeVerticalSectionTarget(
+                        currentSectionIndex = sectionIndex,
+                        sectionCount = sections.size,
+                        key = Key.DirectionDown,
+                    )
+                    val previousSectionIndex = televisionHomeVerticalSectionTarget(
+                        currentSectionIndex = sectionIndex,
+                        sectionCount = sections.size,
+                        key = Key.DirectionUp,
+                    )
+                    if (slot.collection == null) {
+                        home.providerDiscovery?.let { discovery ->
+                            Box(Modifier.focusRequester(itemFocusRequesters[sectionIndex].first())
+                                .onFocusChanged { focus -> if (focus.hasFocus) focusedSectionIndex = sectionIndex }
+                                .onPreviewKeyEvent { event ->
+                                    val targetIndex = when (event.key) {
+                                        Key.DirectionUp -> previousSectionIndex
+                                        Key.DirectionDown -> nextSectionIndex
+                                        else -> null
+                                    }
+                                    if (targetIndex == null) false else {
+                                        if (event.type == KeyEventType.KeyDown) itemFocusRequesters[targetIndex].first().requestFocus()
+                                        true
+                                    }
+                                }) {
+                                NaviampProviderDiscoveryContent(discovery, colors, actions.onDiscoveryArtistSelected,
+                                    actions.onDiscoveryArtistDetails, actions.onDiscoveryArtistDismiss,
+                                    actions.onDiscoveryFeedback, actions.onDiscoveryLibraryArtist, actions.onDiscoveryAction, discoveryPlayback,
+                                    onRequests = actions.onDiscoveryRequests, onBrowse = actions.onDiscoveryBrowse)
+                            }
+                        }
+                        return@itemsIndexed
+                    }
+                    TelevisionHomeCarousel(
+                        section = slot.collection,
+                        colors = colors,
+                        itemFocusRequesters = itemFocusRequesters[sectionIndex],
+                        previousSectionFocusRequester = previousSectionIndex?.let { targetSectionIndex ->
+                            itemFocusRequesters[targetSectionIndex].getOrNull(
+                                televisionHomeRememberedItemIndex(
+                                    rememberedIndex = rememberedItemIndices[sections[targetSectionIndex].id],
+                                    itemCount = itemFocusRequesters[targetSectionIndex].size,
+                                ),
+                            )
+                        },
+                        nextSectionFocusRequester = nextSectionIndex?.let { targetSectionIndex ->
+                            itemFocusRequesters[targetSectionIndex].getOrNull(
+                                televisionHomeRememberedItemIndex(
+                                    rememberedIndex = rememberedItemIndices[sections[targetSectionIndex].id],
+                                    itemCount = itemFocusRequesters[targetSectionIndex].size,
+                                ),
+                            )
+                        },
+                        onSectionFocused = { focusedSectionIndex = sectionIndex },
+                        onItemFocused = { itemIndex ->
+                            rememberedItemIndices = rememberedItemIndices + (slot.id to itemIndex)
+                        },
+                        onSelected = { item -> dispatchHomeCollectionItem(item, actions, mediaActions) },
+                        onViewAll = { actions.onCollectionSelected(slot.id) },
                     )
                 }
-            }
-            itemsIndexed(sections, key = { _, slot -> slot.id }) { sectionIndex, slot ->
-                val nextSectionIndex = televisionHomeVerticalSectionTarget(
-                    currentSectionIndex = sectionIndex,
-                    sectionCount = sections.size,
-                    key = Key.DirectionDown,
-                )
-                val previousSectionIndex = televisionHomeVerticalSectionTarget(
-                    currentSectionIndex = sectionIndex,
-                    sectionCount = sections.size,
-                    key = Key.DirectionUp,
-                )
-                if (slot.collection == null) {
-                    home.providerDiscovery?.let { discovery ->
-                        Box(Modifier.focusRequester(itemFocusRequesters[sectionIndex].first())
-                            .onFocusChanged { focus -> if (focus.hasFocus) focusedSectionIndex = sectionIndex }
-                            .onPreviewKeyEvent { event ->
-                                val targetIndex = when (event.key) {
-                                    Key.DirectionUp -> previousSectionIndex
-                                    Key.DirectionDown -> nextSectionIndex
-                                    else -> null
-                                }
-                                if (targetIndex == null) false else {
-                                    if (event.type == KeyEventType.KeyDown) itemFocusRequesters[targetIndex].first().requestFocus()
-                                    true
-                                }
-                            }) {
-                            NaviampProviderDiscoveryContent(discovery, colors, actions.onDiscoveryArtistSelected,
-                                actions.onDiscoveryArtistDetails, actions.onDiscoveryArtistDismiss,
-                                actions.onDiscoveryFeedback, actions.onDiscoveryLibraryArtist, actions.onDiscoveryAction, discoveryPlayback,
-                                onRequests = actions.onDiscoveryRequests, onBrowse = actions.onDiscoveryBrowse)
-                        }
-                    }
-                    return@itemsIndexed
-                }
-                TelevisionHomeCarousel(
-                    section = slot.collection,
-                    colors = colors,
-                    itemFocusRequesters = itemFocusRequesters[sectionIndex],
-                    previousSectionFocusRequester = previousSectionIndex?.let { targetSectionIndex ->
-                        itemFocusRequesters[targetSectionIndex].getOrNull(
-                            televisionHomeRememberedItemIndex(
-                                rememberedIndex = rememberedItemIndices[sections[targetSectionIndex].id],
-                                itemCount = itemFocusRequesters[targetSectionIndex].size,
-                            ),
-                        )
-                    },
-                    nextSectionFocusRequester = nextSectionIndex?.let { targetSectionIndex ->
-                        itemFocusRequesters[targetSectionIndex].getOrNull(
-                            televisionHomeRememberedItemIndex(
-                                rememberedIndex = rememberedItemIndices[sections[targetSectionIndex].id],
-                                itemCount = itemFocusRequesters[targetSectionIndex].size,
-                            ),
-                        )
-                    },
-                    onSectionFocused = { focusedSectionIndex = sectionIndex },
-                    onItemFocused = { itemIndex ->
-                        rememberedItemIndices = rememberedItemIndices + (slot.id to itemIndex)
-                    },
-                    onSelected = { item -> dispatchHomeCollectionItem(item, actions, mediaActions) },
-                    onViewAll = { actions.onCollectionSelected(slot.id) },
-                )
             }
         }
     }

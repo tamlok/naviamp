@@ -487,6 +487,8 @@
     <string name="discovery_releases">Wydania</string>
     <string name="home_scroll_left">Przewiń w lewo</string>
     <string name="home_scroll_right">Przewiń w prawo</string>
+    <string name="home_play_favorite_songs">Odtwórz ulubione utwory</string>
+    <string name="home_favorite_songs_failed">Nie udało się wczytać ulubionych utworów. Spróbuj ponownie.</string>
     <string name="discovery_all_releases">Wszystkie wydania</string>
     <string name="discovery_action_busy">Przetwarzanie…</string>
     <string name="discovery_samples">Próbki</string>

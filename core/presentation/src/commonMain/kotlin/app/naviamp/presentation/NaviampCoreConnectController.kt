@@ -423,6 +423,31 @@ class NaviampCoreConnectController(
         }
     }
 
+    /** Consumes a resolved queue only when Connect owns the selected output; never starts local audio. */
+    internal fun playTracksOnSelectedDevice(tracks: List<app.naviamp.domain.Track>): Boolean {
+        if (playbackDestination.selectedTrustedDeviceId() == null) return false
+        if (!canControl || controllerSession == null || !playbackDestination.isConnectedRemote()) {
+            notice = app.naviamp.ui.NaviampConnectStatusNotice.RemoteUnavailable
+            publish()
+            return true
+        }
+        val identity = sourceIdentity()
+        if (identity == null) {
+            statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ConnectThisDeviceToTheSameMusicSourceBeforePlayingOnTheTv)
+            publish()
+            return true
+        }
+        val requested = NaviampLivePlaybackState(
+            currentTrack = tracks.firstOrNull(),
+            queue = app.naviamp.domain.queue.PlaybackQueue(tracks, 0),
+        )
+        sendRemoteCommand(
+            naviampCoreConnectQueueHandoff(requested, identity, playing = true),
+            activatesPlaybackAuthority = true,
+        )
+        return true
+    }
+
     /** Redirects shared catalog playback intents to the connected TV while browsing locally. */
     internal fun routeProductCommand(command: NaviampCoreCommand): Boolean {
         if (!canControl || playbackDestination.selectedTrustedDeviceId() == null) return false

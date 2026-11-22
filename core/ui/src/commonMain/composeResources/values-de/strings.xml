@@ -437,6 +437,8 @@
     <string name="transport_next">Nächste</string>
     <string name="transport_repeat">Wiederholen</string>
     <string name="home_music_title">Heim</string>
+    <string name="home_play_favorite_songs">Lieblingssongs abspielen</string>
+    <string name="home_favorite_songs_failed">Lieblingssongs konnten nicht geladen werden. Versuche es erneut.</string>
     <string name="home_empty">Nach der Verbindung werden die Home-Bereiche angezeigt.</string>
     <string name="home_recently_played_radio">Kürzlich gespieltes Radio</string>
     <string name="home_recent_playlists">Aktuelle Playlists</string>

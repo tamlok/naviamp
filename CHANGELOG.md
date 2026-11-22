@@ -21,6 +21,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
 - Default the Playlists page to Recently played, while keeping A–Z sorting available.
 - Use the heart in Library’s top-right header to filter Artists, Albums, and Songs to favorites, with one toggle retained across all three tabs and independent of the optional Home section.
+- Play all favorite songs from the heart shortcut in Home’s header, without opening Library or starting radio. Load the complete favorites list before replacing the queue, and keep current playback unchanged when favorites are empty or cannot be loaded.
 - Organize My into Accounts, supported Downloads, and Settings tabs, with account details inside Accounts, the server address shown only once, and a View Accounts action to choose or add an account.
 - Keep navigation and browsing content theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
 - Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.

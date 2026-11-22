@@ -535,6 +535,9 @@ class NaviampCoreConnectionController(
                 inventory = updated
                 if (connection.state.value.sourceId == saved.id && updated.currentSourceId == null) {
                     connection.disconnected("Deleted ${saved.displayName}.")
+                    stateStore.updateShell { shell ->
+                        shell.copy(home = shell.home.copy(supportsFavoriteSongs = false, favoriteSongsPlaybackStatus = null))
+                    }
                 } else {
                     publishStatus("Deleted ${saved.displayName}.")
                 }

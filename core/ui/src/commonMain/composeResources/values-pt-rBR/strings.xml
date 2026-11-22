@@ -731,6 +731,8 @@
     <string name="transport_next">Próxima</string>
     <string name="transport_repeat">Repetir</string>
     <string name="home_music_title">Início</string>
+    <string name="home_play_favorite_songs">Reproduzir músicas favoritas</string>
+    <string name="home_favorite_songs_failed">Não foi possível carregar as músicas favoritas. Tente novamente.</string>
     <string name="home_empty">As seções do início aparecerão após a conexão.</string>
     <string name="home_recently_played_radio">Rádios tocadas recentemente</string>
     <string name="home_recent_playlists">Playlists recentes</string>

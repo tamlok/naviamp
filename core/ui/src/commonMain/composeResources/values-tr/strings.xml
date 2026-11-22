@@ -387,6 +387,8 @@
     <string name="discovery_releases">Yayınlar</string>
     <string name="home_scroll_left">Sola kaydır</string>
     <string name="home_scroll_right">Sağa kaydır</string>
+    <string name="home_play_favorite_songs">Favori şarkıları çal</string>
+    <string name="home_favorite_songs_failed">Favori şarkılar yüklenemedi. Tekrar deneyin.</string>
     <string name="discovery_all_releases">Tüm yayınlar</string>
     <string name="discovery_action_busy">İşleniyor…</string>
     <string name="discovery_samples">Örnekler</string>

@@ -156,6 +156,13 @@ class NaviampCoreHomeController(
 ) : NaviampCoreCommandController {
     private val recentHistoryMutex = Mutex()
     private var recentHistoryRevision = 0L
+    private data class FavoriteSongsBinding(
+        val sourceId: String?,
+        val providerId: String,
+        val cacheNamespace: String,
+        val musicFolderIds: Set<String>,
+    )
+    private var favoriteSongsBinding: FavoriteSongsBinding? = null
 
     /** A real local play refreshes Home and external browsing without a provider/catalog reload. */
     suspend fun recordPlayedTrack(sourceId: String, track: Track, playedAtEpochMillis: Long): Unit = recentHistoryMutex.withLock {
@@ -243,6 +250,18 @@ class NaviampCoreHomeController(
         val generation = ++refreshGeneration
         val historyRevision = recentHistoryRevision
         val provider = providerSource.current()
+        val binding = provider?.let {
+            FavoriteSongsBinding(stateStore.state.value.shell.connectionSettings.currentSourceId,
+                it.id.value, it.cacheNamespace, it.selectedMusicFolderIds.toSet())
+        }
+        val bindingChanged = binding != favoriteSongsBinding
+        favoriteSongsBinding = binding
+        stateStore.updateShell { shell ->
+            shell.copy(home = shell.home.copy(
+                supportsFavoriteSongs = provider?.capabilities?.supportsTrackFavorites == true,
+                favoriteSongsPlaybackStatus = shell.home.favoriteSongsPlaybackStatus.takeUnless { bindingChanged },
+            ))
+        }
         if (provider == null) {
             stateStore.updateShell { it.copy(home = it.home.copy(providerDiscovery = null)) }
             publish(refreshing = false, status = "Connect to Navidrome to load Home.")
@@ -426,6 +445,7 @@ class NaviampCoreHomeController(
         discoveryController.resetForSourceChange()
         refreshGeneration += 1
         discoveryFeedGeneration++
+        favoriteSongsBinding = null
         mediaRegistry.updateHome(
             app.naviamp.domain.home.HomeContent(),
             SonicHomeDiscoveryRows(),
@@ -437,6 +457,8 @@ class NaviampCoreHomeController(
                     refreshing = false,
                     collectionPage = null,
                     providerDiscovery = null,
+                    supportsFavoriteSongs = false,
+                    favoriteSongsPlaybackStatus = null,
                 ),
             )
         }
