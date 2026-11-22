@@ -1,7 +1,6 @@
 package app.naviamp.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,8 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -84,19 +80,16 @@ internal fun NaviampCompactLyricsCard(
         ) {
             val fontSize = normalizedCompactLyricsFontSize(nowPlaying.compactLyricsFontSizeSp)
             val fontLabel = stringResource(Res.string.compact_lyrics_font_size, fontSize)
-            NaviampTooltip(fontLabel, colors) {
-                Box(
-                    modifier = Modifier.size(48.dp)
-                        .testTag("compact-lyrics-font-size")
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(enabled = nowPlaying.lyricsAvailable, role = Role.Button, onClick = onCycleFontSize)
-                        .semantics { contentDescription = fontLabel },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(fontSize.toString(), color = if (nowPlaying.lyricsAvailable) colors.primaryText else colors.mutedText,
-                        fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            NaviampTransportIconButton(
+                enabled = nowPlaying.lyricsAvailable,
+                icon = NaviampIcons.ALargeSmall,
+                contentDescription = fontLabel,
+                colors = colors,
+                buttonSize = 48.dp,
+                iconSize = 20.dp,
+                modifier = Modifier.testTag("compact-lyrics-font-size"),
+                onClick = onCycleFontSize,
+            )
             NaviampTransportIconButton(
                 enabled = nowPlaying.canRefreshLyrics && !nowPlaying.lyricsLoading,
                 icon = NaviampIcons.Refresh,
