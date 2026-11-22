@@ -180,6 +180,49 @@ class LyricsServiceTest {
     }
 
     @Test
+    fun lrclibAcceptsFormattingEquivalentTiesForReportedTrack() = runTest {
+        val reported = track().copy(
+            id = TrackId("346GJ27E4EGNzbd0TQ5WSu"),
+            title = "男儿当自强",
+            artistName = "成龙",
+            albumTitle = "10年金马奖最佳电影主题曲光荣岁月",
+            durationSeconds = 264,
+        )
+        val candidates = listOf(
+            record(
+                title = reported.title, artist = reported.artistName,
+                album = "光荣岁月 10年金马奖最佳电影主题曲", duration = 264.0,
+                synced = "[00:33.04] First line\n[01:20.46] \n[01:38.47] Second line",
+            ),
+            record(
+                title = reported.title, artist = reported.artistName,
+                album = "九大天王之十二出好戏", duration = 264.0,
+                synced = "[00:33.040]First line\n[01:20.460]\n[01:38.470]Second line",
+            ),
+        )
+        for (duration in listOf(264, null)) {
+            for (ordered in listOf(candidates, candidates.reversed())) {
+                val lyrics = LrclibLyricsProvider(searchClient(ordered)).lyrics(reported.copy(durationSeconds = duration))
+                assertEquals(true, lyrics?.synced)
+                assertEquals(listOf(LyricLine(33_040L, "First line"), LyricLine(98_470L, "Second line")), lyrics?.lines)
+            }
+        }
+    }
+
+    @Test
+    fun lrclibStillRejectsEquivalentWordsWithConflictingTiming() = runTest {
+        val candidates = listOf(
+            record(synced = "[00:33.04] First line"),
+            record(synced = "[00:33.05]First line"),
+        )
+        for (duration in listOf(180, null)) {
+            for (ordered in listOf(candidates, candidates.reversed())) {
+                assertNull(LrclibLyricsProvider(searchClient(ordered)).lyrics(track().copy(durationSeconds = duration)))
+            }
+        }
+    }
+
+    @Test
     fun lrclibDoesNotSearchAfterRateLimitsServerFailuresOrInstrumentalExactHits() = runTest {
         for (response in listOf(null, httpResponse("", 400), httpResponse("", 429), httpResponse("", 503), httpResponse(record(instrumental = true)))) {
             val client = LyricsHttpClient { response }

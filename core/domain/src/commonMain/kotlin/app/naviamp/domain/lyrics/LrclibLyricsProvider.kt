@@ -50,7 +50,7 @@ class LrclibLyricsProvider(
         val candidates = runCatching {
             LrclibJson.decodeFromString<List<LrclibLyricsResponse>>(search.bodyText())
         }.getOrNull() ?: return null
-        return selectSearchResult(candidates, track)?.toLyrics()
+        return selectSearchResult(candidates, track)
     }
 
     private fun requestUrl(endpoint: String, parameters: List<Pair<String, String>>): String =
@@ -59,7 +59,7 @@ class LrclibLyricsProvider(
         }
 }
 
-private fun selectSearchResult(candidates: List<LrclibLyricsResponse>, track: Track): LrclibLyricsResponse? {
+private fun selectSearchResult(candidates: List<LrclibLyricsResponse>, track: Track): Lyrics? {
     val title = track.title.normalizedLyricsIdentity()
     val artist = track.artistName.normalizedLyricsIdentity()
     val album = track.albumTitle.orEmpty().normalizedLyricsIdentity()
@@ -69,30 +69,41 @@ private fun selectSearchResult(candidates: List<LrclibLyricsResponse>, track: Tr
     var bestAlbum = false
     var bestSynced = false
     var bestText: String? = null
+    var bestParsed: Lyrics? = null
     var ambiguous = false
     for (candidate in candidates) {
         if (candidate.instrumental || !candidate.matches(title, artist, duration)) continue
         val text = candidate.lyricsText()?.trim() ?: continue
-        // Without timing evidence, conflicting lyrics cannot be resolved by search order.
-        if (duration == null && bestText != null && text != bestText) return null
         val difference = if (duration != null) abs(candidate.duration!! - duration) else 0.0
         val albumMatch = album.isNotEmpty() && candidate.albumName?.normalizedLyricsIdentity() == album
         val synced = !candidate.syncedLyrics.isNullOrBlank()
         val better = best == null || difference < bestDifference ||
             (difference == bestDifference && (albumMatch && !bestAlbum ||
                 albumMatch == bestAlbum && synced && !bestSynced))
+        val sameRank = difference == bestDifference && albumMatch == bestAlbum && synced == bestSynced
+        var candidateParsed: Lyrics? = null
+        if (best != null && text != bestText && (duration == null || sameRank)) {
+            val previous = bestParsed ?: best.toLyrics().also { bestParsed = it }
+            candidateParsed = candidate.toLyrics()
+            // LRC spacing and timestamp precision may differ without changing text or timing.
+            val equivalent = previous != null && candidateParsed != null &&
+                previous.synced == candidateParsed.synced && previous.lines == candidateParsed.lines
+            if (!equivalent) {
+                if (duration == null) return null
+                ambiguous = true
+            }
+        }
         if (better) {
             best = candidate
             bestDifference = difference
             bestAlbum = albumMatch
             bestSynced = synced
             bestText = text
+            bestParsed = candidateParsed
             ambiguous = false
-        } else if (difference == bestDifference && albumMatch == bestAlbum && synced == bestSynced && text != bestText) {
-            ambiguous = true
         }
     }
-    return best.takeUnless { ambiguous }
+    return if (ambiguous) null else bestParsed ?: best?.toLyrics()
 }
 
 private fun LrclibLyricsResponse.matches(title: String, artist: String, requestedDuration: Int?): Boolean {
