@@ -75,12 +75,12 @@ struct Layer {
     Pixmap pixmap = 0;
     int imageWidth = 1;
     int imageHeight = 1;
-    double y = 0.0;
     double height = 1.0;
     bool visible = false;
     WindowGeometry clipGeometry;
     WindowGeometry pixelGeometry;
     Motion x;
+    Motion y;
     Motion left;
     Motion right;
 };
@@ -247,16 +247,18 @@ struct X11RasterRegion {
         bool active = false;
         for (auto& layer : layers) {
             const double x = layer.x.at(elapsedMillis);
+            const double y = layer.y.at(elapsedMillis);
             const double left = layer.left.at(elapsedMillis);
             const double right = layer.right.at(elapsedMillis);
-            active = active || layer.x.active(elapsedMillis) || layer.left.active(elapsedMillis) ||
-                layer.right.active(elapsedMillis);
+            active = active || layer.x.active(elapsedMillis) || layer.y.active(elapsedMillis) ||
+                layer.left.active(elapsedMillis) || layer.right.active(elapsedMillis);
             const Motion zero;
             nextIntegerChange = std::min({nextIntegerChange,
                 untilIntegerChange(layer.left, zero, elapsedMillis),
                 untilIntegerChange(layer.right, layer.left, elapsedMillis),
                 untilVisibilityChange(layer.right, layer.left, elapsedMillis),
-                untilIntegerChange(layer.x, layer.left, elapsedMillis)});
+                untilIntegerChange(layer.x, layer.left, elapsedMillis),
+                untilIntegerChange(layer.y, zero, elapsedMillis)});
             if (right <= left || layer.height <= 0.0) {
                 if (layer.visible) {
                     XUnmapWindow(display, layer.clip);
@@ -274,7 +276,7 @@ struct X11RasterRegion {
             const int clipHeightValue = std::max(1, static_cast<int>(std::lround(layer.height)));
             layer.clipGeometry.apply(display, layer.clip, clipLeft, clipTop, clipWidthValue, clipHeightValue);
             layer.pixelGeometry.apply(display, layer.pixels,
-                static_cast<int>(std::lround(x - left)), static_cast<int>(std::lround(layer.y)),
+                static_cast<int>(std::lround(x - left)), static_cast<int>(std::lround(y)),
                 layer.imageWidth, layer.imageHeight);
         }
         XFlush(display);
@@ -461,10 +463,10 @@ extern "C" JNIEXPORT void JNICALL Java_app_naviamp_ui_LinuxRasterNative_present(
         if (geometry.size() != 9) throw std::runtime_error("Invalid X11 region geometry");
         const int count = env->GetArrayLength(pixelArrays);
         std::vector<jint> widths(count), heights(count);
-        std::vector<jboolean> repeats(count * 3);
+        std::vector<jboolean> repeats(count * 4);
         env->GetIntArrayRegion(widthsArray, 0, count, widths.data());
         env->GetIntArrayRegion(heightsArray, 0, count, heights.data());
-        env->GetBooleanArrayRegion(repeatArray, 0, count * 3, repeats.data());
+        env->GetBooleanArrayRegion(repeatArray, 0, count * 4, repeats.data());
         std::lock_guard lock(region->mutex);
         XLockDisplay(region->display);
         try {
@@ -486,10 +488,11 @@ extern "C" JNIEXPORT void JNICALL Java_app_naviamp_ui_LinuxRasterNative_present(
                     env->DeleteLocalRef(raw);
                     if (layerGeometry.size() != 5) throw std::runtime_error("Invalid X11 layer geometry");
                     auto& layer = region->layers[index];
-                    layer.y = layerGeometry[1]; layer.height = layerGeometry[4];
-                    layer.x = motion(env, layerGeometry[0], valuesArray, timesArray, repeats, index * 3);
-                    layer.left = motion(env, layerGeometry[2], valuesArray, timesArray, repeats, index * 3 + 1);
-                    layer.right = motion(env, layerGeometry[3], valuesArray, timesArray, repeats, index * 3 + 2);
+                    layer.height = layerGeometry[4];
+                    layer.x = motion(env, layerGeometry[0], valuesArray, timesArray, repeats, index * 4);
+                    layer.y = motion(env, layerGeometry[1], valuesArray, timesArray, repeats, index * 4 + 1);
+                    layer.left = motion(env, layerGeometry[2], valuesArray, timesArray, repeats, index * 4 + 2);
+                    layer.right = motion(env, layerGeometry[3], valuesArray, timesArray, repeats, index * 4 + 3);
                 }
             }
             if (restart) region->started = Clock::now();
@@ -498,6 +501,7 @@ extern "C" JNIEXPORT void JNICALL Java_app_naviamp_ui_LinuxRasterNative_present(
                 int motions = 0;
                 for (const auto& layer : region->layers) {
                     motions += !layer.x.values.empty();
+                    motions += !layer.y.values.empty();
                     motions += !layer.left.values.empty();
                     motions += !layer.right.values.empty();
                 }

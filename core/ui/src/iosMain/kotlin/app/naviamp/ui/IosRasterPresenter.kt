@@ -45,6 +45,7 @@ private class IosRasterRegion(
 ) : NaviampRasterRegion {
     private val root = CALayer.layer()
     private var translationLayers = emptyList<CALayer>()
+    private var currentLayers = emptyList<NaviampRasterLayer>()
     private var attached = false
     private val scale get() = UIScreen.mainScreen.scale
 
@@ -69,6 +70,7 @@ private class IosRasterRegion(
         val viewportWidth = bounds.width / density
         val viewportHeight = bounds.height / density
         val begin = CACurrentMediaTime()
+        currentLayers = layers
         translationLayers = layers.map { spec ->
             val clipLayer = CALayer.layer().apply {
                 anchorPoint = CGPointMake(0.0, 0.0)
@@ -88,8 +90,11 @@ private class IosRasterRegion(
             clipLayer.addSublayer(pixels)
             root.addSublayer(clipLayer)
             val motion = spec.translation ?: spec.revealMotion
-            if (spec.translation != null) animate(pixels, "transform.translation.x", motion, 1.0 / density, 0.0, begin)
-            else {
+            if (spec.translation != null) {
+                val key = if (spec.translationAxis == NaviampRasterTranslationAxis.Vertical)
+                    "transform.translation.y" else "transform.translation.x"
+                animate(pixels, key, motion, 1.0 / density, 0.0, begin)
+            } else {
                 val inverse = spec.clipFromStart
                 val initial = spec.reveal * viewportWidth
                 clipLayer.bounds = platform.CoreGraphics.CGRectMake(
@@ -126,13 +131,16 @@ private class IosRasterRegion(
         layer.addAnimation(animation, key)
     }
 
-    override fun translationX(layerIndex: Int): Float? =
-        translationLayers.getOrNull(layerIndex)?.presentationLayer()?.transform?.useContents { m41 * scale }?.toFloat()
+    override fun translationX(layerIndex: Int): Float? {
+        if (currentLayers.getOrNull(layerIndex)?.translationAxis == NaviampRasterTranslationAxis.Vertical) return 0f
+        return translationLayers.getOrNull(layerIndex)?.presentationLayer()?.transform?.useContents { m41 * scale }?.toFloat()
+    }
 
     override fun close() {
         root.removeFromSuperlayer()
         attached = false
         translationLayers = emptyList()
+        currentLayers = emptyList()
         removed(this)
     }
 }

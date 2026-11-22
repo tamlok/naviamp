@@ -122,12 +122,16 @@ private fun CompactLyricsText(
     playbackProgress: StateFlow<PlaybackProgress>?,
     colors: NaviampColors,
 ) {
+    val lines = nowPlaying.lyricsLines
+    val synced = remember(lines) { lines.any { it.startMillis != null } }
+    if (!synced) {
+        NaviampPlainLyricsText(nowPlaying, playbackProgress, colors)
+        return
+    }
     val progress = playbackProgress?.collectAsState()?.value
     val positionSeconds = progress?.positionSeconds ?: nowPlaying.positionSeconds
     val positionMillis = positionSeconds?.times(1000)?.toLong()
-    val lines = nowPlaying.lyricsLines
     val offsetMillis = nowPlaying.lyricsOffsetMillis
-    val synced = remember(lines) { lines.any { it.startMillis != null } }
     val listState = remember(nowPlaying.id, nowPlaying.lyricsSourceId, lines) { LazyListState() }
     var activeLine by remember(nowPlaying.id, lines) {
         mutableIntStateOf(compactActiveLyricLine(lines, positionMillis, offsetMillis))

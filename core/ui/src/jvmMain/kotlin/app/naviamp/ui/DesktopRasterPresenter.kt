@@ -162,9 +162,10 @@ private class DesktopSkiaRasterRegion(
                         if (spec.clipFromStart) edge else 0f, 0f,
                         if (spec.clipFromStart) width.toFloat() else edge, height.toFloat(),
                     ))
+                    val offset = spec.translationOffset(spec.translation?.valueAt(elapsed) ?: 0f)
                     canvas.drawImage(layer.image,
-                        current.originX + spec.origin.x + (spec.translation?.valueAt(elapsed) ?: 0f),
-                        current.originY + spec.origin.y)
+                        current.originX + spec.origin.x + offset.x,
+                        current.originY + spec.origin.y + offset.y)
                     canvas.restore()
                     val motion = spec.translation ?: spec.revealMotion
                     animateAgain = animateAgain || (motion != null && (motion.repeat || elapsed < motion.durationMillis))
@@ -205,7 +206,9 @@ private class DesktopSkiaRasterRegion(
 
     override fun translationX(layerIndex: Int): Float? {
         val current = scene ?: return null
-        val motion = current.layers.getOrNull(layerIndex)?.spec?.translation ?: return 0f
+        val spec = current.layers.getOrNull(layerIndex)?.spec ?: return 0f
+        if (spec.translationAxis == NaviampRasterTranslationAxis.Vertical) return 0f
+        val motion = spec.translation ?: return 0f
         return motion.valueAt((System.nanoTime() - current.startedAtNanos) / 1_000_000L)
     }
 
@@ -281,7 +284,11 @@ private class MacRasterPresenter(private val window: Window) : NaviampRasterPres
                     motions.map { motion -> motion?.values?.map(Float::toDouble)?.toDoubleArray() ?: doubleArrayOf() }.toTypedArray(),
                     motions.map { motion -> motion?.timesMillis?.map { it.toDouble() / motion.durationMillis }?.toDoubleArray() ?: doubleArrayOf() }.toTypedArray(),
                     motions.map { (it?.durationMillis ?: 1L) / 1000.0 }.toDoubleArray(),
-                    layers.map { if (it.translation != null || (it.revealMotion == null && it.reveal == 1f && !it.clipFromStart)) 0 else 1 }.toIntArray(),
+                    layers.map {
+                        if (it.translation != null) {
+                            if (it.translationAxis == NaviampRasterTranslationAxis.Vertical) 2 else 0
+                        } else if (it.revealMotion == null && it.reveal == 1f && !it.clipFromStart) 0 else 1
+                    }.toIntArray(),
                     motions.map { it?.repeat ?: false }.toBooleanArray())
                 if (!accepted) { close(); return false }
                 presentedLayers = layers
@@ -296,7 +303,9 @@ private class MacRasterPresenter(private val window: Window) : NaviampRasterPres
 
         override fun translationX(layerIndex: Int): Float? {
             if (handle == 0L) return null
-            val motion = presentedLayers.getOrNull(layerIndex)?.translation ?: return 0f
+            val spec = presentedLayers.getOrNull(layerIndex) ?: return 0f
+            if (spec.translationAxis == NaviampRasterTranslationAxis.Vertical) return 0f
+            val motion = spec.translation ?: return 0f
             return motion.valueAt((System.nanoTime() - startedAtNanos) / 1_000_000L)
         }
 

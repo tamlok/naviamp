@@ -11,6 +11,7 @@ internal data class NaviampRasterPlacement(
     val left: NaviampRasterScalar,
     val right: NaviampRasterScalar,
     val height: Float,
+    val yMotion: NaviampLayerMotion? = null,
 )
 
 internal fun naviampRasterPlacement(
@@ -21,21 +22,23 @@ internal fun naviampRasterPlacement(
     clipFromStart: Boolean,
     width: Float,
     height: Float,
+    translationAxis: NaviampRasterTranslationAxis = NaviampRasterTranslationAxis.Horizontal,
 ): NaviampRasterPlacement {
     fun NaviampLayerMotion?.mapped(scale: Float, offset: Float = 0f) =
         this?.copy(values = values.map { it * scale + offset })
     val edge = NaviampRasterScalar(width * reveal, revealMotion.mapped(width))
     return NaviampRasterPlacement(
-        x = NaviampRasterScalar(origin.x, translation.mapped(1f, origin.x)),
+        x = NaviampRasterScalar(origin.x, translation.takeIf { translationAxis == NaviampRasterTranslationAxis.Horizontal }.mapped(1f, origin.x)),
         y = origin.y,
         left = if (clipFromStart) edge else NaviampRasterScalar(0f),
         right = if (clipFromStart) NaviampRasterScalar(width) else edge,
         height = height,
+        yMotion = translation.takeIf { translationAxis == NaviampRasterTranslationAxis.Vertical }.mapped(1f, origin.y),
     )
 }
 
 internal fun NaviampRasterLayer.placement(width: Float, height: Float): NaviampRasterPlacement =
-    naviampRasterPlacement(origin, translation, reveal, revealMotion, clipFromStart, width, height)
+    naviampRasterPlacement(origin, translation, reveal, revealMotion, clipFromStart, width, height, translationAxis)
 
 /** Layout moves preserve the timeline; new pixels, motion, or viewport size start a new scene. */
 internal class NaviampRasterSceneClock {

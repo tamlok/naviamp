@@ -203,8 +203,8 @@ extern "C" JNIEXPORT void JNICALL Java_app_naviamp_ui_WindowsRasterNative_presen
             }
         }
         LARGE_INTEGER begin; QueryPerformanceCounter(&begin);
-        std::vector<jboolean> repeats(count * 3);
-        env->GetBooleanArrayRegion(repeatArray, 0, count * 3, repeats.data());
+        std::vector<jboolean> repeats(count * 4);
+        env->GetBooleanArrayRegion(repeatArray, 0, count * 4, repeats.data());
         for (int i = 0; i < count; ++i) {
             auto& layer = region->layers[i];
             auto png = static_cast<jbyteArray>(env->GetObjectArrayElement(pngs, i));
@@ -213,17 +213,17 @@ extern "C" JNIEXPORT void JNICALL Java_app_naviamp_ui_WindowsRasterNative_presen
             auto raw = static_cast<jdoubleArray>(env->GetObjectArrayElement(geometryArray, i));
             auto geometry = doubles(env, raw); env->DeleteLocalRef(raw);
             if (geometry.size() != 5) throw std::runtime_error("Invalid layer geometry");
-            checked(layer.pixels->SetOffsetY(static_cast<float>(geometry[1])));
             checked(layer.clip->SetTop(0.0f)); checked(layer.clip->SetBottom(static_cast<float>(geometry[4])));
-            for (int channel = 0; channel < 3; ++channel) {
-                const int index = i * 3 + channel;
+            for (int channel = 0; channel < 4; ++channel) {
+                const int index = i * 4 + channel;
                 auto v = static_cast<jdoubleArray>(env->GetObjectArrayElement(valuesArray, index));
                 auto t = static_cast<jdoubleArray>(env->GetObjectArrayElement(timesArray, index));
                 auto motion = animation(host.device.Get(), doubles(env, v), doubles(env, t), repeats[index], begin);
                 env->DeleteLocalRef(v); env->DeleteLocalRef(t);
                 if (channel == 0) checked(motion ? layer.pixels->SetOffsetX(motion.Get()) : layer.pixels->SetOffsetX(static_cast<float>(geometry[0])));
-                if (channel == 1) checked(motion ? layer.clip->SetLeft(motion.Get()) : layer.clip->SetLeft(static_cast<float>(geometry[2])));
-                if (channel == 2) checked(motion ? layer.clip->SetRight(motion.Get()) : layer.clip->SetRight(static_cast<float>(geometry[3])));
+                if (channel == 1) checked(motion ? layer.pixels->SetOffsetY(motion.Get()) : layer.pixels->SetOffsetY(static_cast<float>(geometry[1])));
+                if (channel == 2) checked(motion ? layer.clip->SetLeft(motion.Get()) : layer.clip->SetLeft(static_cast<float>(geometry[2])));
+                if (channel == 3) checked(motion ? layer.clip->SetRight(motion.Get()) : layer.clip->SetRight(static_cast<float>(geometry[3])));
             }
         }
         checked(host.device->Commit());

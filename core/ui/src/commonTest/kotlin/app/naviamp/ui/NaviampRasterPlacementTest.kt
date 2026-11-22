@@ -4,6 +4,19 @@ import androidx.compose.ui.geometry.Offset
 import kotlin.test.*
 
 class NaviampRasterPlacementTest {
+    @Test fun verticalTranslationKeepsHorizontalPlacementAndRevealUnchanged() {
+        val motion = NaviampLayerMotion(listOf(-40f, -140f), listOf(0L, 1000L))
+        val placement = naviampRasterPlacement(Offset(12f, 200f), motion, 1f, null, false, 100f, 60f,
+            NaviampRasterTranslationAxis.Vertical)
+        assertEquals(12f, placement.x.value)
+        assertNull(placement.x.motion)
+        assertEquals(200f, placement.y)
+        assertEquals(110f, requireNotNull(placement.yMotion).valueAt(500L))
+        assertEquals(0f, placement.left.value)
+        assertEquals(100f, placement.right.value)
+        assertFalse(placement.yMotion.repeat)
+    }
+
     @Test fun translationIncludesOriginAndPreservesSharedTiming() {
         val motion = requireNotNull(marqueeLayerMotion(80f))
         val placement = naviampRasterPlacement(Offset(12f, 3f), motion, 1f, null, false, 100f, 20f)

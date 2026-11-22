@@ -189,3 +189,16 @@ tasks.register<JavaExec>("playerAnimationProbe") {
         systemProperty("naviamp.probe.compositor.library", compositorProbeLibrary.get().asFile.absolutePath)
     }
 }
+
+tasks.register<JavaExec>("plainLyricsWindowProbe") {
+    group = "verification"
+    description = "Checks untimed lyrics motion, input, and compositor cost in a visible native window."
+    dependsOn("jvmTestClasses")
+    classpath = tasks.named<Test>("jvmTest").get().classpath
+    mainClass.set("app.naviamp.ui.NaviampPlainLyricsWindowProbeKt")
+    workingDir(rootProject.projectDir)
+    if (System.getProperty("os.name").startsWith("Windows")) {
+        dependsOn(":platforms:desktop:copyDesktopVisualizerOpenGlResources")
+        systemProperty("skiko.renderApi", "OPENGL")
+    }
+}

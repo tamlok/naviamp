@@ -34,7 +34,7 @@ internal class WindowsRasterPresenter(private val window: Window) : NaviampRaste
                     }
                 }.toTypedArray()
                 val placements = layers.map { it.placement(bounds.width, bounds.height) }
-                val scalars = placements.flatMap { listOf(it.x, it.left, it.right) }
+                val scalars = placements.flatMap { listOf(it.x, NaviampRasterScalar(it.y, it.yMotion), it.left, it.right) }
                 WindowsRasterNative.present(handle,
                     doubleArrayOf(clip.left.toDouble(), clip.top.toDouble(), clip.width.toDouble(), clip.height.toDouble(),
                         (bounds.left - clip.left).toDouble(), (bounds.top - clip.top).toDouble(),
@@ -59,8 +59,10 @@ internal class WindowsRasterPresenter(private val window: Window) : NaviampRaste
             }
         }
 
-        override fun translationX(layerIndex: Int): Float? = currentLayers.getOrNull(layerIndex)?.translation
-            ?.valueAt(System.nanoTime() / 1_000_000 - sceneClock.startedMillis)
+        override fun translationX(layerIndex: Int): Float? = currentLayers.getOrNull(layerIndex)?.let { layer ->
+            if (layer.translationAxis == NaviampRasterTranslationAxis.Vertical) 0f
+            else layer.translation?.valueAt(System.nanoTime() / 1_000_000 - sceneClock.startedMillis)
+        }
 
         override fun close() {
             check(EventQueue.isDispatchThread())

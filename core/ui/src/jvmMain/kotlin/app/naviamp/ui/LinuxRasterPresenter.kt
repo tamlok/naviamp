@@ -65,7 +65,7 @@ internal class LinuxRasterPresenter(private val window: Window) : NaviampRasterP
                     else bitmap.toLinuxRasterPixels()
                 }.toTypedArray()
                 val placements = layers.map { it.placement(bounds.width, bounds.height) }
-                val scalars = placements.flatMap { listOf(it.x, it.left, it.right) }
+                val scalars = placements.flatMap { listOf(it.x, NaviampRasterScalar(it.y, it.yMotion), it.left, it.right) }
                 LinuxRasterNative.present(
                     handle,
                     doubleArrayOf(
@@ -111,8 +111,10 @@ internal class LinuxRasterPresenter(private val window: Window) : NaviampRasterP
             }
         }
 
-        override fun translationX(layerIndex: Int): Float? = currentLayers.getOrNull(layerIndex)?.translation
-            ?.valueAt(System.nanoTime() / 1_000_000 - sceneClock.startedMillis)
+        override fun translationX(layerIndex: Int): Float? = currentLayers.getOrNull(layerIndex)?.let { layer ->
+            if (layer.translationAxis == NaviampRasterTranslationAxis.Vertical) 0f
+            else layer.translation?.valueAt(System.nanoTime() / 1_000_000 - sceneClock.startedMillis)
+        }
 
         fun reposition() {
             if (!window.isShowing || clip.isEmpty) return

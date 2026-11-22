@@ -5,6 +5,25 @@ import androidx.compose.ui.geometry.Rect
 import kotlin.test.*
 
 class NaviampRasterFrameTest {
+    @Test fun verticalTranslationCropsTheBitmapAndStopsAtItsFiniteEndpoint() {
+        val viewport = Rect(0f, 0f, 100f, 50f)
+        val motion = NaviampLayerMotion(listOf(0f, -100f), listOf(0L, 1000L))
+        val frame = NaviampRasterFrame()
+        fun sample(time: Long) = frame.update(100, 150, Offset.Zero, motion, 1f, null, false,
+            viewport, viewport, time, NaviampRasterTranslationAxis.Vertical)
+        assertTrue(sample(500L))
+        assertEquals(50, frame.sourceTop)
+        assertEquals(100, frame.sourceBottom)
+        assertEquals(0, frame.destinationTop)
+        assertEquals(50, frame.destinationBottom)
+        assertEquals(0f, frame.positionX)
+        assertEquals(-50f, frame.positionY)
+        assertTrue(sample(1000L))
+        assertEquals(100, frame.sourceTop)
+        assertEquals(150, frame.sourceBottom)
+        assertFalse(sample(2000L))
+    }
+
     private val bounds = Rect(100f, 200f, 660f, 240f)
     private fun NaviampRasterFrame.sample(
         time: Long = 0, motion: NaviampLayerMotion? = null, clip: Rect = bounds,

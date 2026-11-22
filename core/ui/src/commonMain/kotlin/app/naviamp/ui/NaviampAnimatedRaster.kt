@@ -16,6 +16,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import kotlin.time.TimeMark
 
+internal enum class NaviampRasterTranslationAxis { Horizontal, Vertical }
+
 /**
  * Shared sRGB pixels and motion; hosts only present these declarative layers. Coordinates are pixels
  * measured from the window content's top-left, including when a native parent changes size.
@@ -30,13 +32,34 @@ internal data class NaviampRasterLayer(
     val revealMotion: NaviampLayerMotion? = null,
     val clipFromStart: Boolean = false,
     val revealStarted: TimeMark? = null,
+    val translationAxis: NaviampRasterTranslationAxis = NaviampRasterTranslationAxis.Horizontal,
+    val translationStarted: TimeMark? = null,
 )
 
 internal fun NaviampRasterLayer.forPresentation(): NaviampRasterLayer {
-    val elapsed = revealStarted?.elapsedNow()?.inWholeMilliseconds ?: return this
-    val motion = revealMotion ?: return this
-    return copy(reveal = motion.valueAt(elapsed), revealMotion = motion.remainingAfter(elapsed), revealStarted = null)
+    var result = this
+    revealStarted?.let { started ->
+        revealMotion?.let { motion ->
+            val elapsed = started.elapsedNow().inWholeMilliseconds
+            result = result.copy(reveal = motion.valueAt(elapsed), revealMotion = motion.remainingAfter(elapsed), revealStarted = null)
+        }
+    }
+    translationStarted?.let { started ->
+        translation?.let { motion ->
+            val elapsed = started.elapsedNow().inWholeMilliseconds
+            val remaining = motion.remainingAfter(elapsed)
+            result = result.copy(
+                origin = if (remaining == null) origin + translationOffset(motion.valueAt(elapsed)) else origin,
+                translation = remaining,
+                translationStarted = null,
+            )
+        }
+    }
+    return result
 }
+
+internal fun NaviampRasterLayer.translationOffset(value: Float): Offset =
+    if (translationAxis == NaviampRasterTranslationAxis.Vertical) Offset(0f, value) else Offset(value, 0f)
 
 internal interface NaviampRasterPresenter {
     /** True only when native pixels are intrinsically below the host's owned popup windows. */
@@ -77,6 +100,7 @@ private data class RasterSubmission(
 private class RasterSubmissionState {
     var latest: RasterSubmission? = null
     var fallbackRevealOffsets = emptyList<Long>()
+    var fallbackTranslationOffsets = emptyList<Long>()
 }
 private class RasterContentState { var layers: List<NaviampRasterLayer> = emptyList() }
 
@@ -109,7 +133,9 @@ internal fun <T> NaviampAnimatedRaster(content: NaviampRasterContent<T>, modifie
     var fallbackRevision by remember(region) { mutableIntStateOf(0) }
     val currentContent by rememberUpdatedState(content)
     SideEffect { position?.translationX = {
-        if (presented) region?.translationX(0) ?: 0f else rasterContent.layers.firstOrNull()?.translation?.valueAt(elapsed) ?: 0f
+        if (presented) region?.translationX(0) ?: 0f else rasterContent.layers.firstOrNull()?.let { layer ->
+            layer.translationOffset(layer.translation?.valueAt(elapsed + (submission.fallbackTranslationOffsets.firstOrNull() ?: 0L)) ?: 0f).x
+        } ?: 0f
     } }
     val submit by rememberUpdatedState {
         val next = RasterSubmission(rasterContent.layers, bounds, clip, cornerRadius)
@@ -121,6 +147,7 @@ internal fun <T> NaviampAnimatedRaster(content: NaviampRasterContent<T>, modifie
             if (!presented) {
                 elapsed = 0L
                 submission.fallbackRevealOffsets = rasterContent.layers.map { it.revealStarted?.elapsedNow()?.inWholeMilliseconds ?: 0L }
+                submission.fallbackTranslationOffsets = rasterContent.layers.map { it.translationStarted?.elapsedNow()?.inWholeMilliseconds ?: 0L }
                 fallbackRevision++
             }
         }
@@ -167,7 +194,9 @@ internal fun <T> NaviampAnimatedRaster(content: NaviampRasterContent<T>, modifie
                 do {
                     elapsed = withFrameNanos { (it - start) / 1_000_000L }
                 } while (rasterContent.layers.withIndex().any { (index, layer) ->
-                    layer.translation?.let { it.repeat || elapsed < it.durationMillis } == true ||
+                    layer.translation?.let {
+                        it.repeat || elapsed + submission.fallbackTranslationOffsets.getOrElse(index) { 0L } < it.durationMillis
+                    } == true ||
                         layer.revealMotion?.let {
                             it.repeat || elapsed + submission.fallbackRevealOffsets.getOrElse(index) { 0L } < it.durationMillis
                         } == true
@@ -180,7 +209,8 @@ internal fun <T> NaviampAnimatedRaster(content: NaviampRasterContent<T>, modifie
                     val fraction = layer.revealMotion?.valueAt(frameElapsed + submission.fallbackRevealOffsets.getOrElse(index) { 0L }) ?: layer.reveal
                     clipRect(left = if (layer.clipFromStart) size.width * fraction else 0f,
                         right = if (layer.clipFromStart) size.width else size.width * fraction) {
-                        drawImage(layer.image, topLeft = layer.origin + Offset(layer.translation?.valueAt(frameElapsed) ?: 0f, 0f))
+                        val translationElapsed = frameElapsed + submission.fallbackTranslationOffsets.getOrElse(index) { 0L }
+                        drawImage(layer.image, topLeft = layer.origin + layer.translationOffset(layer.translation?.valueAt(translationElapsed) ?: 0f))
                     }
                 }
             }

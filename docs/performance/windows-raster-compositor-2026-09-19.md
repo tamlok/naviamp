@@ -229,4 +229,85 @@ JVM and iOS arm64 Kotlin compilation passed on this host; native iOS execution w
   duplicate; shared hover behavior remains inactive for touch input.
 
 No Android or iOS rendering adapter changes. Linux rendering is outside this Windows issue.
+
+## Untimed lyrics scrolling — November 22, 2026
+
+The compact lyrics card now maps untimed text to the song duration: the top at the start,
+the maximum text overflow at the end. Common code owns the monotonic timeline, pause/resume,
+seek generations, manual-scroll rebasing, text measurement, and tile selection. Unknown duration
+or position remains manual; fitting text does not animate. The original full lyrics renderer is
+unchanged.
+
+Wrapped text is rasterized into bounded 1024-pixel tiles. A fixed-capacity ring keeps retained
+images in the same native slots, so a tile boundary uploads only the newly needed image rather
+than re-encoding every retained tile. Every tile carries the same original finite motion and
+start mark; native reattachment and tile replacement resume that timeline instead of restarting
+the song. There is no per-frame Compose scrolling or text layout.
+
+Measurements used the visible production Windows raster host, a 1000 × 740 window, 1.5 display
+scale, reported 32 Hz refresh in the active RDP session, and the unchanged High performance power
+plan. Each state had five seconds of warm-up and ten seconds of process-CPU/frame measurement.
+The fixture contains 80 wrapped lyric lines, three metadata marquees, a waveform, and static
+sibling rows. Normal lyrics use a 240-second duration; the tile-boundary stress case uses 20
+seconds to force rapid replacement. CPU percentages below use 100% for one CPU core.
+
+| State | App CPU | Parent frames | Sibling frames | App GPU engine sum | DWM GPU engine sum |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Static | 0.156% | 0 | 0 | 0.000 | 0.643 |
+| Lyrics only | 0.468% | 0 | 0 | 0.000 | 1.330 |
+| Marquee only | 0.156% | 0 | 0 | 0.000 | 1.089 |
+| Waveform only | 0.312% | 0 | 0 | 0.000 | 1.122 |
+| Combined | 0.625% | 0 | 0 | 0.000 | 2.026 |
+| Fast tile changes, before stable slots | 15.764% | 0 | 0 | 0.040 | 1.473 |
+| Fast tile changes, stable slots | 4.059% | 0 | 0 | 0.038 | 1.351 |
+| Paused | 0.156% | 0 | 0 | 0.000 | 0.691 |
+| Minimized | 0.156% | 0 | 0 | 0.000 | 0.558 |
+| Restored, combined | 0.156% | 0 | 0 | 0.000 | 1.877 |
+
+GPU figures are five one-second counter samples summed by process, not whole-GPU percentages.
+DWM is system-wide; the CPU counter returned zero in this remote session, so the table records
+the observed compositor GPU cost rather than claiming zero compositor work. These are local
+diagnostic measurements, not guarantees for other displays or hardware. The final states meet
+the existing under-10% synthetic CPU budget with zero parent/sibling animation frames.
+
+Visible glyph changes were confirmed independently of the CPU counters: 25,856 changed pixels
+for lyrics-only, 26,074 combined, 30,614 across rapid tile changes, and 26,649 after restoring.
+Paused/static lyric pixels and sibling pixels stayed unchanged. Separate regions showed 6,023
+changed marquee pixels and 168 changed waveform pixels. The initial all-black remote-desktop
+captures were rejected; measurements resumed only after the desktop was restored. The probe now
+checks its visible background marker before accepting any capture. A transient Skiko context
+initialization warning occurred before the successful visible frames.
+
+Reproduce on an unobscured Windows desktop with the repository JDK/SDK/CMake prerequisites:
+
+```powershell
+.\gradlew.bat :core:ui:plainLyricsWindowProbe "-Pnaviamp.bass.platform=windows-x64" "-Pkotlin.native.enableKlibsCrossCompilation=false"
+```
+
+The task builds the native Windows library and runs the real shared card through the production
+raster host. Captures and GPU samples are written under `core/ui/build/plain-lyrics-probe`.
+`NAVIAMP_PLAIN_LYRICS_PHASES` optionally selects comma-separated states; the normal run also checks
+wheel/keyboard input, a seek to the end, and resizing at font size 64. The probe does not access a
+provider, audio device, or production profile.
+
+The native wheel, Page Down, end-seek, and large-font resize checks passed after converting the
+probe's injected pointer coordinates from Compose pixels to AWT screen units at 1.5 scale.
+Shared/controller/raster verification covered 60 tests; affected subsets were rerun after the
+tile-slot and source-reset fixes. The source-reset check includes two accounts with the same
+track ID, and metadata duration is used when a progress sample omits it.
+
+Native-boundary changes for this feature:
+
+- `core/ui/src/jvmMain/kotlin/app/naviamp/ui/WindowsRasterPresenter.kt`: translates shared vertical scalar motion into JNI arguments for DirectComposition.
+- `native/visualizer-opengl/src/naviamp_raster_windows.cpp`: binds that scalar to `IDCompositionVisual::SetOffsetY`.
+- `core/ui/src/jvmMain/kotlin/app/naviamp/ui/LinuxRasterPresenter.kt`: translates the same four scalar channels into X11 JNI arguments.
+- `native/raster-x11/src/naviamp_raster_x11.cpp`: samples native Y motion and applies X11 pixel-window positions/deadlines.
+- `core/ui/src/jvmMain/kotlin/app/naviamp/ui/DesktopRasterPresenter.kt`: translates vertical offsets into native Skia drawing and AppKit JNI motion kinds.
+- `native/visualizer-metal/src/naviamp_raster_compositor.mm`: binds the vertical kind to Core Animation's `transform.translation.y`.
+- `core/ui/src/iosMain/kotlin/app/naviamp/ui/IosRasterPresenter.kt`: selects the UIKit `CALayer` vertical translation key path.
+
+Android continues to use the shared raster-frame geometry without a platform production edit.
+Windows native compilation and common JVM/Android compilation were exercised. Linux, macOS, and
+iOS native execution were unavailable on this workstation and are not claimed as verified.
+
 No Play Console operation, release, signing change or application data reset was performed.

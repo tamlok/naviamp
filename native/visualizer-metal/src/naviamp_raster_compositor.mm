@@ -147,8 +147,9 @@ extern "C" JNIEXPORT jboolean JNICALL Java_app_naviamp_ui_DesktopRasterNative_pr
                 pixels.contentsScale = scale;
                 pixels.contents = image.pixels;
                 [clip addSublayer:pixels]; [region->root addSublayer:clip];
-                if (image.kind == 0) animate(pixels,@"transform.translation.x",image,1.0/scale,0,begin);
-                else {
+                if (image.kind == 0 || image.kind == 2) {
+                    animate(pixels,image.kind == 2 ? @"transform.translation.y" : @"transform.translation.x",image,1.0/scale,0,begin);
+                } else {
                     const bool inverse = g[5] != 0;
                     const double initial = g[4] * viewportWidth;
                     clip.bounds = CGRectMake(inverse ? initial : 0,0,inverse ? viewportWidth-initial : initial,geometry[9]/scale);

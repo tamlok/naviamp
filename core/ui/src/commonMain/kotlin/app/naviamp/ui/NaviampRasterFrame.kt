@@ -31,18 +31,21 @@ internal class NaviampRasterFrame {
 
     fun update(layer: NaviampRasterLayer, bounds: Rect, clip: Rect, elapsedMillis: Long): Boolean =
         update(layer.image.width, layer.image.height, layer.origin, layer.translation,
-            layer.reveal, layer.revealMotion, layer.clipFromStart, bounds, clip, elapsedMillis)
+            layer.reveal, layer.revealMotion, layer.clipFromStart, bounds, clip, elapsedMillis, layer.translationAxis)
 
     internal fun update(
         imageWidth: Int, imageHeight: Int, origin: Offset, translation: NaviampLayerMotion?,
         reveal: Float, revealMotion: NaviampLayerMotion?, clipFromStart: Boolean,
         bounds: Rect, clip: Rect, elapsedMillis: Long,
+        translationAxis: NaviampRasterTranslationAxis = NaviampRasterTranslationAxis.Horizontal,
     ): Boolean {
         sourceChanged = false
         scaleChanged = false
         positionChanged = false
-        val imageLeft = bounds.left + origin.x + (translation?.valueAt(elapsedMillis) ?: 0f)
-        val imageTop = bounds.top + origin.y
+        val movement = translation?.valueAt(elapsedMillis) ?: 0f
+        val vertical = translationAxis == NaviampRasterTranslationAxis.Vertical
+        val imageLeft = bounds.left + origin.x + if (vertical) 0f else movement
+        val imageTop = bounds.top + origin.y + if (vertical) movement else 0f
         var left = max(clip.left, imageLeft)
         var right = min(clip.right, imageLeft + imageWidth)
         val top = max(clip.top, imageTop)
