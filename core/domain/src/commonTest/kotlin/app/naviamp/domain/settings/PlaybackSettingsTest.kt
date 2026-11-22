@@ -21,22 +21,23 @@ import kotlin.test.assertTrue
 class PlaybackSettingsTest {
     @Test
     fun compactLyricsFontSizeCyclesThroughSupportedSizesAndWraps() {
-        assertEquals(16, PlaybackSettings().compactLyricsFontSizeSp)
-        assertEquals(16, nextCompactLyricsFontSize(14))
-        assertEquals(20, nextCompactLyricsFontSize(16))
+        assertEquals(14, PlaybackSettings().compactLyricsFontSizeSp)
+        assertEquals(20, nextCompactLyricsFontSize(14))
         assertEquals(24, nextCompactLyricsFontSize(20))
-        assertEquals(14, nextCompactLyricsFontSize(24))
+        assertEquals(48, nextCompactLyricsFontSize(24))
+        assertEquals(64, nextCompactLyricsFontSize(48))
+        assertEquals(14, nextCompactLyricsFontSize(64))
     }
 
     @Test
     fun compactLyricsFontSizeNormalizesInvalidValuesToDefault() {
-        for (size in listOf(14, 16, 20, 24)) {
+        for (size in listOf(14, 20, 24, 48, 64)) {
             assertEquals(size, normalizedCompactLyricsFontSize(size))
             assertEquals(size, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
         }
-        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 18, 25, Int.MAX_VALUE)) {
-            assertEquals(16, normalizedCompactLyricsFontSize(size))
-            assertEquals(16, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
+        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 16, 18, 25, Int.MAX_VALUE)) {
+            assertEquals(14, normalizedCompactLyricsFontSize(size))
+            assertEquals(14, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
             assertEquals(20, nextCompactLyricsFontSize(size))
         }
     }

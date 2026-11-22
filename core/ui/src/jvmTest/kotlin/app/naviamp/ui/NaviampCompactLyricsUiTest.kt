@@ -57,7 +57,7 @@ class NaviampCompactLyricsUiTest {
             assertTrue(abs(controls.maxOf { it.right } - (card.right - 16f)) <= 1f, "physical right in $direction")
             val firstLine = onNodeWithTag("compact-lyrics-line-0")
             assertTrue(abs(firstLine.fetchSemanticsNode().boundsInRoot.top - viewport.top) <= 1f)
-            for (expected in listOf(20, 24, 14, 16)) {
+            for (expected in listOf(20, 24, 48, 64, 14)) {
                 font.performClick()
                 val layouts = mutableListOf<TextLayoutResult>()
                 firstLine.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }

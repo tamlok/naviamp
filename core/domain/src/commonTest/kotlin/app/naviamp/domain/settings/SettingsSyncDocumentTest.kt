@@ -12,7 +12,7 @@ import kotlinx.serialization.json.jsonObject
 class SettingsSyncDocumentTest {
     @Test
     fun compactLyricsFontSizesSurviveExportImportAndSyncDocumentRebuild() {
-        for (size in listOf(14, 16, 20, 24)) {
+        for (size in listOf(14, 20, 24, 48, 64)) {
             val settings = PlaybackSettings(compactLyricsFontSizeSp = size, lrclibLyricsEnabled = true)
             val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = settings), 1L, "source")
             val imported = SettingsSyncJson.decode(SettingsSyncJson.encode(document)).preferences.playback
@@ -30,15 +30,15 @@ class SettingsSyncDocumentTest {
     fun compactLyricsFontSizeDefaultsForOlderExportsAndNormalizesMalformedValues() {
         val older = SettingsSyncJson.decode("""{"preferences":{"playback":{"volumePercent":37}}}""")
             .preferences.playback
-        assertEquals(16, older.compactLyricsFontSizeSp)
+        assertEquals(14, older.compactLyricsFontSizeSp)
         assertEquals(37, older.volumePercent)
-        assertEquals(16, SettingsSyncJson.decode("""{}""").preferences.playback.compactLyricsFontSizeSp)
+        assertEquals(14, SettingsSyncJson.decode("""{}""").preferences.playback.compactLyricsFontSizeSp)
 
-        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 18, 25, Int.MAX_VALUE)) {
+        for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 16, 18, 25, Int.MAX_VALUE)) {
             val imported = SettingsSyncJson.decode(
                 """{"preferences":{"playback":{"compactLyricsFontSizeSp":$size,"volumePercent":37}}}""",
             ).preferences.playback
-            assertEquals(16, imported.compactLyricsFontSizeSp)
+            assertEquals(14, imported.compactLyricsFontSizeSp)
             assertEquals(37, imported.volumePercent)
 
             val document = buildSettingsSyncDocument(
@@ -46,7 +46,7 @@ class SettingsSyncDocumentTest {
                 1L,
                 "test",
             )
-            assertEquals(16, document.preferences.playback.compactLyricsFontSizeSp)
+            assertEquals(14, document.preferences.playback.compactLyricsFontSizeSp)
         }
     }
 
