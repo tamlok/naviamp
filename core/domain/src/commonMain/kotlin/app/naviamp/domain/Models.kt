@@ -232,6 +232,7 @@ enum class LyricsSource {
     Embedded,
     Lrclib,
     Lrcmux,
+    LrcApi,
 }
 
 data class Playlist(

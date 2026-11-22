@@ -7,4 +7,5 @@ fun naviampOnlineLyricsProviders(
 ): List<LyricsProvider> = listOf(
     LrclibLyricsProvider(httpClient),
     LrcmuxLyricsProvider(httpClient),
+    LrcApiLyricsProvider(httpClient),
 )

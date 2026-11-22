@@ -6,7 +6,6 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.network.NaviampProjectUserAgent
 import app.naviamp.domain.network.SharedHttpClient
 import app.naviamp.domain.network.urlEncodedParameter
-import kotlin.math.abs
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -28,7 +27,7 @@ class LrclibLyricsProvider(
                 LrclibJson.decodeFromString<LrclibLyricsResponse>(exact.bodyText())
             }.getOrNull()
             val completeSignature = query.albumName.isNotBlank() && query.durationSeconds in 1..3600
-            if (response != null && (completeSignature || response.matches(
+            if (response != null && (completeSignature || response.matchesLyricsIdentity(
                     track.title.normalizedLyricsIdentity(),
                     track.artistName.normalizedLyricsIdentity(),
                     track.durationSeconds?.takeIf { it > 0 },
@@ -50,7 +49,7 @@ class LrclibLyricsProvider(
         val candidates = runCatching {
             LrclibJson.decodeFromString<List<LrclibLyricsResponse>>(search.bodyText())
         }.getOrNull() ?: return null
-        return selectSearchResult(candidates, track)
+        return selectLyricsSearchResult(candidates, track)
     }
 
     private fun requestUrl(endpoint: String, parameters: List<Pair<String, String>>): String =
@@ -58,88 +57,6 @@ class LrclibLyricsProvider(
             "$key=${value.urlEncodedParameter()}"
         }
 }
-
-private fun selectSearchResult(candidates: List<LrclibLyricsResponse>, track: Track): Lyrics? {
-    val title = track.title.normalizedLyricsIdentity()
-    val artist = track.artistName.normalizedLyricsIdentity()
-    val album = track.albumTitle.orEmpty().normalizedLyricsIdentity()
-    val duration = track.durationSeconds?.takeIf { it > 0 }
-    var best: LrclibLyricsResponse? = null
-    var bestDifference = Double.POSITIVE_INFINITY
-    var bestAlbum = false
-    var bestSynced = false
-    var bestText: String? = null
-    var bestParsed: Lyrics? = null
-    var ambiguous = false
-    for (candidate in candidates) {
-        if (candidate.instrumental || !candidate.matches(title, artist, duration)) continue
-        val text = candidate.lyricsText()?.trim() ?: continue
-        val difference = if (duration != null) abs(candidate.duration!! - duration) else 0.0
-        val albumMatch = album.isNotEmpty() && candidate.albumName?.normalizedLyricsIdentity() == album
-        val synced = !candidate.syncedLyrics.isNullOrBlank()
-        val better = best == null || difference < bestDifference ||
-            (difference == bestDifference && (albumMatch && !bestAlbum ||
-                albumMatch == bestAlbum && synced && !bestSynced))
-        val sameRank = difference == bestDifference && albumMatch == bestAlbum && synced == bestSynced
-        var candidateParsed: Lyrics? = null
-        if (best != null && text != bestText && (duration == null || sameRank)) {
-            val previous = bestParsed ?: best.toLyrics().also { bestParsed = it }
-            candidateParsed = candidate.toLyrics()
-            // LRC spacing and timestamp precision may differ without changing text or timing.
-            val equivalent = previous != null && candidateParsed != null &&
-                previous.synced == candidateParsed.synced && previous.lines == candidateParsed.lines
-            if (!equivalent) {
-                if (duration == null) return null
-                ambiguous = true
-            }
-        }
-        if (better) {
-            best = candidate
-            bestDifference = difference
-            bestAlbum = albumMatch
-            bestSynced = synced
-            bestText = text
-            bestParsed = candidateParsed
-            ambiguous = false
-        }
-    }
-    return if (ambiguous) null else bestParsed ?: best?.toLyrics()
-}
-
-private fun LrclibLyricsResponse.matches(title: String, artist: String, requestedDuration: Int?): Boolean {
-    if (title.isEmpty() || artist.isEmpty() ||
-        trackName?.normalizedLyricsIdentity() != title || artistName?.normalizedLyricsIdentity() != artist
-    ) return false
-    if (requestedDuration == null) return true
-    val seconds = duration?.takeIf { it.isFinite() && it > 0 } ?: return false
-    return abs(seconds - requestedDuration) <= 5.0
-}
-
-private fun String.normalizedLyricsIdentity(): String = buildString(length) {
-    var separator = false
-    for (character in this@normalizedLyricsIdentity) {
-        if (character.isLetterOrDigit()) {
-            if (separator && isNotEmpty()) append(' ')
-            append(character.lowercaseChar())
-            separator = false
-        } else {
-            separator = true
-        }
-    }
-}
-
-private fun LrclibLyricsResponse.lyricsText(): String? =
-    syncedLyrics?.takeIf { it.isNotBlank() } ?: plainLyrics?.takeIf { it.isNotBlank() }
-
-private fun LrclibLyricsResponse.toLyrics(): Lyrics? =
-    lyricsText()?.let { text ->
-        lyricsFromText(
-            source = LyricsSource.Lrclib,
-            text = text,
-            displayArtist = artistName,
-            displayTitle = trackName,
-        )
-    }
 
 data class LrclibLyricsQuery(
     val trackName: String,
@@ -180,8 +97,25 @@ private data class LrclibLyricsResponse(
     val trackName: String? = null,
     val artistName: String? = null,
     val albumName: String? = null,
-    val duration: Double? = null,
-    val instrumental: Boolean = false,
+    override val duration: Double? = null,
+    override val instrumental: Boolean = false,
     val plainLyrics: String? = null,
     val syncedLyrics: String? = null,
-)
+) : LyricsSearchCandidate {
+    override val title: String? get() = trackName
+    override val artist: String? get() = artistName
+    override val album: String? get() = albumName
+    override val hasSyncedLyrics: Boolean get() = !syncedLyrics.isNullOrBlank()
+
+    override fun lyricsText(): String? =
+        syncedLyrics?.takeIf { it.isNotBlank() } ?: plainLyrics?.takeIf { it.isNotBlank() }
+
+    override fun toLyrics(): Lyrics? = lyricsText()?.let { text ->
+        lyricsFromText(
+            source = LyricsSource.Lrclib,
+            text = text,
+            displayArtist = artistName,
+            displayTitle = trackName,
+        )
+    }
+}

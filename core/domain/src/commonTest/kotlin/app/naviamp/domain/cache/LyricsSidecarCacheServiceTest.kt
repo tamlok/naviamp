@@ -22,6 +22,9 @@ import app.naviamp.domain.playback.PlaybackAudioAssetRepository
 import app.naviamp.domain.playback.PlaybackLocalAudio
 import app.naviamp.domain.lyrics.LyricsProvider
 import app.naviamp.domain.lyrics.LyricsTiming
+import app.naviamp.domain.lyrics.naviampOnlineLyricsProviders
+import app.naviamp.domain.network.SharedHttpClient
+import app.naviamp.domain.network.SharedHttpResponse
 import app.naviamp.domain.provider.ConnectionValidation
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
@@ -157,6 +160,70 @@ class LyricsSidecarCacheServiceTest {
         assertEquals(4, provider.lyricsRequests)
     }
 
+    @Test
+    fun sharedCatalogLoadsLrcApiAfterMissesAndPreservesItAcrossResolvers() = runTest {
+        val http = CatalogLyricsHttpClient()
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L })
+        val repository = CachedLyricsSidecarRepository(cache, naviampOnlineLyricsProviders(http))
+        val assets = object : PlaybackAudioAssetRepository {
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId): PlaybackLocalAudio? = null
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+            override suspend fun cachedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+        }
+        val track = Track(
+            id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+            durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+        )
+        suspend fun load(online: Boolean) = LyricsSidecarService(
+            repository, assets, AudioMetadataSidecarService(assets) { emptyList() },
+        ).loadLyrics(
+            "source", RecordingLyricsProvider(null), track, StreamQuality.Original,
+            audioCachingEnabled = false, onlineLyricsEnabled = online,
+        ).lyrics
+
+        assertEquals(null, load(online = false))
+        assertTrue(http.urls.isEmpty())
+        val first = load(online = true)
+        assertEquals(LyricsSource.LrcApi, first?.source)
+        assertEquals(listOf(LyricLine(1_000, "LrcAPI line")), first?.lines)
+        val requests = http.urls.toList()
+        assertEquals(4, requests.size)
+        assertTrue(requests.last().startsWith("https://api.lrc.cx/jsonapi?"))
+        assertEquals(first, load(online = true))
+        assertEquals(requests, http.urls)
+        assertEquals(first, repository.cachedOnlineLyrics("source", track.id, "lrcapi"))
+        assertEquals(null, repository.cachedOnlineLyrics("other-source", track.id, "lrcapi"))
+        assertEquals(null, load(online = false))
+        assertEquals(requests, http.urls)
+    }
+
+    @Test
+    fun earlierCatalogHitAvoidsContactingLrcApi() = runTest {
+        val http = CatalogLyricsHttpClient(
+            lrclibBody = """{"trackName":"Track","artistName":"Artist","syncedLyrics":"[00:01]LRCLIB line"}""",
+        )
+        val repository = CachedLyricsSidecarRepository(
+            LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }),
+            naviampOnlineLyricsProviders(http),
+        )
+        val assets = object : PlaybackAudioAssetRepository {
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId): PlaybackLocalAudio? = null
+            override suspend fun downloadedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+            override suspend fun cachedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+        }
+        val track = Track(
+            id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+            durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+        )
+        val result = LyricsSidecarService(repository, assets, AudioMetadataSidecarService(assets) { emptyList() })
+            .loadLyrics("source", RecordingLyricsProvider(null), track, StreamQuality.Original, false, true)
+        assertEquals(LyricsSource.Lrclib, result.lyrics?.source)
+        assertEquals(listOf(LyricLine(1_000, "LRCLIB line")), result.lyrics?.lines)
+        assertEquals(1, http.urls.size)
+        assertTrue(http.urls.single().startsWith("https://lrclib.net/api/get?"))
+    }
+
     private fun karaokeLyrics(): Lyrics = Lyrics(
         source = LyricsSource.Provider,
         synced = true,
@@ -274,4 +341,23 @@ private class RecordingLyricsProvider(
     }
     override suspend fun streamUrl(request: StreamRequest) = "https://example.test/stream"
     override fun coverArtUrl(coverArtId: String) = "https://example.test/cover/$coverArtId"
+}
+
+private class CatalogLyricsHttpClient(private val lrclibBody: String? = null) : SharedHttpClient {
+    val urls = mutableListOf<String>()
+    override suspend fun getResponse(url: String, headers: Map<String, String>): SharedHttpResponse {
+        urls += url
+        val body = when {
+            url.startsWith("https://api.lrc.cx/jsonapi?") ->
+                """[{"title":"Track","artist":"Artist","lrc":"[00:01]LrcAPI line"}]"""
+            url.startsWith("https://lrclib.net/api/get?") -> lrclibBody
+            else -> null
+        }
+        return SharedHttpResponse(url, url, if (body == null) 404 else 200, "application/json", body.orEmpty().encodeToByteArray())
+    }
+    override suspend fun get(url: String, headers: Map<String, String>): String? =
+        getResponse(url, headers).takeIf { it.statusCode in 200..299 }?.bodyText()
+    override suspend fun getBytes(url: String, headers: Map<String, String>): ByteArray? = error("Unexpected bytes request")
+    override suspend fun download(url: String, headers: Map<String, String>, writeChunk: suspend (ByteArray, Int) -> Unit): Boolean =
+        error("Unexpected download")
 }

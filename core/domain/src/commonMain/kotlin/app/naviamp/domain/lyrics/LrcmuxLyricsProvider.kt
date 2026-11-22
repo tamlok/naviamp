@@ -148,21 +148,14 @@ private fun List<LrcmuxWord>.toCueLine(
 }
 
 private fun LrcmuxTrack.matches(requestedTrack: Track): Boolean {
-    val matchedTitle = title.normalizedLyricsIdentity()
-    val matchedArtist = artist.normalizedLyricsIdentity()
+    val matchedTitle = title.lowercase().normalizedLyricsIdentity()
+    val matchedArtist = artist.lowercase().normalizedLyricsIdentity()
     if (matchedTitle.isEmpty() || matchedArtist.isEmpty()) return false
-    if (matchedTitle != requestedTrack.title.normalizedLyricsIdentity()) return false
-    if (matchedArtist != requestedTrack.artistName.normalizedLyricsIdentity()) return false
+    if (matchedTitle != requestedTrack.title.lowercase().normalizedLyricsIdentity()) return false
+    if (matchedArtist != requestedTrack.artistName.lowercase().normalizedLyricsIdentity()) return false
     return requestedTrack.durationSeconds == null || duration <= 0 ||
         abs(duration - requestedTrack.durationSeconds) <= LrcmuxDurationDeviationSeconds
 }
-
-private fun String.normalizedLyricsIdentity(): String =
-    lowercase().map { character -> if (character.isLetterOrDigit()) character else ' ' }
-        .joinToString("")
-        .split(' ')
-        .filter { it.isNotBlank() }
-        .joinToString(" ")
 
 @Serializable
 private data class LrcmuxLyricsResponse(
