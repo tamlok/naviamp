@@ -947,6 +947,8 @@ private fun rememberProgressStableNowPlaying(nowPlaying: NowPlayingUi): NowPlayi
     return remember(key) { key }
 }
 
+private fun nowPlayingTransportButtonSize(large: Boolean): Dp = if (large) 56.dp else 48.dp
+private fun nowPlayingTransportIconSize(large: Boolean): Dp = if (large) 32.dp else 28.dp
 private fun nowPlayingProminentButtonSize(large: Boolean): Dp = if (large) 64.dp else 56.dp
 private fun nowPlayingProminentIconSize(large: Boolean): Dp = if (large) 36.dp else 32.dp
 
@@ -965,7 +967,7 @@ private fun NowPlayingFavoriteButton(
         NaviampTooltip(label, overlayColors) {
             IconButton(
                 onClick = onClick,
-                modifier = Modifier.size(nowPlayingProminentButtonSize(largeSizing))
+                modifier = Modifier.size(nowPlayingTransportButtonSize(largeSizing))
                     .background(overlayColors.controlSurface, CircleShape)
                     .testTag("now-playing-artwork-favorite")
                     .semantics { selected = nowPlaying.favoriteActive },
@@ -974,7 +976,7 @@ private fun NowPlayingFavoriteButton(
                     imageVector = if (nowPlaying.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                     contentDescription = label,
                     tint = if (nowPlaying.favoriteActive) colors.favorite else overlayColors.primaryText,
-                    modifier = Modifier.size(nowPlayingProminentIconSize(largeSizing)),
+                    modifier = Modifier.size(nowPlayingTransportIconSize(largeSizing)),
                 )
             }
         }
@@ -1149,8 +1151,8 @@ private fun NowPlayingDetails(
         (if (filledArtworkLayout) LocalDensity.current.fontScale.coerceAtLeast(1f) else 1f)
     val secondaryTransportButtonSize = if (useLargeSizing) 48.dp else 40.dp
     val secondaryTransportIconSize = if (useLargeSizing) 28.dp else 24.dp
-    val transportButtonSize = if (useLargeSizing) 56.dp else 48.dp
-    val transportIconSize = if (useLargeSizing) 32.dp else 28.dp
+    val transportButtonSize = nowPlayingTransportButtonSize(useLargeSizing)
+    val transportIconSize = nowPlayingTransportIconSize(useLargeSizing)
     val prominentTransportButtonSize = nowPlayingProminentButtonSize(useLargeSizing)
     val prominentTransportIconSize = nowPlayingProminentIconSize(useLargeSizing)
 

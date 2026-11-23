@@ -86,9 +86,9 @@ class NaviampNowPlayingLayoutTest {
             assertTrue(transport.maxOf { it.bottom } <= bottom.top, "$label transport stays above bottom actions")
             onNodeWithContentDescription("Play").assertWidthIsAtLeast(56.dp).assertHeightIsAtLeast(56.dp)
             val favoriteBounds = onNodeWithContentDescription("Favorite").getUnclippedBoundsInRoot()
-            val playBounds = onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
-            assertEquals(playBounds.right - playBounds.left, favoriteBounds.right - favoriteBounds.left, "$label favorite matches Play width")
-            assertEquals(playBounds.bottom - playBounds.top, favoriteBounds.bottom - favoriteBounds.top, "$label favorite matches Play height")
+            val nextBounds = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
+            assertEquals(nextBounds.right - nextBounds.left, favoriteBounds.right - favoriteBounds.left, "$label favorite matches Next width")
+            assertEquals(nextBounds.bottom - nextBounds.top, favoriteBounds.bottom - favoriteBounds.top, "$label favorite matches Next height")
             onNodeWithContentDescription("5 star rating").assertWidthIsAtLeast(28.dp).assertHeightIsAtLeast(24.dp)
             System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
                 val target = java.io.File(directory, "controls-$width-$height-$filled.png")
@@ -112,7 +112,7 @@ class NaviampNowPlayingLayoutTest {
         }
     }
 
-    @Test fun artworkCardFavoriteMatchesPlayAndDoesNotTriggerArtworkGestures() {
+    @Test fun artworkCardFavoriteMatchesNextAndDoesNotTriggerArtworkGestures() {
         for ((width, height, filled) in listOf(
             Triple(1280, 720, false), Triple(420, 900, false), Triple(320, 900, false),
             Triple(360, 640, false), Triple(320, 720, true), Triple(420, 900, true),
@@ -141,15 +141,15 @@ class NaviampNowPlayingLayoutTest {
             }
             val label = "${width}x$height filled=$filled"
             val favorite = onNodeWithTag("now-playing-artwork-favorite")
-            val playBounds = onNodeWithContentDescription("Play").getUnclippedBoundsInRoot()
-            val playIconBounds = onNodeWithContentDescription("Play", useUnmergedTree = true).getUnclippedBoundsInRoot()
+            val nextBounds = onNodeWithContentDescription("Next").getUnclippedBoundsInRoot()
+            val nextIconBounds = onNodeWithContentDescription("Next", useUnmergedTree = true).getUnclippedBoundsInRoot()
             favorite.performScrollTo().assertIsDisplayed().assertIsNotSelected()
             onAllNodesWithContentDescription("Favorite").assertCountEquals(1)
-            favorite.assertWidthIsEqualTo(playBounds.right - playBounds.left)
-                .assertHeightIsEqualTo(playBounds.bottom - playBounds.top)
+            favorite.assertWidthIsEqualTo(nextBounds.right - nextBounds.left)
+                .assertHeightIsEqualTo(nextBounds.bottom - nextBounds.top)
             onNodeWithContentDescription("Favorite", useUnmergedTree = true)
-                .assertWidthIsEqualTo(playIconBounds.right - playIconBounds.left)
-                .assertHeightIsEqualTo(playIconBounds.bottom - playIconBounds.top)
+                .assertWidthIsEqualTo(nextIconBounds.right - nextIconBounds.left)
+                .assertHeightIsEqualTo(nextIconBounds.bottom - nextIconBounds.top)
             val bounds = favorite.getUnclippedBoundsInRoot()
             if (filled) {
                 val art = onNodeWithTag("now-playing-filled-artwork").getUnclippedBoundsInRoot()

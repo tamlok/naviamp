@@ -16,7 +16,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Show the mini-player progress bar and elapsed/total playback time, such as `01:01/05:38`, only when they fit inline. Hide both instead of wrapping them onto a second row.
 - Keep volume sliders hidden until the speaker icon is clicked, then show a vertical slider in a popup in both full and mini players. Clicking the speaker no longer mutes or unmutes playback.
 - Move the full-player volume speaker to the bottom immediately before Cast, and enlarge transport, favorite/rating, and bottom-action controls while keeping narrow layouts usable.
-- Place the full-player favorite heart at the artwork card’s bottom-left corner, independent of the centered image, matching the Play button and icon sizes. Keep rating stars with track details; filled artwork places the heart above the controls without covering them.
+- Place the full-player favorite heart at the artwork card’s bottom-left corner, independent of the centered image, matching the Next button and icon sizes. Keep rating stars with track details; filled artwork places the heart above the controls without covering them.
 - Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
 - Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
 - Default the Playlists page to Recently played, while keeping A–Z sorting available.
