@@ -4,6 +4,7 @@ import app.naviamp.domain.Lyrics
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
 import app.naviamp.domain.lyrics.LyricsProvider
+import app.naviamp.domain.lyrics.LyricsSearchCandidate
 import app.naviamp.domain.lyrics.LyricsTiming
 import app.naviamp.domain.provider.MediaProvider
 
@@ -41,10 +42,18 @@ class CachedLyricsSidecarRepository(
         providerId: String,
     ): Lyrics? = cache.cachedOnlineLyrics(sourceId, trackId, providerId)
 
+    override suspend fun cacheOnlineLyrics(
+        sourceId: String,
+        trackId: TrackId,
+        providerId: String,
+        lyrics: Lyrics,
+    ): Lyrics = cache.cacheOnlineLyrics(sourceId, trackId, providerId, lyrics)
+
     override suspend fun onlineLyrics(
         sourceId: String,
         track: Track,
         provider: LyricsProvider,
         acceptedTimings: Set<LyricsTiming>,
-    ): Lyrics? = cache.onlineLyrics(sourceId, track, provider, acceptedTimings)
+        onCandidate: (LyricsSearchCandidate) -> Unit,
+    ): Lyrics? = cache.onlineLyrics(sourceId, track, provider, acceptedTimings, onCandidate)
 }

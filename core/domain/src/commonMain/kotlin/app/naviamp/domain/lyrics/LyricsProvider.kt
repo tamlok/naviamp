@@ -7,7 +7,8 @@ interface LyricsProvider {
     val id: String
     val capabilities: Set<LyricsTiming>
 
-    suspend fun lyrics(track: Track): Lyrics?
+    /** Reports plausible alternatives when no validated match can be returned. */
+    suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit = {}): Lyrics?
 }
 
 enum class LyricsTiming {

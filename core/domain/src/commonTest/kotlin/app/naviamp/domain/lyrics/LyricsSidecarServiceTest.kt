@@ -11,6 +11,7 @@ import app.naviamp.domain.LyricCue
 import app.naviamp.domain.LyricCueLine
 import app.naviamp.domain.Lyrics
 import app.naviamp.domain.LyricsSource
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.ProviderId
 import app.naviamp.domain.StreamQuality
 import app.naviamp.domain.StreamRequest
@@ -573,7 +574,7 @@ class LyricsSidecarServiceTest {
         val stalled = object : LyricsProvider {
             override val id = "stalled"
             override val capabilities = setOf(LyricsTiming.Plain, LyricsTiming.LineSynced)
-            override suspend fun lyrics(track: Track): Lyrics? {
+            override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
                 requests += id
                 awaitCancellation()
             }
@@ -628,6 +629,142 @@ class LyricsSidecarServiceTest {
         assertSame(retry, load().lyrics)
     }
 
+    @Test
+    fun laterExactMatchWinsOverEarlierDeferredCandidates() = runTest {
+        val events = mutableListOf<String>()
+        val early = DeferredOnlineProvider("early", events, listOf(deferredCandidate("Early")))
+        val exact = lyrics(LyricsSource.LrcApi, synced = true, text = "Exact")
+        val later = DeferredOnlineProvider("later", events, exact = exact)
+        val repository = RecordingLyricsRepository(providers = listOf(early, later))
+        repository.onOnlineStore = { events += "store:$it" }
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        assertSame(exact, result.lyrics)
+        assertEquals(listOf("early", "later"), events)
+    }
+
+    @Test
+    fun bestDeferredCandidateIsStoredOnlyAfterEverySourceHasBeenTried() = runTest {
+        val events = mutableListOf<String>()
+        val earlier = DeferredOnlineProvider("earlier", events,
+            listOf(deferredCandidate("Further", duration = track().durationSeconds!!.toDouble() + 1)))
+        val later = DeferredOnlineProvider("later", events, listOf(deferredCandidate("Closest", source = LyricsSource.LrcApi)))
+        val repository = RecordingLyricsRepository(providers = listOf(earlier, later))
+        repository.onOnlineStore = { events += "store:$it" }
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        assertEquals("Closest", result.lyrics?.lines?.single()?.text)
+        assertEquals(LyricsMatchQuality.BestEffort, result.lyrics?.matchQuality)
+        assertEquals(listOf("earlier", "later", "store:later"), events)
+        assertEquals(result.lyrics, repository.cachedOnlineLyrics("source", track().id, "later"))
+    }
+
+    @Test
+    fun cachedBestEffortDoesNotHidePlainExactFromTheSameProvider() = runTest {
+        val events = mutableListOf<String>()
+        val weak = lyrics(LyricsSource.Lrclib, synced = true, text = "Cached fallback")
+            .copy(matchQuality = LyricsMatchQuality.BestEffort)
+        val exact = lyrics(LyricsSource.Lrclib, synced = false, text = "Plain exact")
+        val provider = DeferredOnlineProvider("provider", events, exact = exact)
+        val repository = RecordingLyricsRepository(providers = listOf(provider), cachedOnlineLyrics = mapOf("provider" to weak))
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true,
+            timingPreference = LyricsTimingPreference.WordSynced)
+        assertSame(exact, result.lyrics)
+        assertEquals(listOf("provider"), events)
+    }
+
+    @Test
+    fun bestEffortIsRecheckedButReturnedExactCacheRaceWinnerIsMemoized() = runTest {
+        val events = mutableListOf<String>()
+        val provider = DeferredOnlineProvider("provider", events, listOf(deferredCandidate("Fallback")))
+        val repository = RecordingLyricsRepository(providers = listOf(provider))
+        val resolver = service(repository)
+        suspend fun load() = resolver.loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true).lyrics
+        assertEquals(LyricsMatchQuality.BestEffort, load()?.matchQuality)
+        val exact = lyrics(LyricsSource.Lrclib, synced = true, text = "Concurrent exact")
+        repository.selectedCacheResult = exact
+        assertSame(exact, load())
+        assertEquals(2, events.size)
+        assertSame(exact, load())
+        assertEquals(2, events.size)
+    }
+
+    @Test
+    fun cachedFallbackIsOnlyUsedWhenNoFreshPlausibleCandidateExists() = runTest {
+        val events = mutableListOf<String>()
+        val weak = lyrics(LyricsSource.Lrclib, synced = true, text = "Saved fallback")
+            .copy(matchQuality = LyricsMatchQuality.BestEffort)
+        val provider = DeferredOnlineProvider("provider", events)
+        val repository = RecordingLyricsRepository(providers = listOf(provider), cachedOnlineLyrics = mapOf("provider" to weak))
+        repository.providerError = IllegalStateException("Server unavailable")
+        val resolver = service(repository)
+        suspend fun load() = resolver.loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true).lyrics
+        assertSame(weak, load())
+        val exact = lyrics(LyricsSource.Lrclib, synced = true, text = "Now exact")
+        provider.exact = exact
+        assertSame(exact, load())
+        assertEquals(listOf("provider", "provider"), events)
+    }
+
+    @Test
+    fun failuresAndTimeoutsAfterCandidateReportingStillAllowFinalFallback() = runTest {
+        for (timeout in listOf(false, true)) {
+            val events = mutableListOf<String>()
+            val early = DeferredOnlineProvider("early", events, listOf(deferredCandidate("Retained")))
+            val failing = DeferredOnlineProvider("failing", events, afterReport = {
+                if (timeout) awaitCancellation() else throw IllegalStateException("Offline")
+            })
+            val repository = RecordingLyricsRepository(providers = listOf(early, failing))
+            repository.onOnlineStore = { events += "store:$it" }
+            val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+            assertEquals("Retained", result.lyrics?.lines?.single()?.text)
+            assertEquals(LyricsMatchQuality.BestEffort, result.lyrics?.matchQuality)
+            assertEquals(listOf("early", "failing", "store:early"), events)
+        }
+    }
+
+    @Test
+    fun cancellationNeverSelectsOrPersistsDeferredCandidates() = runTest {
+        val events = mutableListOf<String>()
+        val early = DeferredOnlineProvider("early", events, listOf(deferredCandidate("Do not persist")))
+        val stalled = DeferredOnlineProvider("stalled", events, afterReport = { awaitCancellation() })
+        val repository = RecordingLyricsRepository(providers = listOf(early, stalled))
+        repository.onOnlineStore = { events += "store:$it" }
+        val loading = async {
+            service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        }
+        runCurrent()
+        loading.cancel()
+        loading.join()
+        assertTrue(loading.isCancelled)
+        assertEquals(listOf("early", "stalled"), events)
+        assertEquals(null, repository.cachedOnlineLyrics("source", track().id, "early"))
+    }
+
+    @Test
+    fun reportedTrackTimingAlternativesRemainAvailableAfterAllOtherSourcesMiss() = runTest {
+        val item = track().copy(id = TrackId("72lM3iPihfYqfaGvmy6gVu"), title = "過火", artistName = "張信哲",
+            albumTitle = "EMI精挑最細選唯我獨尊情歌最經典", durationSeconds = 301)
+        val expected = Lyrics(LyricsSource.Lrclib, true, List(47) { LyricLine(26_950L + it * 5_000, "Line $it") })
+        val variants = listOf(
+            TestDeferredCandidate(item, expected, album = "從開始到現在 CD2"),
+            TestDeferredCandidate(item, expected, album = "從開始到現在 (2002情歌大全集)"),
+            TestDeferredCandidate(item, expected.copy(lines = expected.lines.map { it.copy(startMillis = it.startMillis!! + 400) }), album = "從開始到現在"),
+        )
+        val events = mutableListOf<String>()
+        val repository = RecordingLyricsRepository(providers = listOf(
+            DeferredOnlineProvider("lrclib", events, variants),
+            DeferredOnlineProvider("lrcmux", events),
+            DeferredOnlineProvider("lrcapi", events),
+        ))
+        repository.onOnlineStore = { events += "store:$it" }
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), item, StreamQuality.Original, false, true)
+        assertEquals(expected.lines, result.lyrics?.lines)
+        assertEquals(LyricsMatchQuality.BestEffort, result.lyrics?.matchQuality)
+        assertEquals(listOf("lrclib", "lrcmux", "lrcapi", "store:lrclib"), events)
+    }
+
+    private fun deferredCandidate(text: String, duration: Double? = track().durationSeconds?.toDouble(), source: LyricsSource = LyricsSource.Lrclib) =
+        TestDeferredCandidate(track(), lyrics(source, synced = true, text = text), duration = duration)
+
     private fun service(
         repository: RecordingLyricsRepository,
         audioAssets: PlaybackAudioAssetRepository = RecordingAudioAssets(),
@@ -660,6 +797,8 @@ private class RecordingLyricsRepository(
     val cleared = mutableListOf<String>()
     var providerError: Throwable? = null
     var beforeProviderLookup: suspend () -> Unit = {}
+    var onOnlineStore: (String) -> Unit = {}
+    var selectedCacheResult: Lyrics? = null
     private val sharedCache = mutableMapOf<Pair<String, TrackId>, Lyrics>().apply {
         cachedLyrics?.let { put("source" to TrackId("track"), it) }
     }
@@ -703,14 +842,53 @@ private class RecordingLyricsRepository(
         providerId: String,
     ): Lyrics? = onlineCache[Triple(sourceId, trackId, providerId)]
 
+    override suspend fun cacheOnlineLyrics(sourceId: String, trackId: TrackId, providerId: String, lyrics: Lyrics): Lyrics {
+        onOnlineStore(providerId)
+        val stored = selectedCacheResult ?: lyrics
+        onlineCache[Triple(sourceId, trackId, providerId)] = stored
+        return stored
+    }
+
     override suspend fun onlineLyrics(
         sourceId: String,
         track: Track,
         provider: LyricsProvider,
         acceptedTimings: Set<LyricsTiming>,
+        onCandidate: (LyricsSearchCandidate) -> Unit,
     ): Lyrics? {
         onlineRequests += "$sourceId:${track.id.value}"
-        return provider.lyrics(track)?.also { onlineCache[Triple(sourceId, track.id, provider.id)] = it }
+        return provider.lyrics(track, onCandidate)?.also { onlineCache[Triple(sourceId, track.id, provider.id)] = it }
+    }
+}
+
+private class TestDeferredCandidate(
+    track: Track,
+    private val result: Lyrics,
+    override val album: String? = track.albumTitle,
+    override val duration: Double? = track.durationSeconds?.toDouble(),
+) : LyricsSearchCandidate {
+    override val title = track.title
+    override val artist = track.artistName
+    override val instrumental = false
+    override val hasSyncedLyrics = result.synced
+    override fun lyricsText(): String = result.lines.joinToString("\n") { it.text }
+    override fun toLyrics(): Lyrics = result
+}
+
+private class DeferredOnlineProvider(
+    override val id: String,
+    private val events: MutableList<String>,
+    private val candidates: List<LyricsSearchCandidate> = emptyList(),
+    var exact: Lyrics? = null,
+    private val afterReport: suspend () -> Unit = {},
+) : LyricsProvider {
+    override val capabilities = setOf(LyricsTiming.Plain, LyricsTiming.LineSynced)
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
+        events += id
+        exact?.let { return it }
+        candidates.forEach(onCandidate)
+        afterReport()
+        return null
     }
 }
 
@@ -720,7 +898,7 @@ private class RecordingOnlineProvider(
     private val result: Lyrics?,
     private val requests: MutableList<String>,
 ) : LyricsProvider {
-    override suspend fun lyrics(track: Track): Lyrics? {
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
         requests += id
         return result
     }
@@ -733,7 +911,7 @@ private class StubOnlineLyricsProvider(
     override val id: String = "online"
     override val capabilities: Set<LyricsTiming> = LyricsTiming.entries.toSet()
 
-    override suspend fun lyrics(track: Track): Lyrics? {
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
         error?.let { throw it }
         return result
     }

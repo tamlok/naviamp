@@ -2270,7 +2270,8 @@ private class RefreshLyricsRepository(
         lyrics.also { cached[sourceId to trackId] = it }
     override suspend fun cachedLyrics(sourceId: String, trackId: TrackId): Lyrics? = cached[sourceId to trackId]
     override suspend fun cachedOnlineLyrics(sourceId: String, trackId: TrackId, providerId: String): Lyrics? = null
-    override suspend fun onlineLyrics(sourceId: String, track: app.naviamp.domain.Track, provider: app.naviamp.domain.lyrics.LyricsProvider, acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>): Lyrics? = error("No online providers")
+    override suspend fun cacheOnlineLyrics(sourceId: String, trackId: TrackId, providerId: String, lyrics: Lyrics): Lyrics = error("No online providers")
+    override suspend fun onlineLyrics(sourceId: String, track: app.naviamp.domain.Track, provider: app.naviamp.domain.lyrics.LyricsProvider, acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming>, onCandidate: (app.naviamp.domain.lyrics.LyricsSearchCandidate) -> Unit): Lyrics? = error("No online providers")
 }
 
 private class RecordingPlaybackEngine :

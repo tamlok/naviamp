@@ -1,6 +1,7 @@
 package app.naviamp.domain.lyrics
 
 import app.naviamp.domain.LyricLine
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.LyricsSource
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
@@ -11,6 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
@@ -22,7 +24,7 @@ class LrcApiLyricsProviderTest {
     @Test
     fun documentedLyricsWithoutDurationRemainUsable() = runTest {
         val http = RecordingHttp("""[{"id":"one","title":"Song","artist":"Artist","lyrics":"[00:01.25]First"}]""")
-        val lyrics = LrcApiLyricsProvider(http).lyrics(track())
+        val lyrics = LrcApiLyricsProvider(http).lyrics(track()) { error("Validated lyrics must not emit candidates") }
         assertEquals(LyricsSource.LrcApi, lyrics?.source)
         assertEquals(true, lyrics?.synced)
         assertEquals(listOf(LyricLine(1_250, "First")), lyrics?.lines)
@@ -78,7 +80,9 @@ class LrcApiLyricsProviderTest {
             record(duration = 185.001), record(duration = 174.999), record(duration = -1.0), record(duration = 0.0),
             record(instrumental = true),
         )) {
-            assertNull(LrcApiLyricsProvider(RecordingHttp(array(bad))).lyrics(track()), bad)
+            val emitted = mutableListOf<LyricsSearchCandidate>()
+            assertNull(LrcApiLyricsProvider(RecordingHttp(array(bad))).lyrics(track(), emitted::add), bad)
+            assertTrue(emitted.isEmpty(), bad)
         }
         val valid = record(title = " SONG! ", artist = "artist", duration = 185.0)
         assertEquals("First", LrcApiLyricsProvider(RecordingHttp(array(valid))).lyrics(track())?.lines?.single()?.text)
@@ -94,7 +98,11 @@ class LrcApiLyricsProviderTest {
             record(album = " ALBUM! ", text = "[00:01]Selected"),
         )
         for (ordered in listOf(records, records.reversed())) {
-            assertEquals("Selected", LrcApiLyricsProvider(RecordingHttp(array(*ordered.toTypedArray()))).lyrics(track())?.lines?.single()?.text)
+            val lyrics = LrcApiLyricsProvider(RecordingHttp(array(*ordered.toTypedArray()))).lyrics(track()) {
+                error("A validated result must not emit lower-ranked candidates")
+            }
+            assertEquals("Selected", lyrics?.lines?.single()?.text)
+            assertEquals(LyricsMatchQuality.Exact, lyrics?.matchQuality)
         }
     }
 
@@ -106,7 +114,9 @@ class LrcApiLyricsProviderTest {
         )
         for (duration in listOf(180, null)) {
             for (ordered in listOf(records, records.reversed())) {
-                val lyrics = LrcApiLyricsProvider(RecordingHttp(array(*ordered.toTypedArray()))).lyrics(track().copy(durationSeconds = duration))
+                val lyrics = LrcApiLyricsProvider(RecordingHttp(array(*ordered.toTypedArray()))).lyrics(track().copy(durationSeconds = duration)) {
+                    error("Formatting-equivalent results must not emit candidates")
+                }
                 assertEquals(listOf(LyricLine(1_000, "First")), lyrics?.lines)
             }
         }
@@ -120,6 +130,52 @@ class LrcApiLyricsProviderTest {
                 assertNull(LrcApiLyricsProvider(RecordingHttp(body)).lyrics(track().copy(durationSeconds = duration)))
             }
         }
+    }
+
+    @Test
+    fun ambiguousMissingDurationsRetainAllEligibleCandidatesForBestEffort() = runTest {
+        val body = array(
+            record(duration = null, text = "[00:01]First"),
+            record(title = "Other"),
+            record(duration = null, text = "[00:02]Second"),
+            record(instrumental = true),
+            record(duration = 186.0),
+            record(text = "[!text] "),
+            record(duration = null, album = "Other", text = "[!text]Third"),
+        )
+        val emitted = mutableListOf<LyricsSearchCandidate>()
+        assertNull(LrcApiLyricsProvider(RecordingHttp(body)).lyrics(track(), emitted::add))
+        assertEquals(listOf("[00:01]First", "[00:02]Second", "[!text]Third"), emitted.map { it.lyricsText() })
+        assertTrue(emitted.all { it.allowsMissingDuration })
+        val selected = selectBestEffortLyrics(emitted.map { RecordedLyricsCandidate("lrcapi", 0, 0, it) }, track())
+        assertEquals("lrcapi", selected?.providerId)
+        assertEquals(LyricsSource.LrcApi, selected?.lyrics?.source)
+        assertEquals(listOf(LyricLine(1_000, "First")), selected?.lyrics?.lines)
+        assertEquals(LyricsMatchQuality.BestEffort, selected?.lyrics?.matchQuality)
+        assertSame(emitted.first().toLyrics(), emitted.first().toLyrics())
+    }
+
+    @Test
+    fun unknownDurationConflictIsNotClearedByLaterAlbumAndTimingPreferences() = runTest {
+        val body = array(
+            record(album = "Other", duration = null, text = "[!text]One"),
+            record(album = "Other", duration = null, text = "[!text]Two"),
+            record(duration = null, text = "[!text]Better album"),
+            record(duration = null, text = "[00:01]Better timing"),
+        )
+        val emitted = mutableListOf<LyricsSearchCandidate>()
+        val requested = track().copy(durationSeconds = null)
+        assertNull(LrcApiLyricsProvider(RecordingHttp(body)).lyrics(requested, emitted::add))
+        assertEquals(4, emitted.size)
+        val selected = selectBestEffortLyrics(emitted.map { RecordedLyricsCandidate("lrcapi", 0, 0, it) }, requested)
+        assertEquals("Better timing", selected?.lyrics?.lines?.single()?.text)
+        assertEquals(LyricsMatchQuality.BestEffort, selected?.lyrics?.matchQuality)
+
+        val exact = LrcApiLyricsProvider(RecordingHttp(body)).lyrics(track()) {
+            error("Known-duration tied ambiguity may be cleared by a strictly better candidate")
+        }
+        assertEquals("Better timing", exact?.lines?.single()?.text)
+        assertEquals(LyricsMatchQuality.Exact, exact?.matchQuality)
     }
 
     @Test

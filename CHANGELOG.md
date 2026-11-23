@@ -31,6 +31,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Scroll untimed lyrics steadily from top to bottom over the song’s duration, following pauses, resumes, and seeks. Manual scrolling remains available, and lyrics stay manually scrollable when the duration is unknown.
 - Use LrcAPI as an additional fallback for plain and synchronized lyrics when Online Lyrics is enabled, with track matching and the same persistent lyrics cache as other online sources.
 - Prefetch lyrics for the next queued song without downloading its audio. Follow queue and repeat changes, reuse cached lyrics at the transition, and keep background requests from blocking current lyrics or gapless playback.
+- Retain plausible lyrics candidates and choose the best match after all configured sources have been tried without a validated match. Mark best-effort cache entries so they never prevent later exact matches from being used.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Cycle the current theme through Light, Dark, and System using the mode button before More actions in Home’s top-right header, without changing the selected theme or other appearance preferences.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
@@ -46,7 +47,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 - Keep the lyrics area blank while a song's lyrics are pending or loading, instead of briefly showing an unavailable message between tracks. Show an unavailable result only after lookup completes or when lyrics are unsupported.
 - Limit each lyrics source lookup to 30 seconds, continue to the next configured source after timeout or failure, and show a concise unavailable status instead of authenticated request URLs when no source succeeds.
-- Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, accept duplicate lyrics that differ only in formatting, reject genuinely ambiguous matches, and avoid immediate search requests after rate-limit or server errors.
+- Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, accept duplicate lyrics that differ only in formatting, and avoid immediate search requests after rate-limit or server errors.
 - Apply Recommendations sorting to favorite albums as well as artists, using favorite dates and source-scoped album-radio history, and keep recent-radio ordering current across Home refreshes.
 - Automatically retry previously failed empty pages when revisiting them, without repeatedly refreshing successful empty results or dropping cached Home sections when another fetch fails.
 - Use standard back-arrow controls on mix-builder pages, retaining localized accessibility labels and existing Back navigation.

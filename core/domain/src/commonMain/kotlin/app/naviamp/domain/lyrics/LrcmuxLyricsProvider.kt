@@ -27,7 +27,7 @@ open class LrcmuxLyricsProvider(
 
     private val normalizedBaseUrl = baseUrl.trimEnd('/')
 
-    final override suspend fun lyrics(track: Track): Lyrics? {
+    final override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
         val query = LrcmuxLyricsQuery.fromTrack(track) ?: return null
         val body = responseBody(query) ?: return null
         return parseLrcmuxResponse(body, track)

@@ -7,6 +7,7 @@ import app.naviamp.domain.network.NaviampProjectUserAgent
 import app.naviamp.domain.network.SharedHttpClient
 import app.naviamp.domain.network.urlEncodedParameter
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import kotlinx.serialization.json.Json
 
 class LrclibLyricsProvider(
@@ -19,7 +20,7 @@ class LrclibLyricsProvider(
         LyricsTiming.LineSynced,
     )
 
-    override suspend fun lyrics(track: Track): Lyrics? {
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
         val query = LrclibLyricsQuery.fromTrack(track) ?: return null
         val exact = httpClient.getResponse(requestUrl("get", query.parameters), JsonHeaders) ?: return null
         if (exact.statusCode in 200..299) {
@@ -49,7 +50,7 @@ class LrclibLyricsProvider(
         val candidates = runCatching {
             LrclibJson.decodeFromString<List<LrclibLyricsResponse>>(search.bodyText())
         }.getOrNull() ?: return null
-        return selectLyricsSearchResult(candidates, track)
+        return selectLyricsSearchResult(candidates, track, onCandidate)
     }
 
     private fun requestUrl(endpoint: String, parameters: List<Pair<String, String>>): String =
@@ -107,15 +108,27 @@ private data class LrclibLyricsResponse(
     override val album: String? get() = albumName
     override val hasSyncedLyrics: Boolean get() = !syncedLyrics.isNullOrBlank()
 
+    @Transient
+    private var parsed: Lyrics? = null
+
+    @Transient
+    private var parsedLoaded = false
+
     override fun lyricsText(): String? =
         syncedLyrics?.takeIf { it.isNotBlank() } ?: plainLyrics?.takeIf { it.isNotBlank() }
 
-    override fun toLyrics(): Lyrics? = lyricsText()?.let { text ->
-        lyricsFromText(
-            source = LyricsSource.Lrclib,
-            text = text,
-            displayArtist = artistName,
-            displayTitle = trackName,
-        )
+    override fun toLyrics(): Lyrics? {
+        if (!parsedLoaded) {
+            parsed = lyricsText()?.let { text ->
+                lyricsFromText(
+                    source = LyricsSource.Lrclib,
+                    text = text,
+                    displayArtist = artistName,
+                    displayTitle = trackName,
+                )
+            }
+            parsedLoaded = true
+        }
+        return parsed
     }
 }

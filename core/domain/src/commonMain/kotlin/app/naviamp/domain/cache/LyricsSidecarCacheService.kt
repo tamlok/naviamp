@@ -5,10 +5,12 @@ import app.naviamp.domain.LyricCue
 import app.naviamp.domain.LyricCueLine
 import app.naviamp.domain.LyricLine
 import app.naviamp.domain.Lyrics
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.LyricsSource
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
 import app.naviamp.domain.lyrics.LyricsProvider
+import app.naviamp.domain.lyrics.LyricsSearchCandidate
 import app.naviamp.domain.lyrics.LyricsTiming
 import app.naviamp.domain.lyrics.timing
 import app.naviamp.domain.provider.MediaProvider
@@ -153,14 +155,26 @@ class LyricsSidecarCacheService(
         track: Track,
         provider: LyricsProvider,
         acceptedTimings: Set<LyricsTiming> = LyricsTiming.entries.toSet(),
+        onCandidate: (LyricsSearchCandidate) -> Unit = {},
     ): Lyrics? =
         withContext(workContext) {
             readCachedOnlineLyrics(sourceId, track.id, provider.id)
-                ?.takeIf { lyrics -> lyrics.timing in acceptedTimings }
+                ?.takeIf { lyrics ->
+                    lyrics.matchQuality == LyricsMatchQuality.Exact && lyrics.timing in acceptedTimings
+                }
                 ?.let { return@withContext it }
-            val lyrics = provider.lyrics(track) ?: return@withContext null
+            val lyrics = provider.lyrics(track, onCandidate) ?: return@withContext null
             storeOnlineLyrics(sourceId, track.id, provider.id, lyrics)
-            lyrics
+        }
+
+    suspend fun cacheOnlineLyrics(
+        sourceId: String,
+        trackId: TrackId,
+        providerId: String,
+        lyrics: Lyrics,
+    ): Lyrics =
+        withContext(workContext) {
+            storeOnlineLyrics(sourceId, trackId, providerId, lyrics)
         }
 
     suspend fun cachedLyrics(
@@ -239,8 +253,12 @@ class LyricsSidecarCacheService(
         trackId: TrackId,
         onlineProviderId: String,
         lyrics: Lyrics,
-    ) = mutationMutex.withLock {
+    ): Lyrics = mutationMutex.withLock {
         currentCoroutineContext().ensureActive()
+        if (lyrics.matchQuality == LyricsMatchQuality.BestEffort) {
+            val existing = store.cachedOnlineLyrics(sourceId, trackId.value, onlineProviderId)?.toLyrics()
+            if (existing?.matchQuality == LyricsMatchQuality.Exact) return@withLock existing
+        }
         val linesJson = lyrics.linesJson()
         val now = nowMillis()
         store.upsertCachedOnlineLyrics(
@@ -258,6 +276,7 @@ class LyricsSidecarCacheService(
             createdAtEpochMillis = now,
             lastAccessedEpochMillis = now,
         )
+        lyrics
     }
 
     private fun Lyrics.linesJson(): String =
@@ -313,6 +332,7 @@ private data class LyricsDto(
     val kind: String? = null,
     val agents: List<LyricAgentDto> = emptyList(),
     val cueLines: List<LyricCueLineDto> = emptyList(),
+    val matchQuality: String? = null,
 ) {
     fun toLyrics(
         source: LyricsSource,
@@ -333,6 +353,10 @@ private data class LyricsDto(
             kind = kind,
             agents = agents.map { it.toLyricAgent() },
             cueLines = cueLines.map { it.toLyricCueLine() },
+            matchQuality = when (matchQuality) {
+                null, LyricsMatchQuality.Exact.name -> LyricsMatchQuality.Exact
+                else -> LyricsMatchQuality.BestEffort
+            },
         )
 
     companion object {
@@ -343,6 +367,7 @@ private data class LyricsDto(
                 kind = lyrics.kind,
                 agents = lyrics.agents.map { LyricAgentDto.fromLyricAgent(it) },
                 cueLines = lyrics.cueLines.map { LyricCueLineDto.fromLyricCueLine(it) },
+                matchQuality = lyrics.matchQuality.name,
             )
     }
 }

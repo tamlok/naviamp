@@ -2,6 +2,7 @@ package app.naviamp.domain.lyrics
 
 import app.naviamp.domain.LyricLine
 import app.naviamp.domain.Lyrics
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.LyricsSource
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
@@ -73,7 +74,7 @@ class LyricsServiceTest {
             assertTrue(it.contains("/api/get?"))
             httpResponse(record(plain = "plain", synced = "[00:01.00]synced"))
         }
-        val lyrics = LrclibLyricsProvider(client).lyrics(track())
+        val lyrics = LrclibLyricsProvider(client).lyrics(track()) { error("Exact lookup must not emit candidates") }
 
         assertEquals(true, lyrics?.synced)
         assertEquals("Artist", lyrics?.displayArtist)
@@ -141,7 +142,9 @@ class LyricsServiceTest {
             record(instrumental = true), record(plain = " "),
         )
         for (candidate in rejected) {
-            assertNull(LrclibLyricsProvider(searchClient(listOf(candidate))).lyrics(track()), candidate)
+            val emitted = mutableListOf<LyricsSearchCandidate>()
+            assertNull(LrclibLyricsProvider(searchClient(listOf(candidate))).lyrics(track(), emitted::add), candidate)
+            assertTrue(emitted.isEmpty(), candidate)
         }
         val client = searchClient(rejected + record(title = " SONG! ", artist = " artist ", duration = 185.0))
         assertEquals("Found", LrclibLyricsProvider(client).lyrics(track())?.lines?.single()?.text)
@@ -175,7 +178,11 @@ class LyricsServiceTest {
         val ties = listOf(record(duration = 181.0, plain = "One"), record(duration = 179.0, plain = "Two"))
         for (ordered in listOf(ties, ties.reversed())) {
             assertNull(LrclibLyricsProvider(searchClient(ordered)).lyrics(track()))
-            assertEquals("Found", LrclibLyricsProvider(searchClient(ordered + record())).lyrics(track())?.lines?.single()?.text)
+            val lyrics = LrclibLyricsProvider(searchClient(ordered + record())).lyrics(track()) {
+                error("A later validated match must discard earlier ambiguity")
+            }
+            assertEquals("Found", lyrics?.lines?.single()?.text)
+            assertEquals(LyricsMatchQuality.Exact, lyrics?.matchQuality)
         }
     }
 
@@ -202,7 +209,9 @@ class LyricsServiceTest {
         )
         for (duration in listOf(264, null)) {
             for (ordered in listOf(candidates, candidates.reversed())) {
-                val lyrics = LrclibLyricsProvider(searchClient(ordered)).lyrics(reported.copy(durationSeconds = duration))
+                val lyrics = LrclibLyricsProvider(searchClient(ordered)).lyrics(reported.copy(durationSeconds = duration)) {
+                    error("Formatting-equivalent results must not emit candidates")
+                }
                 assertEquals(true, lyrics?.synced)
                 assertEquals(listOf(LyricLine(33_040L, "First line"), LyricLine(98_470L, "Second line")), lyrics?.lines)
             }
@@ -219,6 +228,166 @@ class LyricsServiceTest {
             for (ordered in listOf(candidates, candidates.reversed())) {
                 assertNull(LrclibLyricsProvider(searchClient(ordered)).lyrics(track().copy(durationSeconds = duration)))
             }
+        }
+    }
+
+    @Test
+    fun lrclibRetainsAllPlausibleResultsOnlyAfterAmbiguousSearchFinishes() = runTest {
+        val records = listOf(
+            record(plain = "One"),
+            record(title = "Other song"),
+            record(plain = "Two"),
+            record(duration = 181.0, plain = "Further"),
+            record(artist = "Other artist"),
+            record(instrumental = true),
+            record(plain = " "),
+            record(duration = null),
+            record(duration = 185.01),
+        )
+        val emitted = mutableListOf<LyricsSearchCandidate>()
+        assertNull(LrclibLyricsProvider(searchClient(records)).lyrics(track(), emitted::add))
+        assertEquals(listOf("One", "Two", "Further"), emitted.map { it.lyricsText() })
+        val selected = selectBestEffortLyrics(emitted.map { captured(it, providerId = "lrclib") }, track())
+        assertEquals("lrclib", selected?.providerId)
+        assertEquals(LyricsSource.Lrclib, selected?.lyrics?.source)
+        assertEquals("One", selected?.lyrics?.lines?.single()?.text)
+        assertEquals(LyricsMatchQuality.BestEffort, selected?.lyrics?.matchQuality)
+        assertEquals(LyricsMatchQuality.Exact, emitted.first().toLyrics()?.matchQuality)
+        assertSame(emitted.first().toLyrics(), emitted.first().toLyrics())
+    }
+
+    @Test
+    fun unknownDurationConflictSurvivesLaterBetterAlbumAndSyncedResults() = runTest {
+        val records = listOf(
+            record(album = "Other", plain = "One"),
+            record(album = "Other", plain = "Two"),
+            record(plain = "Better album"),
+            record(synced = "[00:01]Better timing"),
+        )
+        val requested = track().copy(durationSeconds = null)
+        for (ordered in listOf(records, records.reversed())) {
+            val emitted = mutableListOf<LyricsSearchCandidate>()
+            assertNull(LrclibLyricsProvider(searchClient(ordered)).lyrics(requested, emitted::add))
+            assertEquals(4, emitted.size)
+            val selected = selectBestEffortLyrics(emitted.map { captured(it) }, requested)
+            assertEquals("Better timing", selected?.lyrics?.lines?.single()?.text)
+            assertEquals(LyricsMatchQuality.BestEffort, selected?.lyrics?.matchQuality)
+        }
+    }
+
+    @Test
+    fun bestEffortRanksDurationAlbumTimingSourceAndProviderInThatOrder() {
+        val ranked = listOf(
+            captured(SearchCandidate(duration = null, allowsMissingDuration = true), "missing"),
+            captured(SearchCandidate(duration = 181.0), "further"),
+            captured(SearchCandidate(album = "Other"), "other-album"),
+            captured(SearchCandidate(text = "Plain"), "plain"),
+            captured(SearchCandidate(), "later-source", sourceIndex = 1),
+            captured(SearchCandidate(), "later-provider", providerIndex = 1),
+            captured(SearchCandidate(), "best"),
+        )
+        for (last in ranked.indices) {
+            val candidates = ranked.take(last + 1)
+            for (ordered in listOf(candidates, candidates.reversed())) {
+                val selected = selectBestEffortLyrics(ordered, track())
+                assertEquals(ranked[last].providerId, selected?.providerId)
+                assertEquals(LyricsMatchQuality.BestEffort, selected?.lyrics?.matchQuality)
+            }
+        }
+    }
+
+    @Test
+    fun bestEffortIgnoresDurationWhenRequestedDurationIsUnknown() {
+        val requested = track().copy(durationSeconds = null)
+        val candidates = listOf(
+            captured(SearchCandidate(duration = 180.0, album = "Other"), "known"),
+            captured(SearchCandidate(duration = 900.0, text = "Plain"), "album"),
+            captured(SearchCandidate(duration = null), "synced"),
+        )
+        for (ordered in listOf(candidates, candidates.reversed())) {
+            assertEquals("synced", selectBestEffortLyrics(ordered, requested)?.providerId)
+        }
+    }
+
+    @Test
+    fun bestEffortKeepsOriginalOrderForGenuineTextAndTimingConflicts() {
+        for (otherText in listOf("[00:01]Other words", "[00:02]Found")) {
+            val candidates = listOf(
+                captured(SearchCandidate(), "first"),
+                captured(SearchCandidate(text = otherText), "second"),
+            )
+            for (ordered in listOf(candidates, candidates.reversed())) {
+                val emitted = mutableListOf<LyricsSearchCandidate>()
+                assertNull(selectLyricsSearchResult(ordered.map { it.candidate }, track(), emitted::add))
+                assertEquals(ordered.map { it.candidate }, emitted)
+                val selected = selectBestEffortLyrics(ordered, track())
+                assertEquals(ordered.first().providerId, selected?.providerId)
+                assertEquals(ordered.first().candidate.toLyrics()?.lines, selected?.lyrics?.lines)
+            }
+        }
+    }
+
+    @Test
+    fun bestEffortRechecksEveryEligibilityGateBeforeParsing() {
+        val invalid = listOf(
+            SearchCandidate(title = "Other"),
+            SearchCandidate(title = "Song (Live)"),
+            SearchCandidate(artist = "Other"),
+            SearchCandidate(title = null),
+            SearchCandidate(artist = null),
+            SearchCandidate(duration = 185.01),
+            SearchCandidate(duration = 174.99),
+            SearchCandidate(duration = null),
+            SearchCandidate(duration = 0.0),
+            SearchCandidate(duration = -1.0),
+            SearchCandidate(duration = Double.NaN),
+            SearchCandidate(duration = Double.POSITIVE_INFINITY),
+            SearchCandidate(instrumental = true),
+            SearchCandidate(text = " \n "),
+            SearchCandidate(text = null),
+        )
+        assertNull(selectBestEffortLyrics(invalid.map { captured(it) }, track()))
+        invalid.forEach {
+            assertEquals(0, it.parseCount)
+            assertEquals(0, it.timingReadCount)
+        }
+        val valid = SearchCandidate(title = " SONG! ", artist = " artist ", duration = 185.0)
+        assertEquals("boundary", selectBestEffortLyrics(invalid.map { captured(it) } + captured(valid, "boundary"), track())?.providerId)
+        for (requested in listOf(track().copy(title = " "), track().copy(artistName = ""))) {
+            assertNull(selectBestEffortLyrics(listOf(captured(valid)), requested))
+        }
+        assertNull(selectBestEffortLyrics(emptyList(), track()))
+    }
+
+    @Test
+    fun bestEffortTriesTheNextUsableCandidateWhenHigherRankCannotParse() {
+        val unparseable = captured(SearchCandidate(parsedLyrics = null), "broken")
+        val usable = captured(SearchCandidate(duration = 181.0), "usable")
+        for (ordered in listOf(listOf(unparseable, usable), listOf(usable, unparseable))) {
+            assertEquals("usable", selectBestEffortLyrics(ordered, track())?.providerId)
+        }
+        assertNull(selectBestEffortLyrics(listOf(unparseable), track()))
+        val emitted = mutableListOf<LyricsSearchCandidate>()
+        assertNull(selectLyricsSearchResult(listOf(unparseable.candidate), track(), emitted::add))
+        assertEquals(listOf(unparseable.candidate), emitted)
+    }
+
+    @Test
+    fun bestEffortDoesNotParseCandidatesThatCannotImproveTheBestRank() {
+        val best = SearchCandidate()
+        val worse = listOf(
+            captured(SearchCandidate(duration = 181.0)),
+            captured(SearchCandidate(album = "Other")),
+            captured(SearchCandidate(), sourceIndex = 1),
+            captured(SearchCandidate(), providerIndex = 1),
+            captured(SearchCandidate()),
+        )
+        assertEquals("best", selectBestEffortLyrics(listOf(captured(best, "best")) + worse, track())?.providerId)
+        assertEquals(1, best.parseCount)
+        worse.forEach {
+            val candidate = it.candidate as SearchCandidate
+            assertEquals(0, candidate.parseCount)
+            assertEquals(0, candidate.timingReadCount)
         }
     }
 
@@ -309,6 +478,42 @@ class LyricsServiceTest {
 
         assertEquals(embedded, selectPreferredLyrics(providerLyrics = null, embeddedLyrics = embedded, onlineLyrics = lrclib))
     }
+
+    private class SearchCandidate(
+        override val title: String? = "Song",
+        override val artist: String? = "Artist",
+        override val album: String? = "Album",
+        override val duration: Double? = 180.0,
+        override val instrumental: Boolean = false,
+        override val allowsMissingDuration: Boolean = false,
+        private val text: String? = "[00:01]Found",
+        private val parsedLyrics: Lyrics? = text?.let { lyricsFromText(LyricsSource.Lrclib, it) },
+    ) : LyricsSearchCandidate {
+        var parseCount = 0
+            private set
+        var timingReadCount = 0
+            private set
+
+        override val hasSyncedLyrics: Boolean
+            get() {
+                timingReadCount++
+                return parsedLyrics?.synced == true
+            }
+
+        override fun lyricsText(): String? = text
+
+        override fun toLyrics(): Lyrics? {
+            parseCount++
+            return parsedLyrics
+        }
+    }
+
+    private fun captured(
+        candidate: LyricsSearchCandidate,
+        providerId: String = "provider",
+        sourceIndex: Int = 0,
+        providerIndex: Int = 0,
+    ) = RecordedLyricsCandidate(providerId, sourceIndex, providerIndex, candidate)
 
     private class LyricsHttpClient(private val respond: (String) -> SharedHttpResponse?) : SharedHttpClient {
         val urls = mutableListOf<String>()

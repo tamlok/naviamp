@@ -10,6 +10,7 @@ import app.naviamp.domain.LyricCue
 import app.naviamp.domain.LyricCueLine
 import app.naviamp.domain.LyricLine
 import app.naviamp.domain.Lyrics
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.LyricsSource
 import app.naviamp.domain.ProviderId
 import app.naviamp.domain.StreamRequest
@@ -21,6 +22,7 @@ import app.naviamp.domain.lyrics.LyricsSidecarService
 import app.naviamp.domain.playback.PlaybackAudioAssetRepository
 import app.naviamp.domain.playback.PlaybackLocalAudio
 import app.naviamp.domain.lyrics.LyricsProvider
+import app.naviamp.domain.lyrics.LyricsSearchCandidate
 import app.naviamp.domain.lyrics.LyricsTiming
 import app.naviamp.domain.lyrics.naviampOnlineLyricsProviders
 import app.naviamp.domain.network.SharedHttpClient
@@ -37,6 +39,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class LyricsSidecarCacheServiceTest {
@@ -100,7 +103,7 @@ class LyricsSidecarCacheServiceTest {
         val online = object : LyricsProvider {
             override val id = "online"
             override val capabilities = LyricsTiming.entries.toSet()
-            override suspend fun lyrics(track: Track): Lyrics {
+            override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics {
                 onlineRequests++
                 return onlineResult
             }
@@ -230,6 +233,197 @@ class LyricsSidecarCacheServiceTest {
     }
 
     @Test
+    fun bestEffortOnlineLyricsRoundTripRichPayloadAndRemainKeyIsolated() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val repository = CachedLyricsSidecarRepository(cache, emptyList())
+        val track = onlineTrack()
+        val fallback = karaokeLyrics().copy(
+            source = LyricsSource.LrcApi,
+            displayArtist = "Artist",
+            displayTitle = "Track",
+            language = "en",
+            offsetMillis = 125,
+            kind = "karaoke",
+            matchQuality = LyricsMatchQuality.BestEffort,
+        )
+        val otherSource = fallback.copy(lines = listOf(LyricLine(1_000, "Other source")))
+        val otherTrack = fallback.copy(lines = listOf(LyricLine(1_000, "Other track")))
+        val otherProvider = fallback.copy(source = LyricsSource.Lrclib)
+
+        assertEquals(fallback, repository.cacheOnlineLyrics("source", track.id, "online", fallback))
+        repository.cacheOnlineLyrics("other-source", track.id, "online", otherSource)
+        repository.cacheOnlineLyrics("source", TrackId("other-track"), "online", otherTrack)
+        repository.cacheOnlineLyrics("source", track.id, "other-provider", otherProvider)
+
+        val restored = LyricsSidecarCacheService(store, nowMillis = { 43L }, workContext = StandardTestDispatcher(testScheduler))
+        assertEquals(fallback, restored.cachedOnlineLyrics("source", track.id, "online"))
+        assertEquals(otherSource, restored.cachedOnlineLyrics("other-source", track.id, "online"))
+        assertEquals(otherTrack, restored.cachedOnlineLyrics("source", TrackId("other-track"), "online"))
+        assertEquals(otherProvider, restored.cachedOnlineLyrics("source", track.id, "other-provider"))
+        assertEquals(null, restored.cachedOnlineLyrics("missing", track.id, "online"))
+        val payload = store.cachedOnlineLyrics("source", track.id.value, "online")?.linesJson.orEmpty()
+        assertTrue(payload.contains("\"matchQuality\":\"BestEffort\""))
+        assertTrue(payload.contains("\"payloadVersion\":2"))
+    }
+
+    @Test
+    fun legacyConfidenceDefaultsToExactAndUnknownConfidenceDefaultsToBestEffort() = runTest {
+        val payloads = listOf(
+            """[{"startMillis":1000,"text":"Cached line"}]""" to LyricsMatchQuality.Exact,
+            """{"payloadVersion":2,"lines":[{"startMillis":1000,"text":"Cached line"}]}""" to LyricsMatchQuality.Exact,
+            """{"lines":[{"startMillis":1000,"text":"Cached line"}],"matchQuality":null}""" to LyricsMatchQuality.Exact,
+            """{"lines":[{"startMillis":1000,"text":"Cached line"}],"matchQuality":"Exact"}""" to LyricsMatchQuality.Exact,
+            """{"lines":[{"startMillis":1000,"text":"Cached line"}],"matchQuality":"BestEffort"}""" to LyricsMatchQuality.BestEffort,
+            """{"lines":[{"startMillis":1000,"text":"Cached line"}],"matchQuality":"FutureQuality"}""" to LyricsMatchQuality.BestEffort,
+        )
+        for ((payload, expectedQuality) in payloads) {
+            val store = InMemoryLyricsSidecarStore(
+                onlineCached = CachedLyricsRow(
+                    lyricSource = LyricsSource.Lrclib.name,
+                    synced = true,
+                    linesJson = payload,
+                    displayArtist = "Artist",
+                    displayTitle = "Track",
+                    language = "en",
+                    offsetMillis = 125,
+                ),
+            )
+            val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+
+            val restored = cache.cachedOnlineLyrics("source", TrackId("track"), "online")
+
+            assertEquals(expectedQuality, restored?.matchQuality, payload)
+            assertEquals(listOf(LyricLine(1_000, "Cached line")), restored?.lines)
+            assertEquals(LyricsSource.Lrclib, restored?.source)
+            assertEquals(125, restored?.offsetMillis)
+        }
+    }
+
+    @Test
+    fun cachedBestEffortRechecksProviderForwardsCandidatesAndKeepsRowOnMiss() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val track = onlineTrack()
+        val fallback = karaokeLyrics().copy(source = LyricsSource.Lrclib, matchQuality = LyricsMatchQuality.BestEffort)
+        val candidate = object : LyricsSearchCandidate {
+            override val title = "Track"
+            override val artist = "Artist"
+            override val album = "Album"
+            override val duration = 180.0
+            override val instrumental = false
+            override val hasSyncedLyrics = true
+            override fun lyricsText() = "[00:01]New line"
+            override fun toLyrics() = fallback
+        }
+        val online = RecordingOnlineLyricsProvider(null, listOf(candidate))
+        val repository = CachedLyricsSidecarRepository(cache, listOf(online))
+        repository.cacheOnlineLyrics("source", track.id, online.id, fallback)
+        val stored = store.cachedOnlineLyrics("source", track.id.value, online.id)
+        val candidates = mutableListOf<LyricsSearchCandidate>()
+
+        repeat(2) {
+            assertEquals(null, repository.onlineLyrics("source", track, online, onCandidate = { candidates += it }))
+        }
+
+        assertEquals(2, online.lyricsRequests)
+        assertEquals(listOf<LyricsSearchCandidate>(candidate, candidate), candidates)
+        assertEquals(stored, store.cachedOnlineLyrics("source", track.id.value, online.id))
+        assertEquals(fallback, repository.cachedOnlineLyrics("source", track.id, online.id))
+        assertEquals(1, store.onlineUpserts)
+    }
+
+    @Test
+    fun failedBestEffortRecheckKeepsFallbackRow() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val track = onlineTrack()
+        val fallback = karaokeLyrics().copy(source = LyricsSource.Lrclib, matchQuality = LyricsMatchQuality.BestEffort)
+        val online = RecordingOnlineLyricsProvider(null).apply { failure = IllegalStateException("Provider unavailable") }
+        cache.cacheOnlineLyrics("source", track.id, online.id, fallback)
+        val stored = store.cachedOnlineLyrics("source", track.id.value, online.id)
+
+        assertFailsWith<IllegalStateException> { cache.onlineLyrics("source", track, online) }
+
+        assertEquals(1, online.lyricsRequests)
+        assertEquals(stored, store.cachedOnlineLyrics("source", track.id.value, online.id))
+        assertEquals(fallback, cache.cachedOnlineLyrics("source", track.id, online.id))
+        assertEquals(1, store.onlineUpserts)
+    }
+
+    @Test
+    fun laterExactReplacesBestEffortAndSkipsSubsequentProviderRequests() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val track = onlineTrack()
+        val fallback = karaokeLyrics().copy(source = LyricsSource.Lrclib, matchQuality = LyricsMatchQuality.BestEffort)
+        val exact = fallback.copy(lines = listOf(LyricLine(1_000, "Exact line")), matchQuality = LyricsMatchQuality.Exact)
+        val online = RecordingOnlineLyricsProvider(exact)
+        cache.cacheOnlineLyrics("source", track.id, online.id, fallback)
+
+        assertEquals(exact, cache.onlineLyrics("source", track, online))
+        assertEquals(exact, cache.onlineLyrics("source", track, online))
+
+        assertEquals(1, online.lyricsRequests)
+        assertEquals(2, store.onlineUpserts)
+        assertEquals(exact, cache.cachedOnlineLyrics("source", track.id, online.id))
+    }
+
+    @Test
+    fun cachedExactRechecksProviderWhenTimingIsNotAccepted() = runTest {
+        val cache = LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val track = onlineTrack()
+        val exact = karaokeLyrics().copy(source = LyricsSource.Lrclib)
+        val plain = exact.copy(synced = false, lines = listOf(LyricLine(null, "Plain line")), cueLines = emptyList())
+        val online = RecordingOnlineLyricsProvider(exact)
+        cache.cacheOnlineLyrics("source", track.id, online.id, plain)
+
+        assertEquals(exact, cache.onlineLyrics("source", track, online, acceptedTimings = setOf(LyricsTiming.WordSynced)))
+
+        assertEquals(1, online.lyricsRequests)
+        assertEquals(exact, cache.cachedOnlineLyrics("source", track.id, online.id))
+    }
+
+    @Test
+    fun fallbackWritesCannotReplaceExactAndReturnStoredExact() = runTest {
+        val store = InMemoryLyricsSidecarStore()
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val repository = CachedLyricsSidecarRepository(cache, emptyList())
+        val track = onlineTrack()
+        val exact = karaokeLyrics().copy(source = LyricsSource.Lrclib)
+        val fallback = exact.copy(lines = listOf(LyricLine(1_000, "Fallback line")), matchQuality = LyricsMatchQuality.BestEffort)
+        val online = RecordingOnlineLyricsProvider(fallback)
+        repository.cacheOnlineLyrics("source", track.id, online.id, exact)
+        val stored = store.cachedOnlineLyrics("source", track.id.value, online.id)
+
+        assertEquals(exact, repository.cacheOnlineLyrics("source", track.id, online.id, fallback))
+        assertEquals(exact, repository.onlineLyrics("source", track, online, acceptedTimings = setOf(LyricsTiming.Plain)))
+
+        assertEquals(1, online.lyricsRequests)
+        assertEquals(1, store.onlineUpserts)
+        assertEquals(stored, store.cachedOnlineLyrics("source", track.id.value, online.id))
+        assertEquals(exact, repository.cachedOnlineLyrics("source", track.id, online.id))
+    }
+
+    @Test
+    fun clearingBestEffortAllowsFreshOnlineLookupWithoutRestoringFallback() = runTest {
+        val cache = LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+        val track = onlineTrack()
+        val fallback = karaokeLyrics().copy(source = LyricsSource.Lrclib, matchQuality = LyricsMatchQuality.BestEffort)
+        val online = RecordingOnlineLyricsProvider(null)
+        cache.cacheOnlineLyrics("source", track.id, online.id, fallback)
+
+        cache.clearCachedLyrics("source", track.id)
+
+        assertEquals(null, cache.cachedOnlineLyrics("source", track.id, online.id))
+        assertEquals(null, cache.onlineLyrics("source", track, online))
+        assertEquals(null, cache.cachedOnlineLyrics("source", track.id, online.id))
+        online.result = fallback.copy(matchQuality = LyricsMatchQuality.Exact)
+        assertEquals(online.result, cache.onlineLyrics("source", track, online))
+        assertEquals(2, online.lyricsRequests)
+    }
+
+    @Test
     fun cancelledProviderAndOnlineLoadsCannotResurrectLyricsAfterRefresh() = runTest {
         for (useOnline in listOf(false, true)) {
             val store = InMemoryLyricsSidecarStore()
@@ -249,7 +443,7 @@ class LyricsSidecarCacheServiceTest {
             val online = object : LyricsProvider {
                 override val id = "online"
                 override val capabilities = LyricsTiming.entries.toSet()
-                override suspend fun lyrics(track: Track): Lyrics = fetched()
+                override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics = fetched()
             }
             val track = Track(
                 id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
@@ -272,6 +466,11 @@ class LyricsSidecarCacheServiceTest {
         }
     }
 
+    private fun onlineTrack(): Track = Track(
+        id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+        durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+    )
+
     private fun karaokeLyrics(): Lyrics = Lyrics(
         source = LyricsSource.Provider,
         synced = true,
@@ -290,12 +489,17 @@ class LyricsSidecarCacheServiceTest {
 
 private class InMemoryLyricsSidecarStore(
     cached: CachedLyricsRow? = null,
+    onlineCached: CachedLyricsRow? = null,
 ) : LyricsSidecarStore {
     private val providerRows = mutableMapOf<Pair<String, String>, CachedLyricsRow>().apply {
         cached?.let { put("source" to "track", it) }
     }
-    private val onlineRows = mutableMapOf<Triple<String, String, String>, CachedLyricsRow>()
+    private val onlineRows = mutableMapOf<Triple<String, String, String>, CachedLyricsRow>().apply {
+        onlineCached?.let { put(Triple("source", "track", "online"), it) }
+    }
     var upserts: Int = 0
+        private set
+    var onlineUpserts: Int = 0
         private set
 
     override fun clearCachedLyrics(sourceId: String, trackId: String) {
@@ -354,9 +558,28 @@ private class InMemoryLyricsSidecarStore(
         createdAtEpochMillis: Long,
         lastAccessedEpochMillis: Long,
     ) {
+        onlineUpserts += 1
         onlineRows[Triple(sourceId, trackId, onlineProviderId)] = CachedLyricsRow(
             lyricSource, synced, linesJson, displayArtist, displayTitle, language, offsetMillis,
         )
+    }
+}
+
+private class RecordingOnlineLyricsProvider(
+    var result: Lyrics?,
+    private val candidates: List<LyricsSearchCandidate> = emptyList(),
+) : LyricsProvider {
+    override val id = "online"
+    override val capabilities = LyricsTiming.entries.toSet()
+    var lyricsRequests: Int = 0
+        private set
+    var failure: Throwable? = null
+
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
+        lyricsRequests += 1
+        failure?.let { throw it }
+        candidates.forEach(onCandidate)
+        return result
     }
 }
 

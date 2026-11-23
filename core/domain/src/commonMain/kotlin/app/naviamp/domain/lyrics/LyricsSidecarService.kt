@@ -3,6 +3,7 @@ package app.naviamp.domain.lyrics
 import app.naviamp.domain.LyricLine
 import app.naviamp.domain.Lyrics
 import app.naviamp.domain.LyricsSource
+import app.naviamp.domain.LyricsMatchQuality
 import app.naviamp.domain.StreamQuality
 import app.naviamp.domain.Track
 import app.naviamp.domain.audio.AudioMetadataSidecarService
@@ -72,8 +73,9 @@ class LyricsSidecarService(
         track: Track,
         provider: LyricsProvider,
         acceptedTimings: Set<LyricsTiming> = LyricsTiming.entries.toSet(),
+        onCandidate: (LyricsSearchCandidate) -> Unit = {},
     ): Lyrics? = sourceId?.let { activeSourceId ->
-        lyricsRepository.onlineLyrics(activeSourceId, track, provider, acceptedTimings)
+        lyricsRepository.onlineLyrics(activeSourceId, track, provider, acceptedTimings, onCandidate)
     }
 
     suspend fun loadLyrics(
@@ -118,8 +120,8 @@ class LyricsSidecarService(
             displayTimingPreference = displayTimingPreference,
             activeSearchOrder = activeSearchOrder,
         )
-        // Only remember hits: a provider such as Octo can answer empty while it is still fetching.
-        if (result.lyrics != null) {
+        // Best-effort results must be rechecked so a later exact match can replace them.
+        if (result.lyrics?.matchQuality == LyricsMatchQuality.Exact) {
             completedLookups[lookupKey] = result
             while (completedLookups.size > MaxCompletedLyricsLookups) {
                 completedLookups.remove(completedLookups.keys.first())
@@ -143,6 +145,8 @@ class LyricsSidecarService(
         val loadedOnlineLyrics = linkedMapOf<String, Lyrics>()
         var localAudio: PlaybackLocalAudio? = null
         val candidates = mutableListOf<RankedLyrics>()
+        val cachedBestEffort = mutableListOf<RankedLyrics>()
+        val deferredCandidates = mutableListOf<RecordedLyricsCandidate>()
         val acceptedTimings = timingPreference.acceptedTimings()
 
         fun result(lyrics: Lyrics?): LyricsSidecarResult = LyricsSidecarResult(
@@ -159,13 +163,15 @@ class LyricsSidecarService(
             sourceIndex: Int,
             providerIndex: Int = 0,
         ) {
-            if (candidates.none { candidate ->
-                    candidate.lyrics.source == lyrics.source &&
-                        candidate.sourceIndex == sourceIndex &&
-                        candidate.providerIndex == providerIndex
-                }
-            ) {
-                candidates += RankedLyrics(lyrics, sourceIndex, providerIndex)
+            val target = if (lyrics.matchQuality == LyricsMatchQuality.Exact) candidates else cachedBestEffort
+            val index = target.indexOfFirst { candidate ->
+                candidate.lyrics.source == lyrics.source && candidate.sourceIndex == sourceIndex &&
+                    candidate.providerIndex == providerIndex
+            }
+            if (index < 0) {
+                target += RankedLyrics(lyrics, sourceIndex, providerIndex)
+            } else if (lyrics.timing.rank >= target[index].lyrics.timing.rank) {
+                target[index] = RankedLyrics(lyrics, sourceIndex, providerIndex)
             }
         }
 
@@ -254,7 +260,11 @@ class LyricsSidecarService(
                         }
                         runCatching {
                             withLyricsSourceTimeout {
-                                onlineLyrics(sourceId, track, onlineProvider, providerAcceptedTimings)
+                                onlineLyrics(sourceId, track, onlineProvider, providerAcceptedTimings) { candidate ->
+                                    deferredCandidates += RecordedLyricsCandidate(
+                                        onlineProvider.id, sourceIndex, providerIndex, candidate,
+                                    )
+                                }
                             }
                         }.onFailure { error ->
                             if (error is CancellationException) throw error
@@ -275,11 +285,17 @@ class LyricsSidecarService(
             }
         }
 
-        val fallback = candidates.sortedWith(
-            compareByDescending<RankedLyrics> { candidate -> candidate.lyrics.timing.rank }
-                .thenBy { candidate -> candidate.sourceIndex }
-                .thenBy { candidate -> candidate.providerIndex },
-        ).firstOrNull()?.lyrics
+        candidates.minWithOrNull(RankedLyricsOrder)?.lyrics?.let { return result(it) }
+        selectBestEffortLyrics(deferredCandidates, track)?.let { selected ->
+            val stored = if (sourceId != null) {
+                lyricsRepository.cacheOnlineLyrics(sourceId, track.id, selected.providerId, selected.lyrics)
+            } else {
+                selected.lyrics
+            }
+            loadedOnlineLyrics[selected.providerId] = stored
+            return result(stored)
+        }
+        val fallback = cachedBestEffort.minWithOrNull(RankedLyricsOrder)?.lyrics
         if (fallback == null) firstError?.let { error -> throw LyricsLookupException(error) }
         return result(fallback)
     }
@@ -331,6 +347,10 @@ private data class RankedLyrics(
     val providerIndex: Int,
 )
 
+private val RankedLyricsOrder = compareByDescending<RankedLyrics> { it.lyrics.timing.rank }
+    .thenBy { it.sourceIndex }
+    .thenBy { it.providerIndex }
+
 private val LyricsTiming.rank: Int
     get() = when (this) {
         LyricsTiming.Plain -> 0
@@ -346,7 +366,7 @@ private fun LyricsTimingPreference.acceptedTimings(): Set<LyricsTiming> = when (
     LyricsTimingPreference.WordSynced -> setOf(LyricsTiming.WordSynced)
 }
 
-private fun Lyrics.satisfies(preference: LyricsTimingPreference): Boolean = when (preference) {
+private fun Lyrics.satisfies(preference: LyricsTimingPreference): Boolean = matchQuality == LyricsMatchQuality.Exact && when (preference) {
     LyricsTimingPreference.FirstAvailable,
     LyricsTimingPreference.Plain,
     -> true

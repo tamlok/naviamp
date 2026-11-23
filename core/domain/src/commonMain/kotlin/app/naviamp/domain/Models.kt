@@ -180,6 +180,11 @@ data class ReplayGain(
     val albumPeak: Double?,
 )
 
+enum class LyricsMatchQuality {
+    Exact,
+    BestEffort,
+}
+
 data class Lyrics(
     val source: LyricsSource,
     val synced: Boolean,
@@ -191,6 +196,7 @@ data class Lyrics(
     val kind: String? = null,
     val agents: List<LyricAgent> = emptyList(),
     val cueLines: List<LyricCueLine> = emptyList(),
+    val matchQuality: LyricsMatchQuality = LyricsMatchQuality.Exact,
 ) {
     val hasTimedLines: Boolean
         get() = lines.any { it.startMillis != null }

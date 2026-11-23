@@ -19,7 +19,7 @@ class LrcApiLyricsProvider(
     override val capabilities: Set<LyricsTiming> = setOf(LyricsTiming.Plain, LyricsTiming.LineSynced)
     private val endpoint = "${baseUrl.trimEnd('/')}/jsonapi"
 
-    override suspend fun lyrics(track: Track): Lyrics? {
+    override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics? {
         if (track.title.isBlank() || track.artistName.isBlank()) return null
         val parameters = buildList {
             add("title" to track.title)
@@ -34,7 +34,7 @@ class LrcApiLyricsProvider(
         val candidates = runCatching {
             LrcApiJson.decodeFromString<List<LrcApiLyricsResponse>>(response.bodyText())
         }.getOrNull() ?: return null
-        return selectLyricsSearchResult(candidates, track, allowMissingDuration = true)
+        return selectLyricsSearchResult(candidates, track, onCandidate)
     }
 }
 
@@ -58,25 +58,36 @@ private class LrcApiLyricsResponse(
     @Transient
     private var parsed: Lyrics? = null
 
+    @Transient
+    private var parsedLoaded = false
+
+    override val allowsMissingDuration: Boolean get() = true
+
     override val hasSyncedLyrics: Boolean
         get() = toLyrics()?.synced == true
 
     override fun lyricsText(): String? = payload?.takeIf { text != null }
 
-    override fun toLyrics(): Lyrics? = parsed ?: text?.let {
-        if (payload?.startsWith("[!text]") == true) {
-            Lyrics(
-                source = LyricsSource.LrcApi,
-                synced = false,
-                lines = it.lineSequence().map(String::trim).filter(String::isNotBlank)
-                    .map { line -> LyricLine(null, line) }.toList(),
-                displayArtist = artist,
-                displayTitle = title,
-            )
-        } else {
-            lyricsFromText(LyricsSource.LrcApi, it, displayArtist = artist, displayTitle = title)
+    override fun toLyrics(): Lyrics? {
+        if (!parsedLoaded) {
+            parsed = text?.let {
+                if (payload?.startsWith("[!text]") == true) {
+                    Lyrics(
+                        source = LyricsSource.LrcApi,
+                        synced = false,
+                        lines = it.lineSequence().map(String::trim).filter(String::isNotBlank)
+                            .map { line -> LyricLine(null, line) }.toList(),
+                        displayArtist = artist,
+                        displayTitle = title,
+                    )
+                } else {
+                    lyricsFromText(LyricsSource.LrcApi, it, displayArtist = artist, displayTitle = title)
+                }
+            }
+            parsedLoaded = true
         }
-    }.also { parsed = it }
+        return parsed
+    }
 }
 
 private val LrcApiJson = Json { ignoreUnknownKeys = true }

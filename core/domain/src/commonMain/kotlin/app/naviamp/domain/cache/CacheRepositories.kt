@@ -156,11 +156,19 @@ interface LyricsSidecarRepository {
         providerId: String,
     ): Lyrics?
 
+    suspend fun cacheOnlineLyrics(
+        sourceId: String,
+        trackId: TrackId,
+        providerId: String,
+        lyrics: Lyrics,
+    ): Lyrics
+
     suspend fun onlineLyrics(
         sourceId: String,
         track: Track,
         provider: app.naviamp.domain.lyrics.LyricsProvider,
         acceptedTimings: Set<app.naviamp.domain.lyrics.LyricsTiming> = app.naviamp.domain.lyrics.LyricsTiming.entries.toSet(),
+        onCandidate: (app.naviamp.domain.lyrics.LyricsSearchCandidate) -> Unit = {},
     ): Lyrics?
 }
 
