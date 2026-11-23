@@ -105,12 +105,12 @@ fun Double.sixDecimalLabel(): String =
     round(this * 1_000_000.0).div(1_000_000.0).toString()
 
 fun List<Track>.totalDurationLabel(): String {
-    val totalSeconds = mapNotNull { it.durationSeconds }.sum()
+    val totalSeconds = sumOf { it.durationSeconds?.toLong() ?: 0L }
     if (totalSeconds <= 0) return ""
     val hours = totalSeconds / 3600
     val minutes = totalSeconds / 60
     val remainingMinutes = (totalSeconds % 3600) / 60
-    return if (hours > 0) "${hours}h ${remainingMinutes}m" else "$minutes minutes"
+    return if (hours > 0) "${hours}h ${remainingMinutes}m" else "${minutes}m"
 }
 
 private fun Double.toTimeLabel(): String {

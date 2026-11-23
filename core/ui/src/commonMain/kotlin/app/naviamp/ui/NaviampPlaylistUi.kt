@@ -801,7 +801,7 @@ private fun PlaylistDetailContent(
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
-                    Text(detail.playlist.subtitle, color = colors.secondaryText, fontSize = 12.sp)
+                    Text(trackCountDurationLabel(detail.tracks.size, detail.totalDurationLabel), color = colors.secondaryText, fontSize = 12.sp)
                     status?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
                     NaviampResponsiveActionRow(
                         colors = colors,

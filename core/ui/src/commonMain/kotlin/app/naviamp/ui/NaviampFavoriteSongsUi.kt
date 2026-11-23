@@ -41,7 +41,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.naviamp.ui.generated.resources.*
-import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlinx.coroutines.launch
 
@@ -214,9 +213,8 @@ internal fun NaviampFavoriteSongsPage(
                             fontSize = if (television) 18.sp else 12.sp,
                         )
                         if (ready || page.status == FavoriteSongsStatus.Empty) {
-                            val countLabel = pluralStringResource(Res.plurals.tv_track_count, page.tracks.size, page.tracks.size)
                             Text(
-                                if (page.totalDurationLabel.isBlank()) countLabel else "$countLabel • ${page.totalDurationLabel}",
+                                trackCountDurationLabel(page.tracks.size, page.totalDurationLabel),
                                 color = headerColors.secondaryText,
                                 fontSize = if (television) 16.sp else 12.sp,
                             )

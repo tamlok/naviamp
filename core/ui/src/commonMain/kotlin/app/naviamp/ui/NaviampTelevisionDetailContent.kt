@@ -84,9 +84,8 @@ internal fun TelevisionAlbumDetail(
                 subtitle = detail.album.subtitle,
                 metadata = listOfNotNull(
                     detail.album.releaseYear?.toString(),
-                    televisionTrackCountLabel(detail.tracks.size),
-                    detail.totalDurationLabel.takeIf { it.isNotBlank() },
-                ).joinToString("  •  "),
+                    trackCountDurationLabel(detail.tracks.size, detail.totalDurationLabel),
+                ).joinToString("\n"),
                 coverArtUrl = detail.album.coverArtUrl,
                 fallbackCoverArtUrl = detail.album.fallbackCoverArtUrl,
                 colors = colors,
@@ -345,8 +344,8 @@ internal fun TelevisionPlaylistDetail(
             TelevisionDetailHero(
                 title = playlist.title,
                 mediaKind = SharedMediaItemKind.Playlist,
-                subtitle = playlist.subtitle,
-                metadata = televisionTrackCountLabel(detail.tracks.size),
+                subtitle = "",
+                metadata = trackCountDurationLabel(detail.tracks.size, detail.totalDurationLabel),
                 coverArtUrl = playlist.coverArtUrl ?: playlist.coverArtUrls.firstOrNull(),
                 colors = colors,
                 background = headerBackground,

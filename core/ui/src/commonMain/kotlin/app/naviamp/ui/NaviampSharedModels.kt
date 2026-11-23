@@ -523,6 +523,7 @@ data class SharedSimilarArtistUi(
 data class SharedPlaylistDetailUi(
     val playlist: SharedMediaItemUi,
     val tracks: List<SharedTrackRowUi>,
+    val totalDurationLabel: String = "",
 )
 
 data class NaviampPlaylistsScreenUi(

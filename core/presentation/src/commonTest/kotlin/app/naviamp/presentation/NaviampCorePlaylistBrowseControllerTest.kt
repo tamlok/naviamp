@@ -204,6 +204,7 @@ class NaviampCorePlaylistBrowseControllerTest {
         assertEquals(listOf("Track 1", "Track 2"), state.detail?.tracks?.map { it.title })
         assertEquals(listOf("Artist - Album", "Artist - Album"), state.detail?.tracks?.map { it.subtitle })
         assertEquals(2, state.detail?.playlist?.trackCount)
+        assertEquals("6m", state.detail?.totalDurationLabel)
         assertEquals("Connected", state.status)
     }
 
@@ -222,14 +223,17 @@ class NaviampCorePlaylistBrowseControllerTest {
         runCurrent()
         val reconciled = provider.playlistTracks("playlist-b")
         controller.reconcileContents("playlist-a", reconciled)
+        assertEquals("3m", store.state.value.shell.playlistDetail.detail?.totalDurationLabel)
         gate.complete(Unit)
         opening.join()
         assertEquals(listOf("Track B"), store.state.value.shell.playlistDetail.detail?.tracks?.map { it.title })
         assertEquals(1, store.state.value.shell.playlistDetail.selectedPlaylist?.trackCount)
+        assertEquals("3m", store.state.value.shell.playlistDetail.detail?.totalDurationLabel)
         assertEquals(1, store.state.value.shell.playlists.playlists.first().trackCount)
         assertNull(store.state.value.shell.playlistDetail.status)
         controller.reconcileContents("playlist-b", emptyList())
         assertEquals(listOf("Track B"), store.state.value.shell.playlistDetail.detail?.tracks?.map { it.title })
+        assertEquals("3m", store.state.value.shell.playlistDetail.detail?.totalDurationLabel)
     }
 
     @Test

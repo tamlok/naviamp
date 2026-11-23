@@ -20,6 +20,7 @@ import app.naviamp.ui.SharedPlaylistSortMode
 import app.naviamp.ui.toSharedMediaItemUi
 import app.naviamp.ui.toSharedTrackRowUi
 import app.naviamp.ui.toPlaylistChoiceUi
+import app.naviamp.ui.totalDurationLabel
 
 data class NaviampCorePlaylistBrowseSupplement(
     val recentPlaylistIds: List<String> = emptyList(),
@@ -314,7 +315,11 @@ class NaviampCorePlaylistBrowseController(
                 playlistDetail = if (shell.playlistDetail.selectedPlaylist?.id == playlistId) {
                     shell.playlistDetail.copy(
                         selectedPlaylist = mapped,
-                        detail = SharedPlaylistDetailUi(mapped, tracks.map { it.toSharedTrackRowUi(coverArtUrl).copy(canToggleFavorite = provider.capabilities.supportsTrackFavorites) }),
+                        detail = SharedPlaylistDetailUi(
+                            mapped,
+                            tracks.map { it.toSharedTrackRowUi(coverArtUrl).copy(canToggleFavorite = provider.capabilities.supportsTrackFavorites) },
+                            totalDurationLabel = tracks.totalDurationLabel(),
+                        ),
                         status = null,
                     )
                 } else shell.playlistDetail,
@@ -387,6 +392,7 @@ class NaviampCorePlaylistBrowseController(
                                 tracks = tracks.map { track -> track.toSharedTrackRowUi(coverArtUrl).copy(
                                     canToggleFavorite = provider.capabilities.supportsTrackFavorites,
                                 ) },
+                                totalDurationLabel = tracks.totalDurationLabel(),
                             ),
                             status = "Connected",
                             playbackProfile = playbackProfiles.playlistProfile(resolvedPlaylist.id),

@@ -272,6 +272,11 @@ private fun AlbumDetailContent(
                     detail.album.releaseYear?.let { year ->
                         Text(year.toString(), color = colors.secondaryText, fontSize = 12.sp)
                     }
+                    Text(
+                        trackCountDurationLabel(detail.tracks.size, detail.totalDurationLabel),
+                        color = colors.secondaryText,
+                        fontSize = 12.sp,
+                    )
                     NaviampResponsiveActionRow(
                         colors = colors,
                         actions = listOf(
@@ -301,14 +306,6 @@ private fun AlbumDetailContent(
                     }
                 }
             }
-            Text(
-                listOfNotNull(
-                    "${detail.tracks.size} tracks",
-                    detail.totalDurationLabel.takeIf { it.isNotBlank() }?.let { "Total $it" },
-                ).joinToString(" - "),
-                color = colors.secondaryText,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
         Column(
             verticalArrangement = Arrangement.spacedBy(5.dp),

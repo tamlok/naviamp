@@ -1641,6 +1641,7 @@ fun Playlist.toSharedPlaylistDetailUi(
     SharedPlaylistDetailUi(
         playlist = toSharedMediaItemUi(coverArtUrl, tracks, keepDownloadedActive),
         tracks = tracks.map { it.toSharedTrackRowUi(coverArtUrl) },
+        totalDurationLabel = tracks.totalDurationLabel(),
     )
 
 fun DownloadJob.toDownloadJobUi(): NaviampDownloadJobUi {

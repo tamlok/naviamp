@@ -21,6 +21,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.tv_track_count
+import org.jetbrains.compose.resources.pluralStringResource
 
 /** The same covers drive the playlist collage and its header, never the playing track. */
 internal fun SharedPlaylistDetailUi.headerArtworkUrls(): List<String> =
@@ -152,4 +155,10 @@ internal fun NaviampDetailArtworkPlayButton(
             modifier = Modifier.size(32.dp),
         )
     }
+}
+
+@Composable
+internal fun trackCountDurationLabel(count: Int, durationLabel: String): String {
+    val countLabel = pluralStringResource(Res.plurals.tv_track_count, count, count)
+    return if (durationLabel.isBlank()) countLabel else "$countLabel • $durationLabel"
 }
