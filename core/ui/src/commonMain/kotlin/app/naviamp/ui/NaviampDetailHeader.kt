@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -12,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
@@ -120,5 +125,31 @@ internal fun NaviampDetailHeader(
             modifier = Modifier.matchParentSize().clipToBounds(),
         )
         Column(Modifier.fillMaxWidth(), verticalArrangement = verticalArrangement) { content(contentColors) }
+    }
+}
+
+@Composable
+internal fun NaviampDetailArtworkPlayButton(
+    contentDescription: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = Color.Black,
+            contentColor = Color.White,
+            disabledContainerColor = Color.Black,
+            disabledContentColor = Color.White,
+        ),
+        modifier = modifier.size(48.dp).alpha(0.3f),
+    ) {
+        Icon(
+            NaviampTransportIcons.Play,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(32.dp),
+        )
     }
 }

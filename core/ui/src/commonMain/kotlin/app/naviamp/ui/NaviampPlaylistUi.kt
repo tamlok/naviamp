@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,9 +28,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -796,26 +793,12 @@ private fun PlaylistDetailContent(
                         size = 96.dp,
                         mediaKind = SharedMediaItemKind.Playlist,
                     )
-                    IconButton(
-                        onClick = onPlayPlaylist,
+                    NaviampDetailArtworkPlayButton(
+                        contentDescription = stringResource(Res.string.playlists_play),
                         enabled = detail.tracks.isNotEmpty(),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = Color.Black,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Black,
-                            disabledContentColor = Color.White,
-                        ),
-                        modifier = Modifier
-                            .size(48.dp)
-                            .alpha(0.3f)
-                            .testTag("playlist-artwork-play"),
-                    ) {
-                        Icon(
-                            NaviampTransportIcons.Play,
-                            contentDescription = stringResource(Res.string.playlists_play),
-                            modifier = Modifier.size(32.dp),
-                        )
-                    }
+                        modifier = Modifier.testTag("playlist-artwork-play"),
+                        onClick = onPlayPlaylist,
+                    )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
                     Text(detail.playlist.subtitle, color = colors.secondaryText, fontSize = 12.sp)

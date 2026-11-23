@@ -8,32 +8,24 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -45,6 +37,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.naviamp.ui.generated.resources.*
@@ -63,6 +56,7 @@ internal fun NaviampFavoriteSongsPage(
     val ready = page.status == FavoriteSongsStatus.Ready
     val backFocus = remember { FocusRequester() }
     val playFocus = remember { FocusRequester() }
+    val artworkFocus = remember { FocusRequester() }
     val shuffleFocus = remember { FocusRequester() }
     val trackFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
     val listState = rememberLazyListState()
@@ -83,7 +77,7 @@ internal fun NaviampFavoriteSongsPage(
         }
         val target = when (event.key) {
             Key.DirectionUp -> backFocus
-            Key.DirectionLeft -> playFocus.takeIf { shuffle }
+            Key.DirectionLeft -> if (shuffle) playFocus else artworkFocus
             Key.DirectionRight -> shuffleFocus.takeIf { !shuffle && page.tracks.size > 1 }
             else -> null
         } ?: return false
@@ -130,11 +124,19 @@ internal fun NaviampFavoriteSongsPage(
                             onClick = actions.onFavoriteSongsBack,
                         )
                     } else {
-                        IconButton(onClick = actions.onFavoriteSongsBack) {
-                            Icon(NaviampIcons.Back, contentDescription = backLabel, tint = headerColors.primaryText)
+                        IconButton(onClick = actions.onFavoriteSongsBack, modifier = Modifier.size(32.dp)) {
+                            Icon(NaviampIcons.Back, contentDescription = backLabel, tint = headerColors.primaryText, modifier = Modifier.size(18.dp))
                         }
                     }
-                    Spacer(Modifier.weight(1f))
+                    Text(
+                        stringResource(Res.string.favorite_songs_title),
+                        color = headerColors.primaryText,
+                        fontSize = if (television) 30.sp else 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
                     if (television) {
                         TelevisionIconButton(
                             enabled = true,
@@ -149,36 +151,63 @@ internal fun NaviampFavoriteSongsPage(
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val artworkSize = if (television) 132.dp else 80.dp
-                    if (covers.isNotEmpty()) {
-                        MultiCoverArt(
-                            colors = headerColors,
-                            covers = covers,
-                            size = artworkSize,
-                            cornerRadius = 8.dp,
-                            mediaKind = SharedMediaItemKind.Playlist,
-                        )
-                    } else {
-                        Box(
-                            Modifier.size(artworkSize).background(headerColors.controlSurface, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                NaviampTransportIcons.HeartFilled,
-                                contentDescription = null,
-                                tint = headerColors.favorite,
-                                modifier = Modifier.size(artworkSize / 2),
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val artworkSize = if (television) 132.dp else 96.dp
+                    Box(contentAlignment = Alignment.Center) {
+                        if (covers.isNotEmpty()) {
+                            MultiCoverArt(
+                                colors = headerColors,
+                                covers = covers,
+                                size = artworkSize,
+                                mediaKind = SharedMediaItemKind.Playlist,
+                            )
+                        } else {
+                            Box(
+                                Modifier.size(artworkSize).background(headerColors.controlSurface, RoundedCornerShape(4.dp)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    NaviampTransportIcons.HeartFilled,
+                                    contentDescription = null,
+                                    tint = headerColors.favorite,
+                                    modifier = Modifier.size(artworkSize / 2),
+                                )
+                            }
+                        }
+                        if (television) {
+                            Box(Modifier.testTag("favorite-songs-artwork-play").onPreviewKeyEvent { event ->
+                                val target = when (event.key) {
+                                    Key.DirectionUp -> backFocus
+                                    Key.DirectionRight -> playFocus
+                                    else -> null
+                                }
+                                if (event.key == Key.DirectionDown && page.tracks.isNotEmpty()) {
+                                    if (event.type == KeyEventType.KeyDown) focusTrack(0)
+                                    true
+                                } else if (target != null) {
+                                    if (event.type == KeyEventType.KeyDown) target.requestFocus()
+                                    true
+                                } else false
+                            }) {
+                                TelevisionIconButton(
+                                    enabled = ready && page.tracks.isNotEmpty(),
+                                    icon = NaviampTransportIcons.Play,
+                                    description = stringResource(Res.string.transport_play),
+                                    colors = headerColors,
+                                    focusRequester = artworkFocus,
+                                    onClick = { actions.onFavoriteSongsPlay(false) },
+                                )
+                            }
+                        } else {
+                            NaviampDetailArtworkPlayButton(
+                                contentDescription = stringResource(Res.string.transport_play),
+                                enabled = ready && page.tracks.isNotEmpty(),
+                                modifier = Modifier.testTag("favorite-songs-artwork-play"),
+                                onClick = { actions.onFavoriteSongsPlay(false) },
                             )
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            stringResource(Res.string.favorite_songs_title),
-                            color = headerColors.primaryText,
-                            fontSize = if (television) 30.sp else 20.sp,
-                            fontWeight = FontWeight.Bold,
-                        )
                         Text(
                             stringResource(Res.string.favorite_songs_subtitle),
                             color = headerColors.secondaryText,
@@ -192,29 +221,29 @@ internal fun NaviampFavoriteSongsPage(
                                 fontSize = if (television) 16.sp else 12.sp,
                             )
                         }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            FavoriteSongsPlaybackButton(
+                                label = stringResource(Res.string.transport_play),
+                                icon = NaviampTransportIcons.Play,
+                                colors = headerColors,
+                                enabled = ready && page.tracks.isNotEmpty(),
+                                television = television,
+                                focusRequester = playFocus,
+                                modifier = if (television) Modifier.onPreviewKeyEvent { playbackNavigation(it, false) } else Modifier,
+                                onClick = { actions.onFavoriteSongsPlay(false) },
+                            )
+                            FavoriteSongsPlaybackButton(
+                                label = stringResource(Res.string.transport_shuffle),
+                                icon = NaviampTransportIcons.Shuffle,
+                                colors = headerColors,
+                                enabled = ready && page.tracks.size > 1,
+                                television = television,
+                                focusRequester = shuffleFocus,
+                                modifier = if (television) Modifier.onPreviewKeyEvent { playbackNavigation(it, true) } else Modifier,
+                                onClick = { actions.onFavoriteSongsPlay(true) },
+                            )
+                        }
                     }
-                }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    FavoriteSongsPlaybackButton(
-                        label = stringResource(Res.string.transport_play),
-                        icon = NaviampTransportIcons.Play,
-                        colors = headerColors,
-                        enabled = ready && page.tracks.isNotEmpty(),
-                        television = television,
-                        modifier = if (television) Modifier.focusRequester(playFocus)
-                            .onPreviewKeyEvent { playbackNavigation(it, false) } else Modifier,
-                        onClick = { actions.onFavoriteSongsPlay(false) },
-                    )
-                    FavoriteSongsPlaybackButton(
-                        label = stringResource(Res.string.transport_shuffle),
-                        icon = NaviampTransportIcons.Shuffle,
-                        colors = headerColors,
-                        enabled = ready && page.tracks.size > 1,
-                        television = television,
-                        modifier = if (television) Modifier.focusRequester(shuffleFocus)
-                            .onPreviewKeyEvent { playbackNavigation(it, true) } else Modifier,
-                        onClick = { actions.onFavoriteSongsPlay(true) },
-                    )
                 }
                 val statusLabel = when (page.status) {
                     FavoriteSongsStatus.Loading -> Res.string.library_loading_songs
@@ -284,27 +313,22 @@ private fun FavoriteSongsPlaybackButton(
     colors: NaviampColors,
     enabled: Boolean,
     television: Boolean,
+    focusRequester: FocusRequester,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        shape = shape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = if (focused && television) colors.primaryText else colors.controlSurface,
-            contentColor = if (focused && television) colors.background else colors.primaryText,
-            disabledContainerColor = colors.controlSurface,
-            disabledContentColor = colors.mutedText,
-        ),
-        modifier = modifier.onFocusChanged { focused = it.isFocused }.then(
-            if (television) Modifier.televisionFocusEffect(focused, colors, shape) else Modifier,
-        ),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(if (television) 24.dp else 20.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(label, fontSize = if (television) 18.sp else 14.sp, fontWeight = FontWeight.Bold)
+    Box(modifier) {
+        if (television) {
+            TelevisionIconButton(
+                enabled = enabled,
+                icon = icon,
+                description = label,
+                colors = colors,
+                focusRequester = focusRequester,
+                onClick = onClick,
+            )
+        } else {
+            MiniPlayerIconButton(colors, enabled, icon, label, onClick)
+        }
     }
 }

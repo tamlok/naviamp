@@ -56,10 +56,11 @@ class NaviampHomeFavoriteSongsUiTest {
             }
         }
         runOnIdle { assertTrue(intents.isEmpty()) }
-        onNodeWithText("Play").assertIsEnabled().performClick()
-        onNodeWithText("Shuffle").assertIsEnabled().performClick()
+        onNode(favoriteArtworkPlay).assertIsDisplayed().assertIsEnabled().performClick()
+        onNode(favoriteHeaderPlay).assertIsEnabled().performClick()
+        onNodeWithContentDescription("Shuffle").assertIsEnabled().performClick()
         runOnIdle {
-            assertEquals(listOf(false, true), intents)
+            assertEquals(listOf(false, false, true), intents)
             assertTrue(rows.isEmpty())
         }
     }
@@ -86,8 +87,9 @@ class NaviampHomeFavoriteSongsUiTest {
         )
         inactiveStates.forEach { (status, label) ->
             runOnIdle { page.value = SharedFavoriteSongsPageUi(status = status) }
-            onNodeWithText("Play").assertIsNotEnabled()
-            onNodeWithText("Shuffle").assertIsNotEnabled()
+            onNode(favoriteHeaderPlay).assertIsNotEnabled()
+            onNodeWithContentDescription("Shuffle").assertIsNotEnabled()
+            onNode(favoriteArtworkPlay).assertIsNotEnabled().performTouchInput { click() }
             label?.let { onNodeWithText(it).assertIsDisplayed() }
             onNodeWithContentDescription("Back").assertIsEnabled()
             onNodeWithContentDescription(if (status == FavoriteSongsStatus.Failed) "Retry" else "Refresh")
@@ -99,18 +101,21 @@ class NaviampHomeFavoriteSongsUiTest {
             page.value = SharedFavoriteSongsPageUi(status = FavoriteSongsStatus.Ready)
         }
         onNodeWithText("0 tracks").assertIsDisplayed()
-        onNodeWithText("Play").assertIsNotEnabled()
-        onNodeWithText("Shuffle").assertIsNotEnabled()
+        onNode(favoriteHeaderPlay).assertIsNotEnabled()
+        onNodeWithContentDescription("Shuffle").assertIsNotEnabled()
+        onNode(favoriteArtworkPlay).assertIsNotEnabled()
         runOnIdle { page.value = page.value.copy(tracks = listOf(favoriteTrack(0)), totalDurationLabel = "3m") }
         onNodeWithText("1 track • 3m").assertIsDisplayed()
-        onNodeWithText("Play").assertIsEnabled()
-        onNodeWithText("Shuffle").assertIsNotEnabled()
+        onNode(favoriteHeaderPlay).assertIsEnabled()
+        onNodeWithContentDescription("Shuffle").assertIsNotEnabled()
+        onNode(favoriteArtworkPlay).assertIsEnabled()
         runOnIdle { page.value = page.value.copy(tracks = List(2, ::favoriteTrack), totalDurationLabel = "6m") }
         onNodeWithText("2 tracks • 6m").assertIsDisplayed()
-        onNodeWithText("Shuffle").assertIsEnabled()
+        onNodeWithContentDescription("Shuffle").assertIsEnabled()
         runOnIdle { page.value = page.value.copy(status = FavoriteSongsStatus.Loading) }
-        onNodeWithText("Play").assertIsNotEnabled()
-        onNodeWithText("Shuffle").assertIsNotEnabled()
+        onNode(favoriteHeaderPlay).assertIsNotEnabled()
+        onNodeWithContentDescription("Shuffle").assertIsNotEnabled()
+        onNode(favoriteArtworkPlay).assertIsNotEnabled().performTouchInput { click() }
         onNodeWithText("Song 0").assertDoesNotExist()
     }
 
@@ -130,14 +135,19 @@ class NaviampHomeFavoriteSongsUiTest {
         }
         onNodeWithText("Favorite Songs").assertIsDisplayed()
         onNodeWithText("2 tracks • 6m").assertIsDisplayed()
-        onNodeWithText("Play").assertIsDisplayed().performClick()
-        onNodeWithText("Shuffle").assertIsDisplayed().performClick()
+        val backBounds = onNodeWithContentDescription("Back").fetchSemanticsNode().boundsInRoot
+        val titleBounds = onNodeWithText("Favorite Songs").fetchSemanticsNode().boundsInRoot
+        assertTrue(titleBounds.left >= backBounds.right)
+        assertTrue(titleBounds.center.y in backBounds.top..backBounds.bottom)
+        onNode(favoriteArtworkPlay).assertIsDisplayed().performClick()
+        onNode(favoriteHeaderPlay).assertIsDisplayed().performClick()
+        onNodeWithContentDescription("Shuffle").assertIsDisplayed().performClick()
         onNodeWithContentDescription("Refresh").assertIsDisplayed().performClick()
         onNodeWithContentDescription("Back").assertIsDisplayed().performClick()
         onNodeWithTag("favorite-songs-tracks").performScrollToIndex(1)
         onNodeWithText("Song 1").assertIsDisplayed()
         runOnIdle {
-            assertEquals(listOf(false, true), intents)
+            assertEquals(listOf(false, false, true), intents)
             assertEquals(1, backs)
             assertEquals(1, refreshes)
         }
@@ -192,15 +202,17 @@ class NaviampHomeFavoriteSongsUiTest {
                 )
             }
         }
-        onNodeWithText("Play").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
-        onNodeWithText("Play").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNode(favoriteArtworkPlay).performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        onNode(favoriteArtworkPlay).assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNode(favoriteHeaderPlay).performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        onNode(favoriteHeaderPlay).assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         onRoot().performKeyInput { pressKey(Key.Tab) }
-        onNodeWithText("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithContentDescription("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         onNodeWithContentDescription("Refresh").performSemanticsAction(SemanticsActions.RequestFocus) { it() }
         onNodeWithContentDescription("Refresh").performKeyInput { pressKey(Key.Enter) }
         onRoot().performKeyInput { pressKey(Key.Escape) }
         runOnIdle {
-            assertEquals(listOf(false, true), intents)
+            assertEquals(listOf(false, false, true), intents)
             assertEquals(1, refreshes)
             assertEquals(1, backs)
         }
@@ -223,22 +235,34 @@ class NaviampHomeFavoriteSongsUiTest {
         }
         onNodeWithContentDescription("Back").assertIsFocused()
         onRoot().performKeyInput { pressKey(Key.DirectionDown) }
-        onNodeWithText("Play").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNode(favoriteHeaderPlay).assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.DirectionLeft) }
+        onNode(favoriteArtworkPlay).assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+        onNodeWithContentDescription("Back").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionDown); pressKey(Key.DirectionLeft); pressKey(Key.DirectionDown) }
+        onNodeWithText("Song 0").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionUp); pressKey(Key.DirectionLeft); pressKey(Key.DirectionRight) }
+        onNode(favoriteHeaderPlay).assertIsFocused()
         onRoot().performKeyInput { pressKey(Key.DirectionRight) }
-        onNodeWithText("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        onNodeWithContentDescription("Shuffle").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         onRoot().performKeyInput { pressKey(Key.DirectionDown) }
         onNodeWithText("Song 0").assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         repeat(10) { onRoot().performKeyInput { pressKey(Key.DirectionDown) } }
         onNodeWithText("Song 10").assertIsDisplayed().assertIsFocused().performKeyInput { pressKey(Key.Enter) }
         onRoot().performKeyInput { pressKey(Key.Back) }
         runOnIdle {
-            assertEquals(listOf(false, true), intents)
+            assertEquals(listOf(false, false, true), intents)
             assertEquals(listOf("song-0", "song-10"), requests.map { it.track.id })
             assertTrue(requests.all { it.action == SharedTrackRowAction.Select })
             assertEquals(1, backs)
         }
     }
 }
+
+private val favoriteArtworkPlay = hasContentDescription("Play") and
+    (hasTestTag("favorite-songs-artwork-play") or hasAnyAncestor(hasTestTag("favorite-songs-artwork-play")))
+private val favoriteHeaderPlay = hasContentDescription("Play") and !favoriteArtworkPlay
 
 private fun favoriteTrack(index: Int) = SharedTrackRowUi(
     id = "song-$index",
