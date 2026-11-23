@@ -69,6 +69,7 @@ import app.naviamp.ui.generated.resources.*
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
 
+/** [playbackProgress] is the presented timeline for whichever output plays, including a remote target. */
 @Composable
 @NonRestartableComposable
 fun NaviampSharedAppShell(
@@ -166,7 +167,6 @@ private fun NaviampSharedAppShellContent(
     }).withSelectedRemoteOutputAction(uiState.connect, connectActions)
         .withCastOutputActions(castOutput, onCastPicker, onCastSelectLocal)
         .copy(onCreateRadioDj = { radioDjCreationOpen = true })
-    val effectivePlaybackProgress = playbackProgress.takeIf { remoteNowPlaying == null }
     PreloadNaviampNowPlayingArtwork(nowPlaying)
     val supportsApplicationUpdates = shellChrome.supportsApplicationUpdates
     val selectedRoute = shellChrome.selectedRoute
@@ -324,7 +324,7 @@ private fun NaviampSharedAppShellContent(
                                 nowPlaying, colors, { showQueue ->
                                     if (showQueue) openQueue() else navigationActions.onOpenNowPlaying()
                                 }, nowPlayingActions, playerBackground,
-                                playbackProgress = effectivePlaybackProgress,
+                                playbackProgress = playbackProgress,
                                 showVolumeBar = interfaceSettings.nowPlaying.showVolumeBar,
                                 queueFocusRequester = queueFocusRequester,
                             )
@@ -392,7 +392,7 @@ private fun NaviampSharedAppShellContent(
                             uiState = uiState,
                             showFullNowPlaying = showFullNowPlaying,
                             playerBackground = playerBackground,
-                            playbackProgress = effectivePlaybackProgress,
+                            playbackProgress = playbackProgress,
                             visualizerBandsProvider = visualizerBandsProvider,
                             settingsSync = settingsSync,
                             actions = actions,
@@ -580,7 +580,6 @@ internal fun ConnectedContent(
     }).withSelectedRemoteOutputAction(uiState.connect, connectActions)
         .withCastOutputActions(castOutput, onCastPicker, onCastSelectLocal)
         .copy(onCreateRadioDj = onCreateRadioDj)
-    val effectivePlaybackProgress = playbackProgress.takeIf { remoteNowPlaying == null }
     val selectedRoute = shellChrome.selectedRoute
     val selectedVisualizer = shellChrome.selectedVisualizer
     val onTrackAction = mediaActions.onTrackAction
@@ -857,7 +856,7 @@ internal fun ConnectedContent(
     }
     if (showFullNowPlaying && nowPlaying != null) {
         NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
-            FullNowPlaying(nowPlaying, effectivePlaybackProgress, colors,
+            FullNowPlaying(nowPlaying, playbackProgress, colors,
                 visualizerBandsProvider, selectedVisualizer, nowPlayingActions, interfaceSettings, playerBackground)
         }
     } else if (
@@ -1058,6 +1057,7 @@ fun NaviampSettingsContent(
         supportsReplayGain = playback.replayGainAvailable,
         supportsGapless = playback.gaplessAvailable,
         supportsCrossfade = playback.crossfadeAvailable,
+        supportsStereoDownmix = playback.stereoDownmixAvailable,
         supportsEqualizer = playback.equalizerAvailable,
         supportsAudioOutputDeviceSelection = playback.audioOutputDeviceSelectionAvailable,
         audioOutputDevices = playback.audioOutputDevices,

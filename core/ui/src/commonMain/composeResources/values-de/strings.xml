@@ -632,6 +632,7 @@
     <string name="connect_recovery_permission">Der Zugriff auf das lokale Netzwerk wurde verweigert. Erlauben Sie Naviamp in den Systemeinstellungen den Zugriff auf das lokale Netzwerk, wenn diese Berechtigung verfügbar ist. Kehren Sie dann zurück und versuchen Sie es erneut.</string>
     <string name="connect_recovery_discovery">Naviamp konnte das lokale Netzwerk nicht durchsuchen. Überprüfen Sie, ob sich beide Geräte im selben Netzwerk befinden und dass das Netzwerk die Kommunikation der Geräte zulässt, und versuchen Sie es dann erneut.</string>
     <string name="connect_recovery_advertising">Dieses Gerät konnte sich nicht für die Kopplung verfügbar machen. Überprüfen Sie die Netzwerkverbindung und versuchen Sie es erneut.</string>
+    <string name="connect_recovery_secure_storage">Naviamp konnte den sicheren Anmeldedatenspeicher dieses Geräts nicht öffnen. Entsperren Sie den Schlüsselbund des Systems und versuchen Sie es erneut.</string>
     <string name="connect_recovery_settings_failed">Die Systemeinstellungen konnten nicht geöffnet werden. Öffnen Sie die Naviamp-Berechtigungen in den Systemeinstellungen, kehren Sie dann zurück und versuchen Sie es erneut.</string>
     <string name="connect_recovery_open_settings">Öffnen Sie die Systemeinstellungen</string>
     <string name="connect_recovery_retry">Verbindung erneut versuchen</string>
@@ -723,7 +724,7 @@
     <string name="tv_restoring_naviamp_tv">Naviamp wird wiederhergestellt</string>
     <string name="tv_set_up_naviamp_tv">Richten Sie Naviamp ein</string>
     <string name="tv_direct_setup_description">Direkte Verbindung von diesem Fernseher aus. Das Koppeln eines Telefons oder Computers bleibt optional.</string>
-    <string name="tv_keyboard_navigation_hint">Wählen Sie während der Eingabe „Weiter“ auf der TV-Tastatur, um fortzufahren. Verwenden Sie Zurück oder Esc, um die Tastatur zu schließen.</string>
+    <string name="tv_keyboard_navigation_hint">Drücken Sie bei einem fokussierten Feld die Auswahltaste, um die TV-Tastatur zu öffnen. Wählen Sie „Weiter“ zum Fortfahren oder verwenden Sie „Zurück“ oder Esc, um die Tastatur zu schließen.</string>
     <string name="tv_set_up_from_a_phone_or_computer">Einrichtung über ein Telefon oder einen Computer</string>
     <string name="tv_show_pairing_code">Kopplungscode anzeigen</string>
     <string name="tv_approve_controller">Controller genehmigen</string>
@@ -1278,4 +1279,19 @@
     <string name="connection_aurral_companion_save_failed">Der Aurral-Begleiter konnte nicht gespeichert werden. Deine Musikverbindung bleibt unverändert.</string>
     <string name="compact_lyrics_font_size">Liedtext-Schriftgröße wechseln (aktuell: %1$d)</string>
     <string name="compact_lyrics_refresh">Zwischengespeicherte Liedtexte löschen und neu laden</string>
+    <string name="storage_recovery_title">Gespeicherte Einstellungen</string>
+    <string name="storage_recovery_capacity">Diese Änderung überschreitet das Speicherbudget des Geräts. Bisher gespeicherte Einstellungen und Verbindungen bleiben erhalten.</string>
+    <string name="storage_recovery_unreadable">Gespeicherte Einstellungen konnten nicht geöffnet werden. Sie bleiben erhalten. Versuche es erneut oder setze sie zurück, um dieses Gerät neu einzurichten.</string>
+    <string name="storage_recovery_conflict">Die gespeicherten Einstellungen wurden während dieses Vorgangs geändert. Lade sie vor einem erneuten Versuch neu.</string>
+    <string name="storage_recovery_unavailable">Gespeicherte Einstellungen sind vorübergehend nicht verfügbar. Versuche es erneut.</string>
+    <string name="storage_recovery_reset_title">Gespeicherte Einstellungen zurücksetzen?</string>
+    <string name="storage_recovery_reset_message">Gespeicherte Einstellungen und Verbindungen auf diesem Gerät werden gelöscht. Deine Serverbibliothek wird nicht gelöscht.</string>
+
+    <string name="vehicle_connection_setup_on_phone">Füge Verbindungen auf deinem Telefon hinzu oder aktualisiere sie.</string>
+    <string name="vehicle_connection_offline">Offline</string>
+    <string name="tv_search_keyboard_space">Leerzeichen</string>
+    <string name="tv_search_keyboard_backspace">Rücktaste</string>
+    <string name="tv_search_system_keyboard">Systemtastatur</string>
+    <string name="storage_location_app">App-Speicher</string>
+    <string name="storage_location_custom">Benutzerdefiniert</string>
 </resources>

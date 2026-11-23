@@ -365,7 +365,7 @@ class NaviampCoreHomeControllerTest {
         val history = NaviampNavigationController()
         lateinit var home: NaviampCoreHomeController
         val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) })
-        home = NaviampCoreHomeController(store, { HomeTestProvider() }, navigation,
+        home = NaviampCoreHomeController(store, { HomeTestProvider(supportsTrackRadio = true) }, navigation,
             NaviampCoreHomeDateSource { HomeDate(2026, 100) })
         home.execute(NaviampCoreCommand.Home.Refresh)
         home.dispatch(NaviampCoreCommand.Home.OpenCollection("missing"))
@@ -794,7 +794,7 @@ class NaviampCoreHomeControllerTest {
         val store = NaviampCoreStateStore()
         val controller = NaviampCoreHomeController(
             stateStore = store,
-            providerSource = NaviampCoreMediaProviderSource { HomeTestProvider() },
+            providerSource = NaviampCoreMediaProviderSource { HomeTestProvider(supportsTrackRadio = true) },
             navigationController = NaviampCoreNavigationController(
                 NaviampNavigationController(),
                 store,
@@ -998,6 +998,7 @@ class NaviampCoreHomeControllerTest {
 
 private class HomeTestProvider(
     supportsSonicSimilarity: Boolean = false,
+    supportsTrackRadio: Boolean = false,
     override val discovery: app.naviamp.domain.provider.ProviderDiscovery? = null,
 ) : MediaProvider {
     override val id = ProviderId("home")
@@ -1007,7 +1008,7 @@ private class HomeTestProvider(
         supportsDownloadTranscode = false,
         supportsArtistRadio = false,
         supportsAlbumRadio = false,
-        supportsTrackRadio = false,
+        supportsTrackRadio = supportsTrackRadio,
         supportsAlbumFavorites = true,
         supportsSonicSimilarity = supportsSonicSimilarity,
     )

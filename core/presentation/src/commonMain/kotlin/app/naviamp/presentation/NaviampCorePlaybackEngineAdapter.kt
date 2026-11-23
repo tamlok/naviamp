@@ -65,6 +65,7 @@ import app.naviamp.domain.settings.effectiveForEngine
 import app.naviamp.domain.isInternetRadioTrack
 import app.naviamp.domain.settings.LyricsSourcePreference
 import app.naviamp.domain.settings.LyricsTimingPreference
+import app.naviamp.domain.settings.normalized
 import app.naviamp.domain.settings.effectiveLyricsDisplayTimingPreference
 import app.naviamp.domain.settings.effectiveLyricsTimingPreference
 import app.naviamp.domain.settings.effectiveSonicSimilarityEnabled
@@ -141,6 +142,7 @@ class NaviampCorePlaybackEngineAdapter(
 
     override val capabilities = NaviampCorePlaybackCapabilities(
         engineName = engine.name,
+        supportsDownloadedOnly = true,
         supportsPause = engine.supportsPause,
         supportsSeek = engine.supportsSeek,
         supportsSoftwareVolume = engine.supportsSoftwareVolume,
@@ -153,6 +155,8 @@ class NaviampCorePlaybackEngineAdapter(
 
     private var observer: NaviampCorePlaybackObserver? = null
     private var queue = PlaybackQueue()
+    private var downloadedOnly = false
+    override val downloadedOnlyQueue: Boolean get() = downloadedOnly
     private var repeatMode = RepeatMode.Off
     private var resolutionJob: Job? = null
     private var unstreamableRecoveryJob: Job? = null
@@ -313,6 +317,11 @@ class NaviampCorePlaybackEngineAdapter(
         observer?.onStateChanged(playbackState)
     }
 
+    override fun applyProviderQueue(queue: PlaybackQueue, clearPreparedNext: Boolean) {
+        downloadedOnly = false
+        applyQueue(queue, clearPreparedNext)
+    }
+
     override fun applyQueue(queue: PlaybackQueue, clearPreparedNext: Boolean) {
         this.queue = queue
         cancelAudioPrefetch()
@@ -341,6 +350,7 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     override fun restoreQueue(queue: PlaybackQueue, startPositionSeconds: Double?) {
+        downloadedOnly = false
         cancelAudioPrefetch()
         cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
@@ -354,6 +364,7 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     override fun restoreInternetRadio(station: InternetRadioStation) {
+        downloadedOnly = false
         cancelAudioPrefetch()
         cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
@@ -397,6 +408,18 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     override fun playQueueSelection(queue: PlaybackQueue, index: Int) {
+        downloadedOnly = false
+        selectQueue(queue, index)
+    }
+
+    override fun playDownloadedQueueSelection(queue: PlaybackQueue, index: Int) {
+        downloadedOnly = true
+        selectQueue(queue, index)
+    }
+
+    override fun selectExistingQueueItem(queue: PlaybackQueue, index: Int) = selectQueue(queue, index)
+
+    private fun selectQueue(queue: PlaybackQueue, index: Int) {
         if (index !in queue.tracks.indices) return
         cancelAudioPrefetch()
         clearAudioPrefetchCompletions()
@@ -427,6 +450,16 @@ class NaviampCorePlaybackEngineAdapter(
 
     override fun diagnostics(): List<Pair<String, String>> =
         (engine as? PlaybackEngineDiagnostics)?.statsRows().orEmpty()
+
+    private fun reportResolutionFailure(requestGeneration: Long, failure: Throwable) {
+        if (failure is kotlinx.coroutines.CancellationException) throw failure
+        if (requestGeneration != generation) return
+        authenticatedStreams?.clearCurrent()
+        authenticatedStreams?.clearPrepared()
+        engine.stop()
+        playbackState = PlaybackState.Error(failure.message ?: "Could not resolve the audio stream.")
+        observer?.onStateChanged(playbackState)
+    }
 
     private fun startCurrent(
         startPositionSeconds: Double?,
@@ -462,7 +495,7 @@ class NaviampCorePlaybackEngineAdapter(
             preparedNextInvalidation?.join()
             if (requestGeneration != generation) return@launch
             val provider = providerSource.current()
-            val externalStreamUrl = externalStreamUrls[track.id]
+            val externalStreamUrl = externalStreamUrls[track.id].takeUnless { downloadedOnly }
             val playbackSettings = effectivePlaybackSettingsForTrack(queue.currentIndex)
             val transitionSettings = effectivePlaybackSettingsForTransition()
             applyProfileEngineSettings(playbackSettings, transitionSettings)
@@ -470,7 +503,7 @@ class NaviampCorePlaybackEngineAdapter(
             val requestedQuality = recoveryQuality ?: playbackSettings.streamQualityForNetwork(mobileData)
             val quality = provider?.capabilities?.effectiveStreamingQuality(requestedQuality)
                 ?: requestedQuality
-            val plannedAudioSource = if (externalStreamUrl != null) {
+            val plannedAudioSource = try { if (externalStreamUrl != null) {
                 null
             } else if (recoveryQuality != null) {
                 providerPlaybackAudioSourcePlan(
@@ -493,9 +526,15 @@ class NaviampCorePlaybackEngineAdapter(
                     audioCachingEnabled = cacheSettings().audioCachingEnabled,
                     audioAssets = audioAssets,
                     downloadedTrackPlayback = playbackSettings.downloadedTrackPlayback,
+                    downloadedOnly = downloadedOnly,
                     allowMismatchedCachedAudio = playbackSettings.allowMismatchedCachedAudioForNetwork(mobileData),
                     startPositionSeconds = startPositionSeconds,
                 ).withAudioStreamOffsetSupport(provider?.capabilities?.supportsAudioStreamOffset == true)
+            } } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                reportResolutionFailure(requestGeneration, failure)
+                return@launch
             }
             var usesProviderTransport = false
             var randomAccess: app.naviamp.domain.playback.PlaybackRandomAccessSource? = null
@@ -510,14 +549,7 @@ class NaviampCorePlaybackEngineAdapter(
                         ?: throw IllegalStateException("Connect to the music server to stream this track.")
                 }
             }.getOrElse { failure ->
-                if (failure is kotlinx.coroutines.CancellationException) throw failure
-                if (requestGeneration == generation) {
-                    authenticatedStreams?.clearCurrent()
-                    authenticatedStreams?.clearPrepared()
-                    engine.stop()
-                    playbackState = PlaybackState.Error(failure.message ?: "Could not resolve the audio stream.")
-                    observer?.onStateChanged(playbackState)
-                }
+                reportResolutionFailure(requestGeneration, failure)
                 return@launch
             }
             val audioSource = plannedAudioSource?.resolvedForPlaybackUrl(streamUrl)
@@ -583,6 +615,7 @@ class NaviampCorePlaybackEngineAdapter(
                         if (
                             state is PlaybackState.Error &&
                             state.reason == PlaybackFailureReason.UnsupportedFormat &&
+                            !downloadedOnly &&
                             recoveryQuality == null &&
                             externalStreamUrl == null &&
                             provider?.capabilities?.supportsStreamingTranscode == true
@@ -755,6 +788,7 @@ class NaviampCorePlaybackEngineAdapter(
         quality: app.naviamp.domain.StreamQuality,
         requestGeneration: Long,
     ) {
+        if (downloadedOnly) return
         val activePrefetchGeneration = ++prefetchGeneration
         prefetchJob?.cancel()
         prefetchJob = null
@@ -855,7 +889,7 @@ class NaviampCorePlaybackEngineAdapter(
         val next = queue.tracks.getOrNull(nextIndex) ?: return
         val playbackSettings = effectivePlaybackSettingsForTrack(nextIndex)
         val mobileData = isMobileData()
-        val audioSource = resolvePlaybackAudioSource(
+        val audioSource = try { resolvePlaybackAudioSource(
             sourceId = activeSourceId(),
             track = next,
             quality = provider.capabilities.effectiveStreamingQuality(
@@ -865,8 +899,10 @@ class NaviampCorePlaybackEngineAdapter(
             audioCachingEnabled = cacheSettings().audioCachingEnabled,
             audioAssets = audioAssets,
             downloadedTrackPlayback = playbackSettings.downloadedTrackPlayback,
+            downloadedOnly = downloadedOnly,
             allowMismatchedCachedAudio = playbackSettings.allowMismatchedCachedAudioForNetwork(mobileData),
-        )
+        ) } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+        catch (_: Exception) { return }
         var randomAccess: app.naviamp.domain.playback.PlaybackRandomAccessSource? = null
         val streamUrl = runCatching {
             audioSource.playbackStreamUrl { target ->
@@ -975,23 +1011,24 @@ class NaviampCorePlaybackEngineSettings(
     private val persist: (PlaybackSettings) -> Unit = {},
     private val onChanged: () -> Unit = {},
 ) : NaviampCorePlaybackSettingsPort {
-    private var current = initial.effectiveForEngine(engine)
+    private var current = initial.normalized()
 
     init {
-        applyToEngine(current)
+        applyToEngine(current.effectiveForEngine(engine))
     }
 
     fun current(): PlaybackSettings = current
 
     override fun apply(settings: PlaybackSettings, redownload: Boolean): PlaybackSettings {
-        val effective = settings.effectiveForEngine(engine)
-        val transitionChanged = current.transitionSettings() != effective.transitionSettings()
-        current = effective
+        val normalized = settings.normalized()
+        val effective = normalized.effectiveForEngine(engine)
+        val transitionChanged = current.effectiveForEngine(engine).transitionSettings() != effective.transitionSettings()
+        persist(normalized)
+        current = normalized
         if (transitionChanged) {
             (engine as? QueueAwarePlaybackEngine)?.clearPreparedNext()
         }
-        applyToEngine(current)
-        persist(current)
+        applyToEngine(effective)
         onChanged()
         return current
     }

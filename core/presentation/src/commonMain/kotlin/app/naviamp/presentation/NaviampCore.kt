@@ -19,6 +19,7 @@ import app.naviamp.domain.playback.AudioOutputDevice
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.playback.PlaybackProgress
+import app.naviamp.domain.settings.hasStoredCredentials
 import app.naviamp.domain.settings.toConnectionFormState
 import app.naviamp.domain.settings.toSettingsSyncServerProfile
 import app.naviamp.domain.settings.GlobalShortcutAction
@@ -31,9 +32,11 @@ import app.naviamp.ui.SharedRoute
 import app.naviamp.ui.toSharedMediaItemUi
 import app.naviamp.ui.toCacheSettingsUi
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -64,6 +67,7 @@ fun NaviampCoreInitialState.withShellCapabilities(
                 replayGainAvailable = capabilities.replayGain,
                 gaplessAvailable = capabilities.gapless,
                 crossfadeAvailable = capabilities.crossfade,
+                stereoDownmixAvailable = capabilities.stereoDownmix,
                 equalizerAvailable = capabilities.equalizer,
                 audioOutputDeviceSelectionAvailable = audioOutputDeviceSelectionAvailable,
                 audioOutputDevices = audioOutputDevices,
@@ -94,10 +98,12 @@ class NaviampCore private constructor(
     val playbackProgress: StateFlow<PlaybackProgress>,
     val actions: NaviampCoreActions,
     val commands: NaviampCoreCommandHandler,
+    private val closeCommands: () -> Unit,
     private val playbackController: NaviampCorePlaybackController,
     private val nowPlayingController: NaviampCoreNowPlayingMediaController,
     private val nowPlayingPresenter: NaviampCoreNowPlayingPresenter,
     private val providerSessionLifecycle: NaviampCoreProviderSessionLifecycle,
+    private val runtimeScope: CoroutineScope,
     private val homeController: NaviampCoreHomeController,
     private val providerSource: NaviampCoreMediaProviderSource,
     private val sidecars: NaviampCoreNowPlayingSidecarPort,
@@ -108,8 +114,23 @@ class NaviampCore private constructor(
     private val castPicker: NaviampCoreCastPickerController?,
     private val showCastRoutePicker: (() -> Unit)?,
     internal val playbackOutputs: NaviampPlaybackOutputSelectionController,
+    internal val vehicleArtwork: NaviampVehicleArtworkSource?,
+    internal val vehicleCollections: NaviampVehicleCollectionAccess,
+    internal val vehicleLibrary: (app.naviamp.ui.NaviampVehicleLibraryLabels) -> NaviampVehicleLibraryAccess,
+    internal val vehicleDownloads: (app.naviamp.ui.NaviampVehicleLibraryLabels, app.naviamp.ui.NaviampVehicleDownloadsLabels) -> NaviampVehicleDownloadsAccess,
 ) {
     val state: StateFlow<NaviampCoreState> = stateStore.state
+
+    /**
+     * The progress timeline every host's shared Now Playing UI presents: local engine progress, or
+     * the attached Connect target's reported position extrapolated while it plays.
+     * [playbackProgress] remains the local engine's progress.
+     */
+    val presentedPlaybackProgress: StateFlow<PlaybackProgress> = naviampPresentedPlaybackProgress(
+        scope = runtimeScope,
+        local = playbackProgress,
+        remote = state.map { it.shell.connect.remoteNowPlaying }.remoteProgressReports(),
+    )
 
     fun dispatch(command: NaviampCoreCommand) = commands.dispatch(command)
 
@@ -210,10 +231,14 @@ class NaviampCore private constructor(
     fun close() {
         if (closed) return
         closed = true
-        samplePlayback.close()
-        castPicker?.close()
-        castController?.close()
-        connectController?.close()
+        closeCommands()
+        try {
+            providerSessionLifecycle.close()
+            samplePlayback.close()
+            castPicker?.close()
+            castController?.close()
+            connectController?.close()
+        } finally { runtimeScope.cancel() }
     }
 
     val castAvailable: Boolean get() = showCastRoutePicker != null || castPicker != null
@@ -222,13 +247,26 @@ class NaviampCore private constructor(
     fun showCastPicker() { if (castPicker != null) castPicker.show() else showCastRoutePicker?.invoke() }
     fun dismissCastPicker() { castPicker?.dismiss() }
     fun retryCastDiscovery() { castPicker?.retry() }
-    fun selectCastTarget(id: String) { castPicker?.select(id) }
+    fun selectCastTarget(id: String) {
+        if (closed) return
+        stateStore.update { it.copy(playbackIntentGeneration = it.playbackIntentGeneration + 1L) }
+        castPicker?.select(id)
+    }
 
-    fun selectLocalPlayback() { if (castPicker != null) castPicker.selectLocal() else castController?.selectLocal() }
+    fun selectLocalPlayback() {
+        if (closed) return
+        stateStore.update { it.copy(playbackIntentGeneration = it.playbackIntentGeneration + 1L) }
+        if (castPicker != null) castPicker.selectLocal() else castController?.selectLocal()
+    }
 
-    /** Runs the shared sliding-session heartbeat until the mounted Core application is disposed. */
+    /** Starts runtime-owned work once, including when an external surface launches without phone UI. */
+    fun startRuntimeServices() {
+        if (!closed) providerSessionLifecycle.start(runtimeScope)
+    }
+
+    /** A mounted surface may await renewal without owning or cancelling the runtime's job. */
     suspend fun maintainProviderSession() {
-        providerSessionLifecycle.maintainWhileMounted()
+        if (!closed) providerSessionLifecycle.start(runtimeScope).join()
     }
     suspend fun maintainDiscoveryAcquisitions() = homeController.maintainDiscoveryAcquisitions()
 
@@ -241,6 +279,18 @@ class NaviampCore private constructor(
             onAsyncFailure: (NaviampCoreCommand, Throwable) -> Unit = { command, cause ->
                 throw IllegalStateException("Core command failed: $command", cause)
             },
+        ): NaviampCore {
+            val runtimeScope = CoroutineScope(scope.coroutineContext + kotlinx.coroutines.SupervisorJob(scope.coroutineContext[kotlinx.coroutines.Job]))
+            return try { createRuntime(runtimeScope, services, initialState, actionAvailability, onAsyncFailure) }
+            catch (failure: Throwable) { runtimeScope.cancel(); throw failure }
+        }
+
+        private fun createRuntime(
+            scope: CoroutineScope,
+            services: NaviampCoreServices,
+            initialState: NaviampCoreInitialState,
+            actionAvailability: NaviampCoreActionAvailability,
+            onAsyncFailure: (NaviampCoreCommand, Throwable) -> Unit,
         ): NaviampCore {
             val stateStore = NaviampCoreStateStore(initialState.product)
             val playbackProfiles = NaviampCorePlaybackProfileController(
@@ -275,6 +325,10 @@ class NaviampCore private constructor(
             lateinit var mediaDetails: NaviampCoreMediaDetailController
             lateinit var playlistBrowse: NaviampCorePlaylistBrowseController
             lateinit var home: NaviampCoreHomeController
+            val selectionStarted = {
+                stateStore.update { it.copy(playbackSelectionGeneration = it.playbackSelectionGeneration + 1L) }
+            }
+            routedPlaybackEffects.onSelectionStarted = selectionStarted
             val mediaRegistry = NaviampCoreMediaRegistry()
             val navigation = NaviampCoreNavigationController(
                 navigationState,
@@ -381,6 +435,7 @@ class NaviampCore private constructor(
                 services.radio.playback,
                 services.radio.recents,
                 onPlaybackStarted = { station ->
+                    selectionStarted()
                     samplePlayback.stop()
                     val track = app.naviamp.domain.radio.internetRadioTrack(station)
                     queue.startQueue(listOf(track), 0)
@@ -600,6 +655,8 @@ class NaviampCore private constructor(
             playback.attachNativePlayback()
             val trackActions = NaviampCoreTrackActionController(mediaRegistry, mediaTransactions, playlistMembership::open)
             favoriteSongs = NaviampCoreFavoriteSongsController(stateStore, providerSource, navigation, mediaRegistry, mediaTransactions, trackActions)
+            // Resolved mix commands re-enter the Connect-aware handler created below.
+            var resolvedCommandHandler: NaviampCoreCommandHandler? = null
             val collectionActions = NaviampCoreCollectionActionController(
                 providerSource,
                 mediaRegistry,
@@ -607,12 +664,15 @@ class NaviampCore private constructor(
                 mediaDetails,
                 playbackProfiles,
                 settings,
+                issueResolvedCommand = { command -> checkNotNull(resolvedCommandHandler).execute(command) },
             )
             val providerSessionLifecycle = NaviampCoreProviderSessionLifecycle(
                 sessionPort = services.connection,
             )
+            var connectionRestore: kotlinx.coroutines.Job? = null
             val restoreLocalSession: (String, Boolean) -> Unit = { sourceId, reconcileDownloads ->
-                scope.launch {
+                connectionRestore?.cancel()
+                connectionRestore = scope.launch {
                     val reopenNowPlaying = services.playback.sessions.load(sourceId)?.nowPlayingOpen == true
                     if (playback.restoreSession(sourceId) && reopenNowPlaying) {
                         navigation.restoreNowPlayingOpen()
@@ -620,6 +680,41 @@ class NaviampCore private constructor(
                 }
                 scope.launch { downloads.refresh(reconcile = reconcileDownloads) }
             }
+            val refreshConnectedSource: (String, Boolean, Boolean) -> Unit = { sourceId, restorePlayback, restorePhoneUi ->
+                    scope.launch { providerSessionLifecycle.refreshNow() }
+                    scope.launch {
+                        services.content.providerSource.current()?.let { provider ->
+                            services.providerActions.replay(sourceId, provider)
+                        }
+                    }
+                    services.content.providerSource.current()?.capabilities?.let { providerCapabilities ->
+                        stateStore.updateShell { shell ->
+                            val capabilities = shell.capabilities.copy(
+                                sonicSimilarity = providerCapabilities.supportsSonicSimilarity,
+                            )
+                            shell.copy(
+                                capabilities = capabilities,
+                                playback = shell.playback.copy(
+                                    sonicSimilarityAvailable = capabilities.sonicSimilarity,
+                                    similarityDiagnosticsAvailable = providerCapabilities.supportsSimilarityDiagnostics,
+                                ),
+                            )
+                        }
+                    }
+                    if (restorePlayback && restorePhoneUi) restoreLocalSession(sourceId, true)
+                    else {
+                        connectionRestore?.cancel()
+                        connectionRestore = if (restorePlayback) scope.launch { playback.restoreSession(sourceId, allowAutoPlay = false) } else null
+                        scope.launch { downloads.refresh(reconcile = true) }
+                    }
+                    scope.launch {
+                        home.refreshAfterConnection()
+                        home.restoreRecentRadioStreams(generatedRadioRecents.current())
+                    }
+                    scope.launch { catalog.refreshAfterConnection() }
+                    scope.launch { playlistBrowse.refreshAfterConnection() }
+                    scope.launch { radio.refreshAfterConnection() }
+                }
             val connection = NaviampCoreConnectionController(
                 NaviampConnectionController(initialState.connection),
                 stateStore,
@@ -628,6 +723,9 @@ class NaviampCore private constructor(
                 certificateFiles = services.certificateFiles,
                   onSourceChanging = { previousSourceId, newSourceId ->
                     navigation.resetForSourceChange()
+                    connectionRestore?.cancel()
+                    connectionRestore = null
+                    stateStore.update { it.copy(sourceGeneration = it.sourceGeneration + 1L) }
                     similarity.resetForSourceChange()
                     stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(
                         similarityTest = app.naviamp.ui.NaviampSimilarityTestUi(), radioDiagnostics = null,
@@ -663,36 +761,8 @@ class NaviampCore private constructor(
                         scope.launch { home.refreshAfterCompanionChange() }
                     }
                 },
-                onConnected = { sourceId ->
-                    scope.launch { providerSessionLifecycle.refreshNow() }
-                    scope.launch {
-                        services.content.providerSource.current()?.let { provider ->
-                            services.providerActions.replay(sourceId, provider)
-                        }
-                    }
-                    services.content.providerSource.current()?.capabilities?.let { providerCapabilities ->
-                        stateStore.updateShell { shell ->
-                            val capabilities = shell.capabilities.copy(
-                                sonicSimilarity = providerCapabilities.supportsSonicSimilarity,
-                            )
-                            shell.copy(
-                                capabilities = capabilities,
-                                playback = shell.playback.copy(
-                                    sonicSimilarityAvailable = capabilities.sonicSimilarity,
-                                    similarityDiagnosticsAvailable = providerCapabilities.supportsSimilarityDiagnostics,
-                                ),
-                            )
-                        }
-                    }
-                    restoreLocalSession(sourceId, true)
-                    scope.launch {
-                        home.refreshAfterConnection()
-                        home.restoreRecentRadioStreams(generatedRadioRecents.current())
-                    }
-                    scope.launch { catalog.refreshAfterConnection() }
-                    scope.launch { playlistBrowse.refreshAfterConnection() }
-                    scope.launch { radio.refreshAfterConnection() }
-                },
+                onConnected = { sourceId -> refreshConnectedSource(sourceId, true, true) },
+                onSavedSourceSelected = { sourceId, changed -> refreshConnectedSource(sourceId, changed, false) },
                 onUserConnected = {
                     navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(app.naviamp.ui.SharedRoute.Home))
                 },
@@ -709,7 +779,7 @@ class NaviampCore private constructor(
             val settingsSync = NaviampCoreSettingsSyncController(
                 stateStore = stateStore,
                 services = services.settings.sync,
-                onDocumentApplied = { snapshot ->
+                onDocumentApplied = { snapshot, imported ->
                     connection.replaceSavedConnections(
                         snapshot.serverProfiles.map { source ->
                             NaviampCoreSavedConnectionRecord(
@@ -722,20 +792,18 @@ class NaviampCore private constructor(
                             )
                         },
                     )
-                    snapshot.serverProfiles.firstOrNull()?.let { source ->
-                        val form = source.toSettingsSyncServerProfile().toConnectionFormState()
-                        stateStore.updateShell { shell ->
-                            shell.copy(
-                                connectionSettings = shell.connectionSettings.copy(
-                                    connection = shell.connectionSettings.connection.copy(
-                                        editingConnection = true,
-                                        editingSavedConnection = false,
-                                        form = form,
-                                    ),
-                                ),
+                    imported?.let { source ->
+                        // A matched connection that already holds credentials reconnects as is;
+                        // only a missing or rejected credential opens its password form.
+                        val reconnected = source.hasStoredCredentials() &&
+                            connection.reconnectImportedConnection(source.id)
+                        if (!reconnected) {
+                            connection.editImportedConnection(
+                                id = source.id,
+                                form = source.toSettingsSyncServerProfile().toConnectionFormState(),
                             )
+                            navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Settings))
                         }
-                        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Settings))
                     }
                     mediaDetails.interfaceSettingsChanged(snapshot.interfaceSettings)
                     home.refreshAfterConnection()
@@ -789,6 +857,7 @@ class NaviampCore private constructor(
                     targetSettings = settings.takeIf { supportsRemotePlayback },
                     revealTargetNowPlaying = navigation::openNowPlaying,
                     playbackOutputs = playbackOutputs,
+                    trackSelectionContext = mediaRegistry::connectTrackSelectionContext,
                 )
             }
             routeFavoriteSongs = { tracks, index -> connect?.playTracksOnSelectedDevice(tracks, index) == true }
@@ -832,7 +901,10 @@ class NaviampCore private constructor(
                     controller.start()
                 }
             }
-            val commandHandler = NaviampCoreConnectCommandHandler(router, connect, samplePlayback::stop)
+            val commandHandler = NaviampCoreConnectCommandHandler(router, connect, samplePlayback::stop,
+                onPlaybackIntent = { stateStore.update { it.copy(playbackIntentGeneration = it.playbackIntentGeneration + 1L) } },
+                closeDelegate = router::close)
+            resolvedCommandHandler = commandHandler
             pauseMainForSample = { commandHandler.dispatch(NaviampCoreCommand.NowPlaying.Playback(
                 NowPlayingPlaybackActionRequest(NowPlayingPlaybackAction.Pause))) }
             livePlayback.observe { live -> connect?.onLocalPlaybackChanged(live) }
@@ -844,10 +916,12 @@ class NaviampCore private constructor(
                 actions = createNaviampCoreActions(commandHandler,
                     actionAvailability.copy(chooseCertificate = services.certificateFiles != null), connect?.actions),
                 commands = commandHandler,
+                closeCommands = commandHandler::close,
                 playbackController = playback,
                 nowPlayingController = nowPlaying,
                 nowPlayingPresenter = nowPlayingPresenter,
                 providerSessionLifecycle = providerSessionLifecycle,
+                runtimeScope = scope,
                 homeController = home,
                 providerSource = providerSource,
                 sidecars = services.playback.sidecars,
@@ -858,6 +932,17 @@ class NaviampCore private constructor(
                 castPicker = castPicker,
                 showCastRoutePicker = availableCast?.showRoutePicker,
                 playbackOutputs = playbackOutputs,
+                vehicleCollections = NaviampCoreVehicleCollectionAccess(stateStore.state, providerSource, queuePlayback),
+                vehicleArtwork = services.content.artwork?.let { NaviampCoreVehicleArtworkSource(stateStore.state, providerSource, it) },
+                vehicleLibrary = { labels -> NaviampCoreVehicleLibraryAccess(stateStore.state, providerSource,
+                    { track -> queuePlayback.play(listOf(track)) }, labels) },
+                vehicleDownloads = { labels, downloadsLabels -> NaviampVehicleDownloadsAccess(stateStore.state,
+                    services.downloads.storage, { routedPlaybackEffects.capabilities.supportsDownloadedOnly },
+                    { tracks, index, shuffle, reference -> queuePlayback.play(tracks, index, shuffle,
+                        groupTarget = if (reference.kind == NaviampVehicleLibraryKind.DownloadedAlbumTracks)
+                            app.naviamp.domain.playback.PlaybackProfileTarget(app.naviamp.domain.playback.PlaybackProfileTargetType.Album, reference.id) else null,
+                        groupLabel = reference.title, downloadedOnly = true) },
+                    labels, downloadsLabels, { routedPlaybackEffects.downloadedOnlyQueue }) },
             )
         }
     }

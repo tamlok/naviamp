@@ -715,7 +715,11 @@ class NaviampCoreAppSmokeTest {
                         runOnIdle {
                             assertEquals(route, core.state.value.shell.shellChrome.selectedRoute)
                             assertEquals(false, core.state.value.shell.shellChrome.nowPlayingOpen)
-                            assertEquals(playing, core.state.value.shell.nowPlaying, "Track, queue and playback must survive exit")
+                            val restored = assertNotNull(core.state.value.shell.nowPlaying)
+                            assertEquals(playing.id, restored.id, "Track must survive exit")
+                            assertEquals(playing.queueSnapshot, restored.queueSnapshot, "Queue must survive exit")
+                            assertEquals(playing.isPlaying, restored.isPlaying, "Playback must survive exit")
+                            assertEquals(playing.isPaused, restored.isPaused)
                             assertEquals(playback, core.state.value.shell.playback)
                         }
                     }

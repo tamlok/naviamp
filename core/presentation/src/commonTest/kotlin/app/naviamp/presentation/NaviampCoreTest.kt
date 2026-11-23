@@ -63,7 +63,7 @@ import app.naviamp.ui.SharedTrackRowUi
 import app.naviamp.ui.toSharedMediaItemUi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runTest as coroutineRunTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -71,6 +71,21 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NaviampCoreTest {
+    private val createdCores = mutableListOf<NaviampCore>()
+    private fun runTest(body: suspend kotlinx.coroutines.test.TestScope.() -> Unit) = coroutineRunTest {
+        try { body() } finally {
+            createdCores.asReversed().forEach(NaviampCore::close)
+            createdCores.clear()
+        }
+    }
+    private fun createTrackedCore(
+        scope: kotlinx.coroutines.CoroutineScope, services: NaviampCoreServices,
+        initialState: NaviampCoreInitialState = NaviampCoreInitialState(),
+        onAsyncFailure: (NaviampCoreCommand, Throwable) -> Unit = { command, cause ->
+            throw IllegalStateException("Core command failed: $command", cause)
+        },
+    ) = NaviampCore.create(scope, services, initialState, onAsyncFailure = onAsyncFailure).also(createdCores::add)
+
     @Test
     fun accountSwitchClearsOldSearchPlaybackAndMixSelectionsBeforeReloading() = runTest {
         val defaults = fakeCoreServices()
@@ -85,7 +100,7 @@ class NaviampCoreTest {
                     inventory = NaviampCoreConnectionInventory(records, id))
             }
         }
-        val core = NaviampCore.create(this, defaults.copy(connection = port),
+        val core = createTrackedCore(this, defaults.copy(connection = port),
             initialState = NaviampCoreInitialState(
                 connection = NaviampConnectionRuntimeState(phase = NaviampConnectionPhase.Connected, sourceId = "alice"),
                 connectionInventory = NaviampCoreConnectionInventory(records, "alice"),
@@ -117,7 +132,7 @@ class NaviampCoreTest {
     @Test
     fun globalShortcutsRouteThroughSharedPlaybackPolicy() = runTest {
         val effects = FakeCorePlaybackEffects()
-        val core = NaviampCore.create(this, fakeCoreServices(playbackEffects = effects))
+        val core = createTrackedCore(this, fakeCoreServices(playbackEffects = effects))
         val tracks = listOf(coreTrack("one"), coreTrack("two"))
         core.updateLivePlayback { live ->
             live.copy(
@@ -174,7 +189,7 @@ class NaviampCoreTest {
                 ),
             )
         }
-        val core = NaviampCore.create(this, services, initialState = initial)
+        val core = createTrackedCore(this, services, initialState = initial)
         core.updateLivePlayback { live ->
             live.copy(
                 currentTrack = provider.track,
@@ -196,7 +211,7 @@ class NaviampCoreTest {
     @Test
     fun constructsOneProductGraphAndRoutesActionsWithoutHostControllers() = runTest {
         val failures = mutableListOf<Throwable>()
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = fakeCoreServices(),
             onAsyncFailure = { _, cause -> failures += cause },
@@ -216,7 +231,7 @@ class NaviampCoreTest {
 
     @Test
     fun nativePlaybackObservationsEnterThroughTheCoreFacade() = runTest {
-        val core = NaviampCore.create(this, fakeCoreServices())
+        val core = createTrackedCore(this, fakeCoreServices())
 
         core.updateLivePlayback { state ->
             state.copy(playbackState = app.naviamp.domain.playback.PlaybackState.Playing)
@@ -230,7 +245,7 @@ class NaviampCoreTest {
     @Test
     fun selectingProviderContentStartsPlaybackAndOpensNowPlayingInCore() = runTest {
         val provider = FakeCoreMediaProvider()
-        val core = NaviampCore.create(this, fakeCoreServices(provider))
+        val core = createTrackedCore(this, fakeCoreServices(provider))
         core.dispatch(NaviampCoreCommand.Search.ChangeQuery("core"))
         core.execute(NaviampCoreCommand.Search.Submit)
         val track = core.state.value.shell.search.results.tracks.single()
@@ -249,7 +264,7 @@ class NaviampCoreTest {
     fun selectingLibrarySongStartsPlaybackFromTheLibraryCatalog() = runTest {
         val provider = FakeCoreMediaProvider()
         val effects = FakeCorePlaybackEffects()
-        val core = NaviampCore.create(this, fakeCoreServices(provider, playbackEffects = effects))
+        val core = createTrackedCore(this, fakeCoreServices(provider, playbackEffects = effects))
         core.execute(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Songs))
         val track = core.state.value.shell.library.songs.tracks.single()
 
@@ -300,7 +315,7 @@ class NaviampCoreTest {
                 ),
             )
         }
-        val core = NaviampCore.create(this, services, initialState = initial)
+        val core = createTrackedCore(this, services, initialState = initial)
         core.execute(NaviampCoreCommand.Downloads.Refresh)
 
         core.execute(
@@ -348,7 +363,7 @@ class NaviampCoreTest {
                 ),
             )
         }
-        val core = NaviampCore.create(this, services, initialState = initial)
+        val core = createTrackedCore(this, services, initialState = initial)
 
         core.execute(
             NaviampCoreCommand.Playlists.Detail(
@@ -374,7 +389,7 @@ class NaviampCoreTest {
         val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, provider.playlist.id)
         val profile = PlaybackProfile(transitionMode = PlaybackTransitionMode.Gapless)
         val defaults = fakeCoreServices(provider, profiles = singlePlaybackProfile(target, profile))
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = defaults.copy(
                 playback = defaults.playback.copy(effects = effects),
@@ -419,7 +434,7 @@ class NaviampCoreTest {
         val target = PlaybackProfileTarget(PlaybackProfileTargetType.Album, provider.album.id.value)
         val profile = PlaybackProfile(transitionMode = PlaybackTransitionMode.Gapless)
         val defaults = fakeCoreServices(provider, profiles = singlePlaybackProfile(target, profile))
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = defaults.copy(playback = defaults.playback.copy(effects = effects)),
             initialState = NaviampCoreInitialState(
@@ -461,7 +476,7 @@ class NaviampCoreTest {
     fun seedOnlyLibraryRadioDoesNotPersistASuccessfulSession() = runTest {
         var persisted = listOf(libraryRecentRadioStream())
         val defaults = fakeCoreServices(FakeCoreMediaProvider())
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = defaults.copy(radio = defaults.radio.copy(
                 generatedRecents = NaviampCoreGeneratedRadioRecentsPort(
@@ -477,6 +492,109 @@ class NaviampCoreTest {
     }
 
     @Test
+    fun homeMixTilePlaysAMultiTrackSimilarSongStationInsteadOfTheSeedAlbum() = runTest {
+        val similar = (1..5).map { coreTrack("similar-$it").copy(albumId = app.naviamp.domain.AlbumId("other-$it")) }
+        val fixture = homeMixFixture(similar)
+
+        fixture.playMix()
+
+        val seed = fixture.effects.selections.first().tracks.single()
+        assertEquals(fixture.album.id, seed.albumId)
+        val queue = fixture.effects.appliedQueues.last().tracks.map { it.id }
+        assertEquals(seed.id, queue.first())
+        assertEquals(similar.map { it.id }.toSet(), queue.drop(1).toSet())
+        assertEquals(listOf(seed.id), fixture.similarRequests)
+        assertEquals(emptyList(), fixture.albumRadioRequests)
+        assertEquals(listOf("track:${seed.id.value}"), fixture.persisted.map { it.id })
+    }
+
+    @Test
+    fun savedHomeMixRebuildsFromRecentRadioThroughSimilarSongsNeverAlbumRadio() = runTest {
+        val similar = (1..3).map { coreTrack("similar-$it").copy(albumId = app.naviamp.domain.AlbumId("other-$it")) }
+        val fixture = homeMixFixture(similar)
+        fixture.playMix()
+        val seed = fixture.effects.selections.first().tracks.single()
+        // Without saved session tracks, replay must regenerate the station from its identity.
+        fixture.persist(fixture.persisted.map { it.copy(sessionTracks = emptyList()) })
+
+        fixture.core.execute(NaviampCoreCommand.Home.SelectRecentRadio(
+            SharedMediaItemUi("track:${seed.id.value}", "Mix", "Radio")))
+        advanceUntilIdle()
+
+        // The rebuild asked for the seed's similar songs again and never touched album radio.
+        assertEquals(listOf(seed.id, seed.id), fixture.similarRequests)
+        assertEquals(emptyList(), fixture.albumRadioRequests)
+        val albumSiblings = (fixture.effects.selections + fixture.effects.appliedQueues).flatMap { it.tracks }
+            .filter { it.albumId == fixture.album.id && it.id != seed.id }
+        assertEquals(emptyList(), albumSiblings)
+        assertEquals(listOf("track:${seed.id.value}"), fixture.persisted.map { it.id })
+    }
+
+    @Test
+    fun homeMixWithoutSimilarSongsUsesTheRadioFailurePathAndNeverQueuesTheAlbum() = runTest {
+        val fixture = homeMixFixture(similar = emptyList())
+
+        fixture.playMix()
+
+        val seed = fixture.effects.selections.first().tracks.single()
+        val queued = (fixture.effects.selections + fixture.effects.appliedQueues).flatMap { it.tracks }.map { it.id }.toSet()
+        assertEquals(setOf(seed.id), queued)
+        assertEquals(app.naviamp.domain.radio.RadioBuildOutcome.Empty, fixture.core.state.value.overlays.radioNotice?.outcome)
+        assertEquals(emptyList(), fixture.persisted)
+        assertEquals(emptyList(), fixture.albumRadioRequests)
+    }
+
+    private class HomeMixFixture(
+        val core: NaviampCore,
+        val effects: FakeCorePlaybackEffects,
+        val album: Album,
+        val similarRequests: List<app.naviamp.domain.TrackId>,
+        val albumRadioRequests: List<app.naviamp.domain.AlbumId>,
+        private val persistedRadio: () -> List<app.naviamp.domain.settings.RecentRadioStream>,
+        val persist: (List<app.naviamp.domain.settings.RecentRadioStream>) -> Unit,
+        private val scope: kotlinx.coroutines.test.TestScope,
+    ) {
+        val persisted get() = persistedRadio()
+
+        suspend fun playMix() {
+            val item = album.toSharedMediaItemUi({ null })
+            core.execute(NaviampCoreCommand.Media.ItemAction(
+                NaviampMediaItemActionRequest(item, NaviampMediaItemCommand.Album(NaviampArtistAlbumCommand.Select))))
+            scope.advanceUntilIdle()
+            core.execute(NaviampCoreCommand.Media.ItemAction(
+                NaviampMediaItemActionRequest(item, NaviampMediaItemCommand.PlayAlbumMix)))
+            scope.advanceUntilIdle()
+        }
+    }
+
+    private fun kotlinx.coroutines.test.TestScope.homeMixFixture(similar: List<Track>): HomeMixFixture {
+        val original = FakeCoreMediaProvider()
+        val albumTracks = (1..3).map { original.track.copy(id = app.naviamp.domain.TrackId("album-$it")) }
+        val similarRequests = mutableListOf<app.naviamp.domain.TrackId>()
+        val albumRadioRequests = mutableListOf<app.naviamp.domain.AlbumId>()
+        val provider = object : MediaProvider by original {
+            override val capabilities = original.capabilities.copy(supportsTrackRadio = true, supportsAlbumRadio = true)
+            override suspend fun album(albumId: app.naviamp.domain.AlbumId) =
+                app.naviamp.domain.AlbumDetails(original.album, albumTracks)
+            override suspend fun albumRadio(albumId: app.naviamp.domain.AlbumId, count: Int): List<Track> =
+                emptyList<Track>().also { albumRadioRequests += albumId }
+            override suspend fun instantMixTracks(trackId: app.naviamp.domain.TrackId, count: Int): List<Track> {
+                similarRequests += trackId
+                return similar
+            }
+        }
+        val effects = FakeCorePlaybackEffects()
+        var persisted = emptyList<app.naviamp.domain.settings.RecentRadioStream>()
+        val defaults = fakeCoreServices(provider)
+        val core = createTrackedCore(this, defaults.copy(
+            playback = defaults.playback.copy(effects = effects),
+            radio = defaults.radio.copy(generatedRecents = NaviampCoreGeneratedRadioRecentsPort(
+                load = { persisted }, save = { persisted = it })),
+        ))
+        return HomeMixFixture(core, effects, original.album, similarRequests, albumRadioRequests, { persisted }, { persisted = it }, this)
+    }
+
+    @Test
     fun generatedRadioRecentsReplayAndPersistThroughCore() = runTest {
         var now = 10L
         val candidate = coreTrack("radio-candidate")
@@ -484,7 +602,7 @@ class NaviampCoreTest {
         val effects = FakeCorePlaybackEffects()
         var persisted = listOf(libraryRecentRadioStream())
         val defaults = fakeCoreServices(provider)
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = defaults.copy(
                 clockEpochMillis = { now },
@@ -551,7 +669,7 @@ class NaviampCoreTest {
         }
         val station = InternetRadioStation("radio", "Radio", "https://radio.example")
         val radioTrack = internetRadioTrack(station)
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = services,
             initialState = NaviampCoreInitialState(
@@ -638,7 +756,7 @@ class NaviampCoreTest {
                 ),
             ),
         )
-        val core = NaviampCore.create(this, services)
+        val core = createTrackedCore(this, services)
         core.dispatch(
             NaviampCoreCommand.Connection.ChangeForm(
                 ConnectionFormState(
@@ -667,7 +785,7 @@ class NaviampCoreTest {
     @Test
     fun restoredHostNeutralStateRehydratesNavigationConnectionPlaybackAndProductState() = runTest {
         val restoredTrack = coreTrack("restored")
-        val core = NaviampCore.create(
+        val core = createTrackedCore(
             scope = this,
             services = fakeCoreServices(),
             initialState = NaviampCoreInitialState(
@@ -698,7 +816,7 @@ class NaviampCoreTest {
 
     @Test
     fun composedCoreOwnsEveryPreviouslyMissingMediaActionFamily() = runTest {
-        val core = NaviampCore.create(this, fakeCoreServices())
+        val core = createTrackedCore(this, fakeCoreServices())
         val item = SharedMediaItemUi("missing", "Missing", "")
         val track = SharedTrackRowUi("missing", "Missing", "Artist")
         val row = SharedTrackRowActionRequest(track, SharedTrackRowAction.Select)

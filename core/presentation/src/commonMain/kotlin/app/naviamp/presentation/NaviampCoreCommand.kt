@@ -59,6 +59,8 @@ sealed interface NaviampCoreCommand {
         data class Edit(val connection: NaviampSavedConnectionUi) : Connection
         data class Delete(val connection: NaviampSavedConnectionUi) : Connection
         data class ConnectSaved(val connection: NaviampSavedConnectionUi) : Connection
+        /** Uses stored credentials without opening or navigating a settings/account surface. */
+        data class SelectSavedSource(val id: String, val reconnect: Boolean = false) : Connection
         data object CancelForm : Connection
         data object OpenAccounts : Connection
         data object CloseAccounts : Connection
@@ -209,6 +211,12 @@ sealed interface NaviampCoreCommand {
         data class SelectInternetRadio(val item: SharedMediaItemUi) : Home
         data class SelectMixBuilder(val item: SharedMixBuilderUi) : Home
         data class SelectStation(val station: SharedHomeStationUi) : Home
+
+        /**
+         * A "Mixes for you" tile after Core resolved its seed track. It is issued through the full
+         * command handler so a remote Connect player receives seed-track radio, never the album.
+         */
+        data class StartAlbumMix(val album: app.naviamp.domain.Album, val seed: app.naviamp.domain.Track) : Home
         data class SonicTrackAction(val request: SharedHomeDiscoveryTrackActionRequest) : Home
         data class RecentTrackAction(val request: SharedTrackRowActionRequest) : Home
         data class OpenCollection(val sectionId: String) : Home
@@ -303,9 +311,12 @@ sealed interface NaviampCoreCommand {
 }
 
 sealed interface NaviampCoreCommandResult {
+    /** Explicit acknowledgement for asynchronous current-media mutations. */
+    data class PlaybackActionApplied(val applied: Boolean) : NaviampCoreCommandResult
     data class SmartPlaylistReferencesLoaded(
         val references: List<app.naviamp.domain.smartplaylist.SmartPlaylistReference>,
     ) : NaviampCoreCommandResult
+    data class SavedSourceSelected(val selected: Boolean) : NaviampCoreCommandResult
     data object Completed : NaviampCoreCommandResult
     data class SmartPlaylistInspected(val editing: app.naviamp.domain.smartplaylist.SmartPlaylistEditingResult) : NaviampCoreCommandResult
     data class SmartPlaylistLoaded(val definition: SmartPlaylistDefinition) : NaviampCoreCommandResult

@@ -3,6 +3,7 @@ package app.naviamp.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -201,6 +202,22 @@ class NaviampTelevisionLibraryUiTest {
         onNodeWithText("Sort albums: Title").performClick()
         onNodeWithTag(TelevisionLibraryShortcutRailTestTag).assertIsDisplayed()
         runOnIdle { assertEquals(LibraryAlbumSortOrder.Title, screen.value.albums.albumSortOrder) }
+    }
+
+    @Test fun albumToolbarLeavesRoomForCoverAndTitleInTheTvContentViewport() = runComposeUiTest {
+        val screen = mutableStateOf(screen().copy(selectedView = NaviampLibraryView.Albums))
+        setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                Box(Modifier.size(805.dp, 300.dp)) {
+                    LibraryFixture(screen, rememberNaviampTelevisionLibraryState())
+                }
+            }
+        }
+        onNodeWithText("Refresh").assertIsDisplayed()
+        onNodeWithTag(viewTag(NaviampLibraryView.Albums)).performSemanticsAction(SemanticsActions.RequestFocus)
+            .performKeyInput { pressKey(Key.DirectionDown) }
+        onNodeWithTag(itemTag("album-0")).assertIsFocused()
+        onNodeWithText("Album 0").assertIsDisplayed()
     }
 
     @Test fun viewSwitchingDetailReturnAndSongActionsPreserveFocus() = runDesktopComposeUiTest(1280, 720) {

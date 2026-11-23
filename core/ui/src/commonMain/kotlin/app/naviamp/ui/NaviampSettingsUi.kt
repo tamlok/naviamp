@@ -193,7 +193,20 @@ data class NaviampDiagnosticsSectionUi(
     val rows: List<Pair<String, String>>,
 )
 
-data class NaviampStorageLocationUi(val id: String, val label: String, val path: String)
+/** [label] names a host-provided location; the shared kinds supply translated labels. */
+data class NaviampStorageLocationUi(
+    val id: String, val label: String, val path: String,
+    val kind: NaviampStorageLocationKind = NaviampStorageLocationKind.Named,
+)
+
+enum class NaviampStorageLocationKind { Named, AppStorage, Custom }
+
+@Composable
+internal fun NaviampStorageLocationUi.displayLabel(): String = when (kind) {
+    NaviampStorageLocationKind.Named -> label
+    NaviampStorageLocationKind.AppStorage -> stringResource(Res.string.storage_location_app)
+    NaviampStorageLocationKind.Custom -> stringResource(Res.string.storage_location_custom)
+}
 
 data class NaviampAboutUi(
     val version: String = NaviampAppVersion,
@@ -286,6 +299,7 @@ fun NaviampSharedSettingsContent(
     supportsReplayGain: Boolean = false,
     supportsGapless: Boolean = true,
     supportsCrossfade: Boolean = false,
+    supportsStereoDownmix: Boolean = true,
     supportsEqualizer: Boolean = false,
     supportsAudioOutputDeviceSelection: Boolean = false,
     audioOutputDevices: List<AudioOutputDevice> = emptyList(),
@@ -434,6 +448,7 @@ fun NaviampSharedSettingsContent(
                     supportsReplayGain = supportsReplayGain,
                     supportsGapless = supportsGapless,
                     supportsCrossfade = supportsCrossfade,
+                    supportsStereoDownmix = supportsStereoDownmix,
                     supportsEqualizer = supportsEqualizer,
                     supportsAudioOutputDeviceSelection = supportsAudioOutputDeviceSelection,
                     audioOutputDevices = audioOutputDevices,
@@ -2907,21 +2922,49 @@ private val DefaultNaviampLibraries = listOf(
 // Release notes stay in English and out of localized string resources.
 private val DefaultNaviampChangelog = listOf(
     NaviampChangelogSectionUi(
+        title = "Features",
+        entries = listOf(
+            "Add an Aurral account as a companion to your primary music server. Aurral recommendations, catalog search, samples, monitoring, and requests open alongside your library without switching servers or interrupting playback. Standalone Aurral connections remain available.",
+            "Apple CarPlay (beta): browse your library, playlists, downloads, and radio, search on supported iOS versions, switch saved sources, and control playback and Up Next. CarPlay shares the iPhone's playback session.",
+            "Apple TV (beta): build Naviamp for Apple TV from source with the shared TV interface, connection setup including Aurral companions, remote and media keys, system Now Playing, and background playback. No Apple TV download is published with this release.",
+        ),
+    ),
+    NaviampChangelogSectionUi(
+        title = "Improvements",
+        entries = listOf(
+            "Android Auto leads with Playlists, Recently Played, and Radio, offers the full saved Internet Radio catalog, and adds Start Radio for the current song. Live stations hide unsupported track controls, Repeat shows distinct Off, Queue, and Track states, and current-track artwork is sharper.",
+            "Android TV and Google TV are no longer beta.",
+            "Show recently played tracks on Home and in Android Auto as soon as you listen to them.",
+            "Hide or reorder the Aurral section on Home like other Home sections.",
+            "Setting up Android TV from your phone also transfers an attached Aurral account.",
+            "Show a recovery screen with Retry on iPhone and iPad if Naviamp cannot start, instead of closing.",
+        ),
+    ),
+    NaviampChangelogSectionUi(
         title = "Bug fixes",
         entries = listOf(
-            "Remove white bands above and below the Android app by extending the selected background and filled Now Playing artwork behind the system bars while keeping controls safely inset.",
+            "Linux media controls show album artwork from a private local file instead of a server link that contained your sign-in details.",
+            "Mixes for you start a radio station seeded from the mix instead of playing the seed album.",
+            "Choosing a track in an album or playlist while controlling another device with Naviamp Connect queues the album or playlist from that track instead of sending only that track.",
+            "Elapsed time keeps advancing while you control another device with Naviamp Connect instead of staying at 0:00.",
+            "On Linux, the first launch opens its window without waiting for the system keyring. If secure storage is unavailable, Naviamp Connect settings show the problem with Retry instead of the app closing.",
+            "Reconnect after importing settings restores the imported server instead of failing with a duplicate-connection error.",
+            "Importing settings keeps this device's volume, output device, debug logging, and mobile-download settings.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Upgrade notes",
         entries = listOf(
-            "No special upgrade steps are required.",
+            "Aurral connections now require Aurral 3.x. Aurral 2.x servers are no longer supported.",
+            "The local database upgrades automatically to store Aurral companion accounts. Existing connections and settings are retained.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Known issues",
         entries = listOf(
-            "No new known issues. Existing playback, presentation, performance, and platform acceptance investigations continue.",
+            "Apple CarPlay and Apple TV are beta and were not verified on physical CarPlay or Apple TV hardware for this release.",
+            "On desktop windows of about 1280×800 or smaller, the full player can hide some of its controls.",
+            "Direct GitHub Windows and macOS downloads are not publisher-signed; the iOS IPA requires signing for sideloading.",
         ),
     ),
 )
@@ -3324,7 +3367,7 @@ fun NaviampDownloadsSettingsSection(
                 }
             }
             DownloadsSettingsPage.Location -> locations.forEach { location ->
-                SelectableSettingsRow(colors = colors, title = location.label, subtitle = location.path, selected = location.id == selectedLocationId) {
+                SelectableSettingsRow(colors = colors, title = location.displayLabel(), subtitle = location.path, selected = location.id == selectedLocationId) {
                     onLocationChanged(location)
                 }
             }
@@ -3391,7 +3434,7 @@ fun NaviampDownloadsSettingsSection(
     }
     if (locations.isNotEmpty()) {
         val selected = locations.firstOrNull { it.id == selectedLocationId } ?: locations.first()
-        SettingsRow("Download location", "Where newly saved files are stored", colors, selected.label) {
+        SettingsRow("Download location", "Where newly saved files are stored", colors, selected.displayLabel()) {
             selectedPage = DownloadsSettingsPage.Location
         }
     }
@@ -3471,7 +3514,7 @@ fun NaviampAudioCacheSettingsSection(
                 }
             }
             AudioCacheSettingsPage.Location -> locations.forEach { location ->
-                SelectableSettingsRow(colors = colors, title = location.label, subtitle = location.path, selected = location.id == selectedLocationId) {
+                SelectableSettingsRow(colors = colors, title = location.displayLabel(), subtitle = location.path, selected = location.id == selectedLocationId) {
                     onLocationChanged(location)
                 }
             }
@@ -3511,7 +3554,7 @@ fun NaviampAudioCacheSettingsSection(
     }
     if (locations.isNotEmpty()) {
         val selected = locations.firstOrNull { it.id == selectedLocationId } ?: locations.first()
-        SettingsRow("Cache location", "Where newly prefetched audio is stored", colors, selected.label) {
+        SettingsRow("Cache location", "Where newly prefetched audio is stored", colors, selected.displayLabel()) {
             selectedPage = AudioCacheSettingsPage.Location
         }
     }
@@ -3705,6 +3748,7 @@ fun NaviampPlaybackSettingsSection(
     supportsReplayGain: Boolean,
     supportsGapless: Boolean,
     supportsCrossfade: Boolean,
+    supportsStereoDownmix: Boolean = true,
     supportsEqualizer: Boolean,
     supportsAudioOutputDeviceSelection: Boolean = false,
     audioOutputDevices: List<AudioOutputDevice> = emptyList(),
@@ -3729,6 +3773,7 @@ fun NaviampPlaybackSettingsSection(
                 playbackSettings = playbackSettings,
                 devices = audioOutputDevices,
                 supportsAudioDeviceSelection = supportsAudioOutputDeviceSelection,
+                supportsStereoDownmix = supportsStereoDownmix,
                 onPlaybackSettingsChanged = onPlaybackSettingsChanged,
                 onBack = { selectedSection = null },
             )
@@ -3914,6 +3959,7 @@ private fun AudioOutputSettings(
     playbackSettings: PlaybackSettings,
     devices: List<AudioOutputDevice>,
     supportsAudioDeviceSelection: Boolean,
+    supportsStereoDownmix: Boolean,
     onPlaybackSettingsChanged: (PlaybackSettings) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -3995,7 +4041,7 @@ private fun AudioOutputSettings(
                 colors = colors,
                 value = playbackSettings.sampleRateConverter.label,
             ) { selectedPage = AudioOutputSettingsPage.SampleRateConverter }
-            SettingsCheckboxRow(
+            if (supportsStereoDownmix) SettingsCheckboxRow(
                 colors = colors,
                 checked = playbackSettings.stereoDownmixEnabled,
                 label = stringResource(Res.string.settings_stereo_downmix_title),

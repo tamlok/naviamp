@@ -14,6 +14,8 @@ import app.naviamp.app.settingsSyncMissingLocationStatus
 import app.naviamp.app.settingsSyncReconciliationStatus
 import app.naviamp.domain.settings.SettingsSyncDocument
 import app.naviamp.domain.settings.SettingsSyncLocalSnapshot
+import app.naviamp.domain.settings.settingsSyncImportedConnection
+import app.naviamp.domain.source.SavedMediaSource
 import app.naviamp.ui.NaviampSettingsSyncUi
 import app.naviamp.ui.naviampVisualizerFromName
 
@@ -86,6 +88,21 @@ interface NaviampCoreSettingsSyncPort {
     val available: Boolean
 }
 
+/** Default for hosts without a native document picker; network settings transfer remains shared. */
+object UnavailableNaviampCoreSettingsSyncPort : NaviampCoreSettingsSyncPort {
+    override val available = false
+    override fun configuration() = NaviampCoreSettingsSyncConfiguration()
+    override fun saveConfiguration(configuration: NaviampCoreSettingsSyncConfiguration) = Unit
+    override suspend fun readDocument(directoryPath: String): SettingsSyncDocument? = null
+    override suspend fun readDocumentFile(filePath: String): SettingsSyncDocument? = null
+    // Core never writes when [available] is false; reaching this is a host wiring error.
+    override suspend fun writeDocument(directoryPath: String, document: SettingsSyncDocument): String =
+        error("Settings documents are unavailable on this host")
+    override suspend fun chooseDirectory(currentPath: String?, title: String): String? = null
+    override suspend fun chooseDocument(currentPath: String?, title: String): String? = null
+    override fun defaultDirectory() = ""
+}
+
 data class NaviampCoreSettingsSyncServices(
     val controller: NaviampSettingsSyncController,
     val port: NaviampCoreSettingsSyncPort,
@@ -95,7 +112,8 @@ data class NaviampCoreSettingsSyncServices(
 class NaviampCoreSettingsSyncController(
     private val stateStore: NaviampCoreStateStore,
     private val services: NaviampCoreSettingsSyncServices,
-    private val onDocumentApplied: suspend (SettingsSyncLocalSnapshot) -> Unit = {},
+    // Receives the saved connection the document's first server profile resolved to, if any.
+    private val onDocumentApplied: suspend (SettingsSyncLocalSnapshot, SavedMediaSource?) -> Unit = { _, _ -> },
 ) : NaviampCoreCommandController {
     private var status: String? = null
 
@@ -158,7 +176,7 @@ class NaviampCoreSettingsSyncController(
         val document = services.port.readDocument(directory)
             ?: error("No settings sync file found in that folder.")
         status = settingsSyncReconciliationStatus(services.controller.applySyncedDocument(document))
-        publishAppliedSnapshot(services.controller.localSnapshot())
+        publishAppliedSnapshot(services.controller.localSnapshot(), document)
     }
 
     private suspend fun chooseFolder() {
@@ -183,7 +201,7 @@ class NaviampCoreSettingsSyncController(
         val document = services.port.readDocumentFile(path)
             ?: error("The selected file is not a Naviamp settings document.")
         status = settingsSyncReconciliationStatus(services.controller.applySyncedDocument(document))
-        publishAppliedSnapshot(services.controller.localSnapshot())
+        publishAppliedSnapshot(services.controller.localSnapshot(), document)
     }
 
     private suspend fun exportFolder() {
@@ -195,7 +213,8 @@ class NaviampCoreSettingsSyncController(
     private suspend fun write(document: SettingsSyncDocument?, automatic: Boolean) {
         document ?: return
         val directory = configuredDirectory()
-        if (directory == null) {
+        // Hosts without settings documents have no file to write, even with a stale saved folder.
+        if (directory == null || !services.port.available) {
             missingDirectory()
             return
         }
@@ -221,7 +240,7 @@ class NaviampCoreSettingsSyncController(
         status = settingsSyncMissingLocationStatus()
     }
 
-    private suspend fun publishAppliedSnapshot(snapshot: SettingsSyncLocalSnapshot) {
+    private suspend fun publishAppliedSnapshot(snapshot: SettingsSyncLocalSnapshot, document: SettingsSyncDocument) {
         stateStore.updateShell { shell ->
             shell.copy(
                 general = shell.general.copy(interfaceSettings = snapshot.interfaceSettings),
@@ -231,7 +250,7 @@ class NaviampCoreSettingsSyncController(
                 ),
             )
         }
-        onDocumentApplied(snapshot)
+        onDocumentApplied(snapshot, settingsSyncImportedConnection(document, snapshot.serverProfiles))
     }
 
     private fun publish() {

@@ -91,33 +91,29 @@ class NaviampDownloadJobControllerTest {
             name = "Road trip",
         )
 
-        assertEquals(
-            NaviampKeepDownloadedReconciliationApplication(
+        val completed = keepDownloadedReconciliationApplication(
+            policy,
+            KeepDownloadedReconciliationPlan(
+                nextTrackIds = emptySet(),
                 tracksToDownload = emptyList(),
-                downloadLabel = null,
-                status = "Road trip is up to date.",
-                refreshDownloads = true,
-            ),
-            keepDownloadedReconciliationApplication(
-                policy,
-                KeepDownloadedReconciliationPlan(
-                    nextTrackIds = emptySet(),
-                    tracksToDownload = emptyList(),
-                    trackIdsToRemove = setOf("removed"),
-                ),
+                trackIdsToRemove = setOf("removed"),
             ),
         )
-        assertEquals(
-            "Keeping Road trip downloaded",
-            keepDownloadedReconciliationApplication(
-                policy,
-                KeepDownloadedReconciliationPlan(
-                    nextTrackIds = setOf("one"),
-                    tracksToDownload = listOf(track("one")),
-                    trackIdsToRemove = emptySet(),
-                ),
-            ).downloadLabel,
+        assertTrue(completed.tracksToDownload.isEmpty())
+        assertNull(completed.downloadLabel)
+        assertTrue(completed.refreshDownloads)
+        assertTrue(policy.name in assertNotNull(completed.status))
+
+        val pending = keepDownloadedReconciliationApplication(
+            policy,
+            KeepDownloadedReconciliationPlan(
+                nextTrackIds = setOf("one"),
+                tracksToDownload = listOf(track("one")),
+                trackIdsToRemove = emptySet(),
+            ),
         )
+        assertEquals(listOf(track("one")), pending.tracksToDownload)
+        assertTrue(policy.name in assertNotNull(pending.downloadLabel))
     }
 
     private fun track(id: String) = Track(

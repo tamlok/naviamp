@@ -665,6 +665,7 @@ enum class SharedHomeCollectionArtwork {
 enum class SharedHomeCollectionItemAction {
     OpenArtist,
     PlayAlbum,
+    PlayAlbumMix,
     OpenAlbum,
     PlayPlaylist,
     OpenPlaylist,
@@ -1438,6 +1439,7 @@ data class NaviampShellConnectionUi(
     val savedConnections: List<NaviampSavedConnectionUi> = emptyList(),
     val hasSavedConnection: Boolean = false,
     val saveWithoutReconnect: Boolean = false,
+    val offline: Boolean = false,
 )
 
 data class NaviampConnectionSettingsUi(
@@ -1540,6 +1542,7 @@ data class NaviampPlaybackSettingsUi(
     val replayGainAvailable: Boolean = false,
     val gaplessAvailable: Boolean = true,
     val crossfadeAvailable: Boolean = false,
+    val stereoDownmixAvailable: Boolean = true,
     val equalizerAvailable: Boolean = false,
     val audioOutputDeviceSelectionAvailable: Boolean = false,
     val audioOutputDevices: List<AudioOutputDevice> = emptyList(),
@@ -1569,6 +1572,7 @@ data class NaviampShellCapabilitiesUi(
     val replayGain: Boolean = false,
     val gapless: Boolean = true,
     val crossfade: Boolean = false,
+    val stereoDownmix: Boolean = true,
     val equalizer: Boolean = false,
     val sonicSimilarity: Boolean = false,
     val softwareVolumeControl: Boolean = true,
@@ -1624,6 +1628,7 @@ fun PlaybackSettings.toPlaybackSettingsUi(
         replayGainAvailable = capabilities.replayGain,
         gaplessAvailable = capabilities.gapless,
         crossfadeAvailable = capabilities.crossfade,
+        stereoDownmixAvailable = capabilities.stereoDownmix,
         equalizerAvailable = capabilities.equalizer,
         audioOutputDeviceSelectionAvailable = audioOutputDeviceSelectionAvailable,
         audioOutputDevices = audioOutputDevices,

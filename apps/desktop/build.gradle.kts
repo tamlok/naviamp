@@ -1,3 +1,6 @@
+import org.gradle.process.ExecOperations
+import javax.inject.Inject
+import java.nio.file.Files
 import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.testing.Test
@@ -12,6 +15,11 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kover)
 }
+
+abstract class DesktopPackagingProcess {
+    @get:Inject abstract val operations: ExecOperations
+}
+val desktopPackagingProcess = objects.newInstance<DesktopPackagingProcess>()
 
 val naviampVersionName = rootProject.file("VERSION").readText().trim()
 val naviampVersionCode = rootProject.file("VERSION_CODE").readText().trim().toInt()
@@ -311,8 +319,48 @@ fun Zip.packageDesktopApp(
         desktopNativePlatform.map { platform -> "Naviamp-$naviampVersionName-$platform-$archiveNameSuffix.zip" },
     )
     destinationDirectory.set(layout.buildDirectory.dir("compose/distributions"))
-    from(if (release) desktopReleasePackagedAppDir else desktopPackagedAppDir) {
+    val appDirectory = if (release) desktopReleasePackagedAppDir else desktopPackagedAppDir
+    // Gradle 9 archives normalize permissions to 0644 unless told otherwise, which strips the
+    // launcher, jspawnhelper and native-library execute bits from the Linux and macOS zips.
+    useFileSystemPermissions()
+    from(appDirectory) {
         into(desktopPackagedAppName)
+    }
+    val platform = desktopNativePlatform
+    val appName = desktopPackagedAppName
+    doLast {
+        if (platform.get().startsWith("windows-")) return@doLast
+        val source = appDirectory.get().asFile
+        val executables = source.walkTopDown()
+            .filter { it.isFile && !Files.isSymbolicLink(it.toPath()) && it.canExecute() }
+            .map { "${appName.get()}/${it.relativeTo(source).invariantSeparatorsPath}" }
+            .toList()
+        check(executables.isNotEmpty()) { "Desktop app image ${source.absolutePath} contains no executable files." }
+        val modes = zipUnixModes(archiveFile.get().asFile)
+        val ownerExecute = 0b001_000_000
+        val lost = executables.filter { ((modes[it] ?: 0) and ownerExecute) == 0 }
+        check(lost.isEmpty()) {
+            "Desktop zip lost the execute permission on ${lost.size} file(s): ${lost.take(10).joinToString()}"
+        }
+        logger.lifecycle("Verified execute permissions on ${executables.size} file(s) in ${archiveFileName.get()}.")
+    }
+}
+
+/** Unix permission bits recorded in a zip's central directory, keyed by entry name. */
+fun zipUnixModes(file: File): Map<String, Int> {
+    val bytes = file.readBytes()
+    fun u16(at: Int) = (bytes[at].toInt() and 0xff) or ((bytes[at + 1].toInt() and 0xff) shl 8)
+    fun u32(at: Int) = u16(at).toLong() or (u16(at + 2).toLong() shl 16)
+    val end = (bytes.size - 22 downTo maxOf(0, bytes.size - 65_557)).first { u32(it) == 0x06054b50L }
+    check(u16(end + 10) != 0xffff && u32(end + 16) != 0xffffffffL) { "Zip64 archives are not supported: $file" }
+    var at = u32(end + 16).toInt()
+    return buildMap {
+        repeat(u16(end + 10)) {
+            check(u32(at) == 0x02014b50L) { "Corrupt zip central directory in $file" }
+            val nameLength = u16(at + 28)
+            put(bytes.decodeToString(at + 46, at + 46 + nameLength), ((u32(at + 38) ushr 16).toInt()) and 0xfff)
+            at += 46 + nameLength + u16(at + 30) + u16(at + 32)
+        }
     }
 }
 
@@ -488,7 +536,7 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         val extractedJmodDirectory = resourcesDirectory.resolve("jmod")
         delete(resourcesDirectory)
         resourcesDirectory.mkdirs()
-        project.exec {
+        desktopPackagingProcess.operations.exec {
             commandLine(
                 jmodTool.absolutePath,
                 "extract",
@@ -510,7 +558,7 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         val destination = outputDirectory.get().asFile
         delete(destination)
         destination.mkdirs()
-        project.exec {
+        desktopPackagingProcess.operations.exec {
             commandLine(
                 jpackageTool.absolutePath,
                 "--type", format,
@@ -691,7 +739,7 @@ fun patchMacAppBundleVersion(appDirectory: File) {
 
 fun configureMacLocalNetworkPrivacy(appDirectory: File, checkOnly: Boolean = false) {
     if (!desktopNativePlatform.get().startsWith("macos-")) return
-    project.exec {
+    desktopPackagingProcess.operations.exec {
         commandLine(buildList {
             add("python3")
             add(rootProject.file("scripts/configure-macos-local-network.py").absolutePath)
@@ -704,7 +752,7 @@ fun configureMacLocalNetworkPrivacy(appDirectory: File, checkOnly: Boolean = fal
 fun sealMacAppBundle(appDirectory: File) {
     val platform = desktopNativePlatform.get()
     if (!platform.startsWith("macos-")) return
-    project.exec {
+    desktopPackagingProcess.operations.exec {
         commandLine(
             "/usr/bin/codesign",
             "--force",
@@ -720,7 +768,7 @@ fun sealMacAppBundle(appDirectory: File) {
 }
 
 fun verifyMacAppBundleSeal(appDirectory: File) {
-    project.exec {
+    desktopPackagingProcess.operations.exec {
         commandLine(
             "/usr/bin/codesign",
             "--verify",

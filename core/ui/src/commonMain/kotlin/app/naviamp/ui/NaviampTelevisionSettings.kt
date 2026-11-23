@@ -98,7 +98,7 @@ internal fun televisionSettingsCategories(controllersAvailable: Boolean): List<T
         category != TelevisionSettingsCategory.Controllers || controllersAvailable
     }
 
-private enum class TelevisionSettingsChoicePage {
+internal enum class TelevisionSettingsChoicePage {
     Language,
     GeneralFontSize,
     NowPlayingFontSize,
@@ -193,7 +193,7 @@ internal fun TelevisionSettingsSheet(
             Column(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(0.43f)
+                    .fillMaxWidth(0.50f)
                     .widthIn(min = 430.dp)
                     .background(colors.background)
                     .padding(horizontal = 22.dp, vertical = 20.dp),
@@ -794,7 +794,7 @@ private fun TelevisionSourcesSettings(
 }
 
 @Composable
-private fun TelevisionPlaybackSettings(
+internal fun TelevisionPlaybackSettings(
     uiState: NaviampAppShellUiState,
     colors: NaviampColors,
     actions: NaviampSettingsValueActions,
@@ -888,7 +888,7 @@ private fun TelevisionPlaybackSettings(
                 },
             )
         }
-        item(key = "downmix") {
+        if (capability.stereoDownmixAvailable) item(key = "downmix") {
             TelevisionSettingsToggleRow(
                 stringResource(Res.string.tv_stereo_downmix),
                 stringResource(Res.string.tv_mix_multichannel_audio_to_stereo),
@@ -1007,6 +1007,7 @@ private fun TelevisionDisplaySettings(
                 disclosure = true,
                 colors = colors,
                 onClick = { onChoiceSelected(TelevisionSettingsChoicePage.GeneralFontSize) },
+                subtitleMaxLines = Int.MAX_VALUE,
                 modifier = if (returnChoice == TelevisionSettingsChoicePage.GeneralFontSize) {
                     Modifier.focusRequester(returnFocusRequester)
                 } else Modifier,
@@ -1021,6 +1022,8 @@ private fun TelevisionDisplaySettings(
                 disclosure = true,
                 colors = colors,
                 onClick = { onChoiceSelected(TelevisionSettingsChoicePage.NowPlayingFontSize) },
+                titleMaxLines = Int.MAX_VALUE,
+                subtitleMaxLines = Int.MAX_VALUE,
                 modifier = if (returnChoice == TelevisionSettingsChoicePage.NowPlayingFontSize) {
                     Modifier.focusRequester(returnFocusRequester)
                 } else Modifier,

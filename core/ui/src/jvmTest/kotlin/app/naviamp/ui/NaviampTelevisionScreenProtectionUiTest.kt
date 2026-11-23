@@ -27,7 +27,7 @@ class NaviampTelevisionScreenProtectionUiTest {
     @Test fun interactiveControlsFitNative4kAndExposeRepeatState() = captureInteractiveControls(3840, 2160, 3f)
 
     @Test fun televisionTextPaletteHasReadableContrastOnItsBaseSurface() {
-        val colors = NaviampColors.Dark
+        val colors = televisionReadingColors(NaviampColors.Dark)
         for (text in listOf(colors.primaryText, colors.secondaryText, colors.mutedText)) {
             val ratio = (text.luminance() + 0.05f) / (colors.background.luminance() + 0.05f)
             assertTrue(ratio >= 4.5f, "TV text contrast: $ratio")

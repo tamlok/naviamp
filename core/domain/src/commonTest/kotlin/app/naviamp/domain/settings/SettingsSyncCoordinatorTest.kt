@@ -2,11 +2,32 @@ package app.naviamp.domain.settings
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsSyncCoordinatorTest {
+    @Test fun documentAndSyncStampCommitBeforeLiveEffectsAndFailedBatchDoesNotRunThem() {
+        var runtime = SettingsSyncRuntimeState()
+        val events = mutableListOf<String>()
+        var fail = false
+        val coordinator = SettingsSyncCoordinator(
+            deviceId = "test", state = { runtime }, saveState = { events += "stamp"; runtime = it }, nowEpochMillis = { 1L },
+            buildLocalDocument = { document(it) }, applyDocument = { events += "document" },
+            persistenceTransaction = { body ->
+                events += "begin"
+                if (fail) error("storage rejected")
+                body(); events += "commit"
+            }, afterDocumentApplied = { events += "effects" },
+        )
+        coordinator.applySyncedDocument(document(20))
+        assertEquals(listOf("begin", "document", "stamp", "commit", "effects"), events)
+        events.clear(); fail = true
+        kotlin.test.assertFailsWith<IllegalStateException> { coordinator.applySyncedDocument(document(30)) }
+        assertEquals(listOf("begin"), events)
+        assertEquals(20L, runtime.lastAppliedSyncUpdateEpochMillis)
+    }
     @Test
     fun marksLocalChangesAndBuildsExportDocument() {
         var runtime = SettingsSyncRuntimeState()
@@ -44,6 +65,26 @@ class SettingsSyncCoordinatorTest {
         assertEquals(20L, runtime.lastLocalUpdateEpochMillis)
         assertEquals(20L, runtime.lastAppliedSyncUpdateEpochMillis)
         assertTrue(result.hasServerProfiles)
+        assertTrue(result.needsCredentials)
+    }
+
+    @Test
+    fun importOfAProfileThisDeviceAlreadyHoldsCredentialsForNeedsNoPassword() {
+        var runtime = SettingsSyncRuntimeState()
+        val coordinator = SettingsSyncCoordinator(
+            deviceId = "test",
+            state = { runtime },
+            saveState = { runtime = it },
+            nowEpochMillis = { 100L },
+            buildLocalDocument = { updatedAt -> document(updatedAt) },
+            applyDocument = {},
+            importNeedsCredentials = { false },
+        )
+
+        val result = coordinator.applySyncedDocument(document(updatedAt = 20L, serverProfiles = listOf(profile("source"))))
+
+        assertTrue(result.hasServerProfiles)
+        assertFalse(result.needsCredentials)
     }
 
     @Test

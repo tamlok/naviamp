@@ -64,15 +64,30 @@ data class NaviampExternalMediaItem(
     val artworkUrl: String? = null,
     val playable: Boolean = true,
     val queueIndex: Int? = null,
+    val mediaKind: app.naviamp.ui.SharedMediaItemKind = app.naviamp.ui.SharedMediaItemKind.Unknown,
+    /** Private local copy of [artworkUrl] for native integrations that accept only a URI. */
+    val localArtworkUri: String? = null,
 ) {
-    /** Native URI consumers cannot load the in-app synthetic artwork schemes. */
+    /**
+     * Artwork URI that may leave the process. Provider URLs can carry credentials (for example
+     * Subsonic token and salt parameters), so only local files are ever exposed; synthetic in-app
+     * schemes cannot be loaded by native consumers at all.
+     */
     val externalArtworkUrl: String?
-        get() = artworkUrl?.takeIf { url ->
-            url.startsWith("https://", ignoreCase = true) ||
-                url.startsWith("http://", ignoreCase = true) ||
-                url.startsWith("file://", ignoreCase = true)
-        }
+        get() = localArtworkUri ?: artworkUrl?.takeIf(::isLocalArtworkUri)
 }
+
+internal fun isLocalArtworkUri(url: String): Boolean = url.startsWith("file://", ignoreCase = true)
+
+internal fun isRemoteArtworkUrl(url: String): Boolean =
+    url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true)
+
+/** Runtime-only eligibility token, shared by phone, car and native interruption callbacks. */
+data class NaviampExternalPlaybackResumeIdentity(
+    val sourceId: String?, val sourceGeneration: Long, val accountGeneration: Long,
+    val selectionGeneration: Long, val intentGeneration: Long, val mediaId: String?,
+    val queueIndex: Int, val sleepTimerActive: Boolean,
+)
 
 data class NaviampExternalPlaybackSnapshot(
     val state: NaviampExternalPlaybackState = NaviampExternalPlaybackState.Idle,
@@ -97,6 +112,9 @@ data class NaviampExternalPlaybackSnapshot(
     val canShuffle: Boolean = false,
     val canRepeat: Boolean = false,
     val isLive: Boolean = false,
+    val resumeIdentity: NaviampExternalPlaybackResumeIdentity? = null,
+    val localPlayback: Boolean = true,
+    val connectionPending: Boolean = false,
 ) {
     /** Keep custom controls together when previous/next become unavailable at queue boundaries. */
     val reserveTransportSlots: Boolean
@@ -184,11 +202,12 @@ class NaviampExternalPlaybackPublicationPlanner(
 
     fun plan(next: NaviampExternalPlaybackSnapshot): NaviampExternalPlaybackPublication {
         val prior = previous
-        val sessionContent = prior == null ||
+        val sourceChanged = prior != null && (prior.sourceScope() != next.sourceScope() || prior.localPlayback != next.localPlayback)
+        val sessionContent = prior == null || sourceChanged ||
             prior.current != next.current ||
             prior.queue != next.queue ||
             prior.durationMillis != next.durationMillis
-        val semanticPlaybackChange = prior == null ||
+        val semanticPlaybackChange = prior == null || sourceChanged ||
             prior.state != next.state ||
             prior.currentQueueIndex != next.currentQueueIndex ||
             prior.canPlayPause != next.canPlayPause ||
@@ -216,11 +235,11 @@ class NaviampExternalPlaybackPublicationPlanner(
             else -> next.positionMillis - prior.positionMillis > maximumNaturalPositionStepMillis
         }
         val playbackState = semanticPlaybackChange || positionDiscontinuity
-        val browseCatalog = prior == null ||
+        val browseCatalog = prior == null || sourceChanged ||
             prior.browseCatalog != next.browseCatalog ||
             prior.current?.mediaId != next.current?.mediaId ||
             prior.queue != next.queue
-        val notification = prior == null ||
+        val notification = prior == null || sourceChanged ||
             prior.current != next.current ||
             prior.state != next.state ||
             prior.favorite != next.favorite
@@ -248,21 +267,128 @@ class NaviampExternalPlaybackLifecycleCoordinator(
     private val snapshot: () -> NaviampExternalPlaybackSnapshot,
     private val play: () -> Unit,
     private val pause: () -> Unit,
+    private val stop: () -> Unit = pause,
 ) {
+    private data class ResumeTarget(
+        val mediaId: String,
+        val queueIndex: Int,
+        val identity: NaviampExternalPlaybackResumeIdentity?,
+    )
+
     private val interruption = app.naviamp.domain.playback.PlaybackInterruptionPolicy()
+    private var interrupted = false
+    private var target: ResumeTarget? = null
+    private var resumePending = false
+    private var closed = false
+
+    fun sessionBecameInactive(
+        source: NaviampAudioSessionDeactivationSource,
+        reason: NaviampAudioSessionInterruptionReason?,
+    ) {
+        when {
+            source == NaviampAudioSessionDeactivationSource.Application -> cancelPendingResume()
+            source == NaviampAudioSessionDeactivationSource.Unknown ||
+                reason == NaviampAudioSessionInterruptionReason.OutputDisconnected -> outputDisconnected()
+            else -> interruptionBegan()
+        }
+    }
 
     fun interruptionBegan() {
-        if (interruption.began(snapshot().state == NaviampExternalPlaybackState.Playing)) pause()
+        if (closed) return
+        val current = snapshot()
+        if (interrupted || resumePending) {
+            interrupted = true
+            if (resumePending) {
+                resumePending = false
+                interruption.began(wasPlaying = true)
+            }
+            onSnapshot(current)
+            return
+        }
+        interrupted = true
+        val track = current.current ?: return
+        if (!current.localPlayback || current.connectionPending) return
+        if (current.state == NaviampExternalPlaybackState.Loading) {
+            stop()
+            return
+        }
+        if (!current.canPlayPause || !interruption.began(current.state == NaviampExternalPlaybackState.Playing)) return
+
+        pause()
+        val afterPause = snapshot()
+        // Our pause dispatch records a new intent synchronously. Retain every other guard from
+        // the interrupted playback so a new source or queue occurrence cannot inherit the resume.
+        val identity = current.resumeIdentity?.let { before ->
+            before.copy(intentGeneration = afterPause.resumeIdentity?.intentGeneration ?: before.intentGeneration)
+        }
+        val candidate = ResumeTarget(track.mediaId, current.currentQueueIndex, identity)
+        if (afterPause.canResume(candidate)) target = candidate else cancelPendingResume()
     }
 
     fun interruptionEnded(shouldResume: Boolean) {
-        if (interruption.ended(shouldResume)) play()
+        if (closed) return
+        if (!shouldResume) {
+            interrupted = false
+            cancelPendingResume()
+            return
+        }
+        if (!interrupted) return
+        interrupted = false
+        val current = snapshot()
+        val eligible = target?.let { current.canResume(it) } == true
+        if (!interruption.ended(eligible)) {
+            cancelPendingResume()
+            return
+        }
+        resumePending = true
+        onSnapshot(current)
+    }
+
+    internal fun onSnapshot(current: NaviampExternalPlaybackSnapshot) {
+        val candidate = target ?: return
+        if (!current.canResume(candidate)) {
+            cancelPendingResume()
+        } else if (resumePending && current.state == NaviampExternalPlaybackState.Paused) {
+            val latest = snapshot()
+            if (!latest.canResume(candidate)) {
+                cancelPendingResume()
+            } else if (latest.state == NaviampExternalPlaybackState.Paused) {
+                cancelPendingResume()
+                play()
+            }
+        }
     }
 
     fun outputDisconnected() {
-        interruption.cancel()
-        if (snapshot().state == NaviampExternalPlaybackState.Playing) pause()
+        if (closed) return
+        interrupted = false
+        cancelPendingResume()
+        val current = snapshot()
+        if (!current.localPlayback) return
+        when (current.state) {
+            NaviampExternalPlaybackState.Playing, NaviampExternalPlaybackState.Paused -> pause()
+            NaviampExternalPlaybackState.Loading -> stop()
+            else -> Unit
+        }
     }
+
+    fun cancelPendingResume() {
+        interruption.cancel()
+        target = null
+        resumePending = false
+    }
+
+    fun close() {
+        closed = true
+        interrupted = false
+        cancelPendingResume()
+    }
+
+    private fun NaviampExternalPlaybackSnapshot.canResume(candidate: ResumeTarget): Boolean =
+        localPlayback && !connectionPending && canPlayPause &&
+            (state == NaviampExternalPlaybackState.Playing || state == NaviampExternalPlaybackState.Paused) &&
+            current?.mediaId == candidate.mediaId && currentQueueIndex == candidate.queueIndex &&
+            resumeIdentity == candidate.identity
 }
 
 /**
@@ -311,12 +437,16 @@ class NaviampCoreExternalPlaybackBridge internal constructor(
     }
 
     override fun pause() {
-        if (snapshot().canPlayPause && snapshot().state == NaviampExternalPlaybackState.Playing) {
+        if (snapshot().canPlayPause && snapshot().state in setOf(NaviampExternalPlaybackState.Playing, NaviampExternalPlaybackState.Paused)) {
             playback(NowPlayingPlaybackAction.Pause)
         }
     }
     override fun playPause() = if (snapshot().state == NaviampExternalPlaybackState.Playing) pause() else play()
-    override fun stop() { if (snapshot().canControl) playback(NowPlayingPlaybackAction.Stop) }
+    override fun stop() {
+        val current = snapshot()
+        if (current.canControl || (current.localPlayback && current.current != null && current.state == NaviampExternalPlaybackState.Loading))
+            playback(NowPlayingPlaybackAction.Stop)
+    }
     override fun previous() { if (snapshot().hasPrevious) playback(NowPlayingPlaybackAction.Previous) }
     override fun next() { if (snapshot().hasNext) playback(NowPlayingPlaybackAction.Next) }
     fun rewind() = seekBy(-ExternalPlaybackSeekStepMillis)
@@ -376,50 +506,42 @@ class NaviampCoreExternalPlaybackBridge internal constructor(
     }
 
     fun selectQueueItem(index: Int) {
-        val item = snapshot().queue.getOrNull(index) ?: return
+        if (snapshot().queue.getOrNull(index) == null) return
         if (index == snapshot().currentQueueIndex) {
             play()
             return
         }
-        val nowPlaying = state.value.shell.nowPlaying ?: return
-        val sourceItem = (nowPlaying.backTo + NaviampNowPlayingItemUi(
-            id = nowPlaying.id,
-            title = nowPlaying.title,
-            subtitle = nowPlaying.subtitle,
-            meta = nowPlaying.albumLine,
-            coverArtUrl = nowPlaying.coverArtUrl,
-        ) + nowPlaying.upNext).getOrNull(index) ?: return
-        dispatch(
-            NaviampCoreCommand.NowPlaying.Selection(
-                NowPlayingSelectionActionRequest(
-                    item = sourceItem,
-                    action = NowPlayingSelectionAction.SelectQueueItem,
-                ),
-            ),
-        )
+        queuePlaybackCommand(index)?.let(dispatch)
     }
 
     fun toggleFavorite() {
-        if (!snapshot().canFavorite) return
-        dispatch(
-            NaviampCoreCommand.NowPlaying.CurrentTrack(
-                NowPlayingCurrentTrackUiActionRequest(NowPlayingCurrentTrackAction.ToggleFavorite),
-            ),
-        )
+        customActionCommand(if (snapshot().favorite) NaviampExternalPlaybackAction.Unfavorite else NaviampExternalPlaybackAction.Favorite)?.let(dispatch)
     }
 
-    fun startRadio() {
-        val shell = state.value.shell
-        val nowPlaying = shell.nowPlaying ?: return
-        if (!nowPlaying.canStartRadio || nowPlaying.isLive || shell.connect.remotePlaybackAuthorityActive) return
-        dispatch(NaviampCoreCommand.NowPlaying.CurrentTrack(NowPlayingCurrentTrackUiActionRequest(
-            action = NowPlayingCurrentTrackAction.StartRadio,
-            target = NowPlayingCurrentTrackTarget(
-                trackId = nowPlaying.id,
-                sourceId = shell.connectionSettings.currentSourceId,
-                queue = nowPlaying.queueSnapshot,
-            ),
-        )))
+    fun startRadio() { customActionCommand(NaviampExternalPlaybackAction.StartRadio)?.let(dispatch) }
+
+    /** Validates the current capability/state before binding a vehicle or external-control tap. */
+    internal fun customActionCommand(action: NaviampExternalPlaybackAction): NaviampCoreCommand? {
+        if (action !in snapshot().customActions) return null
+        val nowPlaying = state.value.shell.nowPlaying ?: return null
+        return when (action) {
+            NaviampExternalPlaybackAction.StartRadio,
+            NaviampExternalPlaybackAction.Favorite,
+            NaviampExternalPlaybackAction.Unfavorite -> NaviampCoreCommand.NowPlaying.CurrentTrack(
+                NowPlayingCurrentTrackUiActionRequest(
+                    action = if (action == NaviampExternalPlaybackAction.StartRadio) NowPlayingCurrentTrackAction.StartRadio else NowPlayingCurrentTrackAction.ToggleFavorite,
+                    // Remote favorite routing binds its own Connect occurrence; radio is local only.
+                    target = if (state.value.shell.connect.remotePlaybackAuthorityActive) null else NowPlayingCurrentTrackTarget(
+                        trackId = nowPlaying.id,
+                        sourceId = state.value.shell.connectionSettings.currentSourceId,
+                        queue = if (action == NaviampExternalPlaybackAction.StartRadio) nowPlaying.queueSnapshot else null,
+                    ),
+                ))
+            else -> NaviampCoreCommand.NowPlaying.Playback(NowPlayingPlaybackActionRequest(
+                if (action == NaviampExternalPlaybackAction.ShuffleOn || action == NaviampExternalPlaybackAction.ShuffleOff)
+                    NowPlayingPlaybackAction.ToggleShuffle else NowPlayingPlaybackAction.CycleRepeatMode,
+            ))
+        }
     }
 
     fun browseChildren(parentId: String): List<NaviampExternalMediaItem> {
@@ -491,6 +613,60 @@ class NaviampCoreExternalPlaybackBridge internal constructor(
                 selectQueueItem(it)
                 return true
             }
+        val command = browsePlaybackCommand(mediaId) ?: return false
+        dispatch(command)
+        return true
+    }
+
+    /** Current playback context is independent of the Home recents catalog. */
+    internal fun currentAlbumCollection(): NaviampVehicleCollectionReference? {
+        val shell = state.value.shell
+        val connection = shell.connectionSettings
+        val playing = shell.nowPlaying ?: return null
+        if (playing.id.isBlank() || playing.isLive || shell.connect.remotePlaybackAuthorityActive ||
+            connection.currentSourceId.isNullOrBlank() || connection.connection.isConnecting ||
+            connection.connection.restoringConnection) return null
+        val albumId = playing.albumId?.takeIf { it.isNotBlank() } ?: return null
+        val title = playing.albumTitle.takeIf { it.isNotBlank() } ?: return null
+        return NaviampVehicleCollectionReference(NaviampVehicleCollectionKind.Album, albumId, title)
+    }
+
+    internal fun browseCollection(mediaId: String): NaviampVehicleCollectionReference? {
+        val catalog = snapshot().browseCatalog
+        return when {
+            mediaId.startsWith(AlbumMediaIdPrefix) -> catalog.recentAlbums
+                .findByMediaId(mediaId, AlbumMediaIdPrefix, SharedMediaItemUi::id)
+                ?.let { NaviampVehicleCollectionReference(NaviampVehicleCollectionKind.Album, it.id, it.title) }
+            mediaId.startsWith(PlaylistMediaIdPrefix) -> catalog.playlists
+                .findByMediaId(mediaId, PlaylistMediaIdPrefix, SharedMediaItemUi::id)
+                ?.let { NaviampVehicleCollectionReference(NaviampVehicleCollectionKind.Playlist, it.id, it.title) }
+            else -> null
+        }
+    }
+
+    /** Preserve the shared queue-selection policy and the occurrence IDs supplied by Now Playing. */
+    internal fun queuePlaybackCommand(mediaId: String): NaviampCoreCommand? =
+        snapshot().queue.indexOfFirst { it.mediaId == mediaId }.takeIf { it >= 0 }?.let(::queuePlaybackCommand)
+
+    private fun queuePlaybackCommand(index: Int): NaviampCoreCommand? {
+        val current = snapshot()
+        if (index !in current.queue.indices) return null
+        if (index == current.currentQueueIndex) {
+            if (!current.canPlayPause) return null
+            return NaviampCoreCommand.NowPlaying.Playback(NowPlayingPlaybackActionRequest(
+                if (current.state == NaviampExternalPlaybackState.Paused) NowPlayingPlaybackAction.Resume
+                else NowPlayingPlaybackAction.PlayCurrent))
+        }
+        val nowPlaying = state.value.shell.nowPlaying ?: return null
+        val item = (nowPlaying.backTo + NaviampNowPlayingItemUi(
+            id = nowPlaying.id, title = nowPlaying.title, subtitle = nowPlaying.subtitle,
+        ) + nowPlaying.upNext).getOrNull(index) ?: return null
+        return NaviampCoreCommand.NowPlaying.Selection(
+            NowPlayingSelectionActionRequest(item, NowPlayingSelectionAction.SelectQueueItem))
+    }
+
+    /** Resolve against the current catalog, then let a shared vehicle session await execution. */
+    internal fun browsePlaybackCommand(mediaId: String): NaviampCoreCommand? {
         val shell = state.value.shell
         val home = shell.home.content
         val catalog = shell.externalBrowseCatalog()
@@ -498,53 +674,42 @@ class NaviampCoreExternalPlaybackBridge internal constructor(
             mediaId.startsWith(RecentTrackMediaIdPrefix) -> home.recentlyPlayedTracks
                 .findByMediaId(mediaId, RecentTrackMediaIdPrefix, SharedTrackRowUi::id)
                 ?.let { track ->
-                    dispatch(
-                        NaviampCoreCommand.Home.RecentTrackAction(
-                            SharedTrackRowActionRequest(track, SharedTrackRowAction.Select),
-                        ),
+                    NaviampCoreCommand.Home.RecentTrackAction(
+                        SharedTrackRowActionRequest(track, SharedTrackRowAction.Select),
                     )
-                    true
-                } ?: false
+                }
             mediaId.startsWith(AlbumMediaIdPrefix) -> home.recentAlbums
                 .findByMediaId(mediaId, AlbumMediaIdPrefix, SharedMediaItemUi::id)
                 ?.let { album ->
-                    dispatch(
-                        NaviampCoreCommand.Media.ItemAction(
-                            NaviampMediaItemActionRequest(album, NaviampMediaItemCommand.PlayAlbum),
-                        ),
+                    NaviampCoreCommand.Media.ItemAction(
+                        NaviampMediaItemActionRequest(album, NaviampMediaItemCommand.PlayAlbum),
                     )
-                    true
-                } ?: false
+                }
             mediaId.startsWith(PlaylistMediaIdPrefix) -> shell.playlists.playlists.ifEmpty { home.playlists }
                 .findByMediaId(mediaId, PlaylistMediaIdPrefix, SharedMediaItemUi::id)
                 ?.let { playlist ->
-                    dispatch(
-                        NaviampCoreCommand.Media.ItemAction(
-                            NaviampMediaItemActionRequest(
-                                playlist,
-                                NaviampMediaItemCommand.Playlist(
-                                    NaviampPlaylistMediaCommand.Detail(
-                                        NaviampPlaylistDetailCommand.Play(shuffle = false),
-                                    ),
+                    NaviampCoreCommand.Media.ItemAction(
+                        NaviampMediaItemActionRequest(
+                            playlist,
+                            NaviampMediaItemCommand.Playlist(
+                                NaviampPlaylistMediaCommand.Detail(
+                                    NaviampPlaylistDetailCommand.Play(shuffle = false),
                                 ),
                             ),
                         ),
                     )
-                    true
-                } ?: false
+                }
             mediaId.startsWith(InternetRadioMediaIdPrefix) -> catalog.internetRadio
                 .findByMediaId(mediaId, InternetRadioMediaIdPrefix, SharedMediaItemUi::id)
                 ?.let { station ->
-                    dispatch(NaviampCoreCommand.Home.SelectInternetRadio(station))
-                    true
-                } ?: false
+                    NaviampCoreCommand.Home.SelectInternetRadio(station)
+                }
             mediaId.startsWith(StationMediaIdPrefix) -> catalog.stations
                 .findByMediaId(mediaId, StationMediaIdPrefix, SharedHomeStationUi::id)
                 ?.let { station ->
-                    dispatch(NaviampCoreCommand.Home.SelectStation(station))
-                    true
-                } ?: false
-            else -> false
+                    NaviampCoreCommand.Home.SelectStation(station)
+                }
+            else -> null
         }
     }
 
@@ -578,6 +743,7 @@ private fun externalTrack(track: SharedTrackRowUi) = NaviampExternalMediaItem(
     subtitle = track.subtitle,
     description = track.meta,
     artworkUrl = track.coverArtUrl,
+    mediaKind = app.naviamp.ui.SharedMediaItemKind.Track,
 )
 
 private fun externalAlbum(album: SharedMediaItemUi) = NaviampExternalMediaItem(
@@ -586,6 +752,7 @@ private fun externalAlbum(album: SharedMediaItemUi) = NaviampExternalMediaItem(
     subtitle = album.subtitle,
     description = album.meta,
     artworkUrl = album.coverArtUrl,
+    mediaKind = app.naviamp.ui.SharedMediaItemKind.Album,
 )
 
 private fun externalPlaylist(playlist: SharedMediaItemUi) = NaviampExternalMediaItem(
@@ -594,6 +761,7 @@ private fun externalPlaylist(playlist: SharedMediaItemUi) = NaviampExternalMedia
     subtitle = playlist.subtitle,
     description = playlist.meta,
     artworkUrl = playlist.coverArtUrl,
+    mediaKind = app.naviamp.ui.SharedMediaItemKind.Playlist,
 )
 
 private fun externalInternetRadio(station: SharedMediaItemUi) = NaviampExternalMediaItem(
@@ -602,6 +770,7 @@ private fun externalInternetRadio(station: SharedMediaItemUi) = NaviampExternalM
     subtitle = station.subtitle,
     description = station.meta,
     artworkUrl = station.coverArtUrl,
+    mediaKind = app.naviamp.ui.SharedMediaItemKind.RadioStation,
 )
 
 private fun externalStation(station: SharedHomeStationUi) = NaviampExternalMediaItem(
@@ -619,14 +788,36 @@ private fun <T> List<T>.findByMediaId(
 fun NaviampCore.externalPlaybackBridge(): NaviampCoreExternalPlaybackBridge =
     NaviampCoreExternalPlaybackBridge(state, ::dispatch, playbackProgress)
 
+/**
+ * External playback for native integrations that accept only an artwork URI. Artwork is fetched
+ * through Core's provider-aware cache and published as a private local file.
+ */
+fun NaviampCore.localArtworkExternalPlayback(
+    scope: kotlinx.coroutines.CoroutineScope,
+    files: NaviampExternalArtworkFileWriter,
+): NaviampLocalArtworkExternalPlayback {
+    val bridge = externalPlaybackBridge()
+    val artwork = vehicleArtwork
+    return NaviampLocalArtworkExternalPlayback(scope, bridge, bridge.snapshots, { url ->
+        artwork?.load(NaviampVehicleArtworkReference(app.naviamp.ui.SharedMediaItemKind.Album, url = url))
+    }, files)
+}
+
 fun NaviampCoreExternalPlaybackBridge.lifecycleCoordinator(): NaviampExternalPlaybackLifecycleCoordinator =
-    NaviampExternalPlaybackLifecycleCoordinator(::snapshot, ::play, ::pause)
+    NaviampExternalPlaybackLifecycleCoordinator(::snapshot, ::play, ::pause, ::stop)
 
 internal fun NaviampCoreState.toExternalPlaybackSnapshot(
     progress: PlaybackProgress? = null,
 ): NaviampExternalPlaybackSnapshot {
     val catalog = shell.externalBrowseCatalog()
+    // The shared presenter also publishes a no-playback placeholder with no media identity.
+    // It must not create an external queue row, Now Playing destination or retained service.
     val nowPlaying = shell.nowPlaying ?: return NaviampExternalPlaybackSnapshot(browseCatalog = catalog)
+    if (nowPlaying.id.isBlank()) return NaviampExternalPlaybackSnapshot(
+        browseCatalog = catalog,
+        canChangeVolume = nowPlaying.canChangeVolume,
+        volumePercent = nowPlaying.volumePercent.coerceIn(0, 100),
+    )
     val queueRows = nowPlaying.backTo + NaviampNowPlayingItemUi(
         id = nowPlaying.id,
         title = nowPlaying.title,
@@ -644,6 +835,7 @@ internal fun NaviampCoreState.toExternalPlaybackSnapshot(
             albumTitle = if (index == nowPlaying.backTo.size) nowPlaying.albumTitle else item.meta,
             artworkUrl = item.coverArtUrl,
             queueIndex = index,
+            mediaKind = app.naviamp.ui.SharedMediaItemKind.Track,
         )
     }
     val currentIndex = nowPlaying.backTo.size.takeIf { it in queue.indices } ?: -1
@@ -656,6 +848,11 @@ internal fun NaviampCoreState.toExternalPlaybackSnapshot(
     return NaviampExternalPlaybackSnapshot(
         browseCatalog = catalog,
         state = state,
+        localPlayback = !shell.connect.remotePlaybackAuthorityActive && !nowPlaying.castSelected,
+        connectionPending = shell.connectionSettings.connection.let { it.isConnecting || it.restoringConnection },
+        resumeIdentity = NaviampExternalPlaybackResumeIdentity(shell.connectionSettings.currentSourceId,
+            sourceGeneration, shell.connectionSettings.accountSelectionGeneration, playbackSelectionGeneration,
+            playbackIntentGeneration, nowPlaying.id, currentIndex, nowPlaying.sleepTimer.active),
         current = queue.getOrNull(currentIndex),
         queue = queue,
         currentQueueIndex = currentIndex,
@@ -692,3 +889,7 @@ private const val AlbumMediaIdPrefix = "naviamp:album:"
 private const val PlaylistMediaIdPrefix = "naviamp:playlist:"
 private const val InternetRadioMediaIdPrefix = "naviamp:internet-radio:"
 private const val StationMediaIdPrefix = "naviamp:station:"
+
+internal fun NaviampExternalPlaybackSnapshot.sourceScope() = resumeIdentity?.let {
+    Triple(it.sourceId, it.sourceGeneration, it.accountGeneration)
+}

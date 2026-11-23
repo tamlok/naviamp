@@ -6,11 +6,9 @@ final class NaviampRootView {
     let viewController: UIViewController
     private var closed = false
 
+    @MainActor
     init() {
-        let application = NaviampIosApplication(
-            applicationSupportDirectory: IosApplicationDirectories.supportDirectory(),
-            credentialProtector: IosKeychainCredentialProtector()
-        )
+        let application = NaviampApplicationDelegate.runtime.application()
         self.application = application
         viewController = application.viewController()
     }
@@ -20,7 +18,7 @@ final class NaviampRootView {
             return
         }
         closed = true
-        application.close()
+        application.releaseViewController(controller: viewController)
     }
 
     deinit {

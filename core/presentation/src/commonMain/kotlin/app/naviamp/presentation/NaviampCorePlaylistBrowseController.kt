@@ -370,7 +370,12 @@ class NaviampCorePlaylistBrowseController(
         runCatching { provider.playlistTracks(playlist.id) }
             .onSuccess { tracks ->
                 if (!selection.isCurrent() || !providerSource.isCurrent(provider)) return@onSuccess
+                if (stateStore.state.value.shell.playlistDetail.selectedPlaylist?.id != playlist.id) return@onSuccess
                 val resolvedPlaylist = playlist.copy(trackCount = tracks.size)
+                if (playlist.id in playlistsById) {
+                    playlistsById = playlistsById + (playlist.id to resolvedPlaylist)
+                    mediaRegistry.updatePlaylists(playlistsById.values.toList())
+                }
                 mediaRegistry.updateSelectedPlaylist(resolvedPlaylist, tracks)
                 val mappedPlaylist = resolvedPlaylist.toSharedMediaItemUi(
                     coverArtUrl = coverArtUrl,
@@ -379,6 +384,14 @@ class NaviampCorePlaylistBrowseController(
                 )
                 stateStore.updateShell { shell ->
                     shell.copy(
+                        playlists = shell.playlists.copy(playlists = shell.playlists.playlists.map { card ->
+                            if (card.id == playlist.id) {
+                                card.copy(trackCount = mappedPlaylist.trackCount, subtitle = mappedPlaylist.subtitle)
+                            } else card
+                        }),
+                        playlistChoices = shell.playlistChoices.map { choice ->
+                            if (choice.id == playlist.id) resolvedPlaylist.toPlaylistChoiceUi() else choice
+                        },
                         playlistDetail = shell.playlistDetail.copy(
                             trackCapabilities = app.naviamp.ui.PlaylistTrackCapabilities(
                                 canStartRadio = provider.capabilities.supportsTrackRadio,

@@ -219,6 +219,13 @@ avoid edits; extend the existing shared owner when correctness or architecture r
 Keep local guidance in `AGENTS2.md`; leave `AGENTS.md` upstream-owned apart from its one-line reference
 and explicitly user-requested changes to shared policy.
 
+Upstream merges are a recurring workflow, not a one-time migration. When a conflict exposes tightly
+coupled fork behavior, prefer a focused extraction into a fork-owned shared file or class with a narrow
+integration hook in the upstream owner. Preserve both sides' behavior and tests; do not duplicate
+upstream implementations, move files cosmetically, or discard fork features to make a merge apply.
+Keep native adapters limited to platform effects and record any platform verification that cannot run
+locally. Resolve semantic conflicts before accepting an automatic merge as complete.
+
 ## Important Files
 
 - `settings.gradle.kts`: module graph; `build.gradle.kts`: architecture guard and aggregate Kover gate.
@@ -242,8 +249,8 @@ and explicitly user-requested changes to shared policy.
 
 - Use the committed Gradle Wrapper, not global Gradle or a JavaScript package manager. `.java-version`
   pins JDK 21; README permits 17+ and shared/Android CI uses 17. Prefer the pinned JDK locally and
-  follow the target workflow for reproduction. Current pins: Gradle 8.14.5, Kotlin 2.4.10, Compose 1.11.0.
-- Android compile/target SDK is 36 and bytecode target is 17. CI installs NDK 27.0.12077973 and
+  follow the target workflow for reproduction. Current pins: Gradle 9.9.1, Kotlin 2.4.21, Compose 1.12.2.
+- Android compile SDK is 37, target SDK is 36, and bytecode target is 17. CI installs NDK 27.0.12077973 and
   CMake 3.22.1; these are CI packages, not Gradle NDK pins. Native CMake projects require 3.22+.
   Configure SDK paths through `ANDROID_HOME`/`ANDROID_SDK_ROOT` or ignored `local.properties`.
   Desktop native builds also need the target's BASS libraries; `CMAKE_EXE` overrides CMake discovery.

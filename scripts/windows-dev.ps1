@@ -3,7 +3,7 @@
 .SYNOPSIS
 Builds and launches the current checkout's Windows development app.
 .DESCRIPTION
-Requires Windows, JDK 21, Android SDK platform 36, CMake 3.22+, and a Windows
+Requires Windows, JDK 21, Android SDK platform 37, CMake 3.22+, and a Windows
 C++ toolchain. Uses the Gradle wrapper and the existing development data profile.
 Does not update Git, clean build caches, install the app, or stop running apps.
 .EXAMPLE

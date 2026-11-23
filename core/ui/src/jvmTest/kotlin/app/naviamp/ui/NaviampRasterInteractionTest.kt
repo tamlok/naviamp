@@ -34,47 +34,74 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampRasterInteractionTest {
-    @Test fun verticalFallbackResumesTheOriginalClockAndMovesCachedPixels() = runComposeUiTest {
+    @Test fun screenProtectionUpdatesNativeOpacityWithoutResubmittingPixels() = runComposeUiTest {
         mainClock.autoAdvance = false
-        val clock = kotlin.time.TestTimeSource()
-        val bitmap = androidx.compose.ui.graphics.ImageBitmap(20, 100)
-        androidx.compose.ui.graphics.Canvas(bitmap).drawRect(Rect(0f, 30f, 20f, 40f),
-            androidx.compose.ui.graphics.Paint().apply { color = Color.White })
-        val layer = NaviampRasterLayer(bitmap,
-            translation = NaviampLayerMotion(listOf(0f, -40f), listOf(0L, 4000L)),
-            translationAxis = NaviampRasterTranslationAxis.Vertical, translationStarted = clock.markNow())
-        clock += kotlin.time.Duration.parse("500ms")
+        val presenter = RecordingPresenter()
+        val protection = mutableStateOf(TelevisionScreenProtection())
+        val image = androidx.compose.ui.graphics.ImageBitmap(100, 10)
         setContent {
-            Box(Modifier.size(20.dp, 50.dp).background(Color.Black).testTag("vertical-fallback")) {
-                NaviampAnimatedRaster(listOf(layer), Modifier.size(20.dp, 50.dp))
+            CompositionLocalProvider(LocalNaviampRasterPresenter provides presenter) {
+                TelevisionScreenProtectionSurface(protection.value) {
+                    NaviampAnimatedRaster(listOf(NaviampRasterLayer(image)), Modifier.size(100.dp, 10.dp))
+                }
             }
         }
+        mainClock.advanceTimeBy(300)
+        val presentations = runOnIdle { presenter.presentations.also { assertTrue(it > 0) } }
+        runOnIdle { protection.value = TelevisionScreenProtection(brightness = 0.55f) }
+        mainClock.advanceTimeBy(2_300)
+        runOnIdle {
+            assertEquals(0.55f, presenter.opacity)
+            assertEquals(presentations, presenter.presentations)
+        }
+        runOnIdle { protection.value = TelevisionScreenProtection() }
         mainClock.advanceTimeBy(100)
-        assertEquals(Color.White, onNodeWithTag("vertical-fallback").captureToImage().toPixelMap()[10, 27])
-        mainClock.advanceTimeBy(1000)
-        assertEquals(Color.White, onNodeWithTag("vertical-fallback").captureToImage().toPixelMap()[10, 17])
-        assertEquals(Color.Black, onNodeWithTag("vertical-fallback").captureToImage().toPixelMap()[10, 27])
+        runOnIdle { assertEquals(1f, presenter.opacity) }
     }
 
-    @Test fun replacementTilesShareTheOriginalVerticalTimelineThroughRebindingAndCompletion() {
-        val clock = kotlin.time.TestTimeSource()
-        val started = clock.markNow()
-        val motion = NaviampLayerMotion(listOf(0f, -300f), listOf(0L, 3000L))
-        val bitmap = androidx.compose.ui.graphics.ImageBitmap(20, 100)
-        val retained = NaviampRasterLayer(bitmap, translation = motion,
-            translationAxis = NaviampRasterTranslationAxis.Vertical, translationStarted = started)
-        clock += kotlin.time.Duration.parse("1500ms")
-        val incoming = retained.copy(origin = Offset(0f, 200f))
-        val first = retained.forPresentation()
-        val second = incoming.forPresentation()
-        assertEquals(-150f, requireNotNull(first.translation).valueAt(0L))
-        assertEquals(first.translation, second.translation)
-        assertEquals(200f, second.origin.y - first.origin.y)
-        assertNull(second.translationStarted)
-        clock += kotlin.time.Duration.parse("2s")
-        val finished = incoming.forPresentation()
-        assertNull(finished.translation)
-        assertEquals(-100f, finished.origin.y)
+    @Test fun screenProtectionShiftMovesNativePixelsWithoutResubmittingThem() = runComposeUiTest {
+        mainClock.autoAdvance = false
+        val presenter = RecordingPresenter()
+        val protection = mutableStateOf(TelevisionScreenProtection())
+        val image = androidx.compose.ui.graphics.ImageBitmap(100, 10)
+        setContent {
+            CompositionLocalProvider(LocalNaviampRasterPresenter provides presenter, LocalDensity provides Density(1f)) {
+                TelevisionScreenProtectionSurface(protection.value) {
+                    NaviampAnimatedRaster(listOf(NaviampRasterLayer(image)), Modifier.size(100.dp, 10.dp))
+                }
+            }
+        }
+        mainClock.advanceTimeBy(300)
+        val (presentations, start) = runOnIdle { presenter.presentations.also { assertTrue(it > 0) } to presenter.bounds.topLeft }
+        runOnIdle { protection.value = TelevisionScreenProtection(brightness = 0.55f, offsetXDp = 4, offsetYDp = 3) }
+        mainClock.advanceTimeBy(2_300)
+        runOnIdle {
+            assertEquals(presentations, presenter.presentations)
+            assertTrue(presenter.moves > 0)
+            assertEquals(start + Offset(4f, 3f), presenter.bounds.topLeft)
+        }
+    }
+
+    @Test fun regionsWithoutMoveSupportStillReceiveTheShiftedPosition() = runComposeUiTest {
+        mainClock.autoAdvance = false
+        val presenter = RecordingPresenter().apply { supportsMove = false }
+        val protection = mutableStateOf(TelevisionScreenProtection())
+        val image = androidx.compose.ui.graphics.ImageBitmap(100, 10)
+        setContent {
+            CompositionLocalProvider(LocalNaviampRasterPresenter provides presenter, LocalDensity provides Density(1f)) {
+                TelevisionScreenProtectionSurface(protection.value) {
+                    NaviampAnimatedRaster(listOf(NaviampRasterLayer(image)), Modifier.size(100.dp, 10.dp))
+                }
+            }
+        }
+        mainClock.advanceTimeBy(300)
+        val (presentations, start) = runOnIdle { presenter.presentations to presenter.bounds.topLeft }
+        runOnIdle { protection.value = TelevisionScreenProtection(brightness = 0.55f, offsetXDp = 4, offsetYDp = 0) }
+        mainClock.advanceTimeBy(2_300)
+        runOnIdle {
+            assertTrue(presenter.presentations > presentations)
+            assertEquals(start + Offset(4f, 0f), presenter.bounds.topLeft)
+        }
     }
 
     @Test fun cachedProgressStillMovesInTheSharedFallback() = runComposeUiTest {
@@ -690,9 +717,12 @@ class NaviampRasterInteractionTest {
         var presentations = 0
         var closed = 0
         var synchronizations = 0
+        var opacity = 1f
         var layers = emptyList<NaviampRasterLayer>()
         var bounds = Rect.Zero
         var ready = true
+        var supportsMove = true
+        var moves = 0
         var notifyReady: () -> Unit = {}
         override fun create() = object : NaviampRasterRegion {
             override val requiresDrawSynchronization = this@RecordingPresenter.requiresDrawSynchronization
@@ -704,7 +734,14 @@ class NaviampRasterInteractionTest {
                 presentations++
                 return ready
             }
+            override fun move(bounds: Rect, clip: Rect): Boolean {
+                if (!supportsMove || !ready) return false
+                this@RecordingPresenter.bounds = bounds
+                moves++
+                return true
+            }
             override fun translationX(layerIndex: Int) = offset
+            override fun setOpacity(opacity: Float) { this@RecordingPresenter.opacity = opacity }
             override fun close() { closed++ }
         }
     }

@@ -19,6 +19,8 @@ data class SettingsSyncOperationResult(
     val kind: SettingsSyncOperationKind,
     val documentToWrite: SettingsSyncDocument? = null,
     val hasServerProfiles: Boolean = false,
+    /** An import needs the user's password because no saved connection already holds credentials. */
+    val needsCredentials: Boolean = false,
 )
 
 enum class SettingsSyncOperationKind {
@@ -65,6 +67,9 @@ class SettingsSyncCoordinator(
     private val nowEpochMillis: () -> Long,
     private val buildLocalDocument: (Long) -> SettingsSyncDocument,
     private val applyDocument: (SettingsSyncDocument) -> Unit,
+    private val persistenceTransaction: (() -> Unit) -> Unit = { it() },
+    private val afterDocumentApplied: (SettingsSyncDocument) -> Unit = {},
+    private val importNeedsCredentials: (SettingsSyncDocument) -> Boolean = { it.serverProfiles.isNotEmpty() },
 ) {
     fun nextTimestamp(): Long =
         nowEpochMillis().coerceAtLeast(state().lastLocalUpdateEpochMillis + 1L)
@@ -87,11 +92,15 @@ class SettingsSyncCoordinator(
     }
 
     fun applySyncedDocument(document: SettingsSyncDocument): SettingsSyncOperationResult {
-        applyDocument(document)
-        markDocumentApplied(document.updatedAtEpochMillis)
+        persistenceTransaction {
+            applyDocument(document)
+            markDocumentApplied(document.updatedAtEpochMillis)
+        }
+        afterDocumentApplied(document)
         return SettingsSyncOperationResult(
             kind = SettingsSyncOperationKind.Imported,
             hasServerProfiles = document.serverProfiles.isNotEmpty(),
+            needsCredentials = importNeedsCredentials(document),
         )
     }
 

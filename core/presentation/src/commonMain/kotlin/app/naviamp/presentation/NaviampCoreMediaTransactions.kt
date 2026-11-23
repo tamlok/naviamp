@@ -24,6 +24,7 @@ import app.naviamp.domain.media.resolveTrackArtistNavigation
 import app.naviamp.domain.radio.RadioService
 import app.naviamp.domain.radio.SeededRadioBuildResult
 import app.naviamp.domain.radio.SeededRadioRequest
+import app.naviamp.domain.radio.albumHomeMixSeededRadioRequest
 import app.naviamp.domain.radio.albumMixSeededRadioRequest
 import app.naviamp.domain.radio.albumSeededRadioRequest
 import app.naviamp.domain.radio.artistMixSeededRadioRequest
@@ -67,7 +68,9 @@ class NaviampCoreQueuePlaybackController(
         shuffle: Boolean = false,
         groupTarget: PlaybackProfileTarget? = null,
         groupLabel: String = "",
+        downloadedOnly: Boolean = false,
     ): Boolean {
+        if (downloadedOnly && !effects.capabilities.supportsDownloadedOnly) return false
         val selected = if (shuffle) tracks.shuffled() else tracks
         if (selected.isEmpty()) return false
         val profile = groupTarget?.let { target ->
@@ -91,9 +94,14 @@ class NaviampCoreQueuePlaybackController(
             groups = listOfNotNull(group),
         )
         val update = queue.replaceQueue(requestedQueue)
-        if (update.changed) effects.applyQueue(update.queue, update.clearPreparedNext)
-        playback.updateCurrentTrack(update.queue.current)
-        effects.playQueueSelection(update.queue, update.queue.currentIndex)
+        if (downloadedOnly) {
+            playback.updateCurrentTrack(update.queue.current)
+            effects.playDownloadedQueueSelection(update.queue, update.queue.currentIndex)
+        } else {
+            if (update.changed) effects.applyQueue(update.queue, update.clearPreparedNext)
+            playback.updateCurrentTrack(update.queue.current)
+            effects.playQueueSelection(update.queue, update.queue.currentIndex)
+        }
         publishNowPlaying()
         openNowPlaying()
         return true
@@ -137,7 +145,7 @@ class NaviampCoreQueuePlaybackController(
 
 /** Shared media transactions used by every route; only final audio/URI effects cross the host boundary. */
 interface NaviampCoreTrackRadioTransactions {
-    suspend fun startTrackRadio(seed: Track)
+    suspend fun startTrackRadio(seed: Track): Boolean
     suspend fun addTrackRadio(seed: Track, playNext: Boolean)
 }
 
@@ -218,10 +226,10 @@ class NaviampCoreMediaTransactions(
         ),
     )
 
-    override suspend fun startTrackRadio(seed: Track) {
-        if (stateStore.state.value.shell.connect.remotePlaybackAuthorityActive) return
-        if (!trackRadioBuild.tryLock()) return
-        try {
+    override suspend fun startTrackRadio(seed: Track): Boolean {
+        if (stateStore.state.value.shell.connect.remotePlaybackAuthorityActive) return false
+        if (!trackRadioBuild.tryLock()) return false
+        return try {
             val settings = stateStore.state.value.shell.playback.settings
             startSeededMix(
                 trackRadioRequest(seed, settings.effectiveSonicSimilarityEnabled()),
@@ -246,23 +254,42 @@ class NaviampCoreMediaTransactions(
     }
 
     suspend fun startAlbumRadio(album: Album, recentStream: RecentRadioStream? = null) {
+        val (seed, loadedTracks) = albumRadioSeed(album) ?: return
+        val request = albumSeededRadioRequest(album, seed, loadedTracks)
+        startSeededMix(if (recentStream == null) request else request.copy(recentRadioStream = recentStream))
+    }
+
+    /**
+     * Resolves the seed track of a Home "Mixes for you" tile, or publishes why there is none.
+     * The seed is resolved before playback is routed so a Connect target receives seed-track radio.
+     */
+    suspend fun albumMixSeed(album: Album): Track? = albumRadioSeed(album)?.first
+
+    /** Plays a Home "Mixes for you" tile locally as a similar-songs station seeded from [seed]. */
+    suspend fun startAlbumMix(album: Album, seed: Track) {
+        startSeededMix(
+            albumHomeMixSeededRadioRequest(
+                album,
+                seed,
+                stateStore.state.value.shell.playback.settings.effectiveSonicSimilarityEnabled(),
+            ),
+        )
+    }
+
+    private suspend fun albumRadioSeed(album: Album): Pair<Track, List<Track>>? {
         val cachedTracks = registry.albumDetails?.takeIf { it.album.id == album.id }?.tracks.orEmpty()
             .ifEmpty { registry.tracks().filter { it.albumId == album.id } }
         val loadedTracks = if (cachedTracks.isNotEmpty()) {
             cachedTracks
         } else {
-            val provider = providerOrPublish() ?: return
+            val provider = providerOrPublish() ?: return null
             publish("Finding a track from ${album.title}…")
             runCatching { provider.album(album.id).tracks }
-                .getOrElse { return publish(it.message ?: "Could not load ${album.title}.") }
+                .getOrElse { publish(it.message ?: "Could not load ${album.title}."); return null }
         }
         val seed = selectRadioSeed(loadedTracks)
-        if (seed != null) {
-            val request = albumSeededRadioRequest(album, seed, loadedTracks)
-            startSeededMix(if (recentStream == null) request else request.copy(recentRadioStream = recentStream))
-        } else {
-            publish("${album.title} has no tracks to play.")
-        }
+        if (seed == null) publish("${album.title} has no tracks to play.")
+        return seed?.let { it to loadedTracks }
     }
 
     suspend fun startArtistRadio(artist: Artist) {
@@ -535,8 +562,8 @@ class NaviampCoreMediaTransactions(
         request: app.naviamp.domain.radio.SeededRadioRequest,
         preserveCurrentSeed: Boolean = false,
         onStarted: () -> Unit = {},
-    ) {
-        val provider = providerOrPublish() ?: return
+    ): Boolean {
+        val provider = providerOrPublish() ?: return false
         val sourceId = activeSourceId()
         val remoteAuthority = stateStore.state.value.shell.connect.remotePlaybackAuthorityActive
         val currentPlayback = playback.state.value
@@ -567,20 +594,20 @@ class NaviampCoreMediaTransactions(
                 val stillPlayingSeed = playback.state.value.currentTrack?.id == request.seedTrack.id &&
                     playback.state.value.queue.current?.id == request.seedTrack.id &&
                     (!retainCurrent || playback.state.value.queue === currentPlayback.queue)
-                if (!stillPlayingSeed || sourceId != activeSourceId() || !providerSource.isCurrent(provider) || !currentRadioSettings()) return
+                if (!stillPlayingSeed || sourceId != activeSourceId() || !providerSource.isCurrent(provider) || !currentRadioSettings()) return false
                 if (result.queue.size <= 1) {
                     recordRadioDiagnostics(diagnostics ?: app.naviamp.domain.radio.RadioBuildDiagnostics(
                         app.naviamp.domain.radio.RadioBuildOutcome.Empty,
                     ))
-                    return
+                    return false
                 }
                 val update = queue.replaceGeneratedRadioUpcomingTracks(
                     currentTrack = request.seedTrack,
                     fetchedTracks = result.queue.filterNot { it.id == request.seedTrack.id },
                     requestIsCurrent = true,
                 )
-                if (update.changed) {
-                    effects.applyQueue(update.queue, update.clearPreparedNext)
+                if (update.changed || effects.downloadedOnlyQueue) {
+                    effects.applyProviderQueue(update.queue, update.clearPreparedNext)
                     publishNowPlaying()
                 }
                 rememberRecentRadio(result.recentRadioStream?.copy(
@@ -593,6 +620,7 @@ class NaviampCoreMediaTransactions(
                 onStarted()
                 recordRadioDiagnostics(diagnostics?.takeUnless { it.outcome == app.naviamp.domain.radio.RadioBuildOutcome.Empty })
                 publish("Playing ${request.label}")
+                return true
             }
             is SeededRadioBuildResult.Failed -> {
                 if (result.error is CancellationException) throw result.error
@@ -606,6 +634,7 @@ class NaviampCoreMediaTransactions(
                 }
             }
         }
+        return false
     }
 
     private fun recordRadioDiagnostics(result: app.naviamp.domain.radio.RadioBuildDiagnostics?) {

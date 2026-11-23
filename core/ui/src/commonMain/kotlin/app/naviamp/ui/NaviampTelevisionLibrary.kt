@@ -85,6 +85,7 @@ internal fun televisionLibraryShortcutRequiresScroll(
 ): Boolean = targetIndex !in visibleItemIndices
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 internal fun TelevisionLibrary(
     screen: NaviampLibraryScreenUi,
     colors: NaviampColors,
@@ -115,7 +116,7 @@ internal fun TelevisionLibrary(
     val favoritesFocus = remember { FocusRequester() }
     val showShortcuts = view != NaviampLibraryView.Albums || catalog.albumSortOrder == LibraryAlbumSortOrder.Title
     val shortcuts = if (showShortcuts) televisionLibraryShortcuts() else emptyList()
-    val letterFocus = remember { shortcuts.associateWith { FocusRequester() } }
+    val letterFocus = remember(shortcuts) { shortcuts.associateWith { FocusRequester() } }
     val letterListState = rememberLazyListState()
     val songFocus = remember(ids, view) { ids.associateWith { FocusRequester() } }
     val scope = rememberCoroutineScope()
@@ -249,7 +250,8 @@ internal fun TelevisionLibrary(
             }
         },
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        val controlPadding = PaddingValues(horizontal = 11.dp, vertical = 8.dp)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             NaviampLibraryView.entries.forEachIndexed { index, option ->
                 val label = stringResource(when (option) {
                     NaviampLibraryView.Artists -> Res.string.library_view_artists
@@ -257,7 +259,7 @@ internal fun TelevisionLibrary(
                     NaviampLibraryView.Songs -> Res.string.library_view_songs
                 })
                 val selectionDescription = stringResource(if (option == view) Res.string.library_view_state_selected else Res.string.library_view_state_not_selected)
-                TelevisionTextButton(label, colors, calmFocus = true, fontSize = 18.sp, onClick = {
+                TelevisionTextButton(label, colors, calmFocus = true, fontSize = 18.sp, contentPadding = controlPadding, onClick = {
                     if (option != view) {
                         viewport.restoreContent = viewport.focusedId(option) != null
                         actions.onViewChanged(option)
@@ -281,11 +283,11 @@ internal fun TelevisionLibrary(
                         }
                     })
             }
-            Spacer(Modifier.weight(1f))
             TelevisionTextButton(
                 stringResource(Res.string.library_sources_choose),
                 colors,
                 calmFocus = true,
+                contentPadding = controlPadding,
                 onClick = actions.onOpenSourcePicker,
                 modifier = Modifier.focusRequester(sourcesFocus).onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) false else when (event.key) {
@@ -312,7 +314,7 @@ internal fun TelevisionLibrary(
                         Res.string.library_sort_title
                     },
                 )
-                TelevisionTextButton(sortLabel, colors, calmFocus = true, onClick = {
+                TelevisionTextButton(sortLabel, colors, calmFocus = true, contentPadding = controlPadding, onClick = {
                     actions.onAlbumSortOrderChanged(
                         if (catalog.albumSortOrder == LibraryAlbumSortOrder.Title) {
                             LibraryAlbumSortOrder.RecentlyAdded
@@ -350,7 +352,7 @@ internal fun TelevisionLibrary(
                 }
             }
             TelevisionTextButton(stringResource(Res.string.library_refresh), colors,
-                enabled = !catalog.syncStatus.isSyncing, onClick = actions.onRefresh,
+                enabled = !catalog.syncStatus.isSyncing, contentPadding = controlPadding, onClick = actions.onRefresh,
                 modifier = refreshModifier)
             val favoritesLabel = stringResource(Res.string.library_filter_favorites)
             val favoritesState = stringResource(

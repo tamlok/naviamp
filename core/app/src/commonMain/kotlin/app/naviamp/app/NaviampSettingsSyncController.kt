@@ -8,6 +8,7 @@ import app.naviamp.domain.settings.SettingsSyncOperationResult
 import app.naviamp.domain.settings.SettingsSyncOperationKind
 import app.naviamp.domain.settings.SettingsSyncRuntimeState
 import app.naviamp.domain.settings.buildSettingsSyncDocument
+import app.naviamp.domain.settings.settingsSyncImportNeedsCredentials
 import app.naviamp.domain.settings.selectSettingsSyncMirrorDocument
 
 data class NaviampSettingsSyncReconciliation(
@@ -23,6 +24,8 @@ class NaviampSettingsSyncController(
     nowEpochMillis: () -> Long,
     private val snapshot: () -> SettingsSyncLocalSnapshot,
     applyDocument: (SettingsSyncDocument) -> Unit,
+    persistenceTransaction: (() -> Unit) -> Unit = { it() },
+    afterDocumentApplied: (SettingsSyncDocument) -> Unit = {},
 ) {
     private val coordinator = SettingsSyncCoordinator(
         deviceId = deviceId,
@@ -37,6 +40,9 @@ class NaviampSettingsSyncController(
             )
         },
         applyDocument = applyDocument,
+        persistenceTransaction = persistenceTransaction,
+        afterDocumentApplied = afterDocumentApplied,
+        importNeedsCredentials = { document -> settingsSyncImportNeedsCredentials(document, snapshot().serverProfiles) },
     )
 
     fun markLocalChanged() = coordinator.markLocalChanged()
@@ -73,8 +79,8 @@ class NaviampSettingsSyncController(
     }
 }
 
-fun settingsSyncImportStatus(hasServerProfiles: Boolean): String =
-    if (hasServerProfiles) {
+fun settingsSyncImportStatus(needsCredentials: Boolean): String =
+    if (needsCredentials) {
         "Settings imported. Enter the Navidrome password to finish connecting."
     } else {
         "Settings imported."
@@ -82,7 +88,7 @@ fun settingsSyncImportStatus(hasServerProfiles: Boolean): String =
 
 fun settingsSyncReconciliationStatus(result: SettingsSyncOperationResult): String =
     when (result.kind) {
-        SettingsSyncOperationKind.Imported -> settingsSyncImportStatus(result.hasServerProfiles)
+        SettingsSyncOperationKind.Imported -> settingsSyncImportStatus(result.needsCredentials)
         SettingsSyncOperationKind.Exported -> "Settings sync exported local settings."
         SettingsSyncOperationKind.NoOp -> "Settings sync is up to date."
         SettingsSyncOperationKind.UnsupportedSyncFile ->
