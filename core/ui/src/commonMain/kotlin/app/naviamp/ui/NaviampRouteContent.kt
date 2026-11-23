@@ -767,16 +767,18 @@ private fun HomeCollectionLayoutButtons(
         FavoriteArtistSortMenu(sort, colors, actions.onFavoriteArtistSortChanged)
     }
     if (HomeSectionPageLayout.List in page.section.supportedPageLayouts) {
-        HomeCollectionLayoutButton(
-            label = HomeSectionPageLayout.List.label,
+        NaviampPageHeaderAction(
+            icon = NaviampIcons.List,
+            contentDescription = stringResource(Res.string.settings_media_layout_list),
             selected = page.layout == HomeSectionPageLayout.List,
             colors = colors,
             onClick = { actions.onCollectionPageLayoutChanged(page.section.id, HomeSectionPageLayout.List) },
         )
     }
     if (HomeSectionPageLayout.Grid in page.section.supportedPageLayouts) {
-        HomeCollectionLayoutButton(
-            label = HomeSectionPageLayout.Grid.label,
+        NaviampPageHeaderAction(
+            icon = NaviampIcons.Grid,
+            contentDescription = stringResource(Res.string.settings_media_layout_grid),
             selected = page.layout == HomeSectionPageLayout.Grid,
             colors = colors,
             onClick = { actions.onCollectionPageLayoutChanged(page.section.id, HomeSectionPageLayout.Grid) },
@@ -819,23 +821,6 @@ internal fun favoriteArtistSortLabel(sort: app.naviamp.domain.settings.FavoriteA
         app.naviamp.domain.settings.FavoriteArtistSort.DateFavorited -> Res.string.favorite_artists_sort_favorited
         app.naviamp.domain.settings.FavoriteArtistSort.LastRadioPlayed -> Res.string.favorite_artists_sort_played
     })
-
-@Composable
-private fun HomeCollectionLayoutButton(
-    label: String,
-    selected: Boolean,
-    colors: NaviampColors,
-    onClick: () -> Unit,
-) {
-    NaviampTextButton(
-        onClick = onClick,
-        colors = ButtonDefaults.textButtonColors(
-            contentColor = if (selected) colors.primaryText else colors.secondaryText,
-        ),
-    ) {
-        Text(label, fontSize = 11.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
-    }
-}
 
 @Composable
 private fun HomeCollectionListRow(

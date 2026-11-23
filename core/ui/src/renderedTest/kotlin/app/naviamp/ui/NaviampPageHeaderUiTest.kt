@@ -19,6 +19,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.naviamp.domain.settings.HomeSectionPageLayout
+import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.NaviampForestTheme
 import app.naviamp.domain.settings.NaviampThemeMode
@@ -172,6 +174,80 @@ class NaviampPageHeaderUiTest {
         recent.assertIsSelected()
         alphabetical.assertIsNotSelected()
         runOnIdle { assertEquals(listOf(SharedPlaylistSortMode.Alphabetical, SharedPlaylistSortMode.RecentlyPlayed), selections) }
+    }
+
+    @Test fun narrowCollectionLayoutIconsSwitchTheRenderedLayout() = verifyCollectionLayout(320, InterfaceLanguage.English)
+    @Test fun wideCollectionLayoutIconsSwitchTheRenderedLayout() = verifyCollectionLayout(800, InterfaceLanguage.English)
+    @Test fun collectionLayoutIconsUseLocalizedAccessibleNames() = verifyCollectionLayout(320, InterfaceLanguage.German)
+
+    private fun verifyCollectionLayout(width: Int, language: InterfaceLanguage) = runComposeUiTest {
+        val page = mutableStateOf(SharedHomeCollectionPageUi(SharedHomeCollectionSectionUi(
+            id = "albums", title = "Recent albums", items = (1..2).map { index ->
+                SharedHomeCollectionItemUi(SharedMediaItemUi("album-$index", "Album $index", "Artist"),
+                    SharedMediaItemKind.Album, action = SharedHomeCollectionItemAction.OpenAlbum)
+            },
+        )))
+        val changes = mutableListOf<Pair<String, HomeSectionPageLayout>>()
+        val selections = mutableListOf<String>()
+        var pixelsPerDp = 1f
+        val localeEffect = createNaviampLocaleEffect()
+        setContent {
+            NaviampLocaleEnvironment(language, localeEffect) {
+                HeaderViewport(width, 1f) {
+                    pixelsPerDp = LocalDensity.current.density
+                    SharedHomeRoute(NaviampColors(), NaviampHomeScreenUi(collectionPage = page.value),
+                        NaviampHomeActions({}, {}, {}, {}, {}, {}, {}, {}, {}, { id, layout ->
+                            changes += id to layout
+                            page.value = page.value.copy(layout = layout)
+                        }), NaviampMediaActions(onTrackAction = {}, onMediaItemAction = { selections += it.item.id }),
+                        DiscoverySamplePlaybackUi())
+                }
+            }
+        }
+        val list = onNodeWithContentDescription(if (language == InterfaceLanguage.German) "Liste" else "List")
+        val grid = onNodeWithContentDescription(if (language == InterfaceLanguage.German) "Raster" else "Grid")
+        val bounds = listOf(list, grid).map { node ->
+            node.assertIsDisplayed().assertHasClickAction()
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            node.fetchSemanticsNode().boundsInRoot.also { rect ->
+                assertTrue(rect.width >= 48f * pixelsPerDp - 1f && rect.height >= 48f * pixelsPerDp - 1f)
+                assertTrue(rect.left >= 0f && rect.right <= width * pixelsPerDp + 1f)
+            }
+        }
+        assertTrue(!overlaps(bounds[0], bounds[1]))
+        fun verifyItemsAreInGrid(inGrid: Boolean) {
+            val first = onNodeWithText("Album 1").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val second = onNodeWithText("Album 2").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            if (inGrid) {
+                assertEquals(first.top, second.top, 1f)
+                assertTrue(second.left > first.right)
+            } else {
+                assertTrue(second.top > first.bottom)
+                assertEquals(first.left, second.left, 1f)
+            }
+        }
+        grid.assertIsSelected()
+        list.assertIsNotSelected()
+        verifyItemsAreInGrid(true)
+        list.performTouchInput { click() }
+        list.assertIsSelected()
+        grid.assertIsNotSelected()
+        verifyItemsAreInGrid(false)
+        grid.performSemanticsAction(SemanticsActions.RequestFocus) { it() }
+        grid.assertIsFocused().performKeyInput { pressKey(Key.Enter) }
+        grid.assertIsSelected()
+        list.assertIsNotSelected()
+        verifyItemsAreInGrid(true)
+        onNodeWithText("Album 2").performClick()
+        runOnIdle {
+            assertEquals(listOf("albums" to HomeSectionPageLayout.List, "albums" to HomeSectionPageLayout.Grid), changes)
+            assertEquals(listOf("album-2"), selections)
+            page.value = page.value.copy(section = page.value.section.copy(
+                supportedPageLayouts = setOf(HomeSectionPageLayout.List)), layout = HomeSectionPageLayout.List)
+        }
+        grid.assertDoesNotExist()
+        list.assertIsDisplayed().assertIsSelected()
+        verifyItemsAreInGrid(false)
     }
 
     @Test fun disabledHeaderActionDoesNotInvokeCallback() = runComposeUiTest {

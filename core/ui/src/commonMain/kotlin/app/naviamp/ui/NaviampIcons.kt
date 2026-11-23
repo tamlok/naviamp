@@ -12,6 +12,37 @@ object NaviampIcons {
     private val IconSize = 24.dp
     private const val Viewport = 24f
 
+    val List = icon("List") {
+        moveTo(4f, 6f); lineTo(4.01f, 6f)
+        moveTo(8f, 6f); lineTo(20f, 6f)
+        moveTo(4f, 12f); lineTo(4.01f, 12f)
+        moveTo(8f, 12f); lineTo(20f, 12f)
+        moveTo(4f, 18f); lineTo(4.01f, 18f)
+        moveTo(8f, 18f); lineTo(20f, 18f)
+    }
+    val Grid = icon("Grid") {
+        moveTo(4f, 4f)
+        lineTo(10f, 4f)
+        lineTo(10f, 10f)
+        lineTo(4f, 10f)
+        close()
+        moveTo(14f, 4f)
+        lineTo(20f, 4f)
+        lineTo(20f, 10f)
+        lineTo(14f, 10f)
+        close()
+        moveTo(4f, 14f)
+        lineTo(10f, 14f)
+        lineTo(10f, 20f)
+        lineTo(4f, 20f)
+        close()
+        moveTo(14f, 14f)
+        lineTo(20f, 14f)
+        lineTo(20f, 20f)
+        lineTo(14f, 20f)
+        close()
+    }
+
     val AccountCircle = icon("AccountCircle") {
         moveTo(12f, 2f)
         curveTo(6.48f, 2f, 2f, 6.48f, 2f, 12f)
