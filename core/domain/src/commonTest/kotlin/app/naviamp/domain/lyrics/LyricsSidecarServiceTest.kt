@@ -31,13 +31,19 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import app.naviamp.domain.playback.lyricsUnavailableStatus
 import kotlinx.coroutines.test.runTest
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class LyricsSidecarServiceTest {
     @Test
     fun prefersProviderLyricsBeforeEmbeddedAndOnlineLyrics() = runTest {
@@ -461,7 +467,7 @@ class LyricsSidecarServiceTest {
             if (failure == null) {
                 assertEquals(null, load(refresh = true).lyrics)
             } else {
-                assertSame(failure, assertFailsWith<IllegalStateException> { load(refresh = true) })
+                assertFailsWith<Exception> { load(refresh = true) }
             }
             assertEquals(null, repository.cachedLyrics("source", track().id))
             repository.providerError = null
@@ -491,7 +497,7 @@ class LyricsSidecarServiceTest {
                 searchOrder = listOf(source), forceRefresh = refresh,
             )
 
-            assertSame(cancellation, assertFailsWith<CancellationException> { load(refresh = true) })
+            assertFailsWith<CancellationException> { load(refresh = true) }
             assertEquals(emptyList(), repository.embeddedStores)
             if (source != LyricsSourcePreference.Online) assertEquals(emptyList(), repository.onlineRequests)
             repository.providerError = null
@@ -538,6 +544,88 @@ class LyricsSidecarServiceTest {
         assertSame(fresh, repository.cachedLyrics("source", track().id))
         assertEquals(listOf("source:track"), repository.cleared)
         assertEquals(2, repository.providerRequests.size)
+    }
+
+    @Test
+    fun stalledProviderFallsBackAfterThirtySeconds() = runTest {
+        val online = lyrics(LyricsSource.Lrclib, synced = true, text = "Online result")
+        val repository = RecordingLyricsRepository(onlineLyrics = online)
+        repository.beforeProviderLookup = { awaitCancellation() }
+        val resolver = service(repository)
+        val loading = async {
+            resolver.loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        }
+        runCurrent()
+        advanceTimeBy(29_999)
+        runCurrent()
+        assertTrue(repository.onlineRequests.isEmpty())
+        assertFalse(loading.isCompleted)
+        advanceTimeBy(1)
+        runCurrent()
+        assertSame(online, loading.await().lyrics)
+        assertEquals(30_000L, testScheduler.currentTime)
+        assertEquals(1, repository.onlineRequests.size)
+    }
+
+    @Test
+    fun stalledOnlineProviderDoesNotPreventLaterOnlineResults() = runTest {
+        val requests = mutableListOf<String>()
+        val stalled = object : LyricsProvider {
+            override val id = "stalled"
+            override val capabilities = setOf(LyricsTiming.Plain, LyricsTiming.LineSynced)
+            override suspend fun lyrics(track: Track): Lyrics? {
+                requests += id
+                awaitCancellation()
+            }
+        }
+        val expected = lyrics(LyricsSource.LrcApi, synced = true, text = "Next source")
+        val next = RecordingOnlineProvider("next", stalled.capabilities, expected, requests)
+        val repository = RecordingLyricsRepository(providers = listOf(stalled, next))
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        assertSame(expected, result.lyrics)
+        assertEquals(listOf("stalled", "next"), requests)
+        assertEquals(30_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun ordinaryProviderFailureStillAllowsOnlineLyrics() = runTest {
+        val expected = lyrics(LyricsSource.Lrclib, synced = true, text = "Fallback")
+        val repository = RecordingLyricsRepository(onlineLyrics = expected)
+        repository.providerError = IllegalStateException("Server unavailable")
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        assertSame(expected, result.lyrics)
+    }
+
+    @Test
+    fun exhaustedFailureHidesAuthenticatedUrlsButPreservesDiagnosticCause() = runTest {
+        val failure = IllegalStateException("Request failed [url=https://private.example/rest?u=private-user&t=secret-token]")
+        val repository = RecordingLyricsRepository().apply { providerError = failure }
+        val error = assertFailsWith<Exception> {
+            service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true)
+        }
+        assertTrue(generateSequence(error.cause) { it.cause }.any { it === failure })
+        val displayed = lyricsUnavailableStatus(error)
+        assertEquals(lyricsUnavailableStatus(Exception()), displayed)
+        assertFalse(displayed.contains("private.example"))
+        assertFalse(displayed.contains("secret-token"))
+    }
+
+    @Test
+    fun sourceDeadlineRemainsDiagnosticFailureAndDoesNotPoisonRetry() = runTest {
+        val repository = RecordingLyricsRepository()
+        repository.beforeProviderLookup = { awaitCancellation() }
+        val resolver = service(repository)
+        suspend fun load() = resolver.loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, false)
+        val error = assertFailsWith<Exception> { load() }
+        assertFalse(error is CancellationException)
+        assertTrue(error.cause != null)
+        assertFalse(error.cause is CancellationException)
+        assertEquals(lyricsUnavailableStatus(Exception()), lyricsUnavailableStatus(error))
+        assertEquals(30_000L, testScheduler.currentTime)
+        repository.beforeProviderLookup = {}
+        val retry = lyrics(LyricsSource.Provider, synced = false, text = "Recovered")
+        repository.providerLyrics = retry
+        assertSame(retry, load().lyrics)
     }
 
     private fun service(

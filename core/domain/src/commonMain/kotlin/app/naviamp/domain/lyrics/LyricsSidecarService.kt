@@ -17,6 +17,7 @@ import app.naviamp.domain.settings.normalizedLyricsSearchOrder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 
 data class LyricsSidecarResult(
     val lyrics: Lyrics?,
@@ -208,7 +209,7 @@ class LyricsSidecarService(
         activeSearchOrder.forEachIndexed { sourceIndex, source ->
             when (source) {
                 LyricsSourcePreference.Provider -> runCatching {
-                    providerLyrics(sourceId, provider, track, acceptedTimings)
+                    withLyricsSourceTimeout { providerLyrics(sourceId, provider, track, acceptedTimings) }
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
                     if (firstError == null) firstError = error
@@ -221,14 +222,16 @@ class LyricsSidecarService(
                     }
 
                 LyricsSourcePreference.Embedded -> runCatching {
-                    localAudio = localAudio ?: localAudio(sourceId, track, quality, audioCachingEnabled)
-                    val lyrics = audioMetadataSidecarService.embeddedLyrics(
-                        audioMetadataSidecarService.audioTags(localAudio),
-                    )
-                    if (sourceId != null && lyrics != null) {
-                        lyricsRepository.cacheEmbeddedLyrics(sourceId, track.id, lyrics)
+                    withLyricsSourceTimeout {
+                        localAudio = localAudio ?: localAudio(sourceId, track, quality, audioCachingEnabled)
+                        val lyrics = audioMetadataSidecarService.embeddedLyrics(
+                            audioMetadataSidecarService.audioTags(localAudio),
+                        )
+                        if (sourceId != null && lyrics != null) {
+                            lyricsRepository.cacheEmbeddedLyrics(sourceId, track.id, lyrics)
+                        }
+                        lyrics
                     }
-                    lyrics
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
                     if (firstError == null) firstError = error
@@ -250,7 +253,9 @@ class LyricsSidecarService(
                             LyricsTiming.entries.toSet()
                         }
                         runCatching {
-                            onlineLyrics(sourceId, track, onlineProvider, providerAcceptedTimings)
+                            withLyricsSourceTimeout {
+                                onlineLyrics(sourceId, track, onlineProvider, providerAcceptedTimings)
+                            }
                         }.onFailure { error ->
                             if (error is CancellationException) throw error
                             if (firstError == null) firstError = error
@@ -275,7 +280,7 @@ class LyricsSidecarService(
                 .thenBy { candidate -> candidate.sourceIndex }
                 .thenBy { candidate -> candidate.providerIndex },
         ).firstOrNull()?.lyrics
-        if (fallback == null) firstError?.let { error -> throw error }
+        if (fallback == null) firstError?.let { error -> throw LyricsLookupException(error) }
         return result(fallback)
     }
 
@@ -294,6 +299,20 @@ class LyricsSidecarService(
         ).localAudio
     }
 }
+
+private suspend fun withLyricsSourceTimeout(block: suspend () -> Lyrics?): Lyrics? {
+    var completed = false
+    val lyrics = withTimeoutOrNull(30_000L) {
+        block().also { completed = true }
+    }
+    if (!completed) throw LyricsSourceTimeoutException()
+    return lyrics
+}
+
+private class LyricsSourceTimeoutException : Exception("Lyrics source lookup timed out.")
+
+// Provider failures can contain authenticated request URLs; retain them only as diagnostic causes.
+private class LyricsLookupException(cause: Throwable) : Exception("Lyrics unavailable", cause)
 
 private data class LyricsLookupKey(
     val sourceId: String,
