@@ -200,6 +200,7 @@
     <string name="similarity_empty_help">Prova un altro brano analizzato. Nessuna corrispondenza per un brano non dimostra un problema di configurazione.</string>
     <string name="similarity_regular">Somiglianza normale</string>
     <string name="similarity_radio_empty">Radio non ha trovato altri brani.</string>
+    <string name="radio_generating">Creazione della radio…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Dettagli plugin del server</string>
     <string name="similarity_admin_required">I dettagli dei plugin richiedono accesso amministratore.</string>

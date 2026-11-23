@@ -200,6 +200,7 @@
     <string name="similarity_empty_help">분석된 다른 곡을 시도하세요. 한 곡에 일치 항목이 없다고 설정 문제로 단정할 수는 없습니다.</string>
     <string name="similarity_regular">일반 유사성</string>
     <string name="similarity_radio_empty">라디오에서 추가 곡을 찾지 못했습니다.</string>
+    <string name="radio_generating">라디오 생성 중…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">서버 플러그인 정보</string>
     <string name="similarity_admin_required">플러그인 정보를 보려면 관리자 권한이 필요합니다.</string>

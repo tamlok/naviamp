@@ -69,12 +69,12 @@ class SimilarityServiceTest {
     }
 
     @Test
-    fun selectedSeedBatchHasOneTenSecondDeadline() = runTest {
+    fun selectedSeedBatchHasOneThirtySecondDeadline() = runTest {
         val provider = FakeProvider()
         provider.sonic = { _, _ -> delay(60_000); emptyList() }
         provider.regular = { _, _ -> delay(60_000); emptyList() }
         val result = SimilarityService(provider).load(SimilarityRequest(listOf(TrackId("one"), TrackId("two"))))
-        assertEquals(10_000L, testScheduler.currentTime)
+        assertEquals(30_000L, testScheduler.currentTime)
         assertEquals(listOf("one"), provider.sonicRequests)
         assertEquals(emptyList(), provider.regularRequests)
         assertEquals(SimilarityResultKind.TimedOut, result.failure?.kind)
@@ -94,7 +94,7 @@ class SimilarityServiceTest {
         assertEquals(SimilarityEndpoint.Sonic, result.source)
         assertEquals(SimilarityResultKind.TimedOut, result.failure?.kind)
         assertEquals(emptyList(), provider.regularRequests)
-        assertEquals(10_000L, testScheduler.currentTime)
+        assertEquals(30_000L, testScheduler.currentTime)
     }
 
     @Test

@@ -965,6 +965,7 @@
     <string name="similarity_empty_help">Prueba otra pista analizada. La falta de coincidencias para una pista no demuestra un problema de configuración.</string>
     <string name="similarity_regular">Similitud normal</string>
     <string name="similarity_radio_empty">Radio no encontró más pistas.</string>
+    <string name="radio_generating">Generando radio…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Detalles de complementos del servidor</string>
     <string name="similarity_admin_required">Los detalles de complementos requieren acceso de administrador.</string>

@@ -47,6 +47,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Allow Radio, Radio Autoplay, and similarity diagnostics up to 30 seconds for slow server recommendations. Show a localized, non-blocking “Generating radio…” toast immediately when starting track Radio, and clear it when the request finishes or is cancelled.
 - Fix Home playlists showing stale artwork or “playlist not found” after a Navidrome upgrade. Refresh playlist metadata on connection and Home refresh, and repair cached responses for connections whose identifier migration already ran without changing downloaded files.
 - Show cached lyrics immediately when returning to a track, including best-effort matches, while checking for an upgrade in the background. Keep cached lyrics visible if that check fails; explicit Refresh still reloads from scratch.
 - Keep the lyrics area blank while a song's lyrics are pending or loading, instead of briefly showing an unavailable message between tracks. Show an unavailable result only after lookup completes or when lyrics are unsupported.

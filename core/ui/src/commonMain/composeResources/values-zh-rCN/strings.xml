@@ -200,6 +200,7 @@
     <string name="similarity_empty_help">请尝试另一首已分析的歌曲。一首歌曲没有匹配项并不能证明配置有问题。</string>
     <string name="similarity_regular">常规相似度</string>
     <string name="similarity_radio_empty">电台未找到更多歌曲。</string>
+    <string name="radio_generating">正在生成电台…</string>
     <string name="similarity_protocol_codes">HTTP：%1$s；API：%2$s</string>
     <string name="similarity_admin_title">服务器插件详情</string>
     <string name="similarity_admin_required">查看插件详情需要管理员权限。</string>

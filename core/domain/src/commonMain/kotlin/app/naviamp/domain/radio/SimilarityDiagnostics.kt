@@ -41,7 +41,7 @@ data class SimilarityDiagnostics(
     val admin: SimilarityAdminDiagnostics = SimilarityAdminDiagnostics(SimilarityAdminStatus.Unavailable),
 )
 
-const val SimilarityRequestTimeoutMillis = 10_000L
+const val SimilarityRequestTimeoutMillis = 30_000L
 
 /** Explicit diagnostic only: both raw endpoints use the same seed/account and never alter playback. */
 suspend fun testSimilarity(provider: MediaProvider, seed: Track, count: Int = 20): SimilarityDiagnostics {

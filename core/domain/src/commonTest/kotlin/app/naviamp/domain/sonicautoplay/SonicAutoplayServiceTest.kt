@@ -94,13 +94,13 @@ class SonicAutoplayServiceTest {
     }
 
     @Test
-    fun sonicBatchDeadlineStopsAfterTenSeconds() = runTest {
+    fun sonicBatchDeadlineStopsAfterThirtySeconds() = runTest {
         val provider = FakeSonicProvider(radioBySeed = mapOf("seed" to listOf(track("regular"))))
         provider.beforeSonic = { delay(60_000) }
         val started = testScheduler.currentTime
         assertEquals(emptyList(), SonicAutoplayService({ provider }).continuationTracks(
             PlaybackQueue(listOf(track("seed")), 0)))
-        assertEquals(10_000L, testScheduler.currentTime - started)
+        assertEquals(30_000L, testScheduler.currentTime - started)
     }
 
     @Test
@@ -132,7 +132,7 @@ class SonicAutoplayServiceTest {
             val started = testScheduler.currentTime
             assertEquals(emptyList(), SonicAutoplayService({ provider }).continuationTracks(
                 PlaybackQueue(listOf(track("seed")), 0), preferSonicSimilarity = false))
-            assertEquals(if (timeout) 10_000L else 0L, testScheduler.currentTime - started)
+            assertEquals(if (timeout) 30_000L else 0L, testScheduler.currentTime - started)
             assertEquals(listOf("seed"), provider.radioRequests)
         }
     }

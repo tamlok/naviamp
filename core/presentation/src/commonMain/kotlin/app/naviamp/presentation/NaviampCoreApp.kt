@@ -173,6 +173,12 @@ fun NaviampCoreApp(
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
+                if (state.overlays.trackRadioGenerating) {
+                    app.naviamp.ui.NaviampRadioGeneratingNotice(
+                        app.naviamp.ui.LocalNaviampTheme.current.colors,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
                 core.castPickerState?.let { pickerState ->
                     val picker by pickerState.collectAsState()
                     if (picker.visible) app.naviamp.ui.NaviampCastPickerDialog(

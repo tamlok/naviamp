@@ -1,5 +1,11 @@
 package app.naviamp.presentation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.union
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.test.*
@@ -15,12 +21,94 @@ import app.naviamp.domain.settings.RecentRadioStream
 import app.naviamp.domain.settings.SavedTrack
 import app.naviamp.ui.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import java.io.File
 import javax.imageio.ImageIO
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampNavigationFixesUiTest {
+    @Test
+    fun radioToastAvoidsSystemBarsAndDisplayCutouts() = runDesktopComposeUiTest(320, 640) {
+        val insets = WindowInsets(left = 12, top = 24, right = 8, bottom = 24)
+            .union(WindowInsets(top = 48))
+        setContent {
+            Box(Modifier.fillMaxSize()) {
+                NaviampRadioGeneratingNotice(NaviampColors.Dark, Modifier.align(Alignment.TopCenter), insets)
+            }
+        }
+        val toast = onNodeWithText("Generating radio…").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val root = onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue(toast.top >= root.top + 48)
+        assertTrue(toast.left >= root.left + 12 && toast.right <= root.right - 8)
+        capture("radio-generating-safe-area")
+    }
+
+    @Test
+    fun trackRadioShowsGeneratingToastWithoutBlockingPlayback() {
+        for ((width, height) in listOf(1000 to 740, 320 to 640)) {
+            runDesktopComposeUiTest(width, height) {
+                mainClock.autoAdvance = false
+                val base = FakeCoreMediaProvider()
+                val gate = CompletableDeferred<Unit>()
+                val provider = object : MediaProvider by base {
+                    override val capabilities = base.capabilities.copy(supportsTrackRadio = true)
+                    override suspend fun instantMixTracks(trackId: TrackId, count: Int): List<Track> {
+                        gate.await()
+                        return listOf(base.track.copy(id = TrackId("radio-match"), title = "Radio match"))
+                    }
+                }
+                val effects = object : NaviampCorePlaybackEffectPort by fakeCoreServices().playback.effects {
+                    lateinit var observer: NaviampCorePlaybackObserver
+                    override fun attach(observer: NaviampCorePlaybackObserver) { this.observer = observer }
+                    override fun pause() { observer.onStateChanged(app.naviamp.domain.playback.PlaybackState.Paused) }
+                    override fun resume() { observer.onStateChanged(app.naviamp.domain.playback.PlaybackState.Playing) }
+                    override fun playQueueSelection(queue: app.naviamp.domain.queue.PlaybackQueue, index: Int) {
+                        observer.onStateChanged(app.naviamp.domain.playback.PlaybackState.Playing)
+                    }
+                }
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+                val core = NaviampCore.create(scope, fakeCoreServices(provider, effects), initialState = connectedInitialState())
+                try {
+                    core.execute(NaviampCoreCommand.Library.ChangeView(NaviampLibraryView.Songs))
+                    core.execute(NaviampCoreCommand.Library.TrackAction(SharedTrackRowActionRequest(
+                        core.state.value.shell.library.songs.tracks.single(), SharedTrackRowAction.Select)))
+                    effects.pause()
+                    core.actions.shell.navigationActions.onOpenNowPlaying()
+                    setContent { NaviampCoreApp(core) }
+                    mainClock.advanceTimeBy(300)
+                    onNodeWithContentDescription("Track actions").performClick()
+                    mainClock.advanceTimeBy(300)
+                    onNodeWithText("Start Radio").assertIsDisplayed().performClick()
+                    mainClock.advanceTimeBy(300)
+                    val toast = onNodeWithText("Generating radio…").assertIsDisplayed()
+                    val bounds = toast.fetchSemanticsNode().boundsInRoot
+                    val root = onRoot().fetchSemanticsNode().boundsInRoot
+                    assertTrue(bounds.left >= root.left && bounds.right <= root.right)
+                    toast.assert(SemanticsMatcher.expectValue(
+                        androidx.compose.ui.semantics.SemanticsProperties.LiveRegion,
+                        androidx.compose.ui.semantics.LiveRegionMode.Polite,
+                    ))
+                    onNodeWithContentDescription("Play").performClick()
+                    mainClock.advanceTimeBy(300)
+                    onNodeWithContentDescription("Pause").assertIsDisplayed()
+                    toast.assertIsDisplayed()
+                    capture("radio-generating-$width")
+                    runOnIdle { gate.complete(Unit) }
+                    mainClock.advanceTimeBy(300)
+                    onNodeWithText("Generating radio…").assertDoesNotExist()
+                    onNodeWithContentDescription("Pause").assertIsDisplayed()
+                } finally {
+                    core.close()
+                    scope.cancel()
+                }
+            }
+        }
+    }
+
     @Test
     fun recommendationsDropdownReordersAlbumsAndRadioReplaySurvivesAnOlderRefresh() = runDesktopComposeUiTest(1100, 800) {
         val provider = NavigationFixesProvider()

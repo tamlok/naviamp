@@ -926,6 +926,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
         val request = async { fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio)) }
         runCurrent()
 
+        assertTrue(fixture.store.state.value.overlays.trackRadioGenerating)
         assertEquals(listOf("past", "current", "next"), fixture.live.state.value.queue.tracks.map { it.id.value })
         assertTrue(fixture.effects.selections.isEmpty())
         assertEquals("Playing current radio while the queue builds", fixture.store.state.value.overlays.status)
@@ -933,6 +934,33 @@ class NaviampCoreNowPlayingMediaControllerTest {
         buildGate.complete(Unit)
         request.await()
         assertEquals(listOf("past", "current", "radio"), fixture.live.state.value.queue.tracks.map { it.id.value })
+        assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
+    }
+
+    @Test
+    fun cancelledOrTimedOutRadioClearsProgressWithoutChangingQueue() = runTest {
+        for (cancel in listOf(true, false)) {
+            val fixture = mediaFixture(this)
+            val before = fixture.live.state.value.queue
+            fixture.provider.trackRadioGate = CompletableDeferred()
+            fixture.store.update { it.copy(overlays = it.overlays.copy(radioNotice =
+                app.naviamp.domain.radio.RadioBuildDiagnostics(app.naviamp.domain.radio.RadioBuildOutcome.Empty))) }
+            val request = async { fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio)) }
+            runCurrent()
+            assertTrue(fixture.store.state.value.overlays.trackRadioGenerating)
+            assertNull(fixture.store.state.value.overlays.radioNotice)
+            if (cancel) {
+                request.cancel()
+                request.join()
+            } else {
+                advanceUntilIdle()
+                request.await()
+                assertEquals(app.naviamp.domain.radio.RadioBuildOutcome.TimedOut,
+                    fixture.store.state.value.overlays.radioNotice?.outcome)
+            }
+            assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
+            assertEquals(before, fixture.live.state.value.queue)
+        }
     }
 
     @Test
@@ -944,8 +972,10 @@ class NaviampCoreNowPlayingMediaControllerTest {
         runCurrent()
         fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio))
         assertEquals(1, fixture.provider.trackRadioRequests)
+        assertTrue(fixture.store.state.value.overlays.trackRadioGenerating)
         gate.complete(Unit)
         first.await()
+        assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
         fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio))
         assertEquals(2, fixture.provider.trackRadioRequests)
     }
@@ -1043,6 +1073,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertTrue(fixture.effects.appliedQueues.isEmpty())
         assertTrue(fixture.store.state.value.shell.home.content.recentRadioStreams.isEmpty())
         assertEquals(app.naviamp.domain.radio.RadioBuildOutcome.Failed, fixture.store.state.value.shell.playback.radioDiagnostics?.outcome)
+        assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
     }
 
     @Test
@@ -1055,6 +1086,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertTrue(fixture.effects.appliedQueues.isEmpty())
         assertEquals(app.naviamp.domain.radio.RadioBuildOutcome.Empty, fixture.store.state.value.overlays.radioNotice?.outcome)
         assertEquals("Playing current radio while the queue builds", fixture.store.state.value.overlays.status)
+        assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
     }
 
     @Test

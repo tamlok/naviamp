@@ -186,6 +186,7 @@
     <string name="similarity_empty_help">Tente outra faixa analisada. A falta de correspondências para uma faixa não comprova um problema de configuração.</string>
     <string name="similarity_regular">Similaridade normal</string>
     <string name="similarity_radio_empty">A Rádio não encontrou outras faixas.</string>
+    <string name="radio_generating">Gerando rádio…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Detalhes dos plugins do servidor</string>
     <string name="similarity_admin_required">Os detalhes dos plugins exigem acesso de administrador.</string>

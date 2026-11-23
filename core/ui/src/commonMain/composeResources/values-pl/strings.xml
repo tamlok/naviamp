@@ -298,6 +298,7 @@
     <string name="similarity_empty_help">Spróbuj innego przeanalizowanego utworu. Brak dopasowań dla jednego utworu nie dowodzi błędu konfiguracji.</string>
     <string name="similarity_regular">Zwykłe podobieństwo</string>
     <string name="similarity_radio_empty">Radio nie znalazło dodatkowych utworów.</string>
+    <string name="radio_generating">Tworzenie radia…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Szczegóły wtyczek serwera</string>
     <string name="similarity_admin_required">Szczegóły wtyczek wymagają uprawnień administratora.</string>

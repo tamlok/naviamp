@@ -200,6 +200,7 @@
     <string name="similarity_empty_help">विश्लेषण किया गया कोई दूसरा ट्रैक आज़माएँ। एक ट्रैक के लिए मिलान न मिलना कॉन्फ़िगरेशन की समस्या का प्रमाण नहीं है।</string>
     <string name="similarity_regular">सामान्य समानता</string>
     <string name="similarity_radio_empty">रेडियो को अतिरिक्त ट्रैक नहीं मिले। मौजूदा कतार बरकरार रखी गई।</string>
+    <string name="radio_generating">रेडियो तैयार किया जा रहा है…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">सर्वर प्लगइन का विवरण</string>
     <string name="similarity_admin_required">प्लगइन का विवरण देखने के लिए व्यवस्थापक पहुँच चाहिए।</string>

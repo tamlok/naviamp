@@ -990,6 +990,7 @@
     <string name="similarity_empty_help">Try another analyzed track. No matches for one track does not prove a configuration problem.</string>
     <string name="similarity_regular">Regular similarity</string>
     <string name="similarity_radio_empty">Radio found no additional tracks.</string>
+    <string name="radio_generating">Generating radio…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Server plugin details</string>
     <string name="similarity_admin_required">Plugin details require administrator access.</string>

@@ -230,12 +230,14 @@ class NaviampCoreMediaTransactions(
         if (stateStore.state.value.shell.connect.remotePlaybackAuthorityActive) return false
         if (!trackRadioBuild.tryLock()) return false
         return try {
+            stateStore.update { it.copy(overlays = it.overlays.copy(trackRadioGenerating = true, radioNotice = null)) }
             val settings = stateStore.state.value.shell.playback.settings
             startSeededMix(
                 trackRadioRequest(seed, settings.effectiveSonicSimilarityEnabled()),
                 preserveCurrentSeed = true,
             ) { recordTrackArtistRadioPlayed(seed) }
         } finally {
+            stateStore.update { it.copy(overlays = it.overlays.copy(trackRadioGenerating = false)) }
             trackRadioBuild.unlock()
         }
     }

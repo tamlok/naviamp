@@ -6,6 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -15,6 +23,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.radio.*
 import app.naviamp.ui.generated.resources.*
@@ -169,4 +180,22 @@ fun NaviampRadioNotice(colors: NaviampColors, result: RadioBuildDiagnostics, onD
         Text(radioNoticeText(result), color = colors.primaryText, modifier = Modifier.weight(1f))
         NaviampTextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) }
     }
+}
+
+@Composable
+fun NaviampRadioGeneratingNotice(
+    colors: NaviampColors,
+    modifier: Modifier = Modifier,
+    contentInsets: WindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
+) {
+    val shape = remember { RoundedCornerShape(8.dp) }
+    Text(
+        text = stringResource(Res.string.radio_generating),
+        color = colors.primaryText,
+        modifier = modifier.windowInsetsPadding(contentInsets).padding(16.dp).widthIn(max = 360.dp)
+            .background(colors.background, shape)
+            .border(1.dp, colors.primaryText.copy(alpha = 0.2f), shape)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    )
 }

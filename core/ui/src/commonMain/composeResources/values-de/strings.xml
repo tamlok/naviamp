@@ -961,6 +961,7 @@
     <string name="similarity_empty_help">Einen anderen analysierten Titel versuchen. Fehlende Treffer für einen Titel beweisen keinen Konfigurationsfehler.</string>
     <string name="similarity_regular">Normale Ähnlichkeit</string>
     <string name="similarity_radio_empty">Radio fand keine weiteren Titel.</string>
+    <string name="radio_generating">Radio wird erstellt…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">Server-Plugin-Details</string>
     <string name="similarity_admin_required">Plugin-Details erfordern Administratorrechte.</string>

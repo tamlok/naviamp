@@ -200,6 +200,7 @@
     <string name="similarity_empty_help">جرّب مقطعًا آخر تم تحليله. عدم وجود نتائج لمقطع واحد لا يثبت وجود مشكلة في الإعدادات.</string>
     <string name="similarity_regular">التشابه العادي</string>
     <string name="similarity_radio_empty">لم يجد الراديو مقاطع إضافية.</string>
+    <string name="radio_generating">جارٍ إنشاء الراديو…</string>
     <string name="similarity_protocol_codes">HTTP: %1$s; API: %2$s</string>
     <string name="similarity_admin_title">تفاصيل إضافات الخادم</string>
     <string name="similarity_admin_required">تتطلب تفاصيل الإضافات صلاحيات المسؤول.</string>

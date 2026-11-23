@@ -90,6 +90,25 @@ class RadioServiceTest {
 
     @Test
     @OptIn(ExperimentalCoroutinesApi::class)
+    fun bothTrackRadioEntryPointsAcceptSlowSuccessfulRecommendations() = runTest {
+        val matches = listOf(track("match"))
+        val provider = object : MediaProvider by FakeRadioProvider() {
+            override suspend fun instantMixTracks(trackId: TrackId, count: Int): List<Track> {
+                delay(21_000)
+                return matches
+            }
+        }
+        for (byId in listOf(true, false)) {
+            val started = testScheduler.currentTime
+            val service = RadioService(provider)
+            val result = if (byId) service.trackRadio(TrackId("seed")) else service.trackRadio(track("seed"), false)
+            assertEquals(matches, result)
+            assertEquals(21_000L, testScheduler.currentTime - started)
+        }
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun bothTrackRadioEntryPointsUseTheSharedRegularRequestDeadline() = runTest {
         val provider = object : MediaProvider by FakeRadioProvider() {
             override suspend fun instantMixTracks(trackId: TrackId, count: Int): List<Track> {
@@ -104,7 +123,7 @@ class RadioServiceTest {
                 if (byId) service.trackRadio(TrackId("seed")) else service.trackRadio(track("seed"), false)
             }
             assertTrue(failure.timedOut)
-            assertEquals(10_000L, testScheduler.currentTime - started)
+            assertEquals(30_000L, testScheduler.currentTime - started)
         }
     }
 
@@ -153,7 +172,7 @@ class RadioServiceTest {
     fun trackRadioTimeoutDoesNotSubstitute() = runTest {
         val provider = FakeRadioProvider(supportsSonicSimilarity = true, sonicDelayMillis = 60_000)
         assertTrue(assertFailsWith<SimilarityRequestException> { RadioService(provider).trackRadio(track("seed"), true) }.timedOut)
-        assertEquals(10_000L, testScheduler.currentTime)
+        assertEquals(30_000L, testScheduler.currentTime)
         assertEquals(0, provider.trackRadioCalls)
     }
 

@@ -16,6 +16,13 @@ diagnostics. Instant Mix uses the server’s similar-song recommendations, which
 by plugins. Selected Navidrome Instant Mix does not substitute local artist/album candidates for
 empty endpoint results.
 
+Radio and Radio Autoplay similarity batches have a 30-second deadline. Raw similarity endpoints,
+admin diagnostics, and diagnostic seed lookup use the same limit. A slow successful response can
+complete within that budget; timeout, cancellation, partial-result, and no-fallback policies are unchanged.
+Starting track Radio immediately shows a localized “Generating radio…” toast above the player,
+without blocking playback controls. It clears on success, empty results, failure, or cancellation;
+repeated clicks during the same request do not start another build or dismiss its feedback.
+
 The existing serialized preference and Autoplay keys remain compatible with local storage,
 export/import, and sync. Stored explicit choices survive. Unconfigured settings and older exports
 with the original false default use Instant Mix; they no longer automatically opt into Sonic.
@@ -26,7 +33,9 @@ There is no database migration.
 1. Connect to a server without Sonic support, including the demo server. Radio stays visible.
    Sonic is disabled with guidance; Instant Mix and Radio Autoplay remain available.
 2. On a supported server, select each method. Selection is exclusive. Start track Radio and finish
-   a queue with Radio Autoplay enabled. Verify only the selected endpoint is requested.
+   a queue with Radio Autoplay enabled. Verify only the selected endpoint is requested. While a
+   track Radio request is pending, verify its generating toast is visible, playback controls still
+   respond, and the toast disappears when the request finishes or is cancelled.
 3. Test short Sonic results with healthy Instant Mix. Keep only Sonic tracks. Test duplicate-heavy
    responses, queued tracks, and partial failures. No cross-method top-up is permitted.
 4. Test empty, unsupported, failed, and timed-out Sonic. Radio does not expand with another method.
@@ -100,5 +109,6 @@ time out while browsing/playback work, inspect Navidrome's plugin log and test t
 AudioMuse API URL from Navidrome's own container/network. An empty plugin configuration can leave
 an obsolete address from the plugin manifest active. Use a stable reachable service name and the
 correct internal port, preserve other settings and a rollback copy, then verify both diagnostics,
-explicit Radio and queue-end Autoplay. Do not hide the problem by increasing the app timeout or
-silently selecting another method. See the [physical-phone repair evidence](../verification/399-audiomuse-radio-repair.md).
+explicit Radio and queue-end Autoplay. The 30-second app deadline accommodates slow successful
+responses; an unreachable backend still needs a server-side repair, not another timeout increase
+or a silent method switch. See the [historical physical-phone repair evidence](../verification/399-audiomuse-radio-repair.md).
