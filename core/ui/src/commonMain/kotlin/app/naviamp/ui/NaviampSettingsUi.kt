@@ -3817,6 +3817,15 @@ fun NaviampPlaybackSettingsSection(
             )
         }
     } ?: run {
+        PlaybackToggleRow(
+            colors = colors,
+            title = stringResource(Res.string.settings_resume_playlists),
+            subtitle = stringResource(Res.string.settings_resume_playlists_description),
+            checked = playbackSettings.resumePlaylists,
+            onCheckedChange = { enabled ->
+                onPlaybackSettingsChanged(playbackSettings.copy(resumePlaylists = enabled))
+            },
+        )
         playbackSettingsSections(showReplayGain, showCrossfade).forEach { section ->
             SettingsRow(
                 title = section.title(),

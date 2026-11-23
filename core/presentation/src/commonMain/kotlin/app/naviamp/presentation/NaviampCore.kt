@@ -469,6 +469,8 @@ class NaviampCore private constructor(
                 openNowPlaying = navigation::openNowPlaying,
                 activeSourceId = { stateStore.state.value.shell.connectionSettings.currentSourceId },
                 profiles = services.playback.profiles,
+                playlistBookmarks = services.playback.sessions.playlistBookmarks,
+                resumePlaylists = { stateStore.state.value.shell.playback.settings.resumePlaylists },
             )
             val downloads = NaviampCoreDownloadsController(
                 scope,
@@ -494,6 +496,7 @@ class NaviampCore private constructor(
                             playlist.id,
                         ),
                         groupLabel = playlist.name,
+                        resumePlaylist = !shuffle,
                     )
                 },
                 queue = NaviampCorePlaylistQueuePort { playlist, tracks ->

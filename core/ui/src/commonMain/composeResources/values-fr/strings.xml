@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Reprendre les listes de lecture</string>
+    <string name="settings_resume_playlists_description">Continuer les listes de lecture à partir du dernier titre et de la dernière position</string>
     <string name="common_back">Retour</string>
     <string name="settings_category_appearance_title">Apparence</string>
     <string name="settings_category_appearance_subtitle">Thèmes et couleurs</string>

@@ -62,6 +62,7 @@ class NaviampCoreAlbumPlaybackProfileTest {
             val streaming = naviampCoreStreamingPlaybackServices(this, engine, defaults.content.providerSource,
                 PlaybackSettings(gaplessEnabled = false, crossfadeDurationSeconds = 8), {},
                 object : PlaybackSessionRepository {
+                    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
                     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = null
                     override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
                 }, {}).copy(profiles = profiles)

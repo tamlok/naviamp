@@ -38,6 +38,7 @@ suspend fun verifyNaviampDiscoveryPreviewPlayback(
     val sessions = mutableListOf<PlaybackSessionSettings>()
     val playbackServices = naviampCoreStreamingPlaybackServices(this, engine, defaults.content.providerSource,
         PlaybackSettings(volumePercent = 0), {}, object : PlaybackSessionRepository {
+            override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
             override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = null
             override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) {
                 session?.let { sessions += it }

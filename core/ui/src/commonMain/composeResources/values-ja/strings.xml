@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">プレイリストを再開</string>
+    <string name="settings_resume_playlists_description">前回の曲と再生位置からプレイリストを再開します</string>
     <string name="common_back">戻る</string>
     <string name="settings_category_appearance_title">外観</string>
     <string name="settings_category_appearance_subtitle">テーマと色</string>

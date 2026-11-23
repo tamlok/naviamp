@@ -1,4 +1,6 @@
 <resources>
+    <string name="settings_resume_playlists">Resume playlists</string>
+    <string name="settings_resume_playlists_description">Continue playlists from the last track and position</string>
     <string name="settings_category_appearance_title">Appearance</string>
     <string name="settings_category_appearance_subtitle">Themes and colors</string>
     <string name="settings_themes_mode">Color mode</string>

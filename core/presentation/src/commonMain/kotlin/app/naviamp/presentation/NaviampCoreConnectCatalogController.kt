@@ -47,7 +47,8 @@ class NaviampCoreConnectCatalogController(
                     }
                 }
                 NaviampConnectMediaType.Playlist ->
-                    media.play(provider.playlistTracks(command.mediaId), shuffle = command.shuffle)
+                    media.playPlaylist(command.mediaId, registry.playlist(command.mediaId)?.name.orEmpty(),
+                        provider.playlistTracks(command.mediaId), shuffle = command.shuffle)
                 NaviampConnectMediaType.InternetRadioStation -> error("Handled above")
             }
             true
@@ -77,7 +78,8 @@ class NaviampCoreConnectCatalogController(
                 val tracks = provider.playlistTracks(context.mediaId)
                 val index = tracks.indexOfFirst { it.id.value == command.mediaId }
                 if (index < 0) return false
-                media.play(tracks, index, shuffle = command.shuffle)
+                media.playPlaylist(context.mediaId, registry.playlist(context.mediaId)?.name.orEmpty(),
+                    tracks, index = index, shuffle = command.shuffle, resumePlaylist = false)
                 true
             }
             else -> false

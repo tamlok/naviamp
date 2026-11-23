@@ -66,6 +66,7 @@ class StorageDiscoveryAcquisitionStoreTest {
     @Test fun migrationAfterAcceptedBaselineAddsTheStoreWithoutChangingSources() = database { driver, db ->
         val source = source(db)
         driver.execute(null, "DROP TABLE discovery_acquisition", 0)
+        driver.execute(null, "DROP TABLE playlist_playback_bookmark", 0)
         driver.execute(null, "ALTER TABLE media_source DROP COLUMN aurral_companion", 0)
         NaviampStorageDatabase.Schema.migrate(driver, 29L, NaviampStorageDatabase.Schema.version)
         val preserved = assertNotNull(db.naviampStorageQueries.selectMediaSourceById(source).executeAsOneOrNull())

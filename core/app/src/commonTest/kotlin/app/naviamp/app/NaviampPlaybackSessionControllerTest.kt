@@ -367,6 +367,7 @@ private class RecordingPlaybackSessionRepository(
     val sessions: MutableMap<String?, PlaybackSessionSettings?> = mutableMapOf(),
     private val performance: PlaybackSessionRepositoryPerformance = PlaybackSessionRepositoryPerformance(),
 ) : PlaybackSessionRepository {
+    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
     var lastSavedSourceId: String? = null
     var saveCount: Int = 0
     var loadCount: Int = 0

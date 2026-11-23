@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Lanjutkan daftar putar</string>
+    <string name="settings_resume_playlists_description">Lanjutkan daftar putar dari lagu dan posisi terakhir</string>
     <string name="common_back">Kembali</string>
     <string name="settings_category_appearance_title">Tampilan</string>
     <string name="settings_category_appearance_subtitle">Tema dan warna</string>

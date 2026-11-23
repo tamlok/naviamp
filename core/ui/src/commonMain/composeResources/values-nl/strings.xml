@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Afspeellijsten hervatten</string>
+    <string name="settings_resume_playlists_description">Afspeellijsten hervatten vanaf het laatste nummer en de laatste positie</string>
     <string name="common_back">Terug</string>
     <string name="settings_category_appearance_title">Uiterlijk</string>
     <string name="settings_category_appearance_subtitle">Thema’s en kleuren</string>

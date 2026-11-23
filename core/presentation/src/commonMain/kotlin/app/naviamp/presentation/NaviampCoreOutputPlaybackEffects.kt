@@ -120,6 +120,12 @@ internal class NaviampCoreOutputPlaybackEffects(
         if (castSelected) cast?.loadCurrent() else local.playQueueSelection(queue, index)
     }
 
+    override fun resumeQueueSelection(queue: PlaybackQueue, positionSeconds: Double) {
+        onSelectionStarted()
+        beforeStart()
+        if (castSelected) cast?.loadCurrent(positionSeconds) else local.resumeQueueSelection(queue, positionSeconds)
+    }
+
     override fun prepareForPreview() = local.prepareForPreview()
 
     override fun pause() {

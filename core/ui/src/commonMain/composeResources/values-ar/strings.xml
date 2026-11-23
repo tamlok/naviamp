@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">استئناف قوائم التشغيل</string>
+    <string name="settings_resume_playlists_description">متابعة قوائم التشغيل من آخر مقطع وموضع توقف</string>
     <string name="common_back">رجوع</string>
     <string name="settings_category_appearance_title">المظهر</string>
     <string name="settings_category_appearance_subtitle">السمات والألوان</string>

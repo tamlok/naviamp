@@ -21,6 +21,32 @@ import kotlin.test.assertTrue
 
 class SettingsSyncMappingTest {
     @Test
+    fun playlistResumeAppliesFromPortableSettingsAndSurvivesReexport() {
+        for (enabled in listOf(true, false)) {
+            val settings = PlaybackSettings(resumePlaylists = enabled, crossfadeDurationSeconds = 99)
+            val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = settings), 1L, "sender")
+            val applied = applySettingsSyncDocument(
+                SettingsSyncJson.decode(SettingsSyncJson.encode(document)),
+                RecordingProviderMediaSourceRepository(),
+                RecordingRadioDjPresetRepository(),
+                localPlayback = PlaybackSettings(resumePlaylists = !enabled),
+            ).playbackSettings
+            assertEquals(enabled, applied.resumePlaylists)
+            assertEquals(12, applied.crossfadeDurationSeconds)
+            val reexported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = applied), 2L, "receiver")
+            assertEquals(enabled, SettingsSyncJson.decode(SettingsSyncJson.encode(reexported)).preferences.playback.resumePlaylists)
+        }
+        val older = applySettingsSyncDocument(
+            SettingsSyncJson.decode("""{"preferences":{"playback":{"gaplessEnabled":false}}}"""),
+            RecordingProviderMediaSourceRepository(),
+            RecordingRadioDjPresetRepository(),
+            localPlayback = PlaybackSettings(resumePlaylists = false),
+        ).playbackSettings
+        assertTrue(older.resumePlaylists)
+        assertFalse(older.gaplessEnabled)
+    }
+
+    @Test
     fun themePreferencesApplyFromPortableSnapshotAndNormalizeAtTheApplyBoundary() {
         val settings = InterfaceSettings(language = InterfaceLanguage.German,
             theme = NaviampThemeSettings(NaviampThemeMode.System, NaviampForestTheme.id))

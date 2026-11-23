@@ -11,6 +11,38 @@ import kotlinx.serialization.json.jsonObject
 
 class SettingsSyncDocumentTest {
     @Test
+    fun playlistResumeSurvivesExportImportAndSyncDocumentRebuild() {
+        for (enabled in listOf(true, false)) {
+            val settings = PlaybackSettings(resumePlaylists = enabled, gaplessEnabled = false)
+            val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = settings), 1L, "source")
+            val imported = SettingsSyncJson.decode(SettingsSyncJson.encode(document)).preferences.playback
+            assertEquals(enabled, imported.resumePlaylists)
+            assertFalse(imported.gaplessEnabled)
+
+            val synced = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = imported), 2L, "destination")
+            val restored = SettingsSyncJson.decode(SettingsSyncJson.encode(synced)).preferences.playback
+            assertEquals(enabled, restored.resumePlaylists)
+            assertFalse(restored.gaplessEnabled)
+        }
+    }
+
+    @Test
+    fun playlistResumeDefaultsOnForOlderExportsAndNormalizationRetainsFalse() {
+        assertTrue(PlaybackSettings().resumePlaylists)
+        assertTrue(SettingsSyncJson.decode("{}").preferences.playback.resumePlaylists)
+        val older = SettingsSyncJson.decode("""{"preferences":{"playback":{"gaplessEnabled":false}}}""")
+            .preferences.playback
+        assertTrue(older.resumePlaylists)
+        assertFalse(older.gaplessEnabled)
+        assertFalse(PlaybackSettings(resumePlaylists = false).normalized().resumePlaylists)
+        val imported = SettingsSyncJson.decode(
+            """{"preferences":{"playback":{"resumePlaylists":false,"crossfadeDurationSeconds":99}}}""",
+        ).preferences.playback
+        assertFalse(imported.resumePlaylists)
+        assertEquals(12, imported.crossfadeDurationSeconds)
+    }
+
+    @Test
     fun compactLyricsFontSizesSurviveExportImportAndSyncDocumentRebuild() {
         for (size in listOf(14, 20, 24, 48, 64)) {
             val settings = PlaybackSettings(compactLyricsFontSizeSp = size, lrclibLyricsEnabled = true)

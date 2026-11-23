@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">继续播放歌单</string>
+    <string name="settings_resume_playlists_description">从上次的曲目和播放位置继续播放歌单</string>
     <string name="common_back">返回</string>
     <string name="settings_category_appearance_title">外观</string>
     <string name="settings_category_appearance_subtitle">主题和颜色</string>

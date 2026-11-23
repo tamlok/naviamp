@@ -1,0 +1,8 @@
+CREATE TABLE playlist_playback_bookmark (
+  source_id TEXT NOT NULL REFERENCES media_source(id) ON DELETE CASCADE,
+  playlist_id TEXT NOT NULL,
+  remote_track_id TEXT NOT NULL,
+  track_occurrence INTEGER NOT NULL,
+  position_seconds REAL NOT NULL,
+  PRIMARY KEY(source_id, playlist_id)
+);

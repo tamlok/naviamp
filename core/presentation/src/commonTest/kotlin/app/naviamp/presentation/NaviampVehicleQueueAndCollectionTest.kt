@@ -106,7 +106,7 @@ class NaviampVehicleQueueAndCollectionTest {
             val controller = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}),
                 { error("Browsing dispatched a phone command") }, labels, 5, collections = NaviampVehicleCollectionAccess {
                     references += it
-                    NaviampVehicleCollection(tracks) { index, shuffle -> starts += index to shuffle; true }
+                    NaviampVehicleCollection(tracks) { index, shuffle, _ -> starts += index to shuffle; true }
                 })
             openCollection(controller, album)
             assertEquals("Loading", controller.state.value.pages.single().status)
@@ -132,10 +132,12 @@ class NaviampVehicleQueueAndCollectionTest {
         for (action in listOf("Play", "Shuffle", "Track 3")) {
             val product = product()
             val starts = mutableListOf<Pair<Int, Boolean>>()
+            val resumeRequests = mutableListOf<Boolean>()
             val controller = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}), {},
                 labels, 100, collections = NaviampVehicleCollectionAccess {
-                    NaviampVehicleCollection(tracks) { index, shuffle ->
+                    NaviampVehicleCollection(tracks) { index, shuffle, resumePlaylist ->
                         starts += index to shuffle
+                        resumeRequests += resumePlaylist
                         product.value = product.value.copy(playbackSelectionGeneration = 1)
                         true
                     }
@@ -148,6 +150,7 @@ class NaviampVehicleQueueAndCollectionTest {
             controller.selectPage(page.id, page.rows.first { it.title == action }.id, state.revision, completed::add)
             runCurrent()
             assertEquals(listOf((if (action == "Track 3") 3 else 0) to (action == "Shuffle")), starts)
+            assertEquals(listOf(action == "Play"), resumeRequests)
             assertTrue(completed.isEmpty())
             product.value = product.value.copy(readyPlaybackSelectionGeneration = 1)
             runCurrent()
@@ -165,7 +168,7 @@ class NaviampVehicleQueueAndCollectionTest {
                     calls++
                     if (calls == 1 && mode == "failure") error("Offline")
                     if (calls == 1 && mode == "timeout") delay(200)
-                    NaviampVehicleCollection(emptyList()) { _, _ -> error("Empty collection played") }
+                    NaviampVehicleCollection(emptyList()) { _, _, _ -> error("Empty collection played") }
                 })
             openCollection(controller)
             advanceTimeBy(101)
@@ -189,7 +192,7 @@ class NaviampVehicleQueueAndCollectionTest {
             val controller = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}), {},
                 labels, 100, collections = NaviampVehicleCollectionAccess {
                     withContext(NonCancellable) { release.await() }
-                    NaviampVehicleCollection(tracks) { _, _ -> error("Stale collection played") }
+                    NaviampVehicleCollection(tracks) { _, _, _ -> error("Stale collection played") }
                 })
             openCollection(controller)
             runCurrent()
@@ -263,7 +266,7 @@ class NaviampVehicleQueueAndCollectionTest {
     @Test fun dismissingQueueReturnsToLoadedCollectionAndRejectsDismissedCallbacks() = runTest {
         val product = product()
         val controller = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}), {},
-            labels, 100, collections = NaviampVehicleCollectionAccess { NaviampVehicleCollection(tracks) { _, _ -> true } })
+            labels, 100, collections = NaviampVehicleCollectionAccess { NaviampVehicleCollection(tracks) { _, _, _ -> true } })
         openCollection(controller)
         runCurrent()
         val collection = controller.state.value.pages.single()

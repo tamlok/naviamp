@@ -15,6 +15,26 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreOutputPlaybackEffectsTest {
+    @Test fun bookmarkResumeRoutesItsPositionToCastWithoutStartingLocalAudio() {
+        val outputs = NaviampPlaybackOutputSelectionController()
+        val local = RecordingLocalEffects()
+        val routed = NaviampCoreOutputPlaybackEffects(local, outputs)
+        val cast = RecordingCastRoute()
+        routed.cast = cast
+        val selection = outputs.select(NaviampRemoteOutputTarget(NaviampRemoteOutputKind.Cast, "tv", "TV"))
+        outputs.connected(selection)
+        var selections = 0
+        var preparations = 0
+        routed.onSelectionStarted = { selections++ }
+        routed.beforeStart = { preparations++ }
+        routed.resumeQueueSelection(PlaybackQueue(), 57.25)
+        assertEquals(57.25, cast.loadedPosition)
+        assertEquals(1, selections)
+        assertEquals(1, preparations)
+        assertEquals(0, local.starts)
+        assertEquals(0, local.queueSelections)
+    }
+
     @Test fun downloadedOnlyExecutionIsLocalAndDoesNotStartOnCast() {
         val outputs = NaviampPlaybackOutputSelectionController()
         var downloaded = 0
@@ -111,7 +131,12 @@ class NaviampCoreOutputPlaybackEffectsTest {
         var loads = 0
         var pauses = 0
         var seekPosition: Double? = null
-        override fun loadCurrent(positionSeconds: Double?): Boolean { loads++; return true }
+        var loadedPosition: Double? = null
+        override fun loadCurrent(positionSeconds: Double?): Boolean {
+            loads++
+            loadedPosition = positionSeconds
+            return true
+        }
         override fun navigate(command: PlaybackQueueNavigationCommand) = Unit
         override fun pause() { pauses++ }
         override fun resume() = Unit

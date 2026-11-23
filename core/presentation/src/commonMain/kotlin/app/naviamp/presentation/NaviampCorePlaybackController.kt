@@ -366,6 +366,7 @@ class NaviampCorePlaybackController(
                 presenter.updateStreamMetadata(PlaybackStreamMetadata())
             }
             persistSession(force = false)
+            observePlaylistBookmark()
         }
         effects.attach(object : NaviampCorePlaybackObserver {
             override fun onStateChanged(state: PlaybackState) {
@@ -385,6 +386,7 @@ class NaviampCorePlaybackController(
                 playback.updatePlaybackState(state)
                 reportPlayback(state, playback.state.value.progress)
                 persistSession(force = state == PlaybackState.Paused || state == PlaybackState.Stopped)
+                observePlaylistBookmark(force = state == PlaybackState.Paused || state == PlaybackState.Stopped)
                 if (state == PlaybackState.Playing) loadCurrentTrackSidecars()
                 if (state == PlaybackState.Finished && !repeatedFinished) {
                     val finished = queue.finishCurrentTrack()
@@ -414,6 +416,7 @@ class NaviampCorePlaybackController(
                 playback.updateProgress(progress)
                 reportPlayback(playback.state.value.playbackState, progress)
                 persistSession(force = pausedPositionChanged)
+                observePlaylistBookmark(force = pausedPositionChanged)
             }
 
             override fun onMetadataChanged(metadata: PlaybackStreamMetadata) {
@@ -434,6 +437,8 @@ class NaviampCorePlaybackController(
     }
 
     fun resetAfterDatabaseClear() {
+        sessions.playlistBookmarks.reset()
+        sourceTransitionTargetId = stateStore.state.value.shell.connectionSettings.currentSourceId
         sonicAutoplayJob?.cancel()
         sonicAutoplayJob = null
         sidecarLoadJob?.cancel()
@@ -456,6 +461,8 @@ class NaviampCorePlaybackController(
 
     /** Enforces single-source playback until deliberate multi-server playback is implemented. */
     fun resetForSourceChange(previousSourceId: String?, newSourceId: String) {
+        sessions.playlistBookmarks.flush()
+        sessions.playlistBookmarks.reset()
         sonicAutoplayJob?.cancel()
         sonicAutoplayJob = null
         sourceTransitionTargetId = newSourceId
@@ -560,6 +567,16 @@ class NaviampCorePlaybackController(
             persistedStationId = live.currentStation?.id
             persistedSeekGeneration = live.progress.seekGeneration
         }
+    }
+
+    private fun observePlaylistBookmark(force: Boolean = false) {
+        if (sourceTransitionTargetId != null) return
+        sessions.playlistBookmarks.observe(
+            sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId,
+            live = playback.state.value,
+            nowMillis = nowEpochMillis(),
+            force = force,
+        )
     }
 
     private fun loadCurrentTrackSidecars() {

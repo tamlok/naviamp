@@ -324,6 +324,7 @@ private class RecordingApplicationSession(private var restoreFailures: Int = 0) 
 }
 
 private object EmptyCompositionPlaybackSessions : PlaybackSessionRepository {
+    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = null
     override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
 }

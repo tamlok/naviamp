@@ -100,6 +100,7 @@ internal class StorageProviderIdentityMigrationStore(
             }
 
             migratePlaybackSession(sourceId, ::migrate)
+            migratePlaylistPlaybackBookmarks(sourceId, ::migrate)
 
             queries.selectPlaybackHistoryForIdentityMigration(sourceId).executeAsList().forEach { row ->
                 queries.updatePlaybackHistoryIdentity(
@@ -209,6 +210,20 @@ internal class StorageProviderIdentityMigrationStore(
             json.encodeToString(session.migratedProviderIdentities(migrate)),
             sourceId,
         )
+    }
+
+    private fun migratePlaylistPlaybackBookmarks(sourceId: String, migrate: (String) -> String) {
+        val bookmarks = queries.selectPlaylistPlaybackBookmarksForIdentityMigration(sourceId).executeAsList()
+        queries.deletePlaylistPlaybackBookmarksForIdentityMigration(sourceId)
+        bookmarks.forEach { row ->
+            queries.upsertPlaylistPlaybackBookmark(
+                source_id = sourceId,
+                playlist_id = migrate(row.playlist_id),
+                remote_track_id = migrate(row.remote_track_id),
+                track_occurrence = row.track_occurrence,
+                position_seconds = row.position_seconds,
+            )
+        }
     }
 
     private fun migrateFavoriteArtistActivities(sourceId: String, migrate: (String) -> String) {

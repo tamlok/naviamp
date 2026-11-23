@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Возобновлять плейлисты</string>
+    <string name="settings_resume_playlists_description">Продолжать плейлисты с последнего трека и позиции воспроизведения</string>
     <string name="common_back">Назад</string>
     <string name="settings_category_appearance_title">Оформление</string>
     <string name="settings_category_appearance_subtitle">Темы и цвета</string>

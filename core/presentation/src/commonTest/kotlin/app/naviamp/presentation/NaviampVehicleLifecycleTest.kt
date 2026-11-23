@@ -129,6 +129,7 @@ class NaviampVehicleLifecycleTest {
             }
             val saved = assertNotNull(PlaybackSessionSettings.fromTracks(listOf(fake.track), 0, positionSeconds = 34.0))
             val sessions = NaviampPlaybackSessionController(object : PlaybackSessionRepository {
+                override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
                 override fun loadPlaybackSession(sourceId: String?) = saved
                 override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
             })

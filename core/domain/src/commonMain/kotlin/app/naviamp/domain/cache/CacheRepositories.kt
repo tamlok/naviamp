@@ -355,6 +355,8 @@ data class ProviderIdentityMigrationResult(
 )
 
 interface PlaybackSessionRepository {
+    val playlistBookmarks: app.naviamp.domain.playback.PlaylistPlaybackBookmarkRepository
+
     fun loadPlaybackSession(sourceId: String? = null): PlaybackSessionSettings?
 
     fun savePlaybackSession(

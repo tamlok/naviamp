@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">प्लेलिस्ट वहीं से फिर शुरू करें</string>
+    <string name="settings_resume_playlists_description">प्लेलिस्ट को पिछले ट्रैक में जहाँ छोड़ा था, वहीं से जारी रखें</string>
     <string name="common_back">वापस</string>
     <string name="settings_category_appearance_title">दिखावट</string>
     <string name="settings_category_appearance_subtitle">थीम और रंग</string>

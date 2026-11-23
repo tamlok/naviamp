@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Reanudar listas de reproducción</string>
+    <string name="settings_resume_playlists_description">Continuar las listas de reproducción desde la última pista y posición</string>
     <string name="settings_category_appearance_title">Apariencia</string>
     <string name="settings_category_appearance_subtitle">Temas y colores</string>
     <string name="settings_themes_mode">Modo de color</string>

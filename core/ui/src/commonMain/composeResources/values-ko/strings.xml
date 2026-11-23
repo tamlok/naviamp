@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">재생목록 이어 듣기</string>
+    <string name="settings_resume_playlists_description">마지막 곡과 재생 위치에서 재생목록을 이어 듣습니다</string>
     <string name="common_back">뒤로</string>
     <string name="settings_category_appearance_title">모양</string>
     <string name="settings_category_appearance_subtitle">테마와 색상</string>

@@ -2,6 +2,7 @@ package app.naviamp.presentation
 import app.naviamp.domain.radio.radioDiagnostics
 import app.naviamp.domain.radio.radioSimilarityMethod
 
+import app.naviamp.app.NaviampPlaylistBookmarkController
 import app.naviamp.app.NaviampLivePlaybackController
 import app.naviamp.app.NaviampPlaybackQueueCoordinator
 import app.naviamp.app.NaviampRecentRadioStreamController
@@ -15,6 +16,7 @@ import app.naviamp.domain.playback.PlaybackProfileRepository
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.playback.PlaybackState
+import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.media.favoriteAlbumUpdate
@@ -61,6 +63,8 @@ class NaviampCoreQueuePlaybackController(
     private val openNowPlaying: () -> Unit,
     private val activeSourceId: () -> String? = { null },
     private val profiles: PlaybackProfileRepository = EmptyPlaybackProfileRepository,
+    private val playlistBookmarks: NaviampPlaylistBookmarkController,
+    private val resumePlaylists: () -> Boolean = { true },
 ) {
     fun play(
         tracks: List<Track>,
@@ -69,10 +73,17 @@ class NaviampCoreQueuePlaybackController(
         groupTarget: PlaybackProfileTarget? = null,
         groupLabel: String = "",
         downloadedOnly: Boolean = false,
+        resumePlaylist: Boolean = false,
     ): Boolean {
         if (downloadedOnly && !effects.capabilities.supportsDownloadedOnly) return false
         val selected = if (shuffle) tracks.shuffled() else tracks
         if (selected.isEmpty()) return false
+        val resumed = if (resumePlaylist && !shuffle && resumePlaylists() &&
+            groupTarget?.type == PlaybackProfileTargetType.Playlist
+        ) {
+            playlistBookmarks.resume(activeSourceId(), groupTarget.id, selected)
+        } else null
+        playlistBookmarks.flush()
         val profile = groupTarget?.let { target ->
             activeSourceId()?.let { sourceId -> profiles.playbackProfile(sourceId, target) }
         }
@@ -90,17 +101,28 @@ class NaviampCoreQueuePlaybackController(
         }
         val requestedQueue = PlaybackQueue(
             tracks = selected,
-            currentIndex = index.coerceIn(selected.indices),
+            currentIndex = resumed?.index ?: index.coerceIn(selected.indices),
             groups = listOfNotNull(group),
         )
         val update = queue.replaceQueue(requestedQueue)
+        playback.replace(playback.state.value.copy(
+            currentTrack = update.queue.current,
+            currentStation = null,
+            progress = PlaybackProgress(
+                positionSeconds = resumed?.positionSeconds ?: 0.0,
+                durationSeconds = update.queue.current?.durationSeconds?.toDouble(),
+                seekGeneration = playback.state.value.progress.seekGeneration + 1L,
+            ),
+        ))
         if (downloadedOnly) {
-            playback.updateCurrentTrack(update.queue.current)
             effects.playDownloadedQueueSelection(update.queue, update.queue.currentIndex)
         } else {
             if (update.changed) effects.applyQueue(update.queue, update.clearPreparedNext)
-            playback.updateCurrentTrack(update.queue.current)
-            effects.playQueueSelection(update.queue, update.queue.currentIndex)
+            if (resumed != null) {
+                effects.resumeQueueSelection(update.queue, resumed.positionSeconds)
+            } else {
+                effects.playQueueSelection(update.queue, update.queue.currentIndex)
+            }
         }
         publishNowPlaying()
         openNowPlaying()
@@ -185,6 +207,25 @@ class NaviampCoreMediaTransactions(
 
     fun play(tracks: List<Track>, index: Int = 0, shuffle: Boolean = false) {
         if (!queuePlayback.play(tracks, index, shuffle)) publish("No tracks are available.")
+    }
+
+    fun playPlaylist(
+        playlistId: String,
+        playlistName: String,
+        tracks: List<Track>,
+        shuffle: Boolean = false,
+        index: Int = 0,
+        resumePlaylist: Boolean = true,
+    ) {
+        if (!queuePlayback.play(
+                tracks = tracks,
+                index = index,
+                shuffle = shuffle,
+                groupTarget = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, playlistId),
+                groupLabel = playlistName,
+                resumePlaylist = resumePlaylist,
+            )
+        ) publish("No tracks are available.")
     }
 
     suspend fun replayRecentRadio(stream: RecentRadioStream) {

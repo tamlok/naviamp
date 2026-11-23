@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Riprendi le playlist</string>
+    <string name="settings_resume_playlists_description">Continua le playlist dall’ultima traccia e posizione</string>
     <string name="common_back">Indietro</string>
     <string name="settings_category_appearance_title">Aspetto</string>
     <string name="settings_category_appearance_subtitle">Temi e colori</string>

@@ -24,6 +24,7 @@ class NaviampCoreTrackActionController(
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         val albumContext = registry.albumDetails.takeIf { command is NaviampCoreCommand.Detail.AlbumTrack }
+        val playlistContext = registry.selectedPlaylist.takeIf { command is NaviampCoreCommand.Detail.PlaylistTrack }
         val (request, tracks) = when (command) {
             is NaviampCoreCommand.Media.TrackAction -> command.request to registry.search.tracks
             is NaviampCoreCommand.Library.TrackAction -> command.request to registry.libraryTracks
@@ -44,7 +45,7 @@ class NaviampCoreTrackActionController(
             ) to registry.sonicRows.rows.firstOrNull { it.id.value == command.request.rowId }?.tracks.orEmpty()
             else -> return null
         }
-        executeTrackAction(request, tracks, albumContext)
+        executeTrackAction(request, tracks, albumContext, playlistContext)
         return NaviampCoreCommandResult.Completed
     }
 
@@ -52,6 +53,7 @@ class NaviampCoreTrackActionController(
         request: SharedTrackRowActionRequest,
         tracks: List<Track>,
         albumContext: app.naviamp.domain.AlbumDetails? = null,
+        playlistContext: app.naviamp.domain.Playlist? = null,
     ) {
         val index = tracks.indexOfFirst { it.id.value == request.track.id }
         val track = tracks.getOrNull(index)
@@ -62,6 +64,8 @@ class NaviampCoreTrackActionController(
         when (request.action) {
             app.naviamp.ui.SharedTrackRowAction.Select -> if (albumContext != null) {
                 media.playAlbum(albumContext.album, tracks, index = index)
+            } else if (playlistContext != null) {
+                media.playPlaylist(playlistContext.id, playlistContext.name, tracks, index = index, resumePlaylist = false)
             } else {
                 media.play(tracks, index)
             }

@@ -1197,6 +1197,45 @@ class NaviampCorePlaybackControllerTest {
     }
 
     @Test
+    fun playlistPauseFinalClockAndPausedSeekAreImmediateCheckpoints() = runTest {
+        val fixture = playbackFixture(this)
+        fixture.markQueueAsPlaylist()
+        fixture.controller.attachNativePlayback()
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(37.0, 180.0))
+        fixture.effects.observer!!.onStateChanged(PlaybackState.Paused)
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(38.25, 180.0))
+        assertEquals(38.25, fixture.sessionRepository.playlistBookmarks.loadBookmark("source", "playlist")?.positionSeconds)
+        fixture.live.applySeekPlan(PlaybackProgress(95.0, 180.0), 95.0, 10_001L)
+        assertEquals(95.0, fixture.sessionRepository.playlistBookmarks.loadBookmark("source", "playlist")?.positionSeconds)
+    }
+
+    @Test
+    fun sourceSwitchFlushesOutgoingPlaylistBeforeClearingTheLastSession() = runTest {
+        val fixture = playbackFixture(this)
+        fixture.markQueueAsPlaylist()
+        fixture.controller.attachNativePlayback()
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(37.0, 180.0))
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(38.25, 180.0))
+        fixture.controller.resetForSourceChange("source", "second-source")
+        assertEquals(38.25, fixture.sessionRepository.playlistBookmarks.loadBookmark("source", "playlist")?.positionSeconds)
+        assertEquals(null, fixture.sessionRepository.playlistBookmarks.loadBookmark("second-source", "playlist"))
+    }
+
+    @Test
+    fun databaseResetAndLateNativeClockDoNotResurrectDeletedPlaylistBookmarks() = runTest {
+        val fixture = playbackFixture(this)
+        fixture.markQueueAsPlaylist()
+        fixture.controller.attachNativePlayback()
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(37.0, 180.0))
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(38.25, 180.0))
+        fixture.controller.resetAfterDatabaseClear()
+        fixture.sessionRepository.playlistBookmarks.saveBookmark("source", "playlist", null)
+        fixture.effects.observer!!.onProgressChanged(PlaybackProgress(39.0, 180.0))
+        fixture.effects.observer!!.onStateChanged(PlaybackState.Stopped)
+        assertEquals(null, fixture.sessionRepository.playlistBookmarks.loadBookmark("source", "playlist"))
+    }
+
+    @Test
     fun databaseResetStopsPlaybackAndRemovesTheQueueAndPersistedSession() = runTest {
         val fixture = playbackFixture(this)
         fixture.sessionRepository.sessions["source"] = PlaybackSessionSettings.fromTracks(
@@ -1316,6 +1355,18 @@ private fun playbackFixture(
     return PlaybackFixture(store, provider, live, effects, sidecars, sessionRepository, controller, saved)
 }
 
+private fun PlaybackFixture.markQueueAsPlaylist() {
+    val current = live.state.value.queue
+    live.replace(live.state.value.copy(queue = current.copy(groups = listOf(
+        app.naviamp.domain.queue.PlaybackQueueGroup(
+            id = "playlist",
+            target = app.naviamp.domain.playback.PlaybackProfileTarget(
+                app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist, "playlist"),
+            label = "Playlist", startIndex = 0, endIndexExclusive = current.tracks.size,
+        ),
+    ))))
+}
+
 private fun PlaybackFixture.enableSonicAutoplay() {
     store.updateShell { shell ->
         shell.copy(
@@ -1379,6 +1430,7 @@ private class PlaybackTestEffects : NaviampCorePlaybackEffectPort {
 }
 
 private class RecordingPlaybackSessionRepository : PlaybackSessionRepository {
+    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
     val sessions = mutableMapOf<String?, PlaybackSessionSettings?>()
     var saveCount = 0
     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = sessions[sourceId]

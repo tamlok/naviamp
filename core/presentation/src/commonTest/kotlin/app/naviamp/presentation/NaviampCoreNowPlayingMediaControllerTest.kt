@@ -1260,7 +1260,11 @@ private suspend fun MediaFixture.showFavoriteSongs() {
 private fun MediaFixture.favoriteSongIds() = store.state.value.shell.library.songs.tracks
     .filter { it.favoriteActive }.map { it.id }
 
-private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture {
+private fun mediaFixture(
+    scope: kotlinx.coroutines.CoroutineScope,
+    bookmarks: app.naviamp.domain.playback.PlaylistPlaybackBookmarkRepository =
+        app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository(),
+): MediaFixture {
     val provider = NowPlayingTestProvider()
     val store = NaviampCoreStateStore()
     store.updateShell { shell ->
@@ -1354,7 +1358,10 @@ private fun mediaFixture(scope: kotlinx.coroutines.CoroutineScope): MediaFixture
         playback = live,
         queue = queue,
         effects = effects,
-        queuePlayback = NaviampCoreQueuePlaybackController(live, queue, effects, { presenter.publish() }, {}),
+        queuePlayback = NaviampCoreQueuePlaybackController(live, queue, effects, { presenter.publish() }, {},
+            activeSourceId = { store.state.value.shell.connectionSettings.currentSourceId },
+            playlistBookmarks = app.naviamp.app.NaviampPlaylistBookmarkController(bookmarks),
+            resumePlaylists = { store.state.value.shell.playback.settings.resumePlaylists }),
         downloads = downloads,
         mediaDetails = mediaDetails,
         recentRadioStreams = NaviampRecentRadioStreamController(
@@ -1632,6 +1639,24 @@ class NaviampCoreConnectTrackSelectionTargetTest {
     private val playlistTracks = listOf("p-1", "p-2", "p-3").map(::nowPlayingTrack)
 
     @Test
+    fun remoteWholePlaylistResumesButAnExplicitTrackStartsAtZero() = runTest {
+        val bookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
+        bookmarks.saveBookmark("source", "mix",
+            app.naviamp.domain.playback.PlaylistPlaybackBookmark(TrackId("p-3"), 0, 62.5))
+        val remote = targetFixture(this, bookmarks)
+        assertTrue(remote.catalog.start(trackSelection("mix", null).copy(mediaType = NaviampConnectMediaType.Playlist)))
+        assertEquals(2, remote.fixture.live.state.value.queue.currentIndex)
+        assertEquals("p-3", remote.fixture.live.state.value.currentTrack?.id?.value)
+        assertEquals(62.5, remote.fixture.live.state.value.progress.positionSeconds)
+
+        assertTrue(remote.catalog.start(trackSelection("p-2",
+            NaviampConnectPlaybackContext(NaviampConnectMediaType.Playlist, "mix"))))
+        assertEquals(1, remote.fixture.live.state.value.queue.currentIndex)
+        assertEquals(0.0, remote.fixture.live.state.value.progress.positionSeconds)
+        assertEquals("mix", remote.fixture.live.state.value.queue.groups.single().target.id)
+    }
+
+    @Test
     fun remoteAlbumTrackSelectionQueuesTheWholeAlbumFromTheChosenTrackLikeLocalSelection() = runTest {
         val remote = targetFixture(this)
         assertTrue(remote.catalog.start(trackSelection("album-3",
@@ -1696,8 +1721,12 @@ class NaviampCoreConnectTrackSelectionTargetTest {
         val catalog: NaviampCoreConnectCatalogController,
     )
 
-    private fun targetFixture(scope: kotlinx.coroutines.CoroutineScope): TargetFixture {
-        val fixture = mediaFixture(scope)
+    private fun targetFixture(
+        scope: kotlinx.coroutines.CoroutineScope,
+        bookmarks: app.naviamp.domain.playback.PlaylistPlaybackBookmarkRepository =
+            app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository(),
+    ): TargetFixture {
+        val fixture = mediaFixture(scope, bookmarks)
         val provider = object : MediaProvider by fixture.provider {
             override suspend fun album(albumId: AlbumId) = AlbumDetails(
                 Album(albumId, "Album", "Artist", coverArtId = null, recentlyAddedAtIso8601 = null),

@@ -170,6 +170,20 @@ class NaviampCorePlaybackEngineAdapterTest {
         assertEquals("https://example.test/next", engine.request?.url)
     }
 
+    @Test fun playlistResumeStartsTheSelectedStreamAtItsBookmarkWithoutAnotherPlay() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        val adapter = NaviampCorePlaybackEngineAdapter(this, engine,
+            NaviampCoreMediaProviderSource { provider }, settings = { PlaybackSettings() })
+        val first = provider.track.copy(id = TrackId("first"))
+        adapter.resumeQueueSelection(PlaybackQueue(listOf(first, provider.track), 1), 47.5)
+        advanceUntilIdle()
+        assertEquals(1, engine.requests.size)
+        assertEquals(provider.track.id.value, engine.request?.mediaId)
+        assertEquals(47.5, engine.request?.startPositionSeconds)
+        adapter.stop()
+    }
+
     @Test fun restoredSeeksWaitForExplicitPlayOnEveryEngine() = runTest {
         for (restartOnSeek in listOf(false, true)) {
             val provider = FakeCoreMediaProvider()
@@ -2450,6 +2464,7 @@ private class LyricsPrefetchCatalogFixture(scope: CoroutineScope) {
             override fun recordSidecarStatus(sourceId: String, trackId: TrackId, quality: StreamQuality, sidecarType: String, success: Boolean, errorMessage: String?) = Unit
         },
         playbackSessionRepository = object : app.naviamp.domain.cache.PlaybackSessionRepository {
+            override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
             override fun loadPlaybackSession(sourceId: String?): app.naviamp.domain.settings.PlaybackSessionSettings? = null
             override fun savePlaybackSession(session: app.naviamp.domain.settings.PlaybackSessionSettings?, sourceId: String?) = Unit
         },

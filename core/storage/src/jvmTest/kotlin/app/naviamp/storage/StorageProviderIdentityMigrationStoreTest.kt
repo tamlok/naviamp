@@ -10,11 +10,13 @@ import app.naviamp.domain.cache.ProviderIdentityProbeState
 import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
+import app.naviamp.domain.playback.PlaylistPlaybackBookmark
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.settings.PlaybackSessionSettings
 import app.naviamp.domain.settings.SavedInternetRadioStation
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -228,6 +230,92 @@ class StorageProviderIdentityMigrationStoreTest {
             assertFalse(deletionAttempted, "collision repair must retain physical files when migration cannot delete safely")
         } finally {
             driver.close()
+        }
+    }
+
+    @Test
+    fun bookmarkIdentityMigrationRelinksPlaylistAndTrackIdsWithoutLosingSwappedKeysOrOtherSources() {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val sources = StorageMediaSourceStore(queries, nowMillis = { 42L })
+            val source = sources.upsertProviderMediaSource(
+                ProviderMediaSourceConnection("Server", "https://example.test", "user", "token", "salt"),
+                cacheNamespace = "navidrome:user",
+                providerId = "navidrome",
+            )
+            val other = sources.upsertProviderMediaSource(
+                ProviderMediaSourceConnection("Server", "https://example.test", "other-user", "token", "salt"),
+                cacheNamespace = "navidrome:other-user",
+                providerId = "navidrome",
+            )
+            val bookmarks = StoragePlaybackSessionStore(queries, { 42L }).playlistBookmarks
+            val first = PlaylistPlaybackBookmark(TrackId("old-first-track"), 1, 73.25)
+            val second = PlaylistPlaybackBookmark(TrackId("old-second-track"), 2, 24.5)
+            val renamed = PlaylistPlaybackBookmark(TrackId("old-third-track"), 0, 98.0)
+            bookmarks.saveBookmark(source.id, "first", first)
+            bookmarks.saveBookmark(source.id, "second", second)
+            bookmarks.saveBookmark(source.id, "old-playlist", renamed)
+            bookmarks.saveBookmark(other.id, "first", first)
+            bookmarks.saveBookmark(other.id, "old-playlist", renamed)
+            val identities = mapOf(
+                "first" to "second",
+                "second" to "first",
+                "old-playlist" to "new-playlist",
+                "old-first-track" to "new-first-track",
+                "old-second-track" to "new-second-track",
+                "old-third-track" to "new-third-track",
+            )
+
+            val result = sources.migrateProviderIdentities(source.id, "navidrome", 1L) { identities[it] ?: it }
+
+            assertTrue(result.migrated)
+            assertEquals(6, result.transformedReferences)
+            assertNull(bookmarks.loadBookmark(source.id, "old-playlist"))
+            assertEquals(first.copy(trackId = TrackId("new-first-track")), bookmarks.loadBookmark(source.id, "second"))
+            assertEquals(second.copy(trackId = TrackId("new-second-track")), bookmarks.loadBookmark(source.id, "first"))
+            assertEquals(renamed.copy(trackId = TrackId("new-third-track")), bookmarks.loadBookmark(source.id, "new-playlist"))
+            assertEquals(first, bookmarks.loadBookmark(other.id, "first"))
+            assertEquals(renamed, bookmarks.loadBookmark(other.id, "old-playlist"))
+            assertNull(bookmarks.loadBookmark(other.id, "new-playlist"))
+            assertEquals(1L, sources.providerIdentityVersion(source.id))
+            assertEquals(0L, sources.providerIdentityVersion(other.id))
+            assertFalse(sources.migrateProviderIdentities(source.id, "navidrome", 1L) { identities[it] ?: it }.migrated)
+            assertEquals(first.copy(trackId = TrackId("new-first-track")), bookmarks.loadBookmark(source.id, "second"))
+        }
+    }
+
+    @Test
+    fun failingBookmarkIdentityTransformationRollsBackDeletedAndReinsertedBookmarks() {
+        JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY).use { driver ->
+            driver.execute(null, "PRAGMA foreign_keys = ON", 0)
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val sources = StorageMediaSourceStore(queries, nowMillis = { 42L })
+            val source = sources.upsertProviderMediaSource(
+                ProviderMediaSourceConnection("Server", "https://example.test", "user", "token", "salt"),
+                cacheNamespace = "navidrome:user",
+                providerId = "navidrome",
+            )
+            val bookmarks = StoragePlaybackSessionStore(queries, { 42L }).playlistBookmarks
+            val first = PlaylistPlaybackBookmark(TrackId("first-track"), 1, 12.5)
+            val second = PlaylistPlaybackBookmark(TrackId("second-track"), 0, 25.0)
+            bookmarks.saveBookmark(source.id, "first", first)
+            bookmarks.saveBookmark(source.id, "second", second)
+
+            assertFailsWith<IllegalStateException> {
+                sources.migrateProviderIdentities(source.id, "navidrome", 1L) { id ->
+                    check(id != "second") { "Transformation failed" }
+                    "migrated-$id"
+                }
+            }
+
+            assertEquals(first, bookmarks.loadBookmark(source.id, "first"))
+            assertEquals(second, bookmarks.loadBookmark(source.id, "second"))
+            assertNull(bookmarks.loadBookmark(source.id, "migrated-first"))
+            assertNull(bookmarks.loadBookmark(source.id, "migrated-second"))
+            assertEquals(0L, sources.providerIdentityVersion(source.id))
         }
     }
 }

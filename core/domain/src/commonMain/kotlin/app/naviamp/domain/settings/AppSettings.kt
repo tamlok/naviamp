@@ -497,6 +497,7 @@ data class PlaybackSettings(
     val sonicAutoplayMinimumTracks: Int = app.naviamp.domain.radio.DefaultRadioMinimumTracks,
     val previousButtonBehavior: PreviousButtonBehavior = PreviousButtonBehavior.RestartThenPrevious,
     val upNextSelectionBehavior: UpNextSelectionBehavior = UpNextSelectionBehavior.MoveSelectedToCurrent,
+    val resumePlaylists: Boolean = true,
     val removePlayedTracksFromQueue: Boolean = false,
     val radioTuning: RadioTuningSettings = RadioTuningSettings(),
     val radioDjs: List<RadioDjPreset> = emptyList(),

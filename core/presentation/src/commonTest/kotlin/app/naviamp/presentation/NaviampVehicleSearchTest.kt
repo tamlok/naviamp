@@ -31,7 +31,7 @@ class NaviampVehicleSearchTest {
         supported: Boolean = true, items: Int = 20, play: (Track) -> Boolean = { error("Search played audio") }) =
         NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}), {}, labels,
             items, readinessTimeoutMillis = 1000, maximumTabs = 4,
-            collections = NaviampVehicleCollectionAccess { NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> true } },
+            collections = NaviampVehicleCollectionAccess { NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> true } },
             library = NaviampCoreVehicleLibraryAccess(product, NaviampCoreMediaProviderSource { provider }, play, libraryLabels),
             searchLabels = searchLabels.takeIf { supported })
     private fun open(controller: NaviampVehicleBrowseController): String {

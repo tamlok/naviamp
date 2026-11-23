@@ -20,7 +20,7 @@ class NaviampVehicleLibraryTest {
         NaviampCoreVehicleLibraryAccess(product, NaviampCoreMediaProviderSource { provider }, play, libraryLabels)
     private fun TestScope.controller(product: MutableStateFlow<NaviampCoreState>, access: NaviampVehicleLibraryAccess,
         tabs: Int = 4, items: Int = 5, collections: NaviampVehicleCollectionAccess = NaviampVehicleCollectionAccess {
-            NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Browse played album") }
+            NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Browse played album") }
         }) = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}), {},
             labels, items, readinessTimeoutMillis = 100, maximumTabs = tabs, collections = collections, library = access)
     private fun open(controller: NaviampVehicleBrowseController, title: String) {

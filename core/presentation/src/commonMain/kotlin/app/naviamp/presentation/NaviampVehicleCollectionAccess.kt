@@ -20,10 +20,10 @@ internal data class NaviampVehicleCollectionReference(
 /** A scene-owned snapshot; loading or browsing it never navigates the phone or replaces its detail. */
 internal class NaviampVehicleCollection(
     val tracks: List<Track>,
-    private val start: (Int, Boolean) -> Boolean,
+    private val start: (Int, Boolean, Boolean) -> Boolean,
 ) {
-    fun play(index: Int = 0, shuffle: Boolean = false): Boolean =
-        index in tracks.indices && start(index, shuffle)
+    fun play(index: Int = 0, shuffle: Boolean = false, resumePlaylist: Boolean = false): Boolean =
+        index in tracks.indices && start(index, shuffle, resumePlaylist)
 }
 
 internal fun interface NaviampVehicleCollectionAccess {
@@ -74,13 +74,13 @@ internal class NaviampCoreVehicleCollectionAccess(
         }
         currentCoroutineContext().ensureActive()
         check(product.value.vehicleSourceKey() == source)
-        return NaviampVehicleCollection(tracks) { index, shuffle ->
+        return NaviampVehicleCollection(tracks) { index, shuffle, resumePlaylist ->
             if (product.value.vehicleSourceKey() != source || product.value.shell.connect.remotePlaybackAuthorityActive) false
             else queuePlayback.play(tracks, index, shuffle,
                 PlaybackProfileTarget(when (reference.kind) {
                     NaviampVehicleCollectionKind.Album -> PlaybackProfileTargetType.Album
                     NaviampVehicleCollectionKind.Playlist -> PlaybackProfileTargetType.Playlist
-                }, reference.id), reference.title)
+                }, reference.id), reference.title, resumePlaylist = resumePlaylist)
         }
     }
 }

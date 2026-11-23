@@ -19,7 +19,7 @@ class NaviampVehicleNowPlayingAlbumTest {
     )))
     private fun TestScope.controller(product: MutableStateFlow<NaviampCoreState>,
         load: suspend (NaviampVehicleCollectionReference) -> NaviampVehicleCollection = {
-            NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Browsing started playback") }
+            NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Browsing started playback") }
         }) = NaviampVehicleBrowseController(backgroundScope, product, NaviampCoreExternalPlaybackBridge(product, {}),
             { error("Album browsing dispatched a phone command") }, labels, 100, readinessTimeoutMillis = 100,
             collections = NaviampVehicleCollectionAccess(load))
@@ -33,7 +33,7 @@ class NaviampVehicleNowPlayingAlbumTest {
         val requests = mutableListOf<NaviampVehicleCollectionReference>()
         val controller = controller(product) {
             requests += it
-            NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Browse played audio") }
+            NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Browse played audio") }
         }
         assertTrue(controller.state.value.currentAlbumAvailable)
         assertTrue(controller.state.value.tabs[0].rows.none { it.title == "Current Album" })
@@ -79,7 +79,7 @@ class NaviampVehicleNowPlayingAlbumTest {
         for (mode in listOf("track", "album", "source")) {
             val product = product()
             val requests = mutableListOf<NaviampVehicleCollectionReference>()
-            val controller = controller(product) { requests += it; NaviampVehicleCollection(emptyList()) { _, _ -> false } }
+            val controller = controller(product) { requests += it; NaviampVehicleCollection(emptyList()) { _, _, _ -> false } }
             runCurrent()
             val before = controller.state.value
             product.playing { it.copy(positionSeconds = 45.0) }
@@ -104,7 +104,7 @@ class NaviampVehicleNowPlayingAlbumTest {
     @Test fun repeatedContextTapsReuseLoadedAlbumAndReturnFromQueueWithoutReloadOrPlayback() = runTest {
         val product = product()
         var loads = 0
-        val controller = controller(product) { loads++; NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Browse played audio") } }
+        val controller = controller(product) { loads++; NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Browse played audio") } }
         controller.openCurrentAlbum(controller.state.value.revision)
         runCurrent()
         val album = controller.state.value.pages.single()
@@ -128,7 +128,7 @@ class NaviampVehicleNowPlayingAlbumTest {
             var calls = 0
             val controller = controller(product) {
                 if (++calls == 1) { if (timeout) awaitCancellation() else error("offline") }
-                NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Retry played audio") }
+                NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Retry played audio") }
             }
             controller.openCurrentAlbum(controller.state.value.revision)
             advanceTimeBy(101); runCurrent()
@@ -152,7 +152,7 @@ class NaviampVehicleNowPlayingAlbumTest {
             val controller = controller(product) {
                 try { withContext(NonCancellable) { gate.await() } }
                 finally { cancelled = !currentCoroutineContext().isActive }
-                NaviampVehicleCollection(listOf(fixture.track)) { _, _ -> error("Stale load played audio") }
+                NaviampVehicleCollection(listOf(fixture.track)) { _, _, _ -> error("Stale load played audio") }
             }
             controller.openCurrentAlbum(controller.state.value.revision)
             runCurrent()

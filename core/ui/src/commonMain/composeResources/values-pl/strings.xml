@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Wznawiaj playlisty</string>
+    <string name="settings_resume_playlists_description">Kontynuuj playlisty od ostatniego utworu i miejsca odtwarzania</string>
     <string name="settings_category_appearance_title">Wygląd</string>
     <string name="settings_category_appearance_subtitle">Motywy i kolory</string>
     <string name="settings_themes_mode">Tryb kolorów</string>

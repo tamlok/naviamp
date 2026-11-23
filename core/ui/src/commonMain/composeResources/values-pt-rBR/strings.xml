@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_resume_playlists">Retomar playlists</string>
+    <string name="settings_resume_playlists_description">Continuar playlists a partir da última faixa e posição</string>
     <string name="settings_category_appearance_title">Aparência</string>
     <string name="settings_category_appearance_subtitle">Temas e cores</string>
     <string name="settings_themes_mode">Modo de cor</string>

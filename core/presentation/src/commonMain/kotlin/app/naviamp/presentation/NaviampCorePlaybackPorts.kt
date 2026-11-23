@@ -62,6 +62,11 @@ interface NaviampCorePlaybackEffectPort : NaviampPlaybackExecution {
     /** Existing queue navigation retains the current audio-source intent. */
     fun selectExistingQueueItem(queue: PlaybackQueue, index: Int) = playQueueSelection(queue, index)
     fun playQueueSelection(queue: PlaybackQueue, index: Int)
+    /** An explicit Play at a saved cursor, not a deferred seek on a paused queue. */
+    fun resumeQueueSelection(queue: PlaybackQueue, positionSeconds: Double) {
+        restoreQueue(queue, positionSeconds)
+        startOrRestore()
+    }
     fun diagnostics(): List<Pair<String, String>> = emptyList()
 }
 

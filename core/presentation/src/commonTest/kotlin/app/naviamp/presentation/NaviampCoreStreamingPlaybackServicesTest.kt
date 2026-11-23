@@ -61,6 +61,7 @@ class NaviampCoreStreamingPlaybackServicesTest {
 }
 
 private object EmptyStreamingPlaybackSessions : PlaybackSessionRepository {
+    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = null
     override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
 }

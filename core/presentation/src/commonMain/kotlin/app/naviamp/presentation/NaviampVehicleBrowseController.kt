@@ -500,7 +500,9 @@ class NaviampVehicleBrowseController internal constructor(
                 val collection = detail.collection
                 val index = if (id == Play || id == Shuffle) 0 else id.removePrefix(Track).toIntOrNull()
                 if (collection == null || index == null || index !in collection.tracks.indices) completed(false)
-                else play(completed = completed) { check(collection.play(index, shuffle = id == Shuffle)) }
+                else play(completed = completed) {
+                    check(collection.play(index, shuffle = id == Shuffle, resumePlaylist = id == Play))
+                }
             }
         }
     }

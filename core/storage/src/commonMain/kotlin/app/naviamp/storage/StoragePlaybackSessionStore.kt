@@ -1,7 +1,10 @@
 package app.naviamp.storage
 
+import app.naviamp.domain.TrackId
 import app.naviamp.domain.cache.PlaybackSessionRepository
 import app.naviamp.domain.cache.PlaybackSessionRepositoryPerformance
+import app.naviamp.domain.playback.PlaylistPlaybackBookmark
+import app.naviamp.domain.playback.PlaylistPlaybackBookmarkRepository
 import app.naviamp.domain.settings.PlaybackSessionSettings
 import app.naviamp.domain.settings.SavedInternetRadioStation
 import app.naviamp.domain.settings.SavedTrack
@@ -18,6 +21,31 @@ class StoragePlaybackSessionStore(
     private var performance = PlaybackSessionRepositoryPerformance()
     private val queueTrackIds = mutableMapOf<String, List<String>>()
     private val queuePayloadCharacters = mutableMapOf<String, Int>()
+
+    override val playlistBookmarks: PlaylistPlaybackBookmarkRepository = object : PlaylistPlaybackBookmarkRepository {
+        override fun loadBookmark(sourceId: String, playlistId: String): PlaylistPlaybackBookmark? =
+            queries.selectPlaylistPlaybackBookmark(sourceId, playlistId).executeAsOneOrNull()?.let { row ->
+                PlaylistPlaybackBookmark(
+                    trackId = TrackId(row.remote_track_id),
+                    occurrence = row.track_occurrence.toInt(),
+                    positionSeconds = row.position_seconds,
+                )
+            }
+
+        override fun saveBookmark(sourceId: String, playlistId: String, bookmark: PlaylistPlaybackBookmark?) {
+            if (bookmark == null) {
+                queries.deletePlaylistPlaybackBookmark(sourceId, playlistId)
+            } else {
+                queries.upsertPlaylistPlaybackBookmark(
+                    source_id = sourceId,
+                    playlist_id = playlistId,
+                    remote_track_id = bookmark.trackId.value,
+                    track_occurrence = bookmark.occurrence.toLong(),
+                    position_seconds = bookmark.positionSeconds,
+                )
+            }
+        }
+    }
 
     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? {
         val id = sourceId?.takeIf(String::isNotBlank) ?: return null

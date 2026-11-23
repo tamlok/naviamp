@@ -19,6 +19,7 @@ suspend fun <Artwork> verifyNaviampRemoteTransport(host: NaviampAudioRecoveryHos
     val saved = mutableListOf<PlaybackSessionSettings>()
     val services = naviampCoreStreamingPlaybackServices(this, host.engine, defaults.content.providerSource,
         PlaybackSettings(volumePercent = 0), {}, object : PlaybackSessionRepository {
+            override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
             override fun loadPlaybackSession(sourceId: String?) = null
             override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) { session?.let(saved::add) }
         }, {})

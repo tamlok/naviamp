@@ -32,6 +32,8 @@ data class NaviampPlaybackSessionSaveRequest(
 class NaviampPlaybackSessionController(
     private val repository: PlaybackSessionRepository,
 ) {
+    val playlistBookmarks = NaviampPlaylistBookmarkController(repository.playlistBookmarks)
+
     private val lastSavedPositions = mutableMapOf<String?, SavedPlaybackPosition>()
     private val initializedPositionSources = mutableSetOf<String?>()
     private val lastSavedAtMillis = mutableMapOf<String?, Long>()

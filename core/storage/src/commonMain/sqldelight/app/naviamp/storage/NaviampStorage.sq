@@ -386,6 +386,15 @@ CREATE TABLE playback_session_queue (
   PRIMARY KEY(source_id, queue_index)
 );
 
+CREATE TABLE playlist_playback_bookmark (
+  source_id TEXT NOT NULL REFERENCES media_source(id) ON DELETE CASCADE,
+  playlist_id TEXT NOT NULL,
+  remote_track_id TEXT NOT NULL,
+  track_occurrence INTEGER NOT NULL,
+  position_seconds REAL NOT NULL,
+  PRIMARY KEY(source_id, playlist_id)
+);
+
 CREATE TABLE playback_profile (
   source_id TEXT NOT NULL REFERENCES media_source(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL,
@@ -676,6 +685,24 @@ INSERT INTO playback_session_queue(
 deletePlaybackSessionState:
 DELETE FROM playback_session_state
 WHERE source_id = ?;
+
+selectPlaylistPlaybackBookmark:
+SELECT remote_track_id, track_occurrence, position_seconds
+FROM playlist_playback_bookmark
+WHERE source_id = ? AND playlist_id = ?;
+
+upsertPlaylistPlaybackBookmark:
+INSERT OR REPLACE INTO playlist_playback_bookmark(
+  source_id,
+  playlist_id,
+  remote_track_id,
+  track_occurrence,
+  position_seconds
+) VALUES (?, ?, ?, ?, ?);
+
+deletePlaylistPlaybackBookmark:
+DELETE FROM playlist_playback_bookmark
+WHERE source_id = ? AND playlist_id = ?;
 
 selectPlaybackProfile:
 SELECT transition_mode, crossfade_duration_seconds, replay_gain_mode
@@ -1910,6 +1937,16 @@ WHERE source_id = ?;
 updateLegacyPlaybackSessionPayload:
 UPDATE playback_session
 SET payload = ?
+WHERE source_id = ?;
+
+selectPlaylistPlaybackBookmarksForIdentityMigration:
+SELECT playlist_id, remote_track_id, track_occurrence, position_seconds
+FROM playlist_playback_bookmark
+WHERE source_id = ?
+ORDER BY playlist_id;
+
+deletePlaylistPlaybackBookmarksForIdentityMigration:
+DELETE FROM playlist_playback_bookmark
 WHERE source_id = ?;
 
 selectPlaybackProfilesForIdentityMigration:

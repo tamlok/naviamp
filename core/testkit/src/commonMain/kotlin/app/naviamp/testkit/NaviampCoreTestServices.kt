@@ -106,14 +106,15 @@ fun naviampCoreTestServices(provider: MediaProvider? = null): NaviampCoreService
         visualizerSettings = object : NaviampCoreVisualizerSettingsPort {
             override fun save(visualizer: NaviampVisualizer) = Unit
         },
-        sessions = NaviampPlaybackSessionController(EmptyPlaybackSessionRepository),
+        sessions = NaviampPlaybackSessionController(EmptyPlaybackSessionRepository()),
     ),
     providerActions = NaviampProviderActionController(EmptyPendingProviderActionRepository),
     clockEpochMillis = { 1_000L },
     favoritedAtIso8601 = { "2026-07-21T00:00:00Z" },
 )
 
-private object EmptyPlaybackSessionRepository : PlaybackSessionRepository {
+private class EmptyPlaybackSessionRepository : PlaybackSessionRepository {
+    override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
     override fun loadPlaybackSession(sourceId: String?): PlaybackSessionSettings? = null
     override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
 }

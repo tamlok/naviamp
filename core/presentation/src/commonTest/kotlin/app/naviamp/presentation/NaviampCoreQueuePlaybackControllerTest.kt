@@ -2,6 +2,7 @@ package app.naviamp.presentation
 
 import app.naviamp.app.NaviampLivePlaybackController
 import app.naviamp.app.NaviampPlaybackQueueCoordinator
+import app.naviamp.app.NaviampPlaylistBookmarkController
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
 import app.naviamp.domain.playback.PlaybackProfile
@@ -13,6 +14,10 @@ import app.naviamp.domain.playback.PlaybackReplayGainMode
 import app.naviamp.domain.playback.PlaybackSource
 import app.naviamp.domain.playback.PlaybackTransitionMode
 import app.naviamp.domain.playback.PlaybackQueueNavigationCommand
+import app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository
+import app.naviamp.domain.playback.PlaylistPlaybackBookmark
+import app.naviamp.domain.playback.PlaybackProgress
+import app.naviamp.domain.playback.PlaybackState
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.RepeatMode
 import kotlin.test.Test
@@ -20,6 +25,74 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NaviampCoreQueuePlaybackControllerTest {
+    @Test
+    fun switchingPlaylistsResumesEachCanonicalTrackAndClockBeforeStartingAudio() {
+        val fixture = fixture()
+        val first = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "first")
+        val second = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "second")
+        fixture.controller.play(testTracks(), index = 1, groupTarget = first)
+        fixture.live.updatePlaybackState(PlaybackState.Playing)
+        fixture.live.updateProgress(PlaybackProgress(42.25, 180.0))
+        fixture.controller.play(listOf(testTrack("other")), groupTarget = second, resumePlaylist = true)
+        fixture.live.updateProgress(PlaybackProgress(19.5, 180.0))
+
+        fixture.controller.play(testTracks(), groupTarget = first, resumePlaylist = true)
+
+        assertEquals(1, fixture.live.state.value.queue.currentIndex)
+        assertEquals(TrackId("two"), fixture.live.state.value.currentTrack?.id)
+        assertEquals(42.25, fixture.live.state.value.progress.positionSeconds)
+        assertEquals(TrackId("two"), fixture.effects.startedTrack)
+        assertEquals(42.25, fixture.effects.startPosition)
+        fixture.controller.play(listOf(testTrack("other")), groupTarget = second, resumePlaylist = true)
+        assertEquals(TrackId("other"), fixture.effects.startedTrack)
+        assertEquals(19.5, fixture.effects.startPosition)
+    }
+
+    @Test
+    fun disabledResumeAndExplicitTrackSelectionStartFreshButKeepRecording() {
+        var enabled = false
+        val fixture = fixture(resumePlaylists = { enabled })
+        val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "playlist")
+        fixture.bookmarks.saveBookmark("source-1", "playlist", PlaylistPlaybackBookmark(TrackId("two"), 0, 51.0))
+        fixture.controller.play(testTracks(), groupTarget = target, resumePlaylist = true)
+        assertEquals(TrackId("one"), fixture.effects.startedTrack)
+        assertEquals(0.0, fixture.effects.startPosition)
+        fixture.live.updatePlaybackState(PlaybackState.Playing)
+        fixture.live.updateProgress(PlaybackProgress(23.0, 180.0))
+        enabled = true
+        fixture.controller.play(testTracks(), groupTarget = target, resumePlaylist = true)
+        assertEquals(TrackId("one"), fixture.effects.startedTrack)
+        assertEquals(23.0, fixture.effects.startPosition)
+
+        fixture.controller.play(testTracks(), index = 1, groupTarget = target)
+        assertEquals(TrackId("two"), fixture.effects.startedTrack)
+        assertEquals(0.0, fixture.effects.startPosition)
+    }
+
+    @Test
+    fun shuffleNeverAppliesABookmarkedOffset() {
+        val fixture = fixture()
+        val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "playlist")
+        fixture.bookmarks.saveBookmark("source-1", "playlist", PlaylistPlaybackBookmark(TrackId("two"), 0, 51.0))
+        fixture.controller.play(testTracks(), shuffle = true, groupTarget = target, resumePlaylist = true)
+        assertEquals(0, fixture.live.state.value.queue.currentIndex)
+        assertEquals(0.0, fixture.effects.startPosition)
+    }
+
+    @Test
+    fun explicitDuplicateSelectionAtZeroUpdatesItsOccurrenceBeforeAnotherClockTick() {
+        val fixture = fixture()
+        val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "duplicates")
+        val track = testTrack("same")
+        val tracks = listOf(track, track)
+        fixture.controller.play(tracks, groupTarget = target)
+        fixture.live.updatePlaybackState(PlaybackState.Playing)
+        fixture.controller.play(tracks, index = 1, groupTarget = target)
+        fixture.live.updatePlaybackState(PlaybackState.Paused)
+        assertEquals(PlaylistPlaybackBookmark(track.id, 1, 0.0),
+            fixture.bookmarks.loadBookmark("source-1", "duplicates"))
+    }
+
     @Test
     fun configuredPlaylistLaunchCreatesProfiledQueueGroup() {
         val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "playlist-1")
@@ -116,11 +189,18 @@ private data class QueuePlaybackFixture(
     val live: NaviampLivePlaybackController,
     val effects: QueuePlaybackEffects,
     val controller: NaviampCoreQueuePlaybackController,
+    val bookmarks: MemoryPlaylistPlaybackBookmarkRepository,
 )
 
-private fun fixture(profiles: Map<PlaybackProfileTarget, PlaybackProfile> = emptyMap()): QueuePlaybackFixture {
+private fun fixture(
+    profiles: Map<PlaybackProfileTarget, PlaybackProfile> = emptyMap(),
+    resumePlaylists: () -> Boolean = { true },
+): QueuePlaybackFixture {
     val live = NaviampLivePlaybackController()
     val effects = QueuePlaybackEffects()
+    val bookmarks = MemoryPlaylistPlaybackBookmarkRepository()
+    val bookmarkController = NaviampPlaylistBookmarkController(bookmarks)
+    live.observe { bookmarkController.observe("source-1", it, nowMillis = 1_000L) }
     val controller = NaviampCoreQueuePlaybackController(
         playback = live,
         queue = NaviampPlaybackQueueCoordinator(live),
@@ -129,8 +209,10 @@ private fun fixture(profiles: Map<PlaybackProfileTarget, PlaybackProfile> = empt
         openNowPlaying = { effects.playerOpenCount++ },
         activeSourceId = { "source-1" },
         profiles = MapPlaybackProfileRepository(profiles),
+        playlistBookmarks = bookmarkController,
+        resumePlaylists = resumePlaylists,
     )
-    return QueuePlaybackFixture(live, effects, controller)
+    return QueuePlaybackFixture(live, effects, controller, bookmarks)
 }
 
 private class MapPlaybackProfileRepository(
@@ -150,18 +232,31 @@ private class QueuePlaybackEffects : NaviampCorePlaybackEffectPort {
     var playerOpenCount = 0
     var pauses = 0
     var resumes = 0
+    var startedTrack: TrackId? = null
+    var startPosition = 0.0
+    private var restoredQueue: PlaybackQueue? = null
 
     override fun pause() { pauses++ }
     override fun resume() { resumes++ }
-    override fun startOrRestore() = true
+    override fun startOrRestore(): Boolean {
+        startedTrack = restoredQueue?.current?.id
+        return restoredQueue?.current != null
+    }
     override fun seek(positionSeconds: Double) = Unit
     override fun replayCurrent(positionSeconds: Double) = Unit
     override fun setVolume(percent: Int) = Unit
     override fun stop() = Unit
     override fun applyQueue(queue: PlaybackQueue, clearPreparedNext: Boolean) { appliedQueue = queue }
+    override fun restoreQueue(queue: PlaybackQueue, startPositionSeconds: Double?) {
+        restoredQueue = queue
+        startPosition = startPositionSeconds ?: 0.0
+    }
     override fun applyNavigation(command: PlaybackQueueNavigationCommand) = Unit
     override fun applyRepeatMode(mode: RepeatMode) = Unit
-    override fun playQueueSelection(queue: PlaybackQueue, index: Int) = Unit
+    override fun playQueueSelection(queue: PlaybackQueue, index: Int) {
+        startedTrack = queue.tracks[index].id
+        startPosition = 0.0
+    }
 }
 
 private fun testTracks() = listOf("one", "two").map { id ->

@@ -31,6 +31,7 @@ suspend fun verifyNaviampRecentRadioPlayback(
         val defaults = naviampCoreTestServices(provider)
         val playback = naviampCoreStreamingPlaybackServices(this, engine, defaults.content.providerSource,
             PlaybackSettings(volumePercent = 0), {}, object : PlaybackSessionRepository {
+                override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
                 override fun loadPlaybackSession(sourceId: String?) = null
                 override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
             }, {})

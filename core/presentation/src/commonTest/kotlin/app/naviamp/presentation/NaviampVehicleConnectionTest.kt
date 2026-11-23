@@ -197,6 +197,7 @@ class NaviampVehicleConnectionTest {
             val saved = (if (radio) PlaybackSessionSettings.fromInternetRadioStation(InternetRadioStation("radio", "Radio", "https://example.test/live"))
                 else assertNotNull(PlaybackSessionSettings.fromTracks(listOf(provider.track), 0, positionSeconds = 24.0))).copy(nowPlayingOpen = true)
             val sessions = NaviampPlaybackSessionController(object : PlaybackSessionRepository {
+                override val playlistBookmarks = app.naviamp.domain.playback.MemoryPlaylistPlaybackBookmarkRepository()
                 override fun loadPlaybackSession(sourceId: String?) = saved.takeIf { sourceId == "1" }
                 override fun savePlaybackSession(session: PlaybackSessionSettings?, sourceId: String?) = Unit
             })
