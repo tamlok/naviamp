@@ -1402,7 +1402,7 @@ class NaviampCoreCatalogController(
         val currentProvider = providerSource.current()
         return generation == load.generation &&
             currentProvider?.let { it.id.value to it.cacheNamespace } == sourceKey &&
-            (load.scope == null || currentProvider?.let(::favoritesScope) == load.scope)
+            (load.scope == null || currentProvider.let(::favoritesScope) == load.scope)
     }
 
     private fun publishLibraryJump(letter: Char) {

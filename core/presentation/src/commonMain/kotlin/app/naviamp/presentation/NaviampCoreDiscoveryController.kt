@@ -116,9 +116,9 @@ class NaviampCoreDiscoveryController(
         completed: Boolean): SharedProviderDiscoveryArtistUi {
         val retainFailure = !completed && before != null && !artistHasContent(current)
         return current.copy(loading = false, samplesLoading = false, similarLoading = false,
-            status = if (retainFailure) before!!.status else current.status,
-            samplesStatus = if (retainFailure) before?.samplesStatus else current.samplesStatus,
-            similar = if (retainFailure) before?.similar else current.similar)
+            status = if (retainFailure) before.status else current.status,
+            samplesStatus = if (retainFailure) before.samplesStatus else current.samplesStatus,
+            similar = if (retainFailure) before.similar else current.similar)
     }
 
     private fun recoveryCurrent(recovery: EmptyPageRecovery): Boolean =
