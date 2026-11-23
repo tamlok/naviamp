@@ -44,6 +44,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Show album, playlist, and Favorite Songs track totals in one compact format, such as `12 tracks • 51m` or `1030 tracks • 74h 30m`, with album totals directly below the release year.
 - Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. Preserve artwork colors while adjusting brightness for readable text, instead of washing them into gray. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
 - Check for updates from tamlok/naviamp releases instead of the upstream repository.
+- Complete Simplified Chinese translations across settings, browsing, playback, connection setup, and TV controls, including count labels.
 
 ### Bug fixes
 
