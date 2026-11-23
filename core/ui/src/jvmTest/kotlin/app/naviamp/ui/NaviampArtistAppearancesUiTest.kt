@@ -145,6 +145,6 @@ class NaviampArtistAppearancesUiTest {
         }
         onNodeWithText("Primary release").assertExists()
         onNodeWithText("Could not load credited appearances. Reopen this artist to try again.").assertExists()
-        onNodeWithText("Showing a limited set of credited appearances.").assertExists()
+        onNodeWithText("Showing a limited set of credited appearances").assertExists()
     }
 }

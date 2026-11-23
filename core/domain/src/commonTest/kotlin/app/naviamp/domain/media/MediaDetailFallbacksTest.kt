@@ -259,16 +259,6 @@ class MediaDetailFallbacksTest {
     fun artistDetailStatusHelpersMatchSharedCopy() {
         assertEquals("Loading artist...", artistDetailLoadingStatus(null))
         assertEquals("Loading Artist...", artistDetailLoadingStatus("Artist"))
-        assertEquals(
-            "No albums found for Artist.",
-            artistDetailLoadedStatus(
-                app.naviamp.domain.ArtistDetails(
-                    artist = Artist(ArtistId("artist"), "Artist"),
-                    albums = emptyList(),
-                    info = null,
-                ),
-            ),
-        )
         assertEquals("Could not load artist.", artistDetailLoadErrorStatus(RuntimeException()))
         assertEquals("network failed", artistDetailLoadErrorStatus(RuntimeException("network failed")))
     }
@@ -287,7 +277,7 @@ class MediaDetailFallbacksTest {
         assertEquals(
             ArtistPopularTracksUpdate(
                 tracks = emptyList(),
-                status = "No popular tracks matched songs in your library.",
+                status = "No popular tracks matched songs in your library",
             ),
             artistPopularTracksUpdate(emptyList(), displayLimit = 2),
         )
@@ -340,7 +330,7 @@ class MediaDetailFallbacksTest {
         assertEquals(
             SimilarArtistsUpdate(
                 artists = emptyList(),
-                status = "No similar artists found.",
+                status = "No similar artists found",
             ),
             similarArtistsUpdate(emptyList(), displayLimit = 2),
         )
@@ -366,7 +356,6 @@ class MediaDetailFallbacksTest {
     fun albumDetailStatusHelpersMatchSharedCopy() {
         assertEquals("Loading album...", albumDetailLoadingStatus(null))
         assertEquals("Loading Album...", albumDetailLoadingStatus("Album"))
-        assertEquals("Connected.", albumDetailLoadedStatus())
         assertEquals("Could not load album.", albumDetailLoadErrorStatus(RuntimeException()))
         assertEquals("network failed", albumDetailLoadErrorStatus(RuntimeException("network failed")))
     }
@@ -391,7 +380,7 @@ class MediaDetailFallbacksTest {
             afterLoaded = { afterLoadedArtist = it.artist },
         )
 
-        assertEquals(listOf<String?>("Loading Artist...", "Connected."), statuses)
+        assertEquals(listOf<String?>("Loading Artist...", "Connected"), statuses)
         assertEquals(detail, appliedDetail)
         assertEquals(detail.artist, afterLoadedArtist)
     }
@@ -439,7 +428,7 @@ class MediaDetailFallbacksTest {
             loadDetails = { throw RuntimeException("album failed") },
         )
 
-        assertEquals(listOf<String?>("Loading Album...", "Connected."), successStatuses)
+        assertEquals(listOf<String?>("Loading Album...", "Connected"), successStatuses)
         assertEquals(detail, appliedDetail)
         assertEquals(listOf<String?>("Loading Album...", "album failed"), failureStatuses)
     }

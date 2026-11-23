@@ -42,7 +42,7 @@ class NaviampDiscoveryArtistPageTest {
             NaviampMediaActions({}, {}), DiscoverySamplePlaybackUi()) } }
         onNodeWithText("Release 1").performScrollTo()
         onAllNodesWithContentDescription("Request album").onFirst().performClick()
-        onNodeWithContentDescription("Request queued.").assertIsNotEnabled()
+        onNodeWithContentDescription("Request queued").assertIsNotEnabled()
         runOnIdle {
             val artist = page.value.artistDetail!!
             val release = artist.details!!.releases.first()
@@ -53,8 +53,8 @@ class NaviampDiscoveryArtistPageTest {
             page.value = page.value.copy(artistDetail = artist.copy(requestOperations = emptyMap(),
                 acquisitions = mapOf(action to record), blockedActions = setOf(action)))
         }
-        onNodeWithContentDescription("Request queued.").assertIsNotEnabled()
-        onAllNodesWithText("Request queued.", useUnmergedTree = true).onLast().assertExists()
+        onNodeWithContentDescription("Request queued").assertIsNotEnabled()
+        onAllNodesWithText("Request queued", useUnmergedTree = true).onLast().assertExists()
         System.getenv("NAVIAMP_DISCOVERY_ALIGNMENT_CAPTURE")?.let { directory ->
             val target = java.io.File(directory, "queued-release.png"); target.parentFile.mkdirs()
             javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", target)
@@ -168,7 +168,7 @@ class NaviampDiscoveryArtistPageTest {
                 onNodeWithText("Release overview").assertIsDisplayed()
                 onNodeWithText(calendarDateExpectation("2026-01-01") + " · Albums").assertIsDisplayed()
                 onNodeWithText("Request album").performScrollTo().performClick()
-                onNodeWithText("Request queued.").assertIsDisplayed()
+                onNodeWithText("Request queued").assertIsDisplayed()
                 onNodeWithText("Back").performClick()
                 onNodeWithText("Discovery artist").assertIsDisplayed()
                 onNodeWithTag("discovery-artist-list").performScrollToNode(hasText("Related artist"))

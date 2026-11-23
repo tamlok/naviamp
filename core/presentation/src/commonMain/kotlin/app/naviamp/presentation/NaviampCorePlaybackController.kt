@@ -761,7 +761,7 @@ class NaviampCorePlaybackController(
             name.isEmpty() -> publishPlaylistStatus("Playlist name cannot be blank.")
             tracks.isEmpty() -> publishPlaylistStatus("The queue is empty.")
             else -> runCatching { provider.createPlaylist(name, tracks.map { it.id }) }
-                .onSuccess { publishPlaylistStatus("Saved $name.") }
+                .onSuccess { publishPlaylistStatus("Saved $name") }
                 .onFailure { publishPlaylistStatus(it.message ?: "Could not save queue.") }
         }
     }

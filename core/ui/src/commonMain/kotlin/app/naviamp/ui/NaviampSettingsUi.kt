@@ -2436,8 +2436,8 @@ private enum class AboutSettingsPage(
     val rowSubtitle: String,
 ) {
     Thanks("Thanks", "Libraries, fonts, and components", "Some of the people and projects that made this app possible."),
-    Licenses("Licenses", "App license", "Open source license information."),
-    Changelog("Changelog", "Latest changes", "What changed in this version."),
+    Licenses("Licenses", "App license", "Open source license information"),
+    Changelog("Changelog", "Latest changes", "What changed in this version"),
 }
 
 @Composable
@@ -2632,7 +2632,7 @@ private fun NaviampConnectionsSettingsSection(
             ) {
                 SourceSubpageRow(
                     title = stringResource(Res.string.settings_source_connections_title),
-                    subtitle = stringResource(Res.string.settings_source_connections_subtitle_period),
+                    subtitle = stringResource(Res.string.settings_source_connections_subtitle),
                     value = savedConnections.firstOrNull { it.current }?.displayName
                         ?: stringResource(Res.string.settings_source_saved_count, savedConnections.size),
                     colors = colors,
@@ -2643,7 +2643,7 @@ private fun NaviampConnectionsSettingsSection(
                 if (hasSettingsSync) {
                     SourceSubpageRow(
                         title = stringResource(Res.string.settings_sync_title),
-                        subtitle = stringResource(Res.string.settings_sync_subtitle_period),
+                        subtitle = stringResource(Res.string.settings_sync_subtitle),
                         value = settingsSyncStatus,
                         colors = colors,
                         enabled = !isConnecting,
@@ -2852,7 +2852,7 @@ fun NaviampDiagnosticsSettingsSection(
     colors: NaviampColors,
     title: String = "Diagnostics",
     diagnostics: NaviampDiagnosticsUi,
-    emptyText: String = "No diagnostics yet.",
+    emptyText: String = "No diagnostics yet",
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),

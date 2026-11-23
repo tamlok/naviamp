@@ -388,7 +388,7 @@ class NaviampCorePlaylistBrowseController(
                                     canToggleFavorite = provider.capabilities.supportsTrackFavorites,
                                 ) },
                             ),
-                            status = "Connected.",
+                            status = "Connected",
                             playbackProfile = playbackProfiles.playlistProfile(resolvedPlaylist.id),
                             playbackProfileStatus = null,
                         ),

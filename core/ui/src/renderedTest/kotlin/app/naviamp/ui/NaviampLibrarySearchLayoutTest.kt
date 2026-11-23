@@ -42,9 +42,9 @@ class NaviampLibrarySearchLayoutTest {
                 rememberNaviampLibraryViewportState())
         }
         onNodeWithText("Loading artists…").assertDoesNotExist()
-        onNodeWithText("No library artists match.").assertDoesNotExist()
+        onNodeWithText("No library artists match").assertDoesNotExist()
         runOnIdle { catalog.value = catalog.value.copy(searching = false) }
-        onNodeWithText("No library artists match.").assertIsDisplayed()
+        onNodeWithText("No library artists match").assertIsDisplayed()
     }
 
     @Test fun artistSearchStaysStillDuringLoading() = verifySearchLayout(NaviampLibraryView.Artists)

@@ -1703,7 +1703,7 @@ class NaviampCoreCatalogControllerTest {
         val search = store.state.value.shell.search
         assertEquals("ambient", provider.searchQueries.single())
         assertEquals("ambient", search.results.artists.single().title)
-        assertEquals("Found 1 matches.", search.status)
+        assertEquals("Found 1 matches", search.status)
         assertFalse(search.searching)
     }
 

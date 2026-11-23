@@ -329,7 +329,7 @@ class NaviampCoreConnectionController(
                 connection.connected(
                     sourceId = session.sourceId,
                     serverVersion = session.serverVersion,
-                    status = "Connected to ${session.displayName}.",
+                    status = "Connected to ${session.displayName}",
                 )
                 stateStore.updateShell { shell ->
                     shell.copy(
@@ -536,9 +536,9 @@ class NaviampCoreConnectionController(
                 inventory = updated
                 val deletedActiveSource = connection.state.value.sourceId == saved.id && updated.currentSourceId == null
                 if (deletedActiveSource) {
-                    connection.disconnected("Deleted ${saved.displayName}.")
+                    connection.disconnected("Deleted ${saved.displayName}")
                 } else {
-                    publishStatus("Deleted ${saved.displayName}.")
+                    publishStatus("Deleted ${saved.displayName}")
                 }
                 publishConnection()
                 if (deletedActiveSource) onSourceDisconnected()

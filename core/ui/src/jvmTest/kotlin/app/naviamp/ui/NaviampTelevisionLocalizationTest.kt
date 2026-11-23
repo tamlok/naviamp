@@ -99,7 +99,7 @@ class NaviampTelevisionLocalizationTest {
                 )
                 Text(state.displayStatus().orEmpty())
             }
-            onNodeWithText("Se ha vuelto a conectar con Sala % café.").assertExists()
+            onNodeWithText("Se ha vuelto a conectar con Sala % café").assertExists()
             onNodeWithText("Diagnostic fallback").assertDoesNotExist()
         }
     }

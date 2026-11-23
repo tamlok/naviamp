@@ -18,7 +18,7 @@ data class PlaylistTrackMutationResult(
 fun standardPlaylistTracksUpdateLoadingStatus(playlist: Playlist): String =
     "Saving ${playlist.name}..."
 
-fun standardPlaylistTracksUpdateSuccessStatus(): String = "Updated playlist."
+fun standardPlaylistTracksUpdateSuccessStatus(): String = "Updated playlist"
 
 fun standardPlaylistTracksUpdateErrorMessage(error: Throwable): String =
     error.message ?: "Could not update playlist."
@@ -330,7 +330,7 @@ fun playlistDetailsLoadingStatus(playlist: Playlist): String =
     "Loading ${playlist.name}..."
 
 fun playlistDetailsLoadedStatus(): String =
-    "Connected."
+    "Connected"
 
 fun playlistDetailsErrorMessage(error: Throwable): String =
     error.message ?: "Playlist failed to load."
@@ -983,7 +983,7 @@ suspend fun MediaProvider.addTracksToPlaylistStateUpdate(
         return AddToPlaylistStateUpdate(
             playlists = null,
             closeDialog = false,
-            addToPlaylistStatus = "No tracks found.",
+            addToPlaylistStatus = "No tracks found",
             connectionStatus = null,
         )
     }
@@ -1108,7 +1108,7 @@ fun queuePlaylistSaveErrorMessage(error: Throwable, label: String = "queue"): St
 fun queuePlaylistSaveStateUpdate(refresh: QueuePlaylistSaveRefresh): QueuePlaylistSaveStateUpdate =
     QueuePlaylistSaveStateUpdate(
         playlists = refresh.playlists,
-        status = "Saved ${refresh.result.playlist.name} with ${refresh.result.trackCount} tracks.",
+        status = "Saved ${refresh.result.playlist.name} with ${refresh.result.trackCount} tracks",
     )
 
 suspend fun MediaProvider.renamePlaylistAndRefresh(
@@ -1167,23 +1167,23 @@ fun addToPlaylistMutationUpdate(
         result.requestedTrackCount == 0 -> AddToPlaylistMutationUpdate(
             closeDialog = false,
             addToPlaylistStatus = if (playlistName == null) {
-                "No tracks found."
+                "No tracks found"
             } else {
-                "Everything is already in $playlistName."
+                "Everything is already in $playlistName"
             },
             connectionStatus = null,
             refreshPlaylists = false,
         )
         result.addedTrackIds.isEmpty() -> AddToPlaylistMutationUpdate(
             closeDialog = false,
-            addToPlaylistStatus = "Everything is already in ${playlistName.orEmpty()}.",
+            addToPlaylistStatus = "Everything is already in ${playlistName.orEmpty()}",
             connectionStatus = null,
             refreshPlaylists = false,
         )
         else -> AddToPlaylistMutationUpdate(
             closeDialog = true,
             addToPlaylistStatus = null,
-            connectionStatus = "Added ${result.addedTrackIds.size} track${if (result.addedTrackIds.size == 1) "" else "s"} to playlist.",
+            connectionStatus = "Added ${result.addedTrackIds.size} track${if (result.addedTrackIds.size == 1) "" else "s"} to playlist",
             refreshPlaylists = true,
         )
     }
@@ -1235,10 +1235,10 @@ fun playlistDeleteLoadingStatus(playlist: Playlist): String =
     "Deleting ${playlist.name}..."
 
 fun playlistRenamedStatus(): String =
-    "Renamed playlist."
+    "Renamed playlist"
 
 fun playlistDeletedStatus(): String =
-    "Deleted playlist."
+    "Deleted playlist"
 
 fun playlistRenameErrorMessage(error: Throwable): String =
     error.message ?: "Could not rename playlist."
@@ -1522,7 +1522,7 @@ fun smartPlaylistLoadingRulesStatus(playlist: Playlist): String =
     "Loading ${playlist.name} rules..."
 
 fun smartPlaylistSavedStatus(displayPlaylist: Playlist, trackCount: Int): String =
-    "Saved smart playlist ${displayPlaylist.name} with $trackCount tracks."
+    "Saved smart playlist ${displayPlaylist.name} with $trackCount tracks"
 
 fun smartPlaylistUpdatedStatus(displayPlaylist: Playlist, trackCount: Int): String =
-    "Updated smart playlist ${displayPlaylist.name} with $trackCount tracks."
+    "Updated smart playlist ${displayPlaylist.name} with $trackCount tracks"

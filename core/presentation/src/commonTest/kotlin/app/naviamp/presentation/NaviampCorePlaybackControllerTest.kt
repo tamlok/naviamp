@@ -1130,7 +1130,7 @@ class NaviampCorePlaybackControllerTest {
         assertEquals(listOf(33.0), fixture.effects.seeks)
         assertEquals(listOf("one", "two", "three", "four"), fixture.live.state.value.queue.tracks.map { it.id.value })
         assertEquals(listOf("Queue Save:one,two,three,four"), fixture.provider.created)
-        assertEquals("Saved Queue Save.", fixture.store.state.value.shell.nowPlaying?.playlistActionStatus)
+        assertEquals("Saved Queue Save", fixture.store.state.value.shell.nowPlaying?.playlistActionStatus)
 
         fixture.controller.execute(
             NaviampCoreCommand.NowPlaying.Queue(

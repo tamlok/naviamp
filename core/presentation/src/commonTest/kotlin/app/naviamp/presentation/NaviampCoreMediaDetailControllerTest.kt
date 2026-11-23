@@ -309,7 +309,7 @@ class NaviampCoreMediaDetailControllerTest {
         assertTrue(state.shell.albumDetail.selectedAlbum?.canFavorite == true)
         assertEquals("Track one", state.shell.albumDetail.detail?.tracks?.single()?.title)
         assertTrue(state.shell.albumDetail.detail?.tracks?.single()?.popular == true)
-        assertEquals("Connected.", state.shell.albumDetail.status)
+        assertEquals("Connected", state.shell.albumDetail.status)
     }
 
     @Test

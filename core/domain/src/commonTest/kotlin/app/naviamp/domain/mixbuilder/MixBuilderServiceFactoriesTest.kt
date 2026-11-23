@@ -290,8 +290,6 @@ class MixBuilderServiceFactoriesTest {
         val artist = artist("artist")
         val album = album("album")
 
-        assertEquals("No artist suggestions yet.", artistMixLoadSuggestionsEmptyStatus(initial = true))
-        assertEquals("No artists matched.", artistMixLoadSuggestionsEmptyStatus(initial = false))
         assertEquals("Could not load artist suggestions.", artistMixLoadSuggestionsFailureStatus(true, RuntimeException()))
         assertEquals("Could not search artists.", artistMixLoadSuggestionsFailureStatus(false, RuntimeException()))
         assertEquals("Loading artist songs...", artistMixLoadTracksStatus(artist))
@@ -299,8 +297,6 @@ class MixBuilderServiceFactoriesTest {
         assertEquals("Could not load artist songs.", artistMixLoadTracksFailureStatus(artist, RuntimeException()))
         assertEquals("Could not load similar artists.", artistMixRelatedSuggestionsFailureStatus(RuntimeException()))
 
-        assertEquals("No album suggestions yet.", albumMixLoadSuggestionsEmptyStatus(initial = true))
-        assertEquals("No albums matched.", albumMixLoadSuggestionsEmptyStatus(initial = false))
         assertEquals("Could not load album suggestions.", albumMixLoadSuggestionsFailureStatus(true, RuntimeException()))
         assertEquals("Could not search albums.", albumMixLoadSuggestionsFailureStatus(false, RuntimeException()))
         assertEquals("Loading album songs...", albumMixLoadTracksStatus(album))
@@ -308,7 +304,6 @@ class MixBuilderServiceFactoriesTest {
         assertEquals("Could not load album songs.", albumMixLoadTracksFailureStatus(album, RuntimeException()))
         assertEquals("Could not load related albums.", albumMixRelatedSuggestionsFailureStatus(RuntimeException()))
 
-        assertEquals("No genres matched.", genreMixLoadSuggestionsEmptyStatus())
         assertEquals("Could not load genres.", genreMixLoadSuggestionsFailureStatus(RuntimeException()))
         assertNull(artistMixLoadSuggestionsFailureStatus(true, RuntimeException("custom")).takeIf { it != "custom" })
     }

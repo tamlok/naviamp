@@ -82,7 +82,7 @@ class NaviampArtistSectionLayoutsUiTest {
             items = listOf(SharedMediaItemUi("mine", "Road trip", "3 tracks")), failed = true, truncated = true) }
         onNodeWithText("Some playlists could not be checked. Retry to check them again.").assertExists()
         onNodeWithText("Only the first 500 playlists were checked. More playlists may contain this artist.").assertExists()
-        onNodeWithText("None of your playlists contain this artist.").assertDoesNotExist()
+        onNodeWithText("None of your playlists contain this artist").assertDoesNotExist()
         onNodeWithContentDescription("Road trip").performClick()
         onNodeWithText("Retry").performClick()
         runOnIdle { assertEquals("mine", selected); assertEquals(1, retries) }

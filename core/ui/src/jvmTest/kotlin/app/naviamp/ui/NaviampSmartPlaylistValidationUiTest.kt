@@ -173,11 +173,11 @@ class NaviampSmartPlaylistValidationUiTest {
             )
         }
         waitUntil(timeoutMillis = 5_000) { requests == 1 }
-        onNodeWithText("No example matches in the synced library.").assertExists()
+        onNodeWithText("No example matches in the synced library").assertExists()
         runOnIdle { draft.value = draft.value.copy(conditions = listOf(SmartPlaylistConditionDraft(value = "Unsupported"))) }
         waitUntil(timeoutMillis = 5_000) { requests == 2 }
         onNodeWithText("This preview needs information that is not in the local cache: Lyrics. The saved playlist still runs on the server.").assertExists()
-        onNodeWithText("No example matches in the synced library.").assertDoesNotExist()
+        onNodeWithText("No example matches in the synced library").assertDoesNotExist()
     }
 
     @Test fun missingLibraryMetadataExplainsSyncAndSyncRestoresExamples() = runComposeUiTest {

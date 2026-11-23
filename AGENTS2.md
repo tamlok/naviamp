@@ -168,6 +168,28 @@ Match the actual head unit's Android version, resolution, and density before mak
 - Cross-platform settings must round-trip through shared export/import and sync. Cover older-export
   defaults and imported-value normalization; only genuinely device-specific settings stay local.
 
+### UI and wording consistency
+
+- Match equivalent pages with the existing shared components, spacing, typography, icon sizes,
+  artwork treatment, and control behavior. Do not introduce a page-specific convention when a
+  shared pattern already fits.
+- Use the same established terminology and action labels for the same concepts across pages.
+  Reuse canonical string resources; do not create separate variants just to add or remove a period.
+- Short UI copy has no trailing full stop: titles, headings, buttons, menu items, field labels,
+  concise subtitles and setting captions, and terse status or empty-state labels. Examples:
+  `Favorite Songs`, `All songs you have marked as favorites`, `Connected`, and `No favorites yet`.
+- Detailed explanations, warnings, error-recovery instructions, and multi-sentence messages retain
+  normal sentence punctuation, for example `Could not load favorite songs. Try again.` Classify
+  copy by its displayed role, not its resource-key suffix, word count, or wrapping at a given width.
+- Preserve meaningful punctuation, including progress ellipses, questions, abbreviations, decimal
+  points, versions, URLs, and punctuation inside user or provider data. Never strip punctuation at
+  runtime or apply a blanket replacement across all strings.
+- Review the same copy role across equivalent screens and maintained translations. Respect each
+  language's grammar and punctuation; preserve multi-sentence translated explanations. New copy
+  still belongs in shared string resources and every maintained translation.
+- Verify affected resource formatting and actual rendered text. Keep behavioral, localization,
+  accessibility, and formatting coverage; do not add tests whose only purpose is to freeze wording.
+
 ### Persistence migrations
 
 Inspect `main`/release history before adding a migration. Consolidate unmerged, unshipped branch

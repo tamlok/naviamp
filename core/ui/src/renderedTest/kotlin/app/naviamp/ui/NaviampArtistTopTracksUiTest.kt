@@ -37,7 +37,7 @@ class NaviampArtistTopTracksUiTest {
         val viewport = onNodeWithTag("artist-settings-viewport").fetchSemanticsNode().boundsInRoot
         val title = onNodeWithText("Maximum Top Tracks", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val value = onNodeWithText("50 tracks", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val help = onNodeWithText("Show up to this many matching tracks from your library.", useUnmergedTree = true)
+        val help = onNodeWithText("Show up to this many matching tracks from your library", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
         val toggle = onNodeWithText("Show Top Tracks on artist pages", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot

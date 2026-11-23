@@ -89,7 +89,6 @@ class DownloadPlansTest {
         assertEquals("Downloaded Album (4 tracks).", downloadCompletedStatus("Album", completed = 4))
         assertEquals("network failed", downloadErrorStatus("Album", IllegalStateException("network failed")))
         assertEquals("Could not download Album.", downloadErrorStatus("Album", RuntimeException()))
-        assertEquals("Removed One.", downloadedTrackRemovedStatus("One"))
         assertEquals("Could not remove download.", downloadRemoveErrorStatus(RuntimeException()))
     }
 

@@ -20,13 +20,13 @@ fun queueAppendStatus(
 ): String =
     if (tracksToAdd.isEmpty()) {
         if (deduplicateExisting && originalTracks.isNotEmpty()) {
-            "${label.replaceFirstChar { it.uppercase() }} are already in the queue."
+            "${label.replaceFirstChar { it.uppercase() }} are already in the queue"
         } else {
-            "No tracks found."
+            "No tracks found"
         }
     } else {
         val displayLabel = if (tracksToAdd.size == 1 && label == "tracks") "track" else label
-        "Added ${tracksToAdd.size} $displayLabel to queue."
+        "Added ${tracksToAdd.size} $displayLabel to queue"
     }
 
 fun queuePlayNextStatus(
@@ -37,11 +37,11 @@ fun queuePlayNextStatus(
 ): String =
     if (tracksToAdd.isEmpty()) {
         if (deduplicateExisting && originalTracks.isNotEmpty()) {
-            "${label.replaceFirstChar { it.uppercase() }} are already in the queue."
+            "${label.replaceFirstChar { it.uppercase() }} are already in the queue"
         } else {
-            "No tracks found."
+            "No tracks found"
         }
     } else {
         val displayLabel = if (tracksToAdd.size == 1 && label == "tracks") "track" else label
-        "Added ${tracksToAdd.size} $displayLabel to play next."
+        "Added ${tracksToAdd.size} $displayLabel to play next"
     }

@@ -105,7 +105,7 @@ class PlaybackQueueMutationManager(
         return PlaybackQueueUpdate(
             queue = nextQueue,
             tracksChanged = true,
-            status = "Added 1 track to play next.",
+            status = "Added 1 track to play next",
         )
     }
 

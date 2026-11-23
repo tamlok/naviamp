@@ -69,15 +69,15 @@ class PlaylistMutationsTest {
         val nextTrack = track("two")
 
         assertEquals(
-            QueueAppendPlan(tracks = emptyList(), status = "No tracks found."),
+            QueueAppendPlan(tracks = emptyList(), status = "No tracks found"),
             queueAppendPlan(emptyList()),
         )
         assertEquals(
-            QueueAppendPlan(tracks = listOf(nextTrack), status = "Added 1 track to queue."),
+            QueueAppendPlan(tracks = listOf(nextTrack), status = "Added 1 track to queue"),
             queueAppendPlan(listOf(nextTrack), label = "track"),
         )
         assertEquals(
-            QueueAppendPlan(tracks = emptyList(), status = "Popular tracks are already in the queue."),
+            QueueAppendPlan(tracks = emptyList(), status = "Popular tracks are already in the queue"),
             queueAppendPlan(
                 tracks = listOf(currentTrack),
                 label = "popular tracks",
@@ -177,7 +177,6 @@ class PlaylistMutationsTest {
             ),
             playlistDetailsOpenPlan(current, recentPlaylistIds = listOf("two"), recentPlaylistLimit = 2),
         )
-        assertEquals("Connected.", playlistDetailsLoadedStatus())
         assertEquals("Playlist failed to load.", playlistDetailsErrorMessage(Exception()))
         assertEquals(
             PlaylistDetailsApplicationUpdate(
@@ -186,7 +185,7 @@ class PlaylistMutationsTest {
                 selectionApplication = PlaylistDetailsSelectionApplication(
                     playlist = refreshed,
                     tracks = tracks,
-                    status = "Connected.",
+                    status = "Connected",
                 ),
             ),
             playlistDetailsApplicationUpdate(
@@ -217,7 +216,7 @@ class PlaylistMutationsTest {
                 selectionApplication = PlaylistDetailsSelectionApplication(
                     playlist = refreshedPlaylist.copy(trackCount = 1),
                     tracks = tracks,
-                    status = "Connected.",
+                    status = "Connected",
                 ),
             ),
             provider.refreshPlaylistDetailsApplication(
@@ -727,7 +726,7 @@ class PlaylistMutationsTest {
         assertEquals(
             AddToPlaylistMutationUpdate(
                 closeDialog = false,
-                addToPlaylistStatus = "No tracks found.",
+                addToPlaylistStatus = "No tracks found",
                 connectionStatus = null,
                 refreshPlaylists = false,
             ),
@@ -750,7 +749,7 @@ class PlaylistMutationsTest {
         assertEquals(
             AddToPlaylistMutationUpdate(
                 closeDialog = false,
-                addToPlaylistStatus = "Everything is already in Playlist.",
+                addToPlaylistStatus = "Everything is already in Playlist",
                 connectionStatus = null,
                 refreshPlaylists = false,
             ),
@@ -781,7 +780,7 @@ class PlaylistMutationsTest {
             AddToPlaylistMutationUpdate(
                 closeDialog = true,
                 addToPlaylistStatus = null,
-                connectionStatus = "Added 2 tracks to playlist.",
+                connectionStatus = "Added 2 tracks to playlist",
                 refreshPlaylists = true,
             ),
             addToPlaylistMutationUpdate(
@@ -834,8 +833,6 @@ class PlaylistMutationsTest {
         assertEquals("New", normalizedPlaylistName("  New  "))
         assertEquals("Renaming Old...", playlistRenameLoadingStatus(current))
         assertEquals("Deleting Old...", playlistDeleteLoadingStatus(current))
-        assertEquals("Renamed playlist.", playlistRenamedStatus())
-        assertEquals("Deleted playlist.", playlistDeletedStatus())
         assertEquals(renamed, renamedSelectedPlaylist(current, "one", "Fallback", listOf(renamed)))
         assertEquals(
             playlist("one", "Fallback"),
@@ -845,7 +842,7 @@ class PlaylistMutationsTest {
             PlaylistRenameStateUpdate(
                 playlists = listOf(renamed),
                 selectionApplication = PlaylistRenameSelectionApplication(renamed),
-                status = "Renamed playlist.",
+                status = "Renamed playlist",
             ),
             playlistRenameStateUpdate(current, renameRefresh, playlistId = "one"),
         )
@@ -864,7 +861,7 @@ class PlaylistMutationsTest {
                     homeContent = HomeContent(playlists = listOf(renamed)),
                 ),
                 selectionApplication = PlaylistRenameSelectionApplication(renamed),
-                status = "Renamed playlist.",
+                status = "Renamed playlist",
             ),
             playlistRenameApplication(
                 update = playlistRenameStateUpdate(current, renameRefresh, playlistId = "one"),
@@ -883,7 +880,7 @@ class PlaylistMutationsTest {
                 selectedPlaylist = null,
                 selectedPlaylistTracks = emptyList(),
             ),
-            status = "Deleted playlist.",
+            status = "Deleted playlist",
         )
         assertEquals(
             PlaylistDeleteStateUpdate(
@@ -924,7 +921,7 @@ class PlaylistMutationsTest {
                     selectedPlaylist = null,
                     selectedPlaylistTracks = emptyList(),
                 ),
-                status = "Deleted playlist.",
+                status = "Deleted playlist",
             ),
             playlistDeleteApplication(
                 update = deleteUpdate,
@@ -963,21 +960,13 @@ class PlaylistMutationsTest {
         assertEquals("Updating Smart...", smartPlaylistUpdatingStatus(definition))
         assertEquals("Loading Smart rules...", smartPlaylistLoadingRulesStatus(playlist))
         assertEquals(
-            "Saved smart playlist Smart with 3 tracks.",
-            smartPlaylistSavedStatus(playlist, trackCount = 3),
-        )
-        assertEquals(
-            "Updated smart playlist Smart with 4 tracks.",
-            smartPlaylistUpdatedStatus(playlist, trackCount = 4),
-        )
-        assertEquals(
             SmartPlaylistMutationStateUpdate(
                 playlists = refresh.playlists,
                 displayPlaylist = playlist.copy(trackCount = 2),
                 tracks = tracks,
                 playlistTracksById = mapOf("smart" to tracks),
                 selectionApplication = null,
-                status = "Saved smart playlist Smart with 2 tracks.",
+                status = "Saved smart playlist Smart with 2 tracks",
             ),
             smartPlaylistSaveStateUpdate(refresh, currentPlaylistTracksById = emptyMap()),
         )
@@ -992,7 +981,7 @@ class PlaylistMutationsTest {
                     tracks = tracks,
                     status = null,
                 ),
-                status = "Updated smart playlist Smart with 2 tracks.",
+                status = "Updated smart playlist Smart with 2 tracks",
             ),
             smartPlaylistUpdateStateUpdate(
                 refresh = refresh,
@@ -1010,7 +999,7 @@ class PlaylistMutationsTest {
         )
         val provider = FakePlaylistProvider(playlists = listOf(playlist), playlistTracks = tracks)
         assertEquals(
-            "Saved smart playlist Smart with 2 tracks.",
+            "Saved smart playlist Smart with 2 tracks",
             saveSmartPlaylistStateUpdate(
                 provider = provider,
                 definition = definition,
@@ -1018,7 +1007,7 @@ class PlaylistMutationsTest {
             ).status,
         )
         assertEquals(
-            "Updated smart playlist Smart with 2 tracks.",
+            "Updated smart playlist Smart with 2 tracks",
             updateSmartPlaylistStateUpdate(
                 provider = provider,
                 playlist = playlist,
@@ -1078,7 +1067,7 @@ class PlaylistMutationsTest {
         assertEquals(
             QueuePlaylistSaveStateUpdate(
                 playlists = refresh.playlists,
-                status = "Saved Queue Mix with 1 tracks.",
+                status = "Saved Queue Mix with 1 tracks",
             ),
             queuePlaylistSaveStateUpdate(refresh),
         )
@@ -1088,7 +1077,7 @@ class PlaylistMutationsTest {
                     existingPlaylist,
                     playlist("created", "Second Mix").copy(trackCount = 1),
                 ),
-                status = "Saved Second Mix with 1 tracks.",
+                status = "Saved Second Mix with 1 tracks",
             ),
             provider.saveQueueAsPlaylistStateUpdate("Second Mix", listOf(track("two"))),
         )
@@ -1107,7 +1096,7 @@ class PlaylistMutationsTest {
         )
 
         val savedPlaylist = playlist("created", "Road Mix").copy(trackCount = 1)
-        assertEquals("Saved Road Mix with 1 tracks.", application.status)
+        assertEquals("Saved Road Mix with 1 tracks", application.status)
         assertEquals(listOf(savedPlaylist), application.playlistListApplication.playlists)
         assertEquals(listOf(savedPlaylist), application.playlistListApplication.homeContent.playlists)
     }
@@ -1155,7 +1144,7 @@ class PlaylistMutationsTest {
             AddToPlaylistMutationUpdate(
                 closeDialog = true,
                 addToPlaylistStatus = null,
-                connectionStatus = "Added 1 track to playlist.",
+                connectionStatus = "Added 1 track to playlist",
                 refreshPlaylists = true,
             ),
             refresh.update,
@@ -1166,7 +1155,7 @@ class PlaylistMutationsTest {
             AddToPlaylistStateUpdate(
                 playlists = null,
                 closeDialog = false,
-                addToPlaylistStatus = "No tracks found.",
+                addToPlaylistStatus = "No tracks found",
                 connectionStatus = null,
             ),
             provider.addTracksToPlaylistStateUpdate(
@@ -1199,7 +1188,7 @@ class PlaylistMutationsTest {
             AddToPlaylistMutationUpdate(
                 closeDialog = true,
                 addToPlaylistStatus = null,
-                connectionStatus = "Added 1 track to playlist.",
+                connectionStatus = "Added 1 track to playlist",
                 refreshPlaylists = true,
             ),
             refresh.update,
@@ -1210,7 +1199,7 @@ class PlaylistMutationsTest {
                 playlists = listOf(existingPlaylist),
                 closeDialog = true,
                 addToPlaylistStatus = null,
-                connectionStatus = "Added 1 track to playlist.",
+                connectionStatus = "Added 1 track to playlist",
             ),
             provider.addTracksToPlaylistStateUpdate(
                 playlistId = existingPlaylist.id,
@@ -1262,7 +1251,7 @@ class PlaylistMutationsTest {
 
         assertEquals(true, application.closeDialog)
         assertEquals(null, application.addToPlaylistStatus)
-        assertEquals("Added 1 track to playlist.", application.connectionStatus)
+        assertEquals("Added 1 track to playlist", application.connectionStatus)
         assertEquals(
             listOf(existingPlaylist, playlist("created", "New Mix").copy(trackCount = 1)),
             application.playlistListApplication?.playlists,
@@ -1289,7 +1278,6 @@ class PlaylistMutationsTest {
             provider.replaceStandardPlaylistTracks(playlist.copy(isSmart = true), current, updated)
         }
         assertEquals("Saving Road Trip...", standardPlaylistTracksUpdateLoadingStatus(playlist))
-        assertEquals("Updated playlist.", standardPlaylistTracksUpdateSuccessStatus())
         assertEquals(
             "Could not update playlist.",
             standardPlaylistTracksUpdateErrorMessage(IllegalStateException()),

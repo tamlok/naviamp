@@ -212,7 +212,7 @@ class NaviampCoreInternetRadioController(
                 provider.updateInternetRadioStation(station)
             }
         }.onSuccess {
-            refresh("Saved ${station.name}.")
+            refresh("Saved ${station.name}")
         }.onFailure { cause ->
             publishStatus(cause.message ?: "Could not save station.")
         }
@@ -222,7 +222,7 @@ class NaviampCoreInternetRadioController(
         val provider = providerOrPublish() ?: return
         publishStatus("Deleting ${station.name}...")
         runCatching { provider.deleteInternetRadioStation(station.id) }
-            .onSuccess { refresh("Deleted ${station.name}.") }
+            .onSuccess { refresh("Deleted ${station.name}") }
             .onFailure { cause -> publishStatus(cause.message ?: "Could not delete station.") }
     }
 

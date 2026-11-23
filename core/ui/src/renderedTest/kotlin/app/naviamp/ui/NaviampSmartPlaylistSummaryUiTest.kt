@@ -33,7 +33,7 @@ class NaviampSmartPlaylistSummaryUiTest {
         onNodeWithText("Match any of these:", substring = true).assertExists()
         onNodeWithText("Favorite tracks", substring = true).assertExists()
         onNodeWithText("Sort by: Year (highest first)").assertExists()
-        onNodeWithText("20% of matching tracks.").assertExists()
+        onNodeWithText("20% of matching tracks").assertExists()
         onNodeWithTag("smart-playlist-owner-notice").assertDoesNotExist()
     }
 
@@ -85,7 +85,7 @@ class NaviampSmartPlaylistSummaryUiTest {
             libraries = listOf(ConnectionFormMusicFolder("2", "Music"))) }
         onNodeWithText("Favorite tracks").assertExists()
         onNodeWithText("Sort by: Favorite tracks first").assertExists()
-        onNodeWithText("At most 500 tracks.").assertExists()
+        onNodeWithText("At most 500 tracks").assertExists()
         onNodeWithText("Libraries: Music").assertExists()
         onNodeWithText("All of:", substring = true).assertDoesNotExist()
         onNodeWithText("is yes", substring = true).assertDoesNotExist()

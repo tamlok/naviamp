@@ -12,7 +12,7 @@ class MediaSourceConnectionUpdatesTest {
             DeletedMediaSourceUpdate(
                 clearConnectedSource = true,
                 clearSavedConnectionForLogin = true,
-                status = "Deleted Home Music.",
+                status = "Deleted Home Music",
             ),
             deletedMediaSourceUpdate(
                 source = source,
@@ -25,7 +25,7 @@ class MediaSourceConnectionUpdatesTest {
             DeletedMediaSourceUpdate(
                 clearConnectedSource = false,
                 clearSavedConnectionForLogin = false,
-                status = "Deleted Home Music.",
+                status = "Deleted Home Music",
             ),
             deletedMediaSourceUpdate(
                 source = source,
@@ -39,7 +39,7 @@ class MediaSourceConnectionUpdatesTest {
     @Test
     fun connectedStatusIdentifiesFallbackEndpoint() {
         assertEquals(
-            "Connected via https://fallback.example.",
+            "Connected via https://fallback.example",
             connectedMediaSourceStatus(
                 primaryUrl = "https://primary.example/",
                 activeUrl = " https://fallback.example/ ",
@@ -50,7 +50,7 @@ class MediaSourceConnectionUpdatesTest {
     @Test
     fun connectedStatusNormalizesEquivalentPrimaryEndpoint() {
         assertEquals(
-            "Connected.",
+            "Connected",
             connectedMediaSourceStatus(
                 primaryUrl = "https://primary.example/",
                 activeUrl = "https://primary.example",

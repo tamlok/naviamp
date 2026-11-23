@@ -355,7 +355,7 @@ class NaviampCoreNowPlayingMediaController(
         runCatching { provider.addTracksToPlaylist(playlistId, listOf(track.id)) }
             .onSuccess {
                 downloads.playlistTracksChanged(playlistId)
-                publishPlaylistStatus("Added ${track.title} to playlist.")
+                publishPlaylistStatus("Added ${track.title} to playlist")
             }
             .onFailure { publishPlaylistStatus(it.message ?: "Could not add track to playlist.") }
     }
@@ -368,7 +368,7 @@ class NaviampCoreNowPlayingMediaController(
             return
         }
         runCatching { provider.createPlaylist(name, listOf(track.id)) }
-            .onSuccess { publishPlaylistStatus("Created $name.") }
+            .onSuccess { publishPlaylistStatus("Created $name") }
             .onFailure { publishPlaylistStatus(it.message ?: "Could not create playlist.") }
     }
 

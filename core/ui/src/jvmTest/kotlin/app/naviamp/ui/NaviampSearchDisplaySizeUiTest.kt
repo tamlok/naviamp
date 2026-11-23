@@ -51,6 +51,6 @@ class NaviampSearchDisplaySizeUiTest {
         onNodeWithText("Search music").assertIsDisplayed().assertIsFocused()
         onNodeWithText("Example album").assertDoesNotExist()
         runOnIdle { screen.value = screen.value.copy(query = "No match") }
-        onNodeWithText("No matches found.").assertIsDisplayed()
+        onNodeWithText("No matches found").assertIsDisplayed()
     }
 }

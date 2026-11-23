@@ -406,7 +406,7 @@ class NaviampCoreTest {
             listOf(provider.track.title),
             assertNotNull(core.state.value.shell.nowPlaying).upNext.map { it.title },
         )
-        assertEquals("Connected.", core.state.value.shell.playlistDetail.status)
+        assertEquals("Connected", core.state.value.shell.playlistDetail.status)
         assertEquals(target, effects.appliedQueues.single().groups.single().target)
         assertEquals(profile, effects.appliedQueues.single().groups.single().profile)
     }

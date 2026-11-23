@@ -50,12 +50,12 @@ class NaviampLibrarySearchResultsUiTest {
             ))
         }
         onNodeWithText("$view server alias").assertDoesNotExist()
-        onNodeWithText("No library ${view.name.lowercase()} match.").assertIsDisplayed()
+        onNodeWithText("No library ${view.name.lowercase()} match").assertIsDisplayed()
         runOnIdle {
             assertEquals(0, loads)
             screen.value = screen.value.withSelectedCatalog(screen.value.selectedCatalog.copy(query = "", resultsQuery = ""))
         }
-        onNodeWithText("No favorites yet.").assertIsDisplayed()
+        onNodeWithText("No favorites yet").assertIsDisplayed()
         onNodeWithContentDescription("Favorites").performClick().assertIsNotSelected()
         onNodeWithText("$view server alias").assertIsDisplayed()
         onNodeWithText("$view ordinary").assertIsDisplayed()
@@ -94,8 +94,8 @@ class NaviampLibrarySearchResultsUiTest {
                     .withSelectedCatalog(favoritesCatalog(view).copy(query = "", resultsQuery = "", favoritesLoading = true))
             }
             onNodeWithText("Loading ${view.name.lowercase()}…").assertIsDisplayed()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
-            onNodeWithText("No library ${view.name.lowercase()} found.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
+            onNodeWithText("No library ${view.name.lowercase()} found").assertDoesNotExist()
             onNodeWithText("$view server alias").assertDoesNotExist()
             onNodeWithText("$view ordinary").assertDoesNotExist()
             runOnIdle {
@@ -104,7 +104,7 @@ class NaviampLibrarySearchResultsUiTest {
                 ))
             }
             onNodeWithText("Could not load favorites. Refresh to try again.").assertIsDisplayed()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
             onNodeWithText("$view server alias").assertDoesNotExist()
             onNodeWithText("$view ordinary").assertDoesNotExist()
             runOnIdle {
@@ -112,7 +112,7 @@ class NaviampLibrarySearchResultsUiTest {
                     favoritesFailed = false, items = emptyList(), tracks = emptyList(),
                 ))
             }
-            onNodeWithText("No favorites yet.").assertIsDisplayed()
+            onNodeWithText("No favorites yet").assertIsDisplayed()
             runOnIdle { assertEquals(0, loads) }
         }
     }
@@ -135,7 +135,7 @@ class NaviampLibrarySearchResultsUiTest {
             onNodeWithText("Favorites are not supported by this source.").assertIsDisplayed()
             onNodeWithText("$view server alias").assertDoesNotExist()
             onNodeWithText("$view ordinary").assertDoesNotExist()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
         }
         runOnIdle { assertEquals(0, loads) }
         onNodeWithContentDescription("Favorites").performClick().assertIsNotSelected().assertIsNotEnabled()

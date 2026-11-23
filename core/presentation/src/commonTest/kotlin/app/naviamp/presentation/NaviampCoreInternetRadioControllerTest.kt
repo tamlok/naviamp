@@ -130,7 +130,7 @@ class NaviampCoreInternetRadioControllerTest {
         assertEquals(listOf("one:Updated"), provider.updated)
         assertEquals(listOf("one"), provider.deleted)
         assertEquals(listOf("two", "created"), fixture.store.state.value.shell.radio.stations.map { it.item.id })
-        assertEquals("Deleted Updated.", fixture.store.state.value.shell.radio.status)
+        assertEquals("Deleted Updated", fixture.store.state.value.shell.radio.status)
     }
 
     @Test

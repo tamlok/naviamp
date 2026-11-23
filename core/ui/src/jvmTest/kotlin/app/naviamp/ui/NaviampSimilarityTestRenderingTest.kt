@@ -36,8 +36,8 @@ class NaviampSimilarityTestRenderingTest {
             }
         }
         onNodeWithText("Test similarity").performClick()
-        onNodeWithText("Plugin system enabled.").assertIsDisplayed()
-        onNodeWithText("External services disabled.").assertIsDisplayed()
+        onNodeWithText("Plugin system enabled").assertIsDisplayed()
+        onNodeWithText("External services disabled").assertIsDisplayed()
         onNodeWithText("Metadata agents: audiomuseai, lastfm").assertIsDisplayed()
         onNodeWithText("AudioMuse").assertIsDisplayed()
         onNodeWithText("audiomuseai · 10.0.0").assertIsDisplayed()
@@ -52,9 +52,9 @@ class NaviampSimilarityTestRenderingTest {
         }
         runOnIdle { admin.value = SimilarityAdminDiagnostics(SimilarityAdminStatus.Available, pluginsEnabled = false) }
         onNodeWithText("Plugin system disabled. Installed plugins cannot be listed.").performScrollTo().assertIsDisplayed()
-        onNodeWithText("No installed plugins were returned.").assertDoesNotExist()
+        onNodeWithText("No installed plugins were returned").assertDoesNotExist()
         runOnIdle { admin.value = SimilarityAdminDiagnostics(SimilarityAdminStatus.Available, pluginsEnabled = true, plugins = emptyList()) }
-        onNodeWithText("No installed plugins were returned.").assertIsDisplayed()
+        onNodeWithText("No installed plugins were returned").assertIsDisplayed()
         onNodeWithText("Close").performClick()
     }
 
@@ -112,7 +112,7 @@ class NaviampSimilarityTestRenderingTest {
                 onNode(isDialog()).assertExists()
                 onNodeWithText("Test track: Test song").assertIsDisplayed()
                 onNodeWithText("Artist").assertIsDisplayed()
-                onNodeWithText("Sonic support is advertised.").assertIsDisplayed()
+                onNodeWithText("Sonic support is advertised").assertIsDisplayed()
                 onNodeWithText("Plugin details require administrator access.").assertIsDisplayed()
                 onNodeWithText("HTTP: 503; API: 0").performScrollTo().assertIsDisplayed()
                 onNodeWithText("20 matches").performScrollTo().assertIsDisplayed()

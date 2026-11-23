@@ -89,9 +89,9 @@ fun artistDetailLoadingStatus(fallbackName: String?): String =
 
 fun artistDetailLoadedStatus(detail: ArtistDetails): String =
     if (detail.albums.isEmpty()) {
-        "No albums found for ${detail.artist.name}."
+        "No albums found for ${detail.artist.name}"
     } else {
-        "Connected."
+        "Connected"
     }
 
 fun artistDetailLoadErrorStatus(error: Throwable): String =
@@ -197,7 +197,7 @@ fun artistPopularTracksUpdate(
             .map { it.matchedTrack }
             .take(displayLimit),
         status = if (matches.isEmpty()) {
-            "No popular tracks matched songs in your library."
+            "No popular tracks matched songs in your library"
         } else {
             null
         },
@@ -240,7 +240,7 @@ fun similarArtistsUpdate(
 ): SimilarArtistsUpdate =
     SimilarArtistsUpdate(
         artists = artists.take(displayLimit),
-        status = if (artists.isEmpty()) "No similar artists found." else null,
+        status = if (artists.isEmpty()) "No similar artists found" else null,
     )
 
 fun similarArtistsUnavailableStatus(error: Throwable): String =
@@ -268,7 +268,7 @@ fun albumDetailLoadingStatus(fallbackTitle: String?): String =
     "Loading ${fallbackTitle ?: "album"}..."
 
 fun albumDetailLoadedStatus(): String =
-    "Connected."
+    "Connected"
 
 fun albumDetailLoadErrorStatus(error: Throwable): String =
     error.message ?: "Could not load album."

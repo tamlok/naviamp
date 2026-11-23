@@ -58,15 +58,15 @@ class NaviampDiscoveryWaitingForReleaseUiTest {
             onNode(hasText("Waiting for release") and hasClickAction()).performScrollTo().assertIsNotEnabled()
             onAllNodesWithText(label).onLast().performScrollTo().assertIsDisplayed()
             onNodeWithText("Aurral manages this request.").assertIsDisplayed()
-            onNodeWithText("Saved in the server library; no files available.").assertDoesNotExist()
-            onNodeWithText("Request queued.").assertDoesNotExist()
+            onNodeWithText("Saved in the server library; no files available").assertDoesNotExist()
+            onNodeWithText("Request queued").assertDoesNotExist()
             onNodeWithText("Open in library").assertDoesNotExist()
             capture(onRoot().captureToImage(), "release-$width-$height-$television-${date ?: "unknown"}")
             onNodeWithContentDescription("Request track").performScrollTo().assertIsNotEnabled()
 
             runOnIdle { screen.value = screen.value.copy(releasePage = screen.value.releasePage!!.copy(
                 ownership = ProviderDiscoveryReleaseOwnership(ProviderDiscoveryStatus.Ready, ProviderDiscoveryReleaseAvailability.Available))) }
-            onNodeWithText("Available in the server library.").performScrollTo().assertIsDisplayed()
+            onNodeWithText("Available in the server library").performScrollTo().assertIsDisplayed()
             onAllNodesWithText(label).assertCountEquals(0)
             onNodeWithText("Aurral manages this request.").assertDoesNotExist()
             // A native availability hint alone still cannot create a playable Library destination.

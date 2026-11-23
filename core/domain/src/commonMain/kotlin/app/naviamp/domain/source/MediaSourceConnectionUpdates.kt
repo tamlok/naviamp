@@ -16,15 +16,15 @@ fun deletedMediaSourceUpdate(
         clearConnectedSource = connectedSourceId == source.id,
         clearSavedConnectionForLogin = savedConnectionBaseUrl == source.baseUrl &&
             savedConnectionUsername == source.username,
-        status = "Deleted ${source.displayName}.",
+        status = "Deleted ${source.displayName}",
     )
 
 fun connectedMediaSourceStatus(primaryUrl: String, activeUrl: String): String {
     val normalizedPrimary = primaryUrl.trim().trimEnd('/')
     val normalizedActive = activeUrl.trim().trimEnd('/')
     return if (normalizedActive.isNotBlank() && normalizedActive != normalizedPrimary) {
-        "Connected via $normalizedActive."
+        "Connected via $normalizedActive"
     } else {
-        "Connected."
+        "Connected"
     }
 }

@@ -288,7 +288,7 @@ class NaviampCoreSonicBuilderControllerTest {
         assertEquals(listOf("sonic path:start,middle,end"), fixture.played)
         assertEquals(listOf("sonic path:start,middle,end"), fixture.queued)
         assertEquals(listOf("My Path:start,middle,end"), fixture.provider.created)
-        assertEquals("Saved My Path.", fixture.store.state.value.shell.playlists.status)
+        assertEquals("Saved My Path", fixture.store.state.value.shell.playlists.status)
     }
 
     @Test

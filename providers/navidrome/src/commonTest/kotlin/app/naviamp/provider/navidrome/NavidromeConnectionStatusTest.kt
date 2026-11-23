@@ -10,19 +10,7 @@ class NavidromeConnectionStatusTest {
         val validation = ConnectionValidation(serverVersion = "0.55.0", apiVersion = "1.16.1")
 
         assertEquals(
-            "Connected to Navidrome 0.55.0.",
-            navidromeConnectionSuccessStatus(
-                validation = validation,
-            ),
-        )
-        assertEquals(
-            "Connected to Navidrome 0.55.0.",
-            navidromeConnectionSuccessStatus(
-                validation = validation,
-            ),
-        )
-        assertEquals(
-            "Connected to Navidrome 0.55.0.",
+            "Connected to Navidrome 0.55.0",
             navidromeConnectionSuccessStatus(
                 validation = validation,
             ),

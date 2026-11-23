@@ -460,7 +460,7 @@ class NaviampCoreDownloadsController(
         runCatching { provider.addTracksToPlaylist(playlistId, listOf(track.id)) }
             .onSuccess {
                 playlistTracksChanged(playlistId)
-                publishStatus("Added ${track.title} to playlist.")
+                publishStatus("Added ${track.title} to playlist")
             }
             .onFailure { publishStatus(it.message ?: "Could not add track to playlist.") }
     }
@@ -473,7 +473,7 @@ class NaviampCoreDownloadsController(
             return
         }
         runCatching { provider.createPlaylist(name, listOf(track.id)) }
-            .onSuccess { publishStatus("Created $name.") }
+            .onSuccess { publishStatus("Created $name") }
             .onFailure { publishStatus(it.message ?: "Could not create playlist.") }
     }
 
@@ -482,7 +482,7 @@ class NaviampCoreDownloadsController(
         runCatching { storage.remove(sourceId, download.track) }
             .onSuccess {
                 if (loadSnapshot(sourceId)) {
-                    publishStatus("Removed ${download.track.title} from downloads.")
+                    publishStatus("Removed ${download.track.title} from downloads")
                 }
             }
             .onFailure { publishStatus(it.message ?: "Could not remove downloaded track.") }

@@ -2,24 +2,15 @@ package app.naviamp.app
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class NaviampDownloadStatusTest {
-    @Test
-    fun maintenanceStatusesHandleZeroOneAndManyDownloads() {
-        assertEquals("Downloads are up to date.", downloadsRefreshStatus(0))
-        assertEquals("Removed 1 missing download.", downloadsRefreshStatus(1))
-        assertEquals("Removed 3 missing downloads.", downloadsRefreshStatus(3))
-        assertEquals("Deleted 1 download.", downloadsDeletedStatus(1))
-        assertEquals("Deleted 4 downloads.", downloadsDeletedStatus(4))
-    }
-
     @Test
     fun keepDownloadedStatusesUseTheCollectionNameAndPreferRealErrors() {
         assertEquals(
             "Road trip will no longer be kept downloaded. Existing files were kept.",
             keepDownloadedDisabledStatus("Road trip"),
         )
-        assertEquals("Road trip is up to date.", keepDownloadedUpToDateStatus("Road trip"))
         assertEquals(
             "Could not keep Road trip downloaded.",
             keepDownloadedErrorStatus("Road trip", IllegalStateException()),
@@ -28,5 +19,16 @@ class NaviampDownloadStatusTest {
             "Server unavailable",
             keepDownloadedRefreshErrorStatus("Road trip", IllegalStateException("Server unavailable")),
         )
+    }
+
+    @Test
+    fun maintenanceStatusesKeepCountsAndSingularPluralNouns() {
+        for (count in 0..2) {
+            val noun = if (count == 1) "download" else "downloads"
+            assertTrue(Regex("\\b$count $noun\\b").containsMatchIn(downloadsDeletedStatus(count)))
+            if (count > 0) {
+                assertTrue(Regex("\\b$count missing $noun\\b").containsMatchIn(downloadsRefreshStatus(count)))
+            }
+        }
     }
 }

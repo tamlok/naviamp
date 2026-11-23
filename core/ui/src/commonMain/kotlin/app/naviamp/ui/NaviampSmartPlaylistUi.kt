@@ -461,7 +461,7 @@ fun SmartPlaylistBuilderDialog(
                             onSave(smartPlaylist)
                         }.onSuccess {
                             saving = false
-                            saveMessage = "Saved ${smartPlaylist.name}."
+                            saveMessage = "Saved ${smartPlaylist.name}"
                             onDismissRequest()
                         }.onFailure { error ->
                             saving = false

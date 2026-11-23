@@ -61,7 +61,7 @@ class NaviampDiscoveryRequestsUiTest {
                 onNodeWithText("Back").assertIsFocused()
             }
             onNodeWithText("Album request").assertIsDisplayed()
-            onNodeWithText("Request finished; checking Library.").assertIsDisplayed()
+            onNodeWithText("Request finished; checking Library").assertIsDisplayed()
             onNodeWithText("Status could not be refreshed. Showing saved information.").assertIsDisplayed()
             onNodeWithText("Open in library").assertDoesNotExist()
             onNodeWithText("View artist").performClick()
@@ -84,7 +84,7 @@ class NaviampDiscoveryRequestsUiTest {
         setContent { MaterialTheme(colorScheme = darkColorScheme()) {
             NaviampDiscoveryRequestsUi(page.value, NaviampColors.Dark, discoveryPageFixtureActions(page, mutableListOf()))
         } }
-        onNodeWithText("No recent requests for this account.").assertIsDisplayed()
+        onNodeWithText("No recent requests for this account").assertIsDisplayed()
         runOnIdle {
             val record = DiscoveryAcquisitionRecord("future", initial.artistDetail!!.artist.id, "Artist", "release", true,
                 releaseTitle = "Future album", operation = ProviderDiscoveryOperation(ProviderDiscoveryOperationStatus.WaitingForRelease,
@@ -106,8 +106,8 @@ class NaviampDiscoveryRequestsUiTest {
             NaviampDiscoveryRequestsUi(page.value, NaviampColors.Dark, discoveryPageFixtureActions(page, mutableListOf()))
         } }
         onNodeWithText("Server request").assertIsDisplayed()
-        onNodeWithText("Request finished.").assertIsDisplayed()
-        onNodeWithText("Request finished; checking Library.").assertDoesNotExist()
+        onNodeWithText("Request finished").assertIsDisplayed()
+        onNodeWithText("Request finished; checking Library").assertDoesNotExist()
         onNodeWithText("Open in library").assertDoesNotExist()
     }
     private fun capture(bitmap: androidx.compose.ui.graphics.ImageBitmap, name: String) {

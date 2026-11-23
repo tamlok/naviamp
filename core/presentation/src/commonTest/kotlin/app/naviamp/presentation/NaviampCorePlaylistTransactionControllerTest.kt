@@ -121,8 +121,8 @@ class NaviampCorePlaylistTransactionControllerTest {
         assertEquals(listOf("track-1", "track-2", "track-2"), fixture.provider.addedTrackIds.map(TrackId::value))
         assertEquals(listOf("track-1", "track-2"), fixture.provider.created.last().second.map(TrackId::value))
         assertEquals(listOf("track-2", "track-1"), fixture.provider.replacementTrackIds.map(TrackId::value))
-        assertEquals("Updated playlist.", fixture.store.state.value.shell.playlists.status)
-        assertEquals("Updated playlist.", fixture.store.state.value.shell.playlistDetail.status)
+        assertEquals("Updated playlist", fixture.store.state.value.shell.playlists.status)
+        assertEquals("Updated playlist", fixture.store.state.value.shell.playlistDetail.status)
     }
 
     @Test
@@ -278,7 +278,7 @@ class NaviampCorePlaylistTransactionControllerTest {
 
         assertEquals(listOf("playlist-a"), fixture.provider.deleted)
         assertNull(fixture.store.state.value.shell.playlistDetail.selectedPlaylist)
-        assertEquals("Deleted playlist.", fixture.store.state.value.shell.playlists.status)
+        assertEquals("Deleted playlist", fixture.store.state.value.shell.playlists.status)
     }
 
     @Test
@@ -330,7 +330,7 @@ class NaviampCorePlaylistTransactionControllerTest {
         assertFalse(created.canEditPlaylist)
         assertEquals(12, created.trackCount)
         assertFalse(fixture.store.state.value.shell.playlistChoices.any { it.id == created.id })
-        assertEquals("Saved smart playlist Smart Mix.", fixture.store.state.value.shell.playlists.status)
+        assertEquals("Saved smart playlist Smart Mix", fixture.store.state.value.shell.playlists.status)
     }
 
     @Test

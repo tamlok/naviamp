@@ -15,5 +15,4 @@ fun navidromeConnectionSuccessStatus(
         if (!normalizedActive.isNullOrBlank() && normalizedActive != normalizedPrimary) {
             append(" via $normalizedActive")
         }
-        append(".")
     }

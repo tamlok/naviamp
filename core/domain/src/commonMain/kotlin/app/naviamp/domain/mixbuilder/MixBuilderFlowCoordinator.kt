@@ -60,7 +60,7 @@ class MixItemTracksCoordinator<Item>(
 }
 
 fun artistMixLoadSuggestionsEmptyStatus(initial: Boolean): String =
-    if (initial) "No artist suggestions yet." else "No artists matched."
+    if (initial) "No artist suggestions yet" else "No artists matched"
 
 fun artistMixLoadSuggestionsFailureStatus(initial: Boolean, error: Throwable): String =
     error.message ?: if (initial) "Could not load artist suggestions." else "Could not search artists."
@@ -111,7 +111,7 @@ fun artistMixGeneratedQueue(
     )
 
 fun albumMixLoadSuggestionsEmptyStatus(initial: Boolean): String =
-    if (initial) "No album suggestions yet." else "No albums matched."
+    if (initial) "No album suggestions yet" else "No albums matched"
 
 fun albumMixLoadSuggestionsFailureStatus(initial: Boolean, error: Throwable): String =
     error.message ?: if (initial) "Could not load album suggestions." else "Could not search albums."
@@ -162,7 +162,7 @@ fun albumMixGeneratedQueue(
     )
 
 fun genreMixLoadSuggestionsEmptyStatus(): String =
-    "No genres matched."
+    "No genres matched"
 
 fun genreMixLoadSuggestionsFailureStatus(error: Throwable): String =
     error.message ?: "Could not load genres."

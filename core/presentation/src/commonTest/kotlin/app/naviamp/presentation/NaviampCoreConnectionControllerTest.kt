@@ -415,7 +415,7 @@ class NaviampCoreConnectionControllerTest {
         val state = fixture.store.state.value.shell.connectionSettings
         assertTrue(state.connection.connected)
         assertFalse(state.connection.isConnecting)
-        assertEquals("Connected to Home Music.", state.connection.status)
+        assertEquals("Connected to Home Music", state.connection.status)
         assertEquals("source-1", state.currentSourceId)
         assertTrue(state.connection.savedConnections.single().current)
         assertEquals(1, connectedNotifications)
@@ -535,7 +535,7 @@ class NaviampCoreConnectionControllerTest {
         val settings = fixture.store.state.value.shell.connectionSettings
         assertEquals("source-2", settings.currentSourceId)
         assertEquals(listOf(false, true), settings.connection.savedConnections.map { it.current })
-        assertEquals("Connected to Studio Music.", settings.connection.status)
+        assertEquals("Connected to Studio Music", settings.connection.status)
     }
 
     @Test
@@ -688,7 +688,7 @@ class NaviampCoreConnectionControllerTest {
         fixture.controller.execute(NaviampCoreCommand.Connection.Delete(saved))
         val connection = fixture.store.state.value.shell.connectionSettings.connection
         assertEquals(emptyList<NaviampSavedConnectionUi>(), connection.savedConnections)
-        assertEquals("Deleted Home Music.", connection.status)
+        assertEquals("Deleted Home Music", connection.status)
     }
 
     @Test

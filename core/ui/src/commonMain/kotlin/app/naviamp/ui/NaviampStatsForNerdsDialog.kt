@@ -87,7 +87,7 @@ fun NaviampStatsForNerdsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (diagnostics.sections.isEmpty()) {
-            Text("No diagnostics are available yet.")
+            Text("No diagnostics are available yet")
         } else {
             diagnostics.sections.forEach { section ->
                 Column(

@@ -177,34 +177,34 @@ class NaviampCorePlaylistTransactionController(
                     val tracks = provider.playlistTracks(playlist.id)
                     provider.addTracksToPlaylist(command.choice.id, tracks.map(Track::id))
                     onPlaylistTracksChanged(command.choice.id)
-                    browseController.refreshAfterMutation("Added ${tracks.size} tracks to ${command.choice.name}.")
+                    browseController.refreshAfterMutation("Added ${tracks.size} tracks to ${command.choice.name}")
                     return
                 }
                 is NaviampPlaylistDetailCommand.CreatePlaylistAndAdd -> {
                     val tracks = provider.playlistTracks(playlist.id)
                     provider.createPlaylist(requireName(command.name), tracks.map(Track::id))
-                    browseController.refreshAfterMutation("Created ${command.name.trim()}.")
+                    browseController.refreshAfterMutation("Created ${command.name.trim()}")
                     return
                 }
                 is NaviampPlaylistDetailCommand.Copy -> {
                     val tracks = provider.playlistTracks(playlist.id)
                     val copiedTracks = if (command.deduplicate) tracks.distinctBy { it.id } else tracks
                     provider.createPlaylist(requireName(command.name), copiedTracks.map(Track::id))
-                    browseController.refreshAfterMutation("Copied ${playlist.name}.")
+                    browseController.refreshAfterMutation("Copied ${playlist.name}")
                     return
                 }
                 is NaviampPlaylistDetailCommand.Rename -> {
                     if (!playlist.canEdit) throw UnsupportedOperationException()
                     val name = requireName(command.name)
                     provider.renamePlaylist(playlist.id, name)
-                    browseController.refreshAfterMutation("Renamed playlist.")
+                    browseController.refreshAfterMutation("Renamed playlist")
                     updateSelectedPlaylistName(playlist.id, name)
                     return
                 }
                 NaviampPlaylistDetailCommand.Delete -> {
                     if (!playlist.canManage) throw UnsupportedOperationException()
                     provider.deletePlaylist(playlist.id)
-                    browseController.refreshAfterMutation("Deleted playlist.")
+                    browseController.refreshAfterMutation("Deleted playlist")
                     clearDeletedSelection(playlist.id)
                     return
                 }
@@ -213,7 +213,7 @@ class NaviampCorePlaylistTransactionController(
                     return
                 }
             }
-            publishStatus("Connected.")
+            publishStatus("Connected")
         }.onFailure { cause ->
             publishStatus(cause.message ?: "Playlist action failed.")
         }
@@ -247,8 +247,8 @@ class NaviampCorePlaylistTransactionController(
             val tracksById = currentTracks.associateBy(Track::id)
             val savedTracks = requestedTrackIds.mapNotNull(tracksById::get)
             if (savedTracks.size == requestedTrackIds.size) browseController.reconcileContents(playlist.id, savedTracks)
-            browseController.refreshAfterMutation("Updated playlist.")
-            if (isCurrent()) publishStatus("Updated playlist.")
+            browseController.refreshAfterMutation("Updated playlist")
+            if (isCurrent()) publishStatus("Updated playlist")
         } catch (cause: Throwable) {
             if (isCurrent() && cause !is CancellationException) {
                 publishStatus(cause.message ?: "Could not update playlist.")
@@ -265,7 +265,7 @@ class NaviampCorePlaylistTransactionController(
             val created = provider.createSmartPlaylist(definition)
             sessionPort.persistActiveSession()
             if (generation != browseController.sourceGeneration || !providerSource.isCurrent(provider)) return
-            browseController.refreshAfterMutation("Saved smart playlist ${definition.name}.")
+            browseController.refreshAfterMutation("Saved smart playlist ${definition.name}")
             if (generation == browseController.sourceGeneration && providerSource.isCurrent(provider)) {
                 browseController.reconcileCreatedSmartPlaylist(created)
             }
@@ -291,7 +291,7 @@ class NaviampCorePlaylistTransactionController(
         try {
             provider.updateSmartPlaylist(playlist.id, definition)
             sessionPort.persistActiveSession()
-            browseController.refreshAfterMutation("Updated smart playlist ${definition.name}.")
+            browseController.refreshAfterMutation("Updated smart playlist ${definition.name}")
         } catch (cause: Throwable) {
             sessionPort.persistActiveSession()
             publishListStatus(cause.message ?: "Could not update smart playlist.")

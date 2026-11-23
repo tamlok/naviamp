@@ -268,7 +268,7 @@ class NaviampCoreStandardMixController(
             publishArtist(
                 loading = false,
                 status = if (suggestions.isEmpty()) {
-                    if (initial) "No artist suggestions yet." else "No artists matched."
+                    if (initial) "No artist suggestions yet" else "No artists matched"
                 } else null,
             )
         }.onFailure { cause ->
@@ -309,7 +309,7 @@ class NaviampCoreStandardMixController(
             .onSuccess { suggestions ->
                 if (generation != artistGeneration) return@onSuccess
                 artistSuggestions = suggestions
-                publishArtist(false, if (suggestions.isEmpty()) "No artist suggestions yet." else null)
+                publishArtist(false, if (suggestions.isEmpty()) "No artist suggestions yet" else null)
             }
             .onFailure { cause ->
                 if (generation == artistGeneration) {
@@ -350,7 +350,7 @@ class NaviampCoreStandardMixController(
             load.phase = CandidatePhase.Complete
             albumSuggestions = suggestions
             publishAlbum(false, if (suggestions.isEmpty()) {
-                if (initial) "No album suggestions yet." else "No albums matched."
+                if (initial) "No album suggestions yet" else "No albums matched"
             } else null)
         }.onFailure { cause ->
             candidateFailure(load, cause) { message -> publishAlbum(false, message ?: if (cause is CancellationException) null else "Could not load albums.") }
@@ -390,7 +390,7 @@ class NaviampCoreStandardMixController(
             .onSuccess { suggestions ->
                 if (generation != albumGeneration) return@onSuccess
                 albumSuggestions = suggestions
-                publishAlbum(false, if (suggestions.isEmpty()) "No album suggestions yet." else null)
+                publishAlbum(false, if (suggestions.isEmpty()) "No album suggestions yet" else null)
             }
             .onFailure { cause ->
                 if (generation == albumGeneration) {
@@ -431,7 +431,7 @@ class NaviampCoreStandardMixController(
             load.phase = CandidatePhase.Complete
             genreProjection = projection
             genreSuggestions = suggestions
-                publishGenre(false, if (suggestions.isEmpty()) "No genres matched." else null)
+                publishGenre(false, if (suggestions.isEmpty()) "No genres matched" else null)
             }
             .onFailure { cause ->
                 candidateFailure(load, cause) { message -> publishGenre(false, message ?: if (cause is CancellationException) null else "Could not load genres.") }

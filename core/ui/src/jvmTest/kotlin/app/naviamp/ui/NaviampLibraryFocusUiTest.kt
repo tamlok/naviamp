@@ -165,10 +165,10 @@ class NaviampLibraryFocusUiTest {
             NaviampLibraryContent(NaviampColors(), screen.value, libraryActions {}, emptyMediaActions(), rememberNaviampLibraryViewportState())
         }
         onNodeWithText("Loading songs…").assertIsDisplayed()
-        onNodeWithText("No library songs found.").assertDoesNotExist()
+        onNodeWithText("No library songs found").assertDoesNotExist()
         runOnIdle { screen.value = screen.value.copy(songs = NaviampLibraryCatalogUi()) }
         onNodeWithText("Loading songs…").assertDoesNotExist()
-        onNodeWithText("No library songs found.").assertIsDisplayed()
+        onNodeWithText("No library songs found").assertIsDisplayed()
     }
 
     @Test

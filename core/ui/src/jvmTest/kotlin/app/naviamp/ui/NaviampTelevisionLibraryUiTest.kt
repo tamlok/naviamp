@@ -66,7 +66,7 @@ class NaviampTelevisionLibraryUiTest {
                 screen.value.artists.items.map { it.copy(favoriteActive = false) }))
         }
         onNodeWithTag(itemTag("alias")).assertDoesNotExist()
-        onNodeWithText("No library artists match.").assertIsDisplayed()
+        onNodeWithText("No library artists match").assertIsDisplayed()
     }
 
     @Test fun favoritesStatusHidesStaleRowsAndNeverLoadsOrdinaryPagesOnAnyTab() = runDesktopComposeUiTest(1280, 720) {
@@ -80,8 +80,8 @@ class NaviampTelevisionLibraryUiTest {
                 )
             }
             onNodeWithText("Loading ${view.name.lowercase()}…").assertIsDisplayed()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
-            onNodeWithText("No library ${view.name.lowercase()} found.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
+            onNodeWithText("No library ${view.name.lowercase()} found").assertDoesNotExist()
             onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
             onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
             runOnIdle {
@@ -90,7 +90,7 @@ class NaviampTelevisionLibraryUiTest {
                 ))
             }
             onNodeWithText("Could not load favorites. Refresh to try again.").assertIsDisplayed()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
             onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
             onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
             runOnIdle {
@@ -98,7 +98,7 @@ class NaviampTelevisionLibraryUiTest {
                     favoritesFailed = false, items = emptyList(), tracks = emptyList(),
                 ))
             }
-            onNodeWithText("No favorites yet.").assertIsDisplayed()
+            onNodeWithText("No favorites yet").assertIsDisplayed()
             onNodeWithContentDescription("Favorites").assertIsDisplayed().assertIsSelected()
             runOnIdle { assertEquals(0, loads) }
         }
@@ -126,11 +126,11 @@ class NaviampTelevisionLibraryUiTest {
                 ))
             }
             onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
-            onNodeWithText("No library ${view.name.lowercase()} match.").assertIsDisplayed()
+            onNodeWithText("No library ${view.name.lowercase()} match").assertIsDisplayed()
             runOnIdle {
                 screen.value = screen.value.withSelectedCatalog(screen.value.selectedCatalog.copy(query = "", resultsQuery = ""))
             }
-            onNodeWithText("No favorites yet.").assertIsDisplayed()
+            onNodeWithText("No favorites yet").assertIsDisplayed()
             runOnIdle { screen.value = screen.value.withSelectedCatalog(favoritesCatalog(view)) }
             onNodeWithContentDescription("Favorites")
                 .performSemanticsAction(SemanticsActions.RequestFocus)
@@ -166,7 +166,7 @@ class NaviampTelevisionLibraryUiTest {
             onNodeWithTag(viewTag(view)).performClick()
             onNodeWithContentDescription("Favorites").assertIsEnabled().assertIsSelected()
             onNodeWithText("Favorites are not supported by this source.").assertIsDisplayed()
-            onNodeWithText("No favorites yet.").assertDoesNotExist()
+            onNodeWithText("No favorites yet").assertDoesNotExist()
             onNodeWithTag(itemTag("$view-alias")).assertDoesNotExist()
             onNodeWithTag(itemTag("$view-ordinary")).assertDoesNotExist()
         }

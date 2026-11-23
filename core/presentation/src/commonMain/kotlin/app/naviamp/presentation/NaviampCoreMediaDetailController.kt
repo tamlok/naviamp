@@ -473,7 +473,7 @@ class NaviampCoreMediaDetailController(
                                 supportsTrackRadio = provider.capabilities.supportsTrackRadio,
                                 showAlbumInformation = shell.general.interfaceSettings.showAlbumInformation,
                             ),
-                            status = "Connected.",
+                            status = "Connected",
                             playbackProfile = playbackProfiles.albumProfile(detail.album.id.value),
                             playbackProfileStatus = null,
                         ),
@@ -635,9 +635,9 @@ class NaviampCoreMediaDetailController(
                             ).copy(playlistsVisible = shell.general.interfaceSettings.showArtistPlaylists,
                                 aurralSourceId = shell.connectionSettings.currentSourceId.takeIf { provider.discovery != null }),
                             status = if (detail.albums.isEmpty()) {
-                                "No albums found for ${detail.artist.name}."
+                                "No albums found for ${detail.artist.name}"
                             } else {
-                                "Connected."
+                                "Connected"
                             },
                         ),
                     )

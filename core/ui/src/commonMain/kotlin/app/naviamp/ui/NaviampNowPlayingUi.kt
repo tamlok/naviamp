@@ -2586,8 +2586,8 @@ private fun NowPlayingQueuePanel(
             surfaceColor = surfaceColor,
             listState = listState,
             emptyLabel = when (selectedTab) {
-                NaviampNowPlayingTab.BackTo -> "Playback history will appear here."
-                NaviampNowPlayingTab.UpNext -> "Queue is empty."
+                NaviampNowPlayingTab.BackTo -> "Playback history will appear here"
+                NaviampNowPlayingTab.UpNext -> "Queue is empty"
                 NaviampNowPlayingTab.Related -> nowPlaying.relatedEmptyLabel
             },
             playlistChoices = nowPlaying.playlistChoices,
@@ -3126,7 +3126,7 @@ fun AddToPlaylistDialog(
                 } else {
                     if (playlists.isEmpty()) {
                         Text(
-                            "No existing playlists are available.",
+                            "No existing playlists are available",
                             color = colors.secondaryText,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -3536,7 +3536,7 @@ private fun NowPlayingItemList(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
     currentId: String? = null,
-    emptyLabel: String = "Nothing here yet.",
+    emptyLabel: String = "Nothing here yet",
     playlistChoices: List<NaviampPlaylistChoiceUi> = emptyList(),
     useInlinePlaylistPicker: Boolean = true,
     canAddToPlaylist: Boolean = true,

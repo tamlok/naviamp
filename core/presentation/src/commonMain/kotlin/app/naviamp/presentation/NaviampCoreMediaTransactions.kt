@@ -407,7 +407,7 @@ class NaviampCoreMediaTransactions(
         runCatching { provider.addTracksToPlaylist(choice.id, tracks.map(Track::id)) }
             .onSuccess {
                 downloads.playlistTracksChanged(choice.id)
-                publish("Added ${tracks.size} tracks to ${choice.name}.")
+                publish("Added ${tracks.size} tracks to ${choice.name}")
             }
             .onFailure { publish(it.message ?: "Could not add tracks to playlist.") }
     }
@@ -417,7 +417,7 @@ class NaviampCoreMediaTransactions(
         val name = requestedName.trim()
         if (name.isEmpty()) return publish("Playlist name cannot be blank.")
         runCatching { provider.createPlaylist(name, tracks.map(Track::id)) }
-            .onSuccess { publish("Created $name.") }
+            .onSuccess { publish("Created $name") }
             .onFailure { publish(it.message ?: "Could not create playlist.") }
     }
 
@@ -545,7 +545,7 @@ class NaviampCoreMediaTransactions(
             currentPlayback.currentTrack?.id == request.seedTrack.id &&
             currentPlayback.queue.current?.id == request.seedTrack.id
         if (!retainCurrent) play(listOf(request.seedTrack))
-        publish("Playing ${request.label} while the queue builds.")
+        publish("Playing ${request.label} while the queue builds")
         var diagnostics: app.naviamp.domain.radio.RadioBuildDiagnostics? = null
         val radioSettings = stateStore.state.value.shell.playback.settings
         val radioService = RadioService(
@@ -592,7 +592,7 @@ class NaviampCoreMediaTransactions(
                 ), result.queue, sourceId)
                 onStarted()
                 recordRadioDiagnostics(diagnostics?.takeUnless { it.outcome == app.naviamp.domain.radio.RadioBuildOutcome.Empty })
-                publish("Playing ${request.label}.")
+                publish("Playing ${request.label}")
             }
             is SeededRadioBuildResult.Failed -> {
                 if (result.error is CancellationException) throw result.error

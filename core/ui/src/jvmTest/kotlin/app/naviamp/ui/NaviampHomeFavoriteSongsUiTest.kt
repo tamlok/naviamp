@@ -80,7 +80,7 @@ class NaviampHomeFavoriteSongsUiTest {
         }
         val inactiveStates = listOf(
             FavoriteSongsStatus.Loading to "Loading songs…",
-            FavoriteSongsStatus.Empty to "No favorites yet.",
+            FavoriteSongsStatus.Empty to "No favorites yet",
             FavoriteSongsStatus.Failed to "Could not load favorite songs. Try again.",
             FavoriteSongsStatus.Unsupported to "Favorites are not supported by this source.",
             FavoriteSongsStatus.Idle to null,

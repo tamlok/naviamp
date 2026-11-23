@@ -87,7 +87,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = PlaybackQueue(tracks = listOf(one), currentIndex = 0),
                 tracksChanged = true,
-                status = "Added 1 track to queue.",
+                status = "Added 1 track to queue",
             ),
             PlaybackQueueManager().appendTracks(
                 currentQueue = PlaybackQueue(),
@@ -105,7 +105,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = PlaybackQueue(tracks = listOf(one, two), currentIndex = 0),
                 tracksChanged = true,
-                status = "Added 1 track to queue.",
+                status = "Added 1 track to queue",
             ),
             PlaybackQueueManager().appendTracks(
                 currentQueue = PlaybackQueue(tracks = listOf(one), currentIndex = 0),
@@ -124,7 +124,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = PlaybackQueue(tracks = listOf(one, three, two), currentIndex = 0, playNextCount = 1),
                 tracksChanged = true,
-                status = "Added 1 track to play next.",
+                status = "Added 1 track to play next",
             ),
             PlaybackQueueManager().playNextTracks(
                 currentQueue = PlaybackQueue(tracks = listOf(one, two), currentIndex = 0),
@@ -141,7 +141,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = PlaybackQueue(tracks = listOf(one), currentIndex = 0),
                 tracksChanged = true,
-                status = "Added 1 track to play next.",
+                status = "Added 1 track to play next",
             ),
             PlaybackQueueManager().playNextTracks(
                 currentQueue = PlaybackQueue(),
@@ -159,7 +159,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = PlaybackQueue(tracks = listOf(one, two), currentIndex = 0),
                 tracksChanged = true,
-                status = "Added 1 popular tracks to queue.",
+                status = "Added 1 popular tracks to queue",
             ),
             PlaybackQueueManager().appendTracks(
                 currentQueue = PlaybackQueue(tracks = listOf(one), currentIndex = 0),
@@ -180,7 +180,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = currentQueue,
                 tracksChanged = false,
-                status = "No tracks found.",
+                status = "No tracks found",
             ),
             PlaybackQueueManager().appendTracks(
                 currentQueue = currentQueue,
@@ -191,7 +191,7 @@ class PlaybackQueueManagerTest {
             PlaybackQueueUpdate(
                 queue = currentQueue,
                 tracksChanged = false,
-                status = "Popular tracks are already in the queue.",
+                status = "Popular tracks are already in the queue",
             ),
             PlaybackQueueManager().appendTracks(
                 currentQueue = currentQueue,

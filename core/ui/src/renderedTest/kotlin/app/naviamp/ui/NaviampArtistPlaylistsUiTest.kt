@@ -23,17 +23,17 @@ class NaviampArtistPlaylistsUiTest {
         }
         onNodeWithText("Finding your playlists…").assertExists()
         onNodeWithText("Refresh").assertIsNotEnabled()
-        onNodeWithText("None of your playlists contain this artist.").assertDoesNotExist()
+        onNodeWithText("None of your playlists contain this artist").assertDoesNotExist()
         runOnIdle { state.value = SharedArtistPlaylistsUi(items = listOf(SharedMediaItemUi("mine", "Road trip", "3 tracks")), failed = true) }
         onNodeWithText("Some playlists could not be checked. Retry to check them again.").assertExists()
         onNodeWithText("Road trip").performClick()
         onNodeWithText("Retry").performClick()
         runOnIdle { assertEquals("mine", selected); assertEquals(1, retries) }
         runOnIdle { state.value = SharedArtistPlaylistsUi() }
-        onNodeWithText("None of your playlists contain this artist.").assertExists()
+        onNodeWithText("None of your playlists contain this artist").assertExists()
         onNodeWithText("Retry").assertDoesNotExist()
         runOnIdle { state.value = SharedArtistPlaylistsUi(truncated = true) }
-        onNodeWithText("None of your playlists contain this artist.").assertDoesNotExist()
+        onNodeWithText("None of your playlists contain this artist").assertDoesNotExist()
         onNodeWithText("Only the first 500 playlists were checked. More playlists may contain this artist.").assertExists()
     }
 

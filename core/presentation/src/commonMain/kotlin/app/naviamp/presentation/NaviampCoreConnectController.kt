@@ -352,7 +352,7 @@ class NaviampCoreConnectController(
         }
         services.credentials?.remove(trust.peerDevice.deviceId)
         services.trust.remove(trustedDeviceId)
-        status = "Forgot ${trust.visibleDisplayName()}."
+        status = "Forgot ${trust.visibleDisplayName()}"
         statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ForgotDevice, listOf(trust.visibleDisplayName()))
         publish()
     }
@@ -381,7 +381,7 @@ class NaviampCoreConnectController(
                         when (value) {
                             is NaviampConnectAdvertisingStatus.Advertising -> {
                                 phase = NaviampConnectPairingUiPhase.Advertising
-                                status = "Ready for a controller on this local network."
+                                status = "Ready for a controller on this local network"
                                 statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ReadyForAControllerOnThisLocalNetwork)
                             }
                             is NaviampConnectAdvertisingStatus.Failed -> {
@@ -761,7 +761,7 @@ class NaviampCoreConnectController(
                 val connected = replaceTargetSession(result.session)
                 if (connected) {
                     phase = NaviampConnectPairingUiPhase.Paired
-                    status = "Reconnected to ${trust.displayName}."
+                    status = "Reconnected to ${trust.displayName}"
                     statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ReconnectedToDevice, listOf(trust.displayName))
                 } else {
                     result.session.close()
@@ -810,7 +810,7 @@ class NaviampCoreConnectController(
         pendingTargetPairing = null
         closeTargetResources()
         phase = NaviampConnectPairingUiPhase.Inactive
-        status = "Pairing request rejected."
+        status = "Pairing request rejected"
         statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.PairingRequestRejected)
         publish()
     }
@@ -1007,7 +1007,7 @@ class NaviampCoreConnectController(
                         automaticReconnectRetryJob?.cancel()
                         automaticReconnectRetryJob = null
                         phase = NaviampConnectPairingUiPhase.Paired
-                        status = "Reconnected to ${trust.displayName}."
+                        status = "Reconnected to ${trust.displayName}"
                         statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ReconnectedToDevice, listOf(trust.displayName))
                     } else {
                         result.session.close()
@@ -1197,7 +1197,7 @@ class NaviampCoreConnectController(
                 if (connected) {
                     phase = NaviampConnectPairingUiPhase.Paired
                     status = if (credentialSaved) {
-                        "Connected to ${result.trust.displayName}."
+                        "Connected to ${result.trust.displayName}"
                     } else {
                         "Connected to ${result.trust.displayName}, but secure reconnect could not be saved."
                     }

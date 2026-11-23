@@ -309,7 +309,7 @@ class NaviampCoreSonicBuilderController(
                 if (generation != current || !isCurrent(load)) return@onSuccess
                 load.phase = CandidatePhase.Complete
                 if (start) startSuggestions = tracks else endSuggestions = tracks
-                publishPath(pathSearchLoading(), if (tracks.isEmpty()) "No matching tracks." else null)
+                publishPath(pathSearchLoading(), if (tracks.isEmpty()) "No matching tracks" else null)
             }
             .onFailure { cause ->
                 candidateFailure(load, cause)
@@ -355,7 +355,7 @@ class NaviampCoreSonicBuilderController(
                 load.phase = CandidatePhase.Complete
                 val selectedIds = selectedMixTracks.map(Track::id).toSet()
                 mixSuggestions = tracks.filterNot { it.id in selectedIds }
-                publishMix(false, if (mixSuggestions.isEmpty()) "No matching tracks." else null)
+                publishMix(false, if (mixSuggestions.isEmpty()) "No matching tracks" else null)
             }
             .onFailure { cause ->
                 candidateFailure(load, cause)
@@ -421,7 +421,7 @@ class NaviampCoreSonicBuilderController(
             return
         }
         runCatching { provider.createPlaylist(name, tracks.map(Track::id)) }
-            .onSuccess { playlistBrowseController.refreshAfterMutation("Saved $name.") }
+            .onSuccess { playlistBrowseController.refreshAfterMutation("Saved $name") }
             .onFailure { cause ->
                 if (label == "sonic path") updatePathStatus(cause.message ?: "Could not save sonic path.")
                 else updateMixStatus(cause.message ?: "Could not save sonic mix.")

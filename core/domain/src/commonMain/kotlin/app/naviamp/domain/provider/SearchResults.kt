@@ -22,8 +22,8 @@ fun MediaSearchResults.totalCount(): Int =
 
 fun searchResultsStatus(
     results: MediaSearchResults,
-    emptyStatus: String? = "No matches found.",
-    matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches." },
+    emptyStatus: String? = "No matches found",
+    matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches" },
 ): String? =
     if (results.isEmpty) {
         emptyStatus
@@ -37,8 +37,8 @@ fun searchErrorStatus(error: Throwable): String =
 suspend fun searchResultsUpdate(
     query: String,
     limit: Int = SearchResultLimit,
-    emptyStatus: String? = "No matches found.",
-    matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches." },
+    emptyStatus: String? = "No matches found",
+    matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches" },
     search: suspend (query: String, limit: Int) -> MediaSearchResults,
 ): SearchResultsUpdate {
     val results = try {
@@ -66,8 +66,8 @@ class SearchSessionController<Provider : Any>(
     private val disconnectedStatus: String? = SearchDisconnectedStatus,
     private val loadingStatus: String? = null,
     private val clearWhenProviderMissing: Boolean = true,
-    private val emptyStatus: String? = "No matches found.",
-    private val matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches." },
+    private val emptyStatus: String? = "No matches found",
+    private val matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches" },
     private val search: suspend (provider: Provider, query: String, limit: Int) -> MediaSearchResults,
 ) {
     suspend fun load(query: String, debounce: suspend () -> Unit = {}) {

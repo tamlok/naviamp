@@ -313,7 +313,7 @@ fun downloadErrorStatus(label: String, error: Throwable): String =
     error.message ?: "Could not download $label."
 
 fun downloadedTrackRemovedStatus(trackTitle: String): String =
-    "Removed $trackTitle."
+    "Removed $trackTitle"
 
 fun downloadRemoveErrorStatus(error: Throwable): String =
     error.message ?: "Could not remove download."

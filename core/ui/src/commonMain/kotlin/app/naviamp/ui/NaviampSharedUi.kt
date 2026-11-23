@@ -358,7 +358,7 @@ private fun NaviampSharedAppShellContent(
                             Text(status, color = colors.secondaryText, fontSize = 13.sp)
                         }
                         serverVersion?.let {
-                            Text("Connected to Navidrome $it.", color = colors.secondaryText, fontSize = 13.sp)
+                            Text("Connected to Navidrome $it", color = colors.secondaryText, fontSize = 13.sp)
                         }
                     }
 

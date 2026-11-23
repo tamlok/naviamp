@@ -193,7 +193,7 @@ class NaviampCoreDownloadsControllerTest {
         assertEquals(8_000L, screen.offlineDashboard.audioCacheBytes)
         assertEquals(3L, screen.offlineDashboard.pendingProviderActionCount)
         assertTrue(screen.keepFavoritesDownloaded)
-        assertEquals("Downloads are up to date.", screen.status)
+        assertEquals("Downloads are up to date", screen.status)
 
         fixture.controller.execute(
             NaviampCoreCommand.Downloads.TrackAction(
@@ -240,7 +240,7 @@ class NaviampCoreDownloadsControllerTest {
 
         fixture.controller.execute(NaviampCoreCommand.Downloads.DeleteAll)
         assertTrue(fixture.store.state.value.shell.downloads.downloads.isEmpty())
-        assertEquals("Deleted 1 download.", fixture.store.state.value.shell.downloads.status)
+        assertEquals("Deleted 1 download", fixture.store.state.value.shell.downloads.status)
     }
 
     @Test
