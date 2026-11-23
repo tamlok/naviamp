@@ -289,7 +289,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertEquals("now", registry.libraryAlbums.single().favoritedAtIso8601)
         assertEquals("now", registry.artistAppearanceAlbums.single().favoritedAtIso8601)
         assertEquals("now", registry.artistAppearanceTracks.single().favoritedAtIso8601)
-        assertNull(registry.home.favoriteArtists.single().favoritedAtIso8601)
+        assertTrue(registry.home.favoriteArtists.isEmpty())
     }
 
     @Test
