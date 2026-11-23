@@ -38,7 +38,6 @@ import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.settings.normalizedCompactLyricsFontSize
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.compact_lyrics_font_size
-import app.naviamp.ui.generated.resources.compact_lyrics_loading
 import app.naviamp.ui.generated.resources.compact_lyrics_refresh
 import app.naviamp.ui.generated.resources.now_playing_lyrics_unavailable
 import kotlinx.coroutines.delay
@@ -65,11 +64,11 @@ internal fun NaviampCompactLyricsCard(
     ) {
         Box(Modifier.fillMaxWidth().weight(1f).clipToBounds(), contentAlignment = Alignment.Center) {
             when {
-                nowPlaying.lyricsLoading -> CompactLyricsStatus(stringResource(Res.string.compact_lyrics_loading), colors)
+                nowPlaying.lyricsLoading -> Unit
                 nowPlaying.lyricsLines.isNotEmpty() -> CompactLyricsText(nowPlaying, playbackProgress, colors)
-                else -> CompactLyricsStatus(
-                    nowPlaying.lyricsStatus ?: stringResource(Res.string.now_playing_lyrics_unavailable),
-                    colors,
+                nowPlaying.lyricsStatus != null -> CompactLyricsStatus(nowPlaying.lyricsStatus, colors)
+                !nowPlaying.lyricsAvailable -> CompactLyricsStatus(
+                    stringResource(Res.string.now_playing_lyrics_unavailable), colors,
                 )
             }
         }

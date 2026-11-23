@@ -1280,5 +1280,4 @@
     <string name="connection_aurral_companion_save_failed">Der Aurral-Begleiter konnte nicht gespeichert werden. Deine Musikverbindung bleibt unverändert.</string>
     <string name="compact_lyrics_font_size">Liedtext-Schriftgröße wechseln (aktuell: %1$d)</string>
     <string name="compact_lyrics_refresh">Zwischengespeicherte Liedtexte löschen und neu laden</string>
-    <string name="compact_lyrics_loading">Liedtext wird geladen…</string>
 </resources>

@@ -639,5 +639,4 @@
     <string name="connection_aurral_companion_save_failed">Nie udało się zapisać towarzyszącego Aurral. Połączenie muzyczne nie uległo zmianie.</string>
     <string name="compact_lyrics_font_size">Zmień rozmiar czcionki tekstu utworu (obecny: %1$d)</string>
     <string name="compact_lyrics_refresh">Wyczyść teksty utworów z pamięci podręcznej i odśwież</string>
-    <string name="compact_lyrics_loading">Wczytywanie tekstu utworu…</string>
 </resources>

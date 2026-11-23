@@ -541,5 +541,4 @@
     <string name="connection_aurral_companion_save_failed">Aurral yardımcısı kaydedilemedi. Müzik bağlantınız değişmedi.</string>
     <string name="compact_lyrics_font_size">Şarkı sözü yazı tipi boyutunu değiştir (geçerli: %1$d)</string>
     <string name="compact_lyrics_refresh">Önbellekteki şarkı sözlerini temizle ve yenile</string>
-    <string name="compact_lyrics_loading">Şarkı sözleri yükleniyor…</string>
 </resources>

@@ -134,6 +134,48 @@ class NaviampCompactLyricsUiTest {
     }
 
     @Test
+    fun lyricsStayBlankUntilLookupCompletesOnBothPresentations() {
+        for (television in listOf(false, true)) runDesktopComposeUiTest(320, 260) {
+            var playing by mutableStateOf(fixture().copy(
+                id = "previous", lyricsLines = listOf(NaviampLyricLineUi(0, "Previous lyric")),
+            ))
+            setContent {
+                Box(Modifier.size(300.dp, 240.dp)) {
+                    if (television) TelevisionLyrics(playing, 0.0, NaviampColors.Dark, Modifier.size(300.dp, 240.dp))
+                    else NaviampCompactLyricsCard(playing, null, NaviampColors.Dark, {}, {}, Modifier.size(300.dp, 240.dp))
+                }
+            }
+            fun assertBlank() = onAllNodes(
+                SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true,
+            ).assertCountEquals(0)
+            onNodeWithText("Previous lyric").assertIsDisplayed()
+            runOnIdle { playing = playing.copy(id = "next", lyricsLines = emptyList(), lyricsStatus = null) }
+            assertBlank()
+            runOnIdle { playing = playing.copy(lyricsLoading = true, lyricsStatus = "Previous lookup failed") }
+            assertBlank()
+            runOnIdle { playing = playing.copy(lyricsStatus = "Grabbing lyrics...") }
+            assertBlank()
+            runOnIdle {
+                playing = playing.copy(lyricsLoading = false, lyricsStatus = null,
+                    lyricsLines = listOf(NaviampLyricLineUi(0, "Downloaded lyric")))
+            }
+            onNodeWithText("Downloaded lyric").assertIsDisplayed()
+            runOnIdle { playing = playing.copy(id = "last", lyricsLines = emptyList(), lyricsStatus = null) }
+            assertBlank()
+            runOnIdle { playing = playing.copy(lyricsLoading = true) }
+            assertBlank()
+            runOnIdle { playing = playing.copy(lyricsLoading = false, lyricsStatus = "Lookup completed without a match") }
+            onNodeWithText("Lookup completed without a match").assertIsDisplayed()
+            if (!television) {
+                runOnIdle { playing = playing.copy(lyricsAvailable = false, lyricsStatus = null) }
+                onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.Text), useUnmergedTree = true).assertCountEquals(1)
+                runOnIdle { playing = playing.copy(lyricsLoading = true) }
+                assertBlank()
+            }
+        }
+    }
+
+    @Test
     fun pausedSeeksOffsetsAndFontChangesCenterTheCorrectWrappedLyric() = runDesktopComposeUiTest(260, 340) {
         var playing by mutableStateOf(fixture().copy(
             lyricsLines = listOf(

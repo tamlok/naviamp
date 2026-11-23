@@ -44,6 +44,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Keep the lyrics area blank while a song's lyrics are pending or loading, instead of briefly showing an unavailable message between tracks. Show an unavailable result only after lookup completes or when lyrics are unsupported.
 - Limit each lyrics source lookup to 30 seconds, continue to the next configured source after timeout or failure, and show a concise unavailable status instead of authenticated request URLs when no source succeeds.
 - Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, accept duplicate lyrics that differ only in formatting, reject genuinely ambiguous matches, and avoid immediate search requests after rate-limit or server errors.
 - Apply Recommendations sorting to favorite albums as well as artists, using favorite dates and source-scoped album-radio history, and keep recent-radio ordering current across Home refreshes.

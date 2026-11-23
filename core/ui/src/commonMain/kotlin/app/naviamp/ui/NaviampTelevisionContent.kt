@@ -2154,7 +2154,7 @@ internal fun TelevisionMiniPlayer(
 }
 
 @Composable
-private fun TelevisionLyrics(
+internal fun TelevisionLyrics(
     nowPlaying: NowPlayingUi,
     positionSeconds: Double?,
     colors: NaviampColors,
@@ -2171,6 +2171,7 @@ private fun TelevisionLyrics(
         if (activeIndex >= 0) listState.animateToActiveLyricLine(activeIndex)
     }
     when {
+        nowPlaying.lyricsLoading -> Spacer(modifier)
         nowPlaying.lyricsStatus != null -> Text(
             nowPlaying.lyricsStatus,
             color = colors.secondaryText,

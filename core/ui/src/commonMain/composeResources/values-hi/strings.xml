@@ -541,5 +541,4 @@
     <string name="connection_aurral_companion_save_failed">Aurral सहायक को सहेजा नहीं जा सका। आपका संगीत कनेक्शन नहीं बदला है।</string>
     <string name="compact_lyrics_font_size">गीत के बोलों का फ़ॉन्ट आकार बदलें (वर्तमान: %1$d)</string>
     <string name="compact_lyrics_refresh">कैश में सहेजे गए बोल मिटाएँ और रीफ़्रेश करें</string>
-    <string name="compact_lyrics_loading">गीत के बोल लोड हो रहे हैं…</string>
 </resources>

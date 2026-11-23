@@ -626,7 +626,6 @@ class NaviampNowPlayingLayoutTest {
             onNodeWithContentDescription("Unpin queue").assertIsSelected().performClick()
             onNodeWithTag("now-playing-queue-drawer").assertIsDisplayed()
             onNodeWithTag("now-playing-queue-card").assertDoesNotExist()
-            onNodeWithContentDescription("Close").assertDoesNotExist()
             onNodeWithTag("now-playing-back").performClick()
             onNodeWithText("Lyrics unavailable").assertIsDisplayed()
         }

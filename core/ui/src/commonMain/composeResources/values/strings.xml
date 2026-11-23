@@ -1309,5 +1309,4 @@
     <string name="connection_aurral_companion_save_failed">Could not save the Aurral companion. Your music connection is unchanged.</string>
     <string name="compact_lyrics_font_size">Cycle lyrics font size (current: %1$d)</string>
     <string name="compact_lyrics_refresh">Clear cached lyrics and refresh</string>
-    <string name="compact_lyrics_loading">Loading lyrics…</string>
 </resources>
