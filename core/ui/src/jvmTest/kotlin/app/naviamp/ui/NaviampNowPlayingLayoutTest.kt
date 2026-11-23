@@ -32,6 +32,63 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampNowPlayingLayoutTest {
+    @Test fun stationFlameOpensDetailsWithoutMovingPlayerContent() {
+        for ((width, height) in listOf(320 to 720, 1000 to 720)) runDesktopComposeUiTest(width, height) {
+            val station = app.naviamp.domain.radio.GeneratedRadioStation("station-id", "A long station name that must not resize the player controls",
+                app.naviamp.domain.radio.GeneratedRadioKind.Track)
+            val playing = mutableStateOf(NowPlayingUi(
+                id = "song", title = "Song", subtitle = "Artist", albumTitle = "Album", stateLabel = "Paused",
+                isPaused = true, canPlayPause = true, canStartRadio = true, canRate = true,
+                hasPrevious = true, hasNext = true, canChangeVolume = true, castAvailable = true,
+                audioInfo = "FLAC 44.1 / 16", coverArtUrl = "naviamp-radio-tile://cover?label=ART&from=CC5511&to=1133AA",
+            ))
+            val requests = mutableListOf<GeneratedRadioActionRequest>()
+            val playbackRequests = mutableListOf<NowPlayingPlaybackActionRequest>()
+            val trackRequests = mutableListOf<NowPlayingCurrentTrackUiActionRequest>()
+            setContent {
+                NaviampNowPlayingPanel(playing.value, colors = NaviampColors.Dark,
+                    actions = NaviampNowPlayingActions(playbackRequests::add, {}, trackRequests::add, {}, {}, {}, {},
+                        onGeneratedRadioAction = requests::add))
+            }
+            onNodeWithTag("now-playing-bottom-actions").performScrollTo()
+            val button = onNodeWithTag("now-playing-station-button")
+            button.assertIsDisplayed().assertIsNotEnabled().assertIsNotSelected()
+                .assertWidthIsEqualTo(40.dp).assertHeightIsEqualTo(40.dp)
+            button.performMouseInput { click() }
+            assertTrue(requests.isEmpty())
+            val tags = listOf("now-playing-controller", "now-playing-transport-row", "now-playing-bottom-actions") +
+                if (width >= 780) listOf("now-playing-artwork-slot") else emptyList()
+            val before = tags.associateWith { onNodeWithTag(it).getUnclippedBoundsInRoot() }
+            runOnIdle { playing.value = playing.value.copy(generatedStation = station,
+                generatedStatus = app.naviamp.domain.radio.GeneratedRadioStatus.Active) }
+            button.assertIsEnabled().assertIsSelected()
+            val dj = onNodeWithContentDescription("DJs").getUnclippedBoundsInRoot()
+            val flame = button.getUnclippedBoundsInRoot()
+            assertEquals(dj.right, flame.left)
+            assertEquals(dj.top, flame.top)
+            button.performClick().performSemanticsAction(SemanticsActions.RequestFocus)
+            onRoot().performKeyInput { pressKey(Key.Enter) }
+            assertEquals(List(2) { GeneratedRadioActionRequest(GeneratedRadioAction.Open, station.id) }, requests)
+            assertTrue(playbackRequests.isEmpty())
+            assertTrue(trackRequests.isEmpty())
+            tags.forEach { assertEquals(before.getValue(it), onNodeWithTag(it).getUnclippedBoundsInRoot(), "$width: $it") }
+            System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
+                val image = java.io.File(directory, "station-flame-$width.png")
+                image.parentFile.mkdirs()
+                javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", image)
+            }
+            for (status in listOf(app.naviamp.domain.radio.GeneratedRadioStatus.Fetching,
+                app.naviamp.domain.radio.GeneratedRadioStatus.Exhausted, app.naviamp.domain.radio.GeneratedRadioStatus.Failed)) {
+                runOnIdle { playing.value = playing.value.copy(generatedStatus = status) }
+                button.assertIsEnabled().performClick()
+                assertEquals(GeneratedRadioActionRequest(GeneratedRadioAction.Open, station.id), requests.last())
+            }
+            runOnIdle { playing.value = playing.value.copy(generatedStatus = app.naviamp.domain.radio.GeneratedRadioStatus.Inactive) }
+            button.assertIsNotEnabled().assertIsNotSelected()
+            tags.forEach { assertEquals(before.getValue(it), onNodeWithTag(it).getUnclippedBoundsInRoot(), "$width inactive: $it") }
+        }
+    }
+
     @Test fun enlargedControlsFitAndVolumeSitsImmediatelyBeforeCast() {
         val cases = listOf(
             Triple(280, 500, true), Triple(320, 720, false), Triple(360, 640, false),
@@ -60,7 +117,7 @@ class NaviampNowPlayingLayoutTest {
             val bottom = onNodeWithTag("now-playing-bottom-actions").performScrollTo().getUnclippedBoundsInRoot()
             val speaker = onNodeWithTag("volume-popup-button")
             val cast = onNodeWithContentDescription("Cast to a device")
-            val bottomNodes = listOf("Start track radio", "DJs", "Volume", "Cast to a device", "Queue", "Track actions")
+            val bottomNodes = listOf("Start track radio", "DJs", "Preview station", "Volume", "Cast to a device", "Queue", "Track actions")
                 .map { onNodeWithContentDescription(it).assertIsDisplayed().assertWidthIsAtLeast(40.dp)
                     .assertHeightIsAtLeast(40.dp).getUnclippedBoundsInRoot() }
             for (bounds in bottomNodes) {
@@ -68,7 +125,8 @@ class NaviampNowPlayingLayoutTest {
                 assertTrue(bounds.top >= bottom.top && bounds.bottom <= bottom.bottom, "$label bottom control fits vertically")
             }
             bottomNodes.zipWithNext().forEach { (left, right) ->
-                assertTrue(left.right <= right.left, "$label bottom controls must not overlap")
+                assertTrue(left.right <= right.left || left.bottom <= right.top,
+                    "$label bottom controls must not overlap within or between rows")
             }
             val volumeBounds = speaker.getUnclippedBoundsInRoot()
             val castBounds = cast.getUnclippedBoundsInRoot()

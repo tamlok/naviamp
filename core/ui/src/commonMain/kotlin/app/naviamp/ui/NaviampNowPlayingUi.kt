@@ -865,7 +865,7 @@ private fun NaviampNowPlayingPanelContent(
                         compactSizing = compactWidthSizing,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(viewportHeight / 2)
+                            .heightIn(min = viewportHeight / 2)
                             .padding(horizontal = 14.dp),
                     )
                 }
@@ -1280,9 +1280,6 @@ private fun NowPlayingDetails(
                     modifier = Modifier.fillMaxWidth().testTag("now-playing-queue-context"),
                 )
             }
-            nowPlaying.generatedStation?.let { station ->
-                NaviampGeneratedRadioContext(station, nowPlaying.generatedStatus, colors, actions.onGeneratedRadioAction)
-            }
         }
 
         if (filledArtworkLayout && (showRating || showAudioInfo)) {
@@ -1414,15 +1411,21 @@ private fun NowPlayingDetails(
             Box(modifier = Modifier.weight(1f))
         }
 
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .requiredHeight(48.dp)
                 .testTag("now-playing-bottom-actions"),
         ) {
             val bottomActionButtonSize = 40.dp
             val bottomActionIconSize = 24.dp
-            Row(modifier = Modifier.align(Alignment.CenterStart)) {
+            val trailingWidth = bottomActionButtonSize * (2 + if (nowPlaying.castAvailable) 1 else 0) +
+                if (volumeVisible) 48.dp else 0.dp
+            val stackedActions = maxWidth < bottomActionButtonSize * 3 + trailingWidth
+            Spacer(Modifier.height(if (stackedActions) 96.dp else 48.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.align(if (stackedActions) Alignment.TopStart else Alignment.CenterStart).height(48.dp),
+            ) {
                 NaviampTransportIconButton(
                     enabled = nowPlaying.canStartRadio,
                     icon = NaviampTransportIcons.Radio,
@@ -1492,10 +1495,13 @@ private fun NowPlayingDetails(
                         )
                     }
                 }
+                NaviampGeneratedRadioStatusButton(
+                    nowPlaying.generatedStation, nowPlaying.generatedStatus, colors, actions.onGeneratedRadioAction,
+                )
             }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier = Modifier.align(if (stackedActions) Alignment.BottomEnd else Alignment.CenterEnd).height(48.dp),
             ) {
                 if (volumeVisible) {
                     NaviampVolumeControl(

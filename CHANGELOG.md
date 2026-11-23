@@ -8,6 +8,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 - Preview generated radio before playing, save and pin station recipes on Home, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
 - Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
+- Replace the full player's generated-station text row with a Flame status icon immediately after DJs. Active stations open their details, and narrow bottom controls wrap without reducing touch targets or changing the player's outer padding.
 - Personalize Home mixes using listening activity and favorites, with exploration and stable daily selections. Explicit refresh rotates recommendations without replacing pinned stations.
 - Balance multi-seed mixes, apply artist and album spacing across batches, use actual recency for Sonic Mix, and offer a recent-listening exclusion window. Keep strict artist and decade constraints instead of silently broadening empty results.
 - Preserve complete generated stations and finite batch playback across supported Connect peers and sender-owned Cast playback. Station settings use sync schema 2; upgrade devices sharing the settings file before exporting from older builds.

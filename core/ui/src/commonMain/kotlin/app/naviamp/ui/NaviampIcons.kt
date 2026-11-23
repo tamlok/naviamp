@@ -293,6 +293,17 @@ object NaviampIcons {
         moveTo(15.5f, 14.8f)
         lineTo(17.2f, 15.4f)
     }
+    // Lucide flame: https://lucide.dev/icons/flame
+    val Flame = icon("Flame", strokeWidth = 2f) {
+        moveTo(12f, 3f)
+        quadTo(13f, 7f, 16f, 9.5f)
+        quadTo(19f, 12f, 19f, 15f)
+        arcToRelative(1f, 1f, 0f, false, true, -14f, 0f)
+        arcToRelative(5f, 5f, 0f, false, true, 1f, -3f)
+        arcToRelative(1f, 1f, 0f, false, false, 5f, 0f)
+        curveToRelative(0f, -2f, -1.5f, -3f, -1.5f, -5f)
+        quadTo(9.5f, 5f, 12f, 3f)
+    }
     val Queue = icon("Queue") {
         moveTo(5f, 6.5f)
         lineTo(15.5f, 6.5f)

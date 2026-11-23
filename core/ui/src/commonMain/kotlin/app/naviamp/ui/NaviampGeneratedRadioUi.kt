@@ -9,6 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.radio.*
@@ -235,6 +238,33 @@ internal fun generatedRadioStatusResource(status: GeneratedRadioStatus): StringR
     GeneratedRadioStatus.Failed -> Res.string.generated_radio_failed
     GeneratedRadioStatus.Unsupported -> Res.string.generated_radio_unsupported
     GeneratedRadioStatus.InvalidRecipe -> Res.string.generated_radio_invalid
+}
+
+@Composable
+internal fun NaviampGeneratedRadioStatusButton(
+    station: GeneratedRadioStation?,
+    status: GeneratedRadioStatus,
+    colors: NaviampColors,
+    onAction: (GeneratedRadioActionRequest) -> Unit,
+) {
+    val active = station != null && status != GeneratedRadioStatus.Inactive
+    val label = if (active) stringResource(Res.string.generated_radio_context, station.name)
+        else stringResource(Res.string.generated_radio_preview)
+    val stateLabel = stringResource(generatedRadioStatusResource(if (active) status else GeneratedRadioStatus.Inactive))
+    NaviampTransportIconButton(
+        enabled = active,
+        icon = NaviampIcons.Flame,
+        contentDescription = label,
+        colors = colors,
+        selected = active,
+        buttonSize = 40.dp,
+        iconSize = 24.dp,
+        modifier = Modifier.testTag("now-playing-station-button").semantics {
+            selected = active
+            stateDescription = stateLabel
+        },
+        onClick = { station?.takeIf { active }?.let { onAction(GeneratedRadioActionRequest(GeneratedRadioAction.Open, it.id)) } },
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
