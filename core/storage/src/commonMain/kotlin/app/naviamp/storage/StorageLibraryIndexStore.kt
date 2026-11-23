@@ -314,6 +314,23 @@ class StorageLibraryIndexStore(
     override fun recordLibraryTrackPlayed(sourceId: String, track: Track, playedAtEpochMillis: Long) =
         recentPlayback.recordPlaybackHistory(sourceId, track, playedAtEpochMillis)
 
+    override fun recentPlaybackHistory(sourceId: String, limit: Int): List<app.naviamp.domain.home.HomePlaybackActivity> {
+        val source = mediaSources.mediaSource(sourceId) ?: return emptyList()
+        return recentPlayback.scopedHistory(sourceId, source.selectedMusicFolderIds, limit)
+    }
+
+    override fun generatedRadioCatalogTrackIds(
+        sourceId: String,
+        trackIds: Set<TrackId>,
+        selectedMusicFolderIds: List<String>,
+    ): Set<TrackId> =
+        if (trackIds.isEmpty()) emptySet() else queries.selectGeneratedRadioCatalogTrackIds(
+            sourceId = sourceId,
+            trackIds = trackIds.map { it.value },
+            allMusicFolders = if (selectedMusicFolderIds.isEmpty()) 1L else 0L,
+            selectedMusicFolderIds = selectedMusicFolderIds,
+        ).executeAsList().mapTo(mutableSetOf(), ::TrackId)
+
     override fun reconcileFavoriteArtists(
         sourceId: String,
         artists: List<Artist>,

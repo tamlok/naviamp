@@ -13,7 +13,11 @@ import kotlin.test.*
 
 /** Real BASS completion and Android HOME lifecycle; an empty disposable fixture profile only. */
 class AndroidTvRadioContinuationInstrumentedTest {
-    @Test fun sonicQueueContinuesAtNaturalEndInForegroundAndBackground() {
+    @Test fun ordinaryQueueAutoplayContinuesAtNaturalEnd() = verifyContinuation(station = false)
+
+    @Test fun explicitStationRefillsBeforeNaturalEnd() = verifyContinuation(station = true)
+
+    private fun verifyContinuation(station: Boolean) {
         assumeTrue(InstrumentationRegistry.getArguments().getString("tvLocalFixture") == "true")
         ActivityScenario.launch(MainActivity::class.java).use { runBlocking {
             val core = prepareTvFixturePlayback(startPlayback = false)
@@ -27,10 +31,10 @@ class AndroidTvRadioContinuationInstrumentedTest {
                         radioMinimumTracks = 10, sonicAutoplayMinimumTracks = 10,
                         gaplessEnabled = false, crossfadeDurationSeconds = 0), false))
                     core.execute(NaviampCoreCommand.Library.TrackAction(SharedTrackRowActionRequest(
-                        core.state.value.shell.library.songs.tracks.first(), SharedTrackRowAction.StartRadio)))
+                        core.state.value.shell.library.songs.tracks.first(), if (station) SharedTrackRowAction.StartRadio else SharedTrackRowAction.Select)))
                 }
-                await("eleven-track Radio queue playing") {
-                    bridge.snapshot().let { it.state == NaviampExternalPlaybackState.Playing && it.queue.size == 11 }
+                await("initial queue playing") {
+                    bridge.snapshot().let { it.state == NaviampExternalPlaybackState.Playing && if (station) it.queue.size == 11 else it.queue.size >= 40 }
                 }
                 for (background in listOf(false, true)) {
                     val before = assertNotNull(core.state.value.shell.nowPlaying?.queueSnapshot)
@@ -44,7 +48,8 @@ class AndroidTvRadioContinuationInstrumentedTest {
                                 it.state == NaviampExternalPlaybackState.Playing }
                         }
                     }
-                    assertEquals(prefix.size, bridge.snapshot().queue.size, "No proactive top-up is expected")
+                    if (station) await("station batch appended before EOF") { bridge.snapshot().queue.size == prefix.size + 10 }
+                    else assertEquals(prefix.size, bridge.snapshot().queue.size, "Ordinary autoplay still waits for EOF")
                     if (background) {
                         val context = InstrumentationRegistry.getInstrumentation().targetContext
                         context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)

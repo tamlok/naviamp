@@ -342,7 +342,7 @@ class NaviampCoreNowPlayingMediaController(
         )
         settings.apply(updated, redownload = false)
         stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(settings = updated)) }
-        currentTrack()?.let { generatedRadio.startTrackRadio(it) }
+        generatedRadio.applyRadioTuning(updated.radioTuning)
         publishStatus(selected?.let { "Selected ${it.name} DJ." } ?: "Default radio selected.")
     }
 

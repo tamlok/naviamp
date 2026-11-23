@@ -323,10 +323,12 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     override fun applyQueue(queue: PlaybackQueue, clearPreparedNext: Boolean) {
+        val previousNext = this.queue.nextIndex(repeatMode, repeatTrack = true)?.let { this.queue.tracks.getOrNull(it)?.id }
+        val next = queue.nextIndex(repeatMode, repeatTrack = true)?.let { queue.tracks.getOrNull(it)?.id }
         this.queue = queue
         cancelAudioPrefetch()
         clearAudioPrefetchCompletions()
-        if (clearPreparedNext) {
+        if (clearPreparedNext || previousNext != next) {
             (engine as? QueueAwarePlaybackEngine)?.clearPreparedNext()
             authenticatedStreams?.clearPrepared()
             preparedForGeneration = -1L

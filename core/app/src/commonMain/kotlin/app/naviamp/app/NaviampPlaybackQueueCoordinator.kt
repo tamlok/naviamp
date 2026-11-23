@@ -12,6 +12,7 @@ import app.naviamp.domain.playback.DefaultPreviousRestartThresholdSeconds
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.queue.RepeatMode
+import app.naviamp.domain.queue.newRadioQueueOccurrences
 import app.naviamp.domain.radio.generatedRadioTracksToAppend
 import app.naviamp.domain.radio.generatedRadioUpcomingTracks
 import app.naviamp.domain.radio.generatedRadioUpcomingTracksToAppend
@@ -32,6 +33,54 @@ class NaviampPlaybackQueueCoordinator(
         index: Int,
     ): PlaybackQueueMutationUpdate =
         queueManager.startQueue(tracks, index).also(::commit)
+
+    fun startGeneratedQueue(
+        tracks: List<Track>,
+        stationId: String,
+        batchId: String,
+    ): PlaybackQueueMutationUpdate =
+        replaceQueue(
+            PlaybackQueue(
+                tracks = tracks,
+                currentIndex = if (tracks.isEmpty()) -1 else 0,
+                occurrences = newRadioQueueOccurrences(tracks.size, stationId, batchId),
+            ),
+        )
+
+    fun appendGeneratedBatch(
+        tracks: List<Track>,
+        stationId: String,
+        batchId: String,
+    ): PlaybackQueueUpdate {
+        val queue = currentQueue
+        val excludedIds = queue.tracks.mapTo(mutableSetOf()) { it.id }
+        val added = tracks.filter { excludedIds.add(it.id) }
+        val updated = if (added.isEmpty()) queue else queue.appendTracks(
+            tracks = added,
+            occurrences = newRadioQueueOccurrences(added.size, stationId, batchId),
+        ).let { if (it.currentIndex < 0) it.copy(currentIndex = 0) else it }
+        return PlaybackQueueUpdate(
+            queue = updated,
+            tracksChanged = added.isNotEmpty(),
+            status = "Added ${added.size} radio tracks to queue",
+        ).also(::commit)
+    }
+
+    fun replaceGeneratedUpcomingOccurrences(
+        tracks: List<Track>,
+        stationId: String,
+        batchId: String,
+    ): PlaybackQueueMutationUpdate {
+        val queue = currentQueue
+        val updated = queue.replaceGeneratedUpcomingOccurrences(tracks, stationId, batchId)
+        return PlaybackQueueMutationUpdate(
+            queue = updated,
+            changed = updated != queue,
+            clearPreparedNext = queue.occurrences.getOrNull(queue.currentIndex + 1) !=
+                updated.occurrences.getOrNull(updated.currentIndex + 1) ||
+                queue.tracks.getOrNull(queue.currentIndex + 1) != updated.tracks.getOrNull(updated.currentIndex + 1),
+        ).also(::commit)
+    }
 
     fun replaceQueue(
         queue: PlaybackQueue,
@@ -190,6 +239,7 @@ class NaviampPlaybackQueueCoordinator(
         queueManager.toggleUpcomingShuffle(
             currentQueue,
             playback.state.value.shuffledUpNextSnapshot,
+            playback.state.value.shuffledUpNextOccurrences,
         ).also(::commit)
 
     fun clearShuffleSnapshot() {
@@ -281,6 +331,7 @@ class NaviampPlaybackQueueCoordinator(
                 playback.state.value.copy(
                     queue = update.queue,
                     shuffledUpNextSnapshot = update.shuffledSnapshot,
+                    shuffledUpNextOccurrences = update.shuffledOccurrences,
                 ),
             )
         }

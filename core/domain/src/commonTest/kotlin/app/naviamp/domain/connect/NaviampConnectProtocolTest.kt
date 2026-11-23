@@ -1,5 +1,12 @@
 package app.naviamp.domain.connect
 
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioKind
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import app.naviamp.domain.radio.RadioTuningSettings
+import app.naviamp.domain.settings.SavedArtist
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -9,6 +16,101 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class NaviampConnectProtocolTest {
+    @Test
+    fun legacyWelcomeAndSnapshotDoNotClaimStationSupport() {
+        val welcome = NaviampConnectWelcome("session", 1, targetDevice(), emptySet(),
+            snapshot(0).copy(stationSessionVersion = 1), stationSessionVersion = 1)
+        val encoded = NaviampConnectWireCodec.encode(NaviampConnectEnvelope(1, "session", 1, message = welcome))
+        val legacy = encoded.replace(",\"stationSessionVersion\":1", "")
+        val decoded = assertIs<NaviampConnectWelcome>(NaviampConnectWireCodec.decode(legacy).message)
+        assertEquals(0, decoded.stationSessionVersion)
+        assertEquals(0, decoded.snapshot.stationSessionVersion)
+        assertEquals(emptySet(), decoded.capabilities)
+    }
+
+    @Test
+    fun fullMultiSeedRecipeAndFiniteCheckpointHaveDistinctWireCommands() {
+        val recipe = GeneratedRadioStation(
+            id = "station-local-id", name = "Evening", kind = GeneratedRadioKind.Artists,
+            sourceIdentity = sourceIdentity(), revision = 9,
+            artists = listOf(SavedArtist("second", "Second"), SavedArtist("first", "First")),
+            fromYear = 1980, toYear = 1989, sonicSimilarity = true, batchSize = 40,
+            tuning = RadioTuningSettings(sameDecadeOnly = true, sameArtistRunLength = 4),
+        )
+        val checkpoint = GeneratedRadioCheckpoint(
+            station = recipe, mode = GeneratedRadioPlaybackMode.FiniteBatch, wasPaused = true,
+            endlessEnabled = false, seenTrackIds = listOf("heard-1", "heard-2"),
+            occurrences = listOf(RadioQueueOccurrence("occurrence-1", recipe.id, "batch-7")),
+        )
+        val commands = listOf<NaviampConnectCommand>(
+            NaviampConnectStationStart(sourceIdentity(), recipe, endlessEnabled = false),
+            NaviampConnectStationHandoff(sourceIdentity(), checkpoint, snapshot(0).queue,
+                12_345, NaviampConnectRepeatMode.All, shuffled = true, playing = false),
+            NaviampConnectStationRetry(recipe.id, recipe.revision),
+        )
+        commands.forEach { command ->
+            val envelope = NaviampConnectEnvelope(1, "session", 1, message = NaviampConnectCommandRequest(command, 3))
+            val encoded = NaviampConnectWireCodec.encode(envelope)
+            assertEquals(envelope, NaviampConnectWireCodec.decode(encoded))
+            assertFalse(encoded.contains("handoff_queue"))
+            assertFalse(encoded.contains("start_media"))
+            assertTrue(command.requiresStationSession())
+        }
+        val legacy = NaviampConnectHandoffQueue(sourceIdentity(), snapshot(0).queue, 0,
+            NaviampConnectRepeatMode.Off, shuffled = false)
+        assertFalse(legacy.requiresStationSession())
+    }
+
+    @Test
+    fun anonymousFiniteHandoffRoundTripsItsExactCheckpointWithoutLegacyDowngrade() {
+        val checkpoint = GeneratedRadioCheckpoint(mode = GeneratedRadioPlaybackMode.FiniteBatch,
+            wasPaused = true, endlessEnabled = false, seenTrackIds = listOf("heard"),
+            occurrences = listOf(RadioQueueOccurrence("occurrence-1")))
+        val handoff = NaviampConnectStationHandoff(sourceIdentity(), checkpoint, snapshot(0).queue,
+            42_000, NaviampConnectRepeatMode.Off, shuffled = false, playing = false)
+        val envelope = NaviampConnectEnvelope(1, "session", 1, message = NaviampConnectCommandRequest(handoff, 3))
+        val encoded = NaviampConnectWireCodec.encode(envelope)
+        val decoded = assertIs<NaviampConnectStationHandoff>(
+            assertIs<NaviampConnectCommandRequest>(NaviampConnectWireCodec.decode(encoded).message).command)
+        assertEquals(handoff, decoded)
+        assertEquals(checkpoint, decoded.checkpoint)
+        assertNull(decoded.checkpoint.station)
+        assertTrue(decoded.requiresStationSession())
+        assertFalse(encoded.contains("handoff_queue"))
+    }
+
+    @Test
+    fun anonymousTransferStillRequiresFiniteModeSourceAndMatchingOccurrences() {
+        val checkpoint = GeneratedRadioCheckpoint(mode = GeneratedRadioPlaybackMode.FiniteBatch,
+            endlessEnabled = false, occurrences = listOf(RadioQueueOccurrence("occurrence-1")))
+        fun transfer(value: GeneratedRadioCheckpoint, identity: NaviampConnectSourceIdentity = sourceIdentity()) =
+            NaviampConnectStationHandoff(identity, value, snapshot(0).queue,
+                0, NaviampConnectRepeatMode.Off, shuffled = false)
+        assertFailsWith<IllegalArgumentException> { transfer(checkpoint.copy(mode = GeneratedRadioPlaybackMode.Station)) }
+        assertFailsWith<IllegalArgumentException> { transfer(checkpoint.copy(occurrences = emptyList())) }
+        assertFailsWith<IllegalArgumentException> {
+            transfer(checkpoint.copy(occurrences = listOf(RadioQueueOccurrence("wrong-occurrence"))))
+        }
+        assertFailsWith<IllegalArgumentException> { transfer(checkpoint, sourceIdentity().copy(accountIdentity = " ")) }
+    }
+
+    @Test
+    fun stationTransferRejectsWrongSourceAndMismatchedOccurrenceAttribution() {
+        val recipe = GeneratedRadioStation("station", "Station", GeneratedRadioKind.Library,
+            sourceIdentity = sourceIdentity())
+        assertFailsWith<IllegalArgumentException> {
+            NaviampConnectStationStart(sourceIdentity().copy(accountIdentity = "other"), recipe)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NaviampConnectStationHandoff(sourceIdentity(), GeneratedRadioCheckpoint(station = recipe,
+                occurrences = listOf(RadioQueueOccurrence("wrong-occurrence", recipe.id, "batch"))),
+                snapshot(0).queue, 0, NaviampConnectRepeatMode.Off, shuffled = false)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            NaviampConnectStationStart(sourceIdentity(), recipe.copy(artists = List(65) { SavedArtist("$it", "$it") }))
+        }
+    }
+
     @Test fun companionNegotiationIsAdditiveAndOlderOffersHaveNoCompanion() {
         val welcome = NaviampConnectWelcome("session", 1, targetDevice(), emptySet(), snapshot(0),
             companionProvisioningSupported = true)

@@ -227,6 +227,28 @@ class JellyfinProvider(
     override suspend fun tracksPage(request: MediaPageRequest): MediaPage<Track> =
         trackPage(request)
 
+    override suspend fun generatedRadioCatalogPage(request: MediaPageRequest): MediaPage<Track> {
+        if (selectedMusicFolderIds.isEmpty()) return trackPage(request, parentId = null)
+        val position = request.continuationToken?.split(':')
+        require(position == null || position.size == 2) { "Invalid catalog continuation." }
+        require(position != null || request.offset == 0) { "Follow the catalog continuation token." }
+        var folderIndex = position?.let { requireNotNull(it[0].toIntOrNull()) { "Invalid catalog folder position." } } ?: 0
+        var offset = position?.let { requireNotNull(it[1].toIntOrNull()) { "Invalid catalog offset." } } ?: 0
+        require(folderIndex in selectedMusicFolderIds.indices && offset >= 0) { "Invalid catalog position." }
+        while (folderIndex < selectedMusicFolderIds.size) {
+            val folder = selectedMusicFolderIds[folderIndex]
+            val page = trackPage(MediaPageRequest(offset = offset, limit = request.limit), parentId = folder)
+            if (page.items.isEmpty() && !page.hasMore) { folderIndex++; offset = 0; continue }
+            val nextFolder = if (page.hasMore) folderIndex else folderIndex + 1
+            val nextOffset = if (page.hasMore) offset + page.items.size else 0
+            val more = nextFolder < selectedMusicFolderIds.size && page.items.isNotEmpty()
+            return page.copy(items = page.items.map { it.copy(musicFolderId = folder) }, offset = request.offset,
+                hasMore = more, nextContinuationToken = if (more) "$nextFolder:$nextOffset" else null,
+                totalItemCount = null)
+        }
+        return MediaPage(emptyList(), request.offset, request.limit, hasMore = false)
+    }
+
     override suspend fun alphabeticalLibraryOffset(kind: AlphabeticalLibraryKind, letter: Char): Int? {
         val boundary = letter.uppercaseChar().toString()
         suspend fun titleAt(offset: Int): Pair<String?, Int?> {
@@ -827,7 +849,7 @@ class JellyfinProvider(
             genres = array("Genres").stringValues(),
             playCount = objectValue("UserData")?.int("PlayCount"),
             lastPlayedAtIso8601 = objectValue("UserData")?.string("LastPlayedDate"),
-            musicFolderId = string("ParentId"),
+            musicFolderId = null, // ParentId is the album/disc parent, not a music-library root.
             artistCredits = credits,
             discNumber = int("ParentIndexNumber")?.takeIf { it > 0 },
             trackNumber = int("IndexNumber")?.takeIf { it > 0 },

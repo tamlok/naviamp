@@ -6,6 +6,11 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Features
 
+- Preview generated radio before playing, save and pin station recipes on Home, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
+- Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
+- Personalize Home mixes using listening activity and favorites, with exploration and stable daily selections. Explicit refresh rotates recommendations without replacing pinned stations.
+- Balance multi-seed mixes, apply artist and album spacing across batches, use actual recency for Sonic Mix, and offer a recent-listening exclusion window. Keep strict artist and decade constraints instead of silently broadening empty results.
+- Preserve complete generated stations and finite batch playback across supported Connect peers and sender-owned Cast playback. Station settings use sync schema 2; upgrade devices sharing the settings file before exporting from older builds.
 - Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
 - Pin or unpin playlists, albums, and artists with the toggle at the end of their artwork toolbar. It matches the other tool buttons and appears with them after details load, staying visible when other tools overflow. Quick Access buttons open under Playlists or Library, scroll with navigation, and are preserved per connection in settings backup and sync.
 - Pull down at the top of Home, Playlists, Library Artists/Albums/Songs, and Radio to refresh, using touch or a primary-button mouse drag. Pull feedback and empty-list gesture areas are shared across platforms; normal mouse-wheel scrolling is unchanged.

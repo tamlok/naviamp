@@ -97,6 +97,8 @@ class NaviampCorePlaybackController(
     private var persistedSeekGeneration = 0L
     private var sourceTransitionTargetId: String? = null
     private var connectHandoffAwaitingStart = false
+    internal var generatedRadio: NaviampCoreGeneratedRadioController? = null
+    private var persistedGeneratedRadio: app.naviamp.domain.radio.GeneratedRadioCheckpoint? = null
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.NowPlaying.Playback,
@@ -151,6 +153,7 @@ class NaviampCorePlaybackController(
             app.naviamp.domain.connect.NaviampConnectNext ->
                 navigate(queue.nextCommand()) != PlaybackQueueNavigationCommand.None
             app.naviamp.domain.connect.NaviampConnectStop -> {
+                generatedRadio?.stop()
                 commands.stop()
                 true
             }
@@ -217,6 +220,7 @@ class NaviampCorePlaybackController(
     }
 
     internal fun clearConnectUpNext(): Boolean {
+        generatedRadio?.onQueueCleared()
         val update = queue.retainCurrentOnly()
         if (update.changed) effects.applyQueue(update.queue, update.clearPreparedNext)
         presenter.publish(display)
@@ -225,13 +229,15 @@ class NaviampCorePlaybackController(
 
     internal suspend fun handoffConnectQueue(
         command: app.naviamp.domain.connect.NaviampConnectHandoffQueue,
+        generatedCheckpoint: app.naviamp.domain.radio.GeneratedRadioCheckpoint? = null,
+        resolvedTracks: List<app.naviamp.domain.Track>? = null,
     ): Boolean {
         if (command.queue.occurrences.isEmpty() || command.queue.currentIndex !in command.queue.occurrences.indices) {
             return false
         }
         providerSource.current() ?: return false
         val locallyKnownTracks = playback.state.value.queue.tracks.associateBy { it.id.value }
-        val tracks = command.queue.occurrences.map { occurrence ->
+        val tracks = resolvedTracks ?: command.queue.occurrences.map { occurrence ->
             val known = locallyKnownTracks[occurrence.mediaId]
             known?.copy(
                 title = occurrence.title.ifBlank { known.title },
@@ -276,6 +282,7 @@ class NaviampCorePlaybackController(
                     profile = group.playbackProfile,
                 )
             },
+            occurrences = generatedCheckpoint?.occurrences.orEmpty(),
         )
         val repeatMode = when (command.repeatMode) {
             app.naviamp.domain.connect.NaviampConnectRepeatMode.Off -> RepeatMode.Off
@@ -285,6 +292,8 @@ class NaviampCorePlaybackController(
         val positionSeconds = command.positionMillis / 1_000.0
         val previous = playback.state.value
         val previousHandoffAwaitingStart = connectHandoffAwaitingStart
+        val previousGenerated = generatedRadio?.checkpoint()
+        generatedRadio?.stop()
         // A handoff replaces the native playback session as well as Core's queue. Pausing the
         // previous stream leaves that stream alive, and some native engines then report the new
         // handoff as logically playing without ever activating its audio output.
@@ -301,14 +310,17 @@ class NaviampCorePlaybackController(
                 playbackState = if (command.playing) PlaybackState.Playing else PlaybackState.Paused,
                 repeatMode = repeatMode,
                 shuffledUpNextSnapshot = handedOffQueue.upNext().takeIf { command.shuffled },
+                shuffledUpNextOccurrences = handedOffQueue.occurrences.drop(handedOffQueue.currentIndex + 1).takeIf { command.shuffled && handedOffQueue.occurrences.isNotEmpty() },
             ),
         )
         effects.restoreQueue(handedOffQueue, positionSeconds)
+        generatedRadio?.restore(generatedCheckpoint)
         effects.applyRepeatMode(repeatMode)
         connectHandoffAwaitingStart = true
         if (command.playing) {
             if (!startConnectHandoff()) {
                 restorePlaybackAfterRejectedConnectHandoff(previous, previousHandoffAwaitingStart)
+                generatedRadio?.restore(previousGenerated)
                 presenter.publish(display)
                 return false
             }
@@ -367,6 +379,7 @@ class NaviampCorePlaybackController(
             }
             persistSession(force = false)
             observePlaylistBookmark()
+            generatedRadio?.onPlaybackChanged()
         }
         effects.attach(object : NaviampCorePlaybackObserver {
             override fun onStateChanged(state: PlaybackState) {
@@ -384,6 +397,7 @@ class NaviampCorePlaybackController(
                     sonicAutoplayJob = null
                 }
                 playback.updatePlaybackState(state)
+                generatedRadio?.onPlaybackChanged()
                 reportPlayback(state, playback.state.value.progress)
                 persistSession(force = state == PlaybackState.Paused || state == PlaybackState.Stopped)
                 observePlaylistBookmark(force = state == PlaybackState.Paused || state == PlaybackState.Stopped)
@@ -399,7 +413,7 @@ class NaviampCorePlaybackController(
                             loadCurrentTrackSidecars()
                             effects.applyAutomaticNavigation(PlaybackQueueNavigationCommand.Next)
                         }
-                        PlaybackQueueFinishedCommand.None -> startSonicAutoplayContinuation()
+                        PlaybackQueueFinishedCommand.None -> if (generatedRadio?.ownsQueue != true) startSonicAutoplayContinuation()
                     }
                 }
                 presenter.publish(display)
@@ -414,6 +428,7 @@ class NaviampCorePlaybackController(
                         live.progress.positionSeconds != progress.positionSeconds
                 }
                 playback.updateProgress(progress)
+                generatedRadio?.onPlaybackChanged()
                 reportPlayback(playback.state.value.playbackState, progress)
                 persistSession(force = pausedPositionChanged)
                 observePlaylistBookmark(force = pausedPositionChanged)
@@ -439,6 +454,7 @@ class NaviampCorePlaybackController(
     fun resetAfterDatabaseClear() {
         sessions.playlistBookmarks.reset()
         sourceTransitionTargetId = stateStore.state.value.shell.connectionSettings.currentSourceId
+        generatedRadio?.stop()
         sonicAutoplayJob?.cancel()
         sonicAutoplayJob = null
         sidecarLoadJob?.cancel()
@@ -463,6 +479,7 @@ class NaviampCorePlaybackController(
     fun resetForSourceChange(previousSourceId: String?, newSourceId: String) {
         sessions.playlistBookmarks.flush()
         sessions.playlistBookmarks.reset()
+        generatedRadio?.resetForSourceChange()
         sonicAutoplayJob?.cancel()
         sonicAutoplayJob = null
         sourceTransitionTargetId = newSourceId
@@ -504,13 +521,14 @@ class NaviampCorePlaybackController(
                     ),
                 )
                 effects.restoreQueue(restored.playbackQueue, restored.restoredStartPositionSeconds)
+                generatedRadio?.restore(restored.generatedRadio)
                 persistedQueue = restored.playbackQueue
                 persistedStationId = null
                 // Restored metadata and transport state must be usable immediately. Waveform,
                 // lyrics, and tag loading can be expensive for long tracks, so resume that work
                 // in the controller's cancellable background sidecar job.
                 loadCurrentTrackSidecars()
-                if (allowAutoPlay && stateStore.state.value.shell.general.interfaceSettings.startPlayingOnLaunch) {
+                if (allowAutoPlay && generatedRadio?.checkpoint()?.wasPaused != true && stateStore.state.value.shell.general.interfaceSettings.startPlayingOnLaunch) {
                     effects.startOrRestore()
                 }
                 publishStatus(restored.status)
@@ -545,6 +563,7 @@ class NaviampCorePlaybackController(
     private fun persistSession(force: Boolean) {
         if (sourceTransitionTargetId != null) return
         val live = playback.state.value
+        val generatedCheckpoint = generatedRadio?.checkpoint()
         val structuralChange = live.queue != persistedQueue || live.currentStation?.id != persistedStationId
         val plan = runCatching {
             sessions.planAndSaveThrottled(
@@ -554,10 +573,11 @@ class NaviampCorePlaybackController(
                     currentTrack = live.currentTrack,
                     playbackQueue = live.queue,
                     progressPositionSeconds = live.progress.positionSeconds,
+                    generatedRadio = generatedCheckpoint,
                 ),
                 // A seek can follow Pause within the telemetry save interval and then receive no
                 // further clock updates. Persist each accepted seek independently of that throttle.
-                force = force || structuralChange || live.progress.seekGeneration != persistedSeekGeneration,
+                force = force || structuralChange || generatedCheckpoint != persistedGeneratedRadio || live.progress.seekGeneration != persistedSeekGeneration,
                 nowMillis = nowEpochMillis(),
                 saveIntervalMillis = PlaybackSessionSaveIntervalMillis,
             )
@@ -566,6 +586,7 @@ class NaviampCorePlaybackController(
             persistedQueue = live.queue
             persistedStationId = live.currentStation?.id
             persistedSeekGeneration = live.progress.seekGeneration
+            persistedGeneratedRadio = generatedCheckpoint
         }
     }
 
@@ -612,7 +633,9 @@ class NaviampCorePlaybackController(
             val tracks = sonicAutoplay.continuationTracks(expectedQueue,
                 limit = expectedSettings.sonicAutoplayMinimumTracks,
                 preferSonicSimilarity = expectedSettings.effectiveSonicSimilarityEnabled(),
-                onResult = { diagnostics = it.radioDiagnostics(autoplay = true) })
+                onResult = { diagnostics = it.radioDiagnostics(autoplay = true) },
+                tuning = expectedSettings.radioTuning,
+                excludedTrackIds = generatedRadio?.recentExclusions().orEmpty())
             val currentState = playback.state.value
             val currentShell = stateStore.state.value.shell
             val requestIsCurrent =
@@ -712,7 +735,7 @@ class NaviampCorePlaybackController(
     private fun playback(request: NowPlayingPlaybackActionRequest) {
         val playbackSettings = stateStore.state.value.shell.playback.settings
         when (request.action) {
-            NowPlayingPlaybackAction.Stop -> commands.stop()
+            NowPlayingPlaybackAction.Stop -> { generatedRadio?.stop(); commands.stop() }
             NowPlayingPlaybackAction.Pause -> commands.pause()
             NowPlayingPlaybackAction.TogglePlayPause -> commands.playPause()
             NowPlayingPlaybackAction.Resume,
@@ -766,6 +789,7 @@ class NaviampCorePlaybackController(
             NowPlayingQueueAction.RemoveFromQueue -> request.queueIndex?.let(mutations::removeAt)
                 ?: publishStatus("Queue position is missing.")
             NowPlayingQueueAction.EmptyQueue -> {
+                generatedRadio?.onQueueCleared()
                 val update = queue.retainCurrentOnly()
                 if (update.changed) {
                     effects.applyQueue(update.queue, update.clearPreparedNext)
@@ -811,6 +835,7 @@ class NaviampCorePlaybackController(
     }
 
     fun expireSleepTimer() {
+        generatedRadio?.stop()
         commands.stop()
         playback.updatePlaybackState(PlaybackState.Stopped)
         display = display.copy(sleepTimer = null, sleepTimerNowEpochMillis = nowEpochMillis())

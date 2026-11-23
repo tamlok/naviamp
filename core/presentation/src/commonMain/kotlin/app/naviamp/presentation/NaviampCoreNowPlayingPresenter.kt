@@ -42,6 +42,7 @@ class NaviampCoreNowPlayingPresenter(
     private val network: NaviampCoreMobileNetworkPort = NaviampCoreMobileNetworkPort { false },
     private val internetRadioStations: () -> List<InternetRadioStation> = { emptyList() },
 ) {
+    internal var generatedRadio: NaviampCoreGeneratedRadioController? = null
     private val publishing = AtomicBoolean(false)
     private val pendingDisplay = AtomicReference<NaviampCoreNowPlayingDisplayState?>(null)
 
@@ -158,6 +159,8 @@ class NaviampCoreNowPlayingPresenter(
                 playlistChoices = shell.playlistChoices,
                 playlistActionStatus = display.playlistActionStatus,
             ).toNowPlayingUi().copy(
+                generatedStation = generatedRadio?.activeStation,
+                generatedStatus = generatedRadio?.status ?: app.naviamp.domain.radio.GeneratedRadioStatus.Inactive,
                 compactLyricsFontSizeSp = playbackSettings.compactLyricsFontSizeSp,
                 lyricsLoading = lyricsSidecar?.lyricsLoading == true,
                 canRefreshLyrics = provider != null && track != null && capabilities.lyricsAvailable &&

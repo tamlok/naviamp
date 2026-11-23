@@ -42,6 +42,8 @@ import app.naviamp.ui.SharedRoute
  * not reinterpret clicks, menu selections, settings changes, or playback controls.
  */
 sealed interface NaviampCoreCommand {
+    data class GeneratedRadio(val request: app.naviamp.ui.GeneratedRadioActionRequest) : NaviampCoreCommand
+    data class GeneratedRadioPreferencesChanged(val preferences: app.naviamp.domain.radio.GeneratedRadioPreferences) : NaviampCoreCommand
     sealed interface Navigation : NaviampCoreCommand {
         data class SelectRoute(val route: SharedRoute) : Navigation
         data class ReplaceRoute(val route: SharedRoute) : Navigation

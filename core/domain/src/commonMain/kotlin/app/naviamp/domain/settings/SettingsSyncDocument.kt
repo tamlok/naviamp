@@ -4,9 +4,12 @@ import app.naviamp.domain.provider.ProviderIdNavidrome
 import app.naviamp.domain.source.normalizedMusicFolderIds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.int
 
 const val SettingsSyncFileName = "naviamp-settings.json"
-const val CurrentSettingsSyncSchemaVersion = 1
+const val CurrentSettingsSyncSchemaVersion = 2
 
 @Serializable
 data class SettingsSyncDocument(
@@ -117,6 +120,7 @@ data class SettingsSyncPreferences(
     val visualizer: VisualizerSettings = VisualizerSettings(),
     val recentRadioStreams: List<RecentRadioStream> = emptyList(),
     val recentInternetRadioStations: List<SavedInternetRadioStation> = emptyList(),
+    val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary? = null,
 ) {
     fun normalized(): SettingsSyncPreferences =
         copy(
@@ -124,6 +128,7 @@ data class SettingsSyncPreferences(
             playback = playback.normalized(),
             recentRadioStreams = app.naviamp.domain.radio.reconciledRecentRadioStreams(recentRadioStreams, MaxSyncedRecentItems),
             recentInternetRadioStations = recentInternetRadioStations.take(MaxSyncedRecentItems),
+            generatedRadio = generatedRadio?.normalized(),
         )
 }
 
@@ -137,8 +142,11 @@ object SettingsSyncJson {
     fun encode(document: SettingsSyncDocument): String =
         format.encodeToString(SettingsSyncDocument.serializer(), document.normalized())
 
-    fun decode(text: String): SettingsSyncDocument =
-        format.decodeFromString(SettingsSyncDocument.serializer(), text).normalized()
+    fun decode(text: String): SettingsSyncDocument {
+        val tree = format.parseToJsonElement(text)
+        val document = format.decodeFromJsonElement(SettingsSyncDocument.serializer(), tree)
+        return document.copy(schemaVersion = tree.jsonObject["schemaVersion"]?.jsonPrimitive?.int ?: 1).normalized()
+    }
 }
 
 private fun normalizeSyncUrl(url: String): String? =

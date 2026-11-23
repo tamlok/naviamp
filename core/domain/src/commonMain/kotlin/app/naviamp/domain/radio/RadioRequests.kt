@@ -5,6 +5,10 @@ import app.naviamp.domain.Artist
 import app.naviamp.domain.Genre
 import app.naviamp.domain.Track
 import app.naviamp.domain.settings.RecentRadioStream
+import app.naviamp.domain.settings.SavedAlbum
+import app.naviamp.domain.settings.SavedArtist
+import app.naviamp.domain.settings.SavedTrack
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -13,6 +17,7 @@ data class RadioRequest(
     val label: String,
     val recentRadioStream: RecentRadioStream,
     val loadTracks: suspend (RadioService) -> List<Track>,
+    val recipe: GeneratedRadioStation? = null,
 )
 
 data class SeededRadioRequest(
@@ -20,6 +25,7 @@ data class SeededRadioRequest(
     val seedTrack: Track,
     val recentRadioStream: RecentRadioStream,
     val loadRest: suspend (RadioService) -> List<Track>,
+    val recipe: GeneratedRadioStation? = null,
 )
 
 sealed interface RadioRequestStartResult {
@@ -92,7 +98,10 @@ suspend fun trackRadioLoadResult(
             .let { tracks ->
                 if (tracks.isEmpty()) TrackRadioLoadResult.Empty else TrackRadioLoadResult.Ready(tracks)
             }
-    }.getOrElse(TrackRadioLoadResult::Failed)
+    }.getOrElse { error ->
+        if (error is CancellationException) throw error
+        TrackRadioLoadResult.Failed(error)
+    }
 
 suspend fun radioRequestStartResult(
     request: RadioRequest,
@@ -128,6 +137,7 @@ suspend fun radioRequestStartResult(
             recentRadioStream = recentRadioStream?.withRadioCoverArtIds(tracks),
         )
     }.getOrElse { error ->
+        if (error is CancellationException) throw error
         RadioRequestStartResult.Failed(error)
     }
 
@@ -158,6 +168,7 @@ suspend fun seededRadioBuildResult(
             recentRadioStream = recentRadioStream?.withRadioCoverArtIds(queue),
         )
     }.getOrElse { error ->
+        if (error is CancellationException) throw error
         SeededRadioBuildResult.Failed(error)
     }
 
@@ -177,6 +188,7 @@ suspend fun seededRadioExpansionResult(
     runCatching {
         SeededRadioExpansionResult.Ready(loadRest(radioService))
     }.getOrElse { error ->
+        if (error is CancellationException) throw error
         SeededRadioExpansionResult.Failed(error)
     }
 
@@ -185,6 +197,7 @@ fun libraryRadioRequest(): RadioRequest =
         label = "Library radio",
         recentRadioStream = libraryRecentRadioStream(),
         loadTracks = { radioService -> radioService.libraryRadio() },
+        recipe = GeneratedRadioStation(id = "", name = "Library radio", kind = GeneratedRadioKind.Library),
     )
 
 fun genreRadioRequest(genre: Genre): RadioRequest =
@@ -192,6 +205,8 @@ fun genreRadioRequest(genre: Genre): RadioRequest =
         label = "${genre.name} radio",
         recentRadioStream = genreRecentRadioStream(genre),
         loadTracks = { radioService -> radioService.genreRadio(genre.name) },
+        recipe = GeneratedRadioStation(id = "", name = "${genre.name} radio", kind = GeneratedRadioKind.Genres,
+            genres = listOf(genre.name)),
     )
 
 fun genreMixRadioRequest(genres: List<Genre>): RadioRequest {
@@ -213,6 +228,8 @@ fun genreMixRadioRequest(genres: List<Genre>): RadioRequest {
                     .distinctBy { it.id }
             }
         },
+        recipe = GeneratedRadioStation(id = "", name = label, kind = GeneratedRadioKind.Genres,
+            genres = distinctGenres.map { it.name }),
     )
 }
 
@@ -221,6 +238,8 @@ fun decadeRadioRequest(fromYear: Int, toYear: Int): RadioRequest =
         label = "$fromYear-$toYear radio",
         recentRadioStream = decadeRecentRadioStream(fromYear, toYear),
         loadTracks = { radioService -> radioService.decadeRadio(fromYear, toYear) },
+        recipe = GeneratedRadioStation(id = "", name = "$fromYear-$toYear radio", kind = GeneratedRadioKind.Decade,
+            fromYear = fromYear, toYear = toYear, resolvedDecadeStart = (fromYear / 10) * 10),
     )
 
 fun trackRadioRequest(
@@ -232,6 +251,8 @@ fun trackRadioRequest(
         seedTrack = track,
         recentRadioStream = trackRecentRadioStream(track),
         loadRest = { radioService -> radioService.trackRadio(track, preferSonicSimilarity) },
+        recipe = GeneratedRadioStation(id = "", name = "${track.title} radio", kind = GeneratedRadioKind.Track,
+            seedTracks = listOf(SavedTrack.fromTrack(track)), sonicSimilarity = preferSonicSimilarity, includeSeeds = true),
     )
 
 fun randomAlbumSeededRadioRequest(
@@ -243,6 +264,8 @@ fun randomAlbumSeededRadioRequest(
         seedTrack = seedTrack,
         recentRadioStream = randomAlbumRecentRadioStream(album),
         loadRest = { radioService -> radioService.albumRadio(album.id) },
+        recipe = GeneratedRadioStation(id = "", name = "${album.title} radio", kind = GeneratedRadioKind.RandomAlbum,
+            seedTracks = listOf(SavedTrack.fromTrack(seedTrack)), albums = listOf(SavedAlbum.fromAlbum(album)), includeSeeds = true),
     )
 
 fun artistSeededRadioRequest(
@@ -254,6 +277,8 @@ fun artistSeededRadioRequest(
         seedTrack = seedTrack,
         recentRadioStream = artistRecentRadioStream(artist),
         loadRest = { radioService -> radioService.artistRadio(artist.id) },
+        recipe = GeneratedRadioStation(id = "", name = "${artist.name} radio", kind = GeneratedRadioKind.Artist,
+            seedTracks = listOf(SavedTrack.fromTrack(seedTrack)), artists = listOf(SavedArtist.fromArtist(artist)), includeSeeds = true),
     )
 
 fun artistMixSeededRadioRequest(
@@ -280,6 +305,9 @@ fun artistMixSeededRadioRequest(
                 (popularQueue + radioTracks).distinctBy { it.id }
             }
         },
+        recipe = GeneratedRadioStation(id = "", name = label, kind = GeneratedRadioKind.Artists,
+            seedTracks = (listOf(seedTrack) + preferredTracks).distinctBy { it.id }.map(SavedTrack::fromTrack),
+            artists = distinctArtists.map(SavedArtist::fromArtist), includeSeeds = true),
     )
 }
 
@@ -293,6 +321,8 @@ fun albumSeededRadioRequest(
         seedTrack = seedTrack,
         recentRadioStream = albumRecentRadioStream(album),
         loadRest = { radioService -> radioService.albumRadio(album.id, loadedAlbumTracks) },
+        recipe = GeneratedRadioStation(id = "", name = "${album.title} radio", kind = GeneratedRadioKind.Album,
+            seedTracks = listOf(SavedTrack.fromTrack(seedTrack)), albums = listOf(SavedAlbum.fromAlbum(album)), includeSeeds = true),
     )
 
 /**
@@ -318,6 +348,9 @@ fun albumHomeMixSeededRadioRequest(
             // still never turn into the seed album, so its own tracks are excluded.
             radioService.trackRadio(seedTrack, preferSonicSimilarity).filterNot { it.albumId == album.id }
         },
+        recipe = GeneratedRadioStation(id = "", name = "${album.title} radio", kind = GeneratedRadioKind.Track,
+            seedTracks = listOf(SavedTrack.fromTrack(seedTrack)), sonicSimilarity = preferSonicSimilarity,
+            includeSeeds = true, excludedAlbumIds = listOf(album.id.value)),
     )
 
 fun albumMixSeededRadioRequest(
@@ -344,6 +377,9 @@ fun albumMixSeededRadioRequest(
                 (mixedQueue + radioTracks).distinctBy { it.id }
             }
         },
+        recipe = GeneratedRadioStation(id = "", name = label, kind = GeneratedRadioKind.Albums,
+            seedTracks = (listOf(seedTrack) + preferredTracks).distinctBy { it.id }.map(SavedTrack::fromTrack),
+            albums = distinctAlbums.map(SavedAlbum::fromAlbum), includeSeeds = true),
     )
 }
 
@@ -373,6 +409,8 @@ fun popularTracksRadioRequest(
                 )
             }
         },
+        recipe = GeneratedRadioStation(id = "", name = "${seedTrack.artistName} popular tracks radio", kind = GeneratedRadioKind.Track,
+            seedTracks = popularTracks.map(SavedTrack::fromTrack), includeSeeds = true),
     )
 }
 

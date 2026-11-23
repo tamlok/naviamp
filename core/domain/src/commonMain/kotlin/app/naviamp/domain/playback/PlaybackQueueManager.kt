@@ -5,6 +5,7 @@ import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.queue.RepeatMode
 import app.naviamp.domain.settings.PreviousButtonBehavior
+import app.naviamp.domain.radio.RadioQueueOccurrence
 
 class PlaybackQueueManager(
     private val lifecycle: PlaybackQueueLifecycleManager = PlaybackQueueLifecycleManager(),
@@ -99,8 +100,9 @@ class PlaybackQueueManager(
     fun toggleUpcomingShuffle(
         currentQueue: PlaybackQueue,
         shuffledSnapshot: List<Track>?,
+        shuffledOccurrences: List<RadioQueueOccurrence>? = null,
     ): PlaybackShuffleUpdate =
-        mutation.toggleUpcomingShuffle(currentQueue, shuffledSnapshot)
+        mutation.toggleUpcomingShuffle(currentQueue, shuffledSnapshot, shuffledOccurrences)
 
     fun cycleRepeatMode(currentMode: RepeatMode): RepeatMode =
         controls.cycleRepeatMode(currentMode)

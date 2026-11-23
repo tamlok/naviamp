@@ -43,6 +43,8 @@ internal class NaviampCoreCastController(
     private val queue: NaviampPlaybackQueueCoordinator,
     private val local: NaviampCorePlaybackEffectPort,
     private val publishNowPlaying: () -> Unit,
+    private val onAuthoritativePlaybackChanged: () -> Unit = {},
+    private val onAuthorityChanged: () -> Unit = {},
 ) : NaviampCoreCastPlaybackRoute {
     private var loadJob: Job? = null
     private var outputJob: Job? = null
@@ -70,6 +72,7 @@ internal class NaviampCoreCastController(
                             output.phase == NaviampRemoteOutputPhase.Unavailable && activeMediaUrl != null
                         ) {
                             playback.updatePlaybackState(PlaybackState.Paused)
+                            onAuthoritativePlaybackChanged()
                             publishNowPlaying()
                         }
                         if (output.target.kind != NaviampRemoteOutputKind.Cast && activeMediaUrl != null) {
@@ -186,7 +189,9 @@ internal class NaviampCoreCastController(
                     return@launch
                 }
                 if (!sessions.activatePlaybackAuthority(selected)) return@launch
+                val acquiringAuthority = activeMediaUrl == null
                 activeMediaUrl = media.mediaUrl
+                if (acquiringAuthority) onAuthorityChanged()
                 val previousLeases = activeLeases
                 activeLeases = issued.toList()
                 retained = true
@@ -199,6 +204,7 @@ internal class NaviampCoreCastController(
                     playbackState = if (wasPlaying) PlaybackState.Loading else PlaybackState.Paused,
                     progress = PlaybackProgress(startPosition, track.durationSeconds?.toDouble()),
                 ))
+                onAuthoritativePlaybackChanged()
                 publishNowPlaying()
                 if (wasPlaying && !commandMutex.withLock {
                         withTimeoutOrNull(8_000) {
@@ -206,6 +212,7 @@ internal class NaviampCoreCastController(
                         } == true
                     }) {
                     playback.updatePlaybackState(PlaybackState.Paused)
+                    onAuthoritativePlaybackChanged()
                     publishNowPlaying()
                 }
             } finally {
@@ -268,6 +275,9 @@ internal class NaviampCoreCastController(
                     ?: playback.state.value.queue.current?.durationSeconds?.toDouble(),
             ),
         ))
+        // The sender's canonical queue/progress drives the same generated-station low-water policy.
+        // The receiver only plays audio; it never owns recommendation generation.
+        onAuthoritativePlaybackChanged()
         publishNowPlaying()
         if (status.finished && finishedMediaUrl != status.mediaUrl) {
             finishedMediaUrl = status.mediaUrl
@@ -276,6 +286,7 @@ internal class NaviampCoreCastController(
                 PlaybackQueueFinishedCommand.ReplayCurrent -> loadCurrent(0.0)
                 PlaybackQueueFinishedCommand.PlayNext -> {
                     playback.updateCurrentTrack(next.queue.current)
+                    onAuthoritativePlaybackChanged()
                     loadCurrent(0.0)
                 }
                 PlaybackQueueFinishedCommand.None -> { remoteWasPlaying = false }
@@ -297,6 +308,8 @@ internal class NaviampCoreCastController(
             if (remoteWasPlaying) local.startOrRestore()
             else playback.updatePlaybackState(PlaybackState.Paused)
         }
+        onAuthorityChanged()
+        onAuthoritativePlaybackChanged()
         remoteWasPlaying = false
         publishNowPlaying()
     }

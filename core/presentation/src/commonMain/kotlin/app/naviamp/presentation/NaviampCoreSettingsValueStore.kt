@@ -74,6 +74,7 @@ fun naviampCoreProviderIdentitySettingsMigrationRepository(
         write(values, json, KeyRecentRadio, recentRadio)
         write(values, json, KeyRecentInternetRadio, recentInternetRadio)
         write(values, json, KeyInterface, migratedInterface)
+        migrateGeneratedRadioProviderIdentities(values, json, sourceId, transform)
         values.write(
             KeyProviderIdentityVersions,
             json.encodeToString(
@@ -83,6 +84,22 @@ fun naviampCoreProviderIdentitySettingsMigrationRepository(
         )
         return true
     }
+}
+
+private fun migrateGeneratedRadioProviderIdentities(
+    values: NaviampCoreSettingsValueStore,
+    json: Json,
+    sourceId: String,
+    transform: (String) -> String,
+) {
+    val generated = read(values, json, KeyGeneratedRadio, app.naviamp.domain.radio.GeneratedRadioLibrary())
+    val stationIds = generated.stations.asSequence().filter { it.sourceId == sourceId }.mapTo(mutableSetOf()) { it.id }
+    write(values, json, KeyGeneratedRadio, generated.copy(
+        stations = generated.stations.map { if (it.sourceId == sourceId) it.migratedProviderIdentities(transform) else it },
+        batches = generated.batches.map { batch -> if (batch.stationId in stationIds)
+            batch.copy(tracks = batch.tracks.map { it.migratedProviderIdentities(transform) },
+                resolvedRecipe = batch.resolvedRecipe?.migratedProviderIdentities(transform)) else batch },
+    ))
 }
 
 private fun readProviderIdentitySettingsVersions(
@@ -128,6 +145,11 @@ internal fun naviampCoreSettingsValueCatalogWithoutMigration(
             saveSyncRuntime = { write(values, json, KeySyncRuntime, it.normalized()) },
             loadRecentPlaylistIds = { read(values, json, KeyRecentPlaylists, emptyList<String>()) },
             saveRecentPlaylistIds = { write(values, json, KeyRecentPlaylists, it) },
+            generatedRadio = object : app.naviamp.domain.radio.GeneratedRadioRepository {
+                override fun load() = read(values, json, KeyGeneratedRadio, app.naviamp.domain.radio.GeneratedRadioLibrary()).normalized()
+                override fun save(library: app.naviamp.domain.radio.GeneratedRadioLibrary) =
+                    write(values, json, KeyGeneratedRadio, library.normalized())
+            },
         ),
     )
 }
@@ -159,3 +181,4 @@ internal const val KeyRecentInternetRadio = "naviamp.recentInternetRadio"
 internal const val KeySyncRuntime = "naviamp.syncRuntime"
 internal const val KeyRecentPlaylists = "naviamp.recentPlaylists"
 internal const val KeyProviderIdentityVersions = "naviamp.providerIdentityVersions"
+internal const val KeyGeneratedRadio = "naviamp.generatedRadio"

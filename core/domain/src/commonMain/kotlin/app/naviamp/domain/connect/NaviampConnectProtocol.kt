@@ -4,6 +4,9 @@ import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.PlaybackSettings
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.GeneratedRadioStation
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -13,6 +16,7 @@ import kotlinx.serialization.json.Json
 const val NaviampConnectCurrentProtocolVersion: Int = 1
 const val NaviampConnectMinimumProtocolVersion: Int = 1
 const val NaviampConnectServiceType: String = "_naviamp-connect._tcp"
+const val NaviampConnectStationSessionVersion: Int = 1
 
 @Serializable
 data class NaviampConnectProtocolRange(
@@ -256,6 +260,8 @@ data class NaviampConnectWelcome(
     val initialSetupAllowed: Boolean = false,
     /** Additive negotiation: older targets must not silently discard an attached account. */
     val companionProvisioningSupported: Boolean = false,
+    /** Zero means unsupported, including peers built before station-session negotiation. */
+    val stationSessionVersion: Int = 0,
 ) : NaviampConnectMessage
 
 /** An opaque PAKE exchange payload. A short code is never placed in a wire message. */
@@ -579,6 +585,74 @@ data class NaviampConnectHandoffQueue(
     }
 }
 
+/** A complete recipe, never a one-track legacy radio intent. */
+@Serializable
+@SerialName("station_start")
+data class NaviampConnectStationStart(
+    val sourceIdentity: NaviampConnectSourceIdentity,
+    val station: GeneratedRadioStation,
+    val endlessEnabled: Boolean = true,
+) : NaviampConnectCommand {
+    init { station.requireConnectRecipe(sourceIdentity) }
+}
+
+/** Retry the existing frontier without replacing its current occurrence or recipe. */
+@Serializable
+@SerialName("station_retry")
+data class NaviampConnectStationRetry(val stationId: String, val recipeRevision: Long) : NaviampConnectCommand {
+    init {
+        require(stationId.isNotBlank() && stationId.length <= 512 && recipeRevision > 0) {
+            "A station retry requires its identity and recipe revision."
+        }
+    }
+}
+
+/** Only negotiated peers may replace playback while preserving generated-session ownership. */
+@Serializable
+@SerialName("station_handoff")
+data class NaviampConnectStationHandoff(
+    val sourceIdentity: NaviampConnectSourceIdentity,
+    val checkpoint: GeneratedRadioCheckpoint,
+    val queue: NaviampConnectQueueSnapshot,
+    val positionMillis: Long,
+    val repeatMode: NaviampConnectRepeatMode,
+    val shuffled: Boolean,
+    val playing: Boolean = true,
+) : NaviampConnectCommand {
+    init {
+        require(positionMillis >= 0) { "A handoff position must not be negative." }
+        require(queue.occurrences.isNotEmpty() && queue.occurrences.size <= 10_000) {
+            "A station transfer requires a non-empty bounded queue."
+        }
+        require(sourceIdentity.providerId.isNotBlank() && sourceIdentity.canonicalServerOrigin.isNotBlank() &&
+            sourceIdentity.accountIdentity.isNotBlank()) { "A generated transfer requires a valid source identity." }
+        require(checkpoint.mode != GeneratedRadioPlaybackMode.Station || checkpoint.station != null) {
+            "A station transfer requires its complete recipe."
+        }
+        checkpoint.station?.requireConnectRecipe(sourceIdentity)
+        require(checkpoint.seenTrackIds.size <= 2_000) { "Station exclusions exceed the transfer limit." }
+        require(checkpoint.occurrences.size == queue.occurrences.size &&
+            checkpoint.occurrences.indices.all { index ->
+                checkpoint.occurrences[index].id == queue.occurrences[index].occurrenceId
+            }) { "Station provenance must identify every transferred queue occurrence in order." }
+    }
+}
+
+fun NaviampConnectCommand.requiresStationSession(): Boolean =
+    this is NaviampConnectStationStart || this is NaviampConnectStationHandoff || this is NaviampConnectStationRetry
+
+private fun GeneratedRadioStation.requireConnectRecipe(identity: NaviampConnectSourceIdentity) {
+    require(id.isNotBlank() && id.length <= 512 && name.length <= 1_024 && revision > 0) {
+        "A station transfer requires a valid recipe identity and revision."
+    }
+    require(sourceIdentity?.isCompatibleWith(identity) == true) {
+        "The station recipe must identify the transferred source and library."
+    }
+    require(seedTracks.size <= 64 && artists.size <= 64 && albums.size <= 64 && genres.size <= 64) {
+        "The station seed set exceeds the transfer limit."
+    }
+}
+
 @Serializable
 enum class NaviampConnectMediaType {
     Track,
@@ -619,6 +693,9 @@ fun NaviampConnectCommand.requiredCapability(): NaviampConnectCapability? = when
     }
     is NaviampConnectQueueMedia -> NaviampConnectCapability.QueueEdit
     is NaviampConnectOfferConnectionProvisioning -> NaviampConnectCapability.ConnectionProvisioning
+    is NaviampConnectStationStart -> NaviampConnectCapability.CatalogPlayback
+    is NaviampConnectStationRetry -> NaviampConnectCapability.CatalogPlayback
+    is NaviampConnectStationHandoff -> NaviampConnectCapability.QueueHandoff
     is NaviampConnectHandoffQueue -> NaviampConnectCapability.QueueHandoff
 }
 
@@ -630,6 +707,10 @@ data class NaviampConnectTargetSnapshot(
     val sourceIdentity: NaviampConnectSourceIdentity? = null,
     val playback: NaviampConnectPlaybackSnapshot = NaviampConnectPlaybackSnapshot(),
     val queue: NaviampConnectQueueSnapshot = NaviampConnectQueueSnapshot(),
+    val stationSessionVersion: Int = 0,
+    val generatedRadio: GeneratedRadioCheckpoint? = null,
+    /** String is additive: a future runtime state must not break an older peer's decoder. */
+    val generatedRadioState: String? = null,
 ) {
     init {
         require(revision >= 0) { "A target revision must not be negative." }

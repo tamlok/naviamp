@@ -276,6 +276,8 @@ fun HomeContent.toSharedHomeUi(
     showSonicPathBuilder: Boolean = false,
     showSonicMixBuilder: Boolean = false,
     interfaceSettings: InterfaceSettings = InterfaceSettings(),
+    savedGeneratedStations: List<app.naviamp.domain.radio.GeneratedRadioStation> = emptyList(),
+    artistArtworkUrl: (String) -> String? = { null },
 ): SharedHomeUi {
     val builders = sharedMixBuilders(showSonicPathBuilder, showSonicMixBuilder)
     val recentRadioItems = recentRadioStreams.map {
@@ -312,16 +314,18 @@ fun HomeContent.toSharedHomeUi(
 
         toSharedRecommendationsSection(coverArtUrl, canFavoriteAlbums, interfaceSettings)?.let { add(it) }
 
-        addSection(HomeSectionIds.MixesForYou, "MIXES FOR YOU", mixAlbums.map { album ->
-            val mediaItem = album.toSharedMediaItemUi(coverArtUrl, canFavoriteAlbums)
-            SharedHomeCollectionItemUi(
-                mediaItem = mediaItem,
-                mediaKind = SharedMediaItemKind.Album,
-                title = "${mediaItem.subtitle} Mix",
-                subtitle = mediaItem.title,
-                action = SharedHomeCollectionItemAction.PlayAlbumMix,
-            )
+        addSection(HomeSectionIds.MixesForYou, "MIXES FOR YOU", generatedMixes.map { station ->
+            station.toSharedGeneratedRadioItem(coverArtUrl, artistArtworkUrl)
         })
+        if (savedGeneratedStations.isNotEmpty()) add(SharedHomeCollectionSectionUi(
+            id = SharedHomeCollectionSectionIds.SavedGeneratedStations,
+            title = "",
+            titleResource = SharedHomeCollectionTitleResource.SavedGeneratedStations,
+            items = savedGeneratedStations.sortedByDescending { it.pinned }.map { station ->
+                station.toSharedGeneratedRadioItem(coverArtUrl, artistArtworkUrl)
+            },
+            homeItemLimit = 10,
+        ))
         addSection(HomeSectionIds.NavibeatMixes, "NAVIBEAT MIXES", navibeatMixes.map { mix ->
             SharedHomeCollectionItemUi(
                 mediaItem = mix.playlist.toSharedMediaItemUi(

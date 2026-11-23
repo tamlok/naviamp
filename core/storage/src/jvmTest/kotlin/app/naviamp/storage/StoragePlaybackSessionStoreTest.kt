@@ -6,11 +6,17 @@ import app.naviamp.domain.TrackId
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.playback.PlaylistPlaybackBookmark
 import app.naviamp.domain.settings.PlaybackSessionSettings
+import app.naviamp.domain.settings.restoredTrackSession
+import app.naviamp.domain.settings.planPlaybackSessionRestoreEffects
 import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.playback.PlaybackTransitionMode
 import app.naviamp.domain.queue.PlaybackQueueGroup
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import kotlin.test.assertFails
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -31,7 +37,19 @@ class StoragePlaybackSessionStoreTest {
                 label = "Album", startIndex = 0, endIndexExclusive = 3,
                 profile = PlaybackProfile(transitionMode = PlaybackTransitionMode.Gapless),
             )),
-        )!!.copy(nowPlayingOpen = true)
+        )!!.copy(
+            nowPlayingOpen = true,
+            generatedRadio = GeneratedRadioCheckpoint(
+                wasPaused = true,
+                mode = GeneratedRadioPlaybackMode.FiniteBatch,
+                seenTrackIds = listOf("earlier", "duplicate"),
+                occurrences = listOf(
+                    RadioQueueOccurrence("history", "station", "batch"),
+                    RadioQueueOccurrence("current", "station", "batch"),
+                    RadioQueueOccurrence("manual"),
+                ),
+            ),
+        )
         try {
             val first = JdbcSqliteDriver(url)
             try {
@@ -42,7 +60,12 @@ class StoragePlaybackSessionStoreTest {
             val reopened = JdbcSqliteDriver(url)
             try {
                 val store = StoragePlaybackSessionStore(NaviampStorageDatabase(reopened).naviampStorageQueries, { 43L })
-                assertEquals(session, store.loadPlaybackSession("source"))
+                val reloaded = assertNotNull(store.loadPlaybackSession("source"))
+                assertEquals(session, reloaded)
+                val restored = assertNotNull(reloaded.restoredTrackSession())
+                assertEquals(GeneratedRadioPlaybackMode.FiniteBatch, restored.generatedRadio?.mode)
+                assertEquals(true, restored.generatedRadio?.wasPaused)
+                assertEquals(false, planPlaybackSessionRestoreEffects(true, true, true, restored.generatedRadio).startPlayback)
                 assertNull(store.loadPlaybackSession("different-source"))
             } finally { reopened.close() }
         } finally { directory.deleteRecursively() }
@@ -263,7 +286,7 @@ class StoragePlaybackSessionStoreTest {
             store.savePlaybackSession(session, source)
             driver.execute(null, "DROP TABLE playlist_playback_bookmark", 0)
 
-            NaviampStorageDatabase.Schema.migrate(driver, 31L, NaviampStorageDatabase.Schema.version)
+            NaviampStorageDatabase.Schema.migrate(driver, 31L, 32L)
 
             assertNotNull(database.naviampStorageQueries.selectMediaSourceById(source).executeAsOneOrNull())
             assertEquals(session, store.loadPlaybackSession(source))
@@ -273,6 +296,93 @@ class StoragePlaybackSessionStoreTest {
             assertEquals(bookmark, store.playlistBookmarks.loadBookmark(source, "playlist"))
         }
     }
+    @Test
+    fun unchangedTrackQueueStillPersistsPausePolicyExclusionsAndOccurrenceReplacement() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val store = StoragePlaybackSessionStore(queries, { 42L })
+            val initial = PlaybackSessionSettings.fromTracks(listOf(testTrack("same")), 0)!!.copy(
+                generatedRadio = GeneratedRadioCheckpoint(
+                    occurrences = listOf(RadioQueueOccurrence("generated", "station", "batch")),
+                ),
+            )
+            store.savePlaybackSession(initial, "source")
+            val paused = initial.copy(generatedRadio = initial.generatedRadio!!.copy(wasPaused = true))
+            val finite = paused.copy(generatedRadio = paused.generatedRadio!!.copy(
+                mode = GeneratedRadioPlaybackMode.FiniteBatch, endlessEnabled = false, seenTrackIds = listOf("older", "same"),
+            ))
+            val userCopy = finite.copy(generatedRadio = finite.generatedRadio!!.copy(
+                occurrences = listOf(RadioQueueOccurrence("user-copy")),
+            ))
+            for (updated in listOf(paused, finite, userCopy, initial.copy(generatedRadio = null))) {
+                store.savePlaybackSession(updated, "source")
+                assertEquals(false, store.performanceSnapshot().queueRewritten)
+                assertEquals(updated, StoragePlaybackSessionStore(queries, { 43L }).loadPlaybackSession("source"))
+            }
+        } finally { driver.close() }
+    }
+
+    @Test
+    fun malformedCheckpointDoesNotDiscardSavedTracksAndPosition() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val session = PlaybackSessionSettings.fromTracks(listOf(testTrack("one")), 0, positionSeconds = 51.0)!!
+            StoragePlaybackSessionStore(queries, { 42L }).savePlaybackSession(session, "source")
+            driver.execute(null, "UPDATE playback_session_state SET generated_radio_checkpoint_payload = '{invalid'", 0)
+            assertEquals(session, StoragePlaybackSessionStore(queries, { 43L }).loadPlaybackSession("source"))
+        } finally { driver.close() }
+    }
+
+    @Test
+    fun migrationAddsNullableCheckpointWithoutChangingTheOldQueueOrBookmark() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val source = bookmarkSource(queries, "radio-upgrade")
+            val bookmark = PlaylistPlaybackBookmark(TrackId("same"), 1, 37.0)
+            val session = PlaybackSessionSettings.fromTracks(listOf(testTrack("same"), testTrack("same")), 1)!!
+            val store = StoragePlaybackSessionStore(queries, { 42L })
+            store.savePlaybackSession(session, source)
+            store.playlistBookmarks.saveBookmark(source, "playlist", bookmark)
+            driver.execute(null, "ALTER TABLE playback_session_state DROP COLUMN generated_radio_checkpoint_payload", 0)
+            NaviampStorageDatabase.Schema.migrate(driver, 32L, NaviampStorageDatabase.Schema.version)
+            assertNull(queries.selectPlaybackSessionState(source).executeAsOne().generated_radio_checkpoint_payload)
+            assertEquals(session, StoragePlaybackSessionStore(queries, { 43L }).loadPlaybackSession(source))
+            assertEquals(bookmark, store.playlistBookmarks.loadBookmark(source, "playlist"))
+        } finally { driver.close() }
+    }
+
+    @Test
+    fun failedCheckpointWriteRollsBackQueueRowsAndCanBeRetried() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            NaviampStorageDatabase.Schema.create(driver)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val store = StoragePlaybackSessionStore(queries, { 42L })
+            val initial = PlaybackSessionSettings.fromTracks(listOf(testTrack("old")), 0)!!.copy(
+                generatedRadio = GeneratedRadioCheckpoint(occurrences = listOf(RadioQueueOccurrence("old", "station", "old"))),
+            )
+            store.savePlaybackSession(initial, "source")
+            driver.execute(null, """
+                CREATE TRIGGER reject_checkpoint BEFORE INSERT ON playback_session_state
+                BEGIN SELECT RAISE(ABORT, 'checkpoint write failed'); END
+            """.trimIndent(), 0)
+            val replacement = PlaybackSessionSettings.fromTracks(listOf(testTrack("new")), 0)!!.copy(
+                generatedRadio = GeneratedRadioCheckpoint(wasPaused = true, occurrences = listOf(RadioQueueOccurrence("new"))),
+            )
+            assertFails { store.savePlaybackSession(replacement, "source") }
+            assertEquals(initial, StoragePlaybackSessionStore(queries, { 43L }).loadPlaybackSession("source"))
+            driver.execute(null, "DROP TRIGGER reject_checkpoint", 0)
+            store.savePlaybackSession(replacement, "source")
+            assertEquals(replacement, StoragePlaybackSessionStore(queries, { 44L }).loadPlaybackSession("source"))
+        } finally { driver.close() }
+    }
+
 }
 
 private fun testTrack(id: String) = Track(

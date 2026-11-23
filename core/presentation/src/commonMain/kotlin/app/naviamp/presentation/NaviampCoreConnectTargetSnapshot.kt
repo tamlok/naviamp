@@ -1,6 +1,13 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampLivePlaybackState
+import app.naviamp.domain.connect.NaviampConnectStationStart
+import app.naviamp.domain.connect.NaviampConnectStationHandoff
+import app.naviamp.domain.connect.NaviampConnectStationSessionVersion
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioStatus
+import app.naviamp.domain.connect.NaviampConnectStationRetry
+import app.naviamp.domain.radio.GeneratedRadioStation
 import app.naviamp.domain.connect.NaviampConnectCapability
 import app.naviamp.domain.connect.NaviampConnectClearUpNext
 import app.naviamp.domain.connect.NaviampConnectCommand
@@ -30,6 +37,16 @@ import app.naviamp.domain.queue.RepeatMode
 import app.naviamp.domain.queue.normalizedGroups
 import kotlin.math.roundToLong
 
+/** The Core generated owner resolves canonical catalog data before accepting either operation. */
+interface NaviampCoreConnectGeneratedRadioPort {
+    fun checkpoint(): GeneratedRadioCheckpoint?
+    fun status(): GeneratedRadioStatus
+    fun open(station: GeneratedRadioStation)
+    suspend fun retry(stationId: String, revision: Long): Boolean
+    suspend fun start(command: NaviampConnectStationStart): Boolean
+    suspend fun handoff(command: NaviampConnectStationHandoff): Boolean
+}
+
 /**
  * Projects Naviamp's canonical live playback graph into the Connect wire model.
  *
@@ -41,6 +58,7 @@ class NaviampCoreConnectTargetSnapshotFactory(
     private val target: NaviampConnectDevice,
     private val capabilities: Set<NaviampConnectCapability>,
     private val sourceIdentity: () -> NaviampConnectSourceIdentity? = { null },
+    private val generatedRadio: NaviampCoreConnectGeneratedRadioPort? = null,
 ) {
     fun create(
         revision: Long,
@@ -49,6 +67,7 @@ class NaviampCoreConnectTargetSnapshotFactory(
         visibleSurface: NaviampConnectTargetSurface = NaviampConnectTargetSurface.NowPlaying,
     ): NaviampConnectTargetSnapshot {
         val queue = live.toNaviampConnectQueueSnapshot()
+        val checkpoint = generatedRadio?.checkpoint()?.toConnectCheckpoint()
         return NaviampConnectTargetSnapshot(
             revision = revision,
             target = target,
@@ -69,6 +88,9 @@ class NaviampCoreConnectTargetSnapshotFactory(
                 visibleSurface = visibleSurface,
             ),
             queue = queue,
+            stationSessionVersion = if (generatedRadio != null) NaviampConnectStationSessionVersion else 0,
+            generatedRadio = checkpoint?.copy(occurrences = live.queue.occurrences),
+            generatedRadioState = generatedRadio?.takeIf { checkpoint != null }?.status()?.name,
         )
     }
 
@@ -151,11 +173,31 @@ fun naviampCoreConnectQueueHandoff(
     playing = playing,
 )
 
+fun naviampCoreConnectStationHandoff(
+    live: NaviampLivePlaybackState,
+    sourceIdentity: NaviampConnectSourceIdentity,
+    checkpoint: GeneratedRadioCheckpoint,
+    playing: Boolean = live.playbackState == PlaybackState.Playing || live.playbackState == PlaybackState.Loading,
+): NaviampConnectStationHandoff = NaviampConnectStationHandoff(
+    sourceIdentity = sourceIdentity,
+    checkpoint = checkpoint.toConnectCheckpoint().copy(wasPaused = !playing, occurrences = live.queue.occurrences),
+    queue = live.toNaviampConnectQueueSnapshot(),
+    positionMillis = live.progress.positionSeconds.toNonNegativeMillis(),
+    repeatMode = live.repeatMode.toConnectRepeatMode(),
+    shuffled = live.shuffledUpNextSnapshot != null,
+    playing = playing,
+)
+
+private fun GeneratedRadioCheckpoint.toConnectCheckpoint(): GeneratedRadioCheckpoint = copy(
+    station = station?.copy(sourceId = null, libraryScope = ""),
+)
+
 private fun NaviampLivePlaybackState.toNaviampConnectQueueSnapshot(): NaviampConnectQueueSnapshot {
     val playbackQueue = queue
     val occurrences = playbackQueue.tracks.mapIndexed { index, track ->
         NaviampConnectQueueOccurrence(
-            occurrenceId = NaviampCoreConnectTargetSnapshotFactory.occurrenceId(index, track.id.value),
+            occurrenceId = playbackQueue.occurrences.getOrNull(index)?.id
+                ?: NaviampCoreConnectTargetSnapshotFactory.occurrenceId(index, track.id.value),
             mediaId = track.id.value,
             title = track.title,
             artistId = track.artistId?.value,
@@ -214,12 +256,16 @@ class NaviampCoreConnectTargetCommandExecutor(
     private val snapshots: NaviampCoreConnectTargetSnapshotFactory,
     private val offerProvisioning: (NaviampConnectOfferConnectionProvisioning) -> Boolean = { false },
     private val revealNowPlaying: () -> Unit = {},
+    private val generatedRadio: NaviampCoreConnectGeneratedRadioPort? = null,
 ) : NaviampConnectTargetCommandExecutor {
     override suspend fun execute(
         command: NaviampConnectCommand,
         currentSnapshot: NaviampConnectTargetSnapshot,
     ): NaviampConnectTargetCommandResult {
         val accepted = when (command) {
+            is NaviampConnectStationStart -> generatedRadio?.start(command) == true
+            is NaviampConnectStationHandoff -> generatedRadio?.handoff(command) == true
+            is NaviampConnectStationRetry -> generatedRadio?.retry(command.stationId, command.recipeRevision) == true
             is NaviampConnectOfferConnectionProvisioning -> offerProvisioning(command)
             is NaviampConnectStartMedia -> catalog.start(command)
             is app.naviamp.domain.connect.NaviampConnectQueueMedia -> catalog.queue(command)
@@ -280,6 +326,7 @@ internal fun NaviampConnectCommand.revealsNowPlayingAfter(
 ): Boolean = when (this) {
     NaviampConnectPlay,
     is NaviampConnectStartMedia,
+    is NaviampConnectStationStart,
     is NaviampConnectSelectQueueOccurrence,
     app.naviamp.domain.connect.NaviampConnectPrevious,
     app.naviamp.domain.connect.NaviampConnectNext,
@@ -289,6 +336,10 @@ internal fun NaviampConnectCommand.revealsNowPlayingAfter(
         playbackState == NaviampConnectPlaybackState.Buffering ||
             playbackState == NaviampConnectPlaybackState.Playing
     is NaviampConnectHandoffQueue -> playing && (
+        playbackState == NaviampConnectPlaybackState.Buffering ||
+            playbackState == NaviampConnectPlaybackState.Playing
+        )
+    is NaviampConnectStationHandoff -> playing && (
         playbackState == NaviampConnectPlaybackState.Buffering ||
             playbackState == NaviampConnectPlaybackState.Playing
         )
@@ -315,6 +366,9 @@ private fun NaviampConnectCommand.requiredCoreTargetCapability(): NaviampConnect
     is NaviampConnectRemoveQueueOccurrence -> NaviampConnectCapability.QueueEdit
     NaviampConnectClearUpNext -> NaviampConnectCapability.QueueClear
     is NaviampConnectHandoffQueue -> NaviampConnectCapability.QueueHandoff
+    is NaviampConnectStationStart -> NaviampConnectCapability.CatalogPlayback
+    is NaviampConnectStationRetry -> NaviampConnectCapability.CatalogPlayback
+    is NaviampConnectStationHandoff -> NaviampConnectCapability.QueueHandoff
     is NaviampConnectOfferConnectionProvisioning -> NaviampConnectCapability.ConnectionProvisioning
     is NaviampConnectStartMedia -> when (mediaType) {
         app.naviamp.domain.connect.NaviampConnectMediaType.InternetRadioStation ->

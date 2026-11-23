@@ -49,6 +49,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import app.naviamp.ui.withRecentlyPlayedTracks
+import app.naviamp.domain.connect.NaviampConnectSourceIdentity
+import app.naviamp.domain.home.HomePlaybackActivity
+import app.naviamp.domain.radio.GeneratedRadioRepository
+import app.naviamp.domain.radio.MemoryGeneratedRadioRepository
+import app.naviamp.domain.radio.GeneratedRadioStation
 
 fun interface NaviampCoreHomeDateSource {
     fun current(): HomeDate
@@ -107,6 +112,9 @@ fun localLibraryHomeRepository(
     override fun recordPlayedTrack(sourceId: String, track: Track, playedAtEpochMillis: Long) =
         libraryIndex.recordLibraryTrackPlayed(sourceId, track, playedAtEpochMillis)
 
+    override fun recentPlaybackHistory(sourceId: String, limit: Int): List<HomePlaybackActivity> =
+        libraryIndex.recentPlaybackHistory(sourceId, limit)
+
     override fun reconcileFavoriteArtists(
         sourceId: String,
         artists: List<app.naviamp.domain.Artist>,
@@ -161,7 +169,9 @@ class NaviampCoreHomeController(
     private val openLibraryArtist: suspend (app.naviamp.domain.Artist) -> Unit = {},
     private val openLibraryAlbum: suspend (app.naviamp.domain.Album) -> Unit = {},
     acquisitionRepository: app.naviamp.domain.provider.DiscoveryAcquisitionRepository = app.naviamp.domain.provider.MemoryDiscoveryAcquisitionRepository(),
-    nowMillis: () -> Long = { 0L },
+    private val nowMillis: () -> Long = { 0L },
+    private val generatedRadio: GeneratedRadioRepository = MemoryGeneratedRadioRepository(),
+    private val generatedRadioSourceIdentity: () -> NaviampConnectSourceIdentity? = { null },
 ) : NaviampCoreCommandController {
     private val recentHistoryMutex = Mutex()
     private var recentHistoryRevision = 0L
@@ -203,6 +213,8 @@ class NaviampCoreHomeController(
     private var refreshFailed = false
     private var cachedHomeProvider: MediaProvider? = null
     private var cachedHomeSourceId: String? = null
+    private var cachedHomeLibraryScope: String? = null
+    private var cachedSavedStations: List<GeneratedRadioStation> = emptyList()
     private var discoveryFeedAccount: String? = null
     private var discoveryFeedSourceId: String? = null
 
@@ -238,7 +250,8 @@ class NaviampCoreHomeController(
         val failed = mediaRegistry.home.failedSections
         return when (id) {
             HomeSectionIds.FavoriteArtists -> HomeSection.FavoriteArtists in failed || HomeSection.FavoriteAlbums in failed
-            HomeSectionIds.MixesForYou, HomeSectionIds.RandomAlbums -> HomeSection.RandomAlbums in failed
+            HomeSectionIds.MixesForYou -> HomeSection.GeneratedMixes in failed
+            HomeSectionIds.RandomAlbums -> HomeSection.RandomAlbums in failed
             HomeSectionIds.NavibeatMixes, HomeSectionIds.RecentPlaylists -> HomeSection.Playlists in failed
             HomeSectionIds.RecentlyAdded -> HomeSection.RecentlyAdded in failed
             HomeSectionIds.RecentlyPlayed -> HomeSection.RecentlyPlayed in failed
@@ -323,6 +336,9 @@ class NaviampCoreHomeController(
         }
         val supplement = supplementSource.current()
         val sourceId = supplement.sourceId ?: stateStore.state.value.shell.connectionSettings.currentSourceId
+        val libraryScope = provider.cacheNamespace
+        val sourceIdentity = generatedRadioSourceIdentity()
+        val playbackSettings = stateStore.state.value.shell.playback.settings
         publish(refreshing = true, status = "Loading home...")
         launch { refreshProviderDiscovery(provider, generation) }
         try {
@@ -341,6 +357,18 @@ class NaviampCoreHomeController(
                     artistLimit = artistLimit,
                     forceRefreshRecentlyAdded = forceRefreshRecentlyAdded,
                     observedAtIso8601 = observedAtIso8601,
+                    generatedRadio = generatedRadio,
+                    generatedRadioSourceIdentity = sourceIdentity,
+                    forceRefreshMixes = forceRefreshRecentlyAdded,
+                    nowMillis = nowMillis,
+                    sonicSimilarity = playbackSettings.effectiveSonicSimilarityEnabled(),
+                    radioTuning = playbackSettings.radioTuning,
+                    radioBatchSize = playbackSettings.radioMinimumTracks,
+                    isCurrent = {
+                        generation == refreshGeneration && providerSource.isCurrent(provider) &&
+                            sourceId == currentHomeSourceId() && libraryScope == provider.cacheNamespace &&
+                            sourceIdentity == generatedRadioSourceIdentity()
+                    },
                 ),
             )
             val sonicEnabled = stateStore.state.value.shell.playback.settings.effectiveSonicSimilarityEnabled() &&
@@ -354,13 +382,17 @@ class NaviampCoreHomeController(
             }
             content to sonicRows
         }.onSuccess { (loadedContent, loadedSonicRows) ->
-            if (generation != refreshGeneration || !providerSource.isCurrent(provider) || sourceId != currentHomeSourceId()) return@onSuccess
-            val sameSource = cachedHomeSourceId == sourceId && cachedHomeProvider?.let(providerSource::isCurrent) == true
+            if (generation != refreshGeneration || !providerSource.isCurrent(provider) ||
+                sourceId != currentHomeSourceId() || libraryScope != provider.cacheNamespace ||
+                sourceIdentity != generatedRadioSourceIdentity()) return@onSuccess
+            val sameSource = cachedHomeSourceId == sourceId && cachedHomeLibraryScope == libraryScope &&
+                cachedHomeProvider?.let(providerSource::isCurrent) == true
             var content = if (sameSource) loadedContent.retainFailedSections(mediaRegistry.home) else loadedContent
             val sonicRows = if (sameSource) loadedSonicRows.retainFailedRows(mediaRegistry.sonicRows) else loadedSonicRows
             refreshFailed = false
             cachedHomeProvider = provider
             cachedHomeSourceId = sourceId
+            cachedHomeLibraryScope = libraryScope
             // A network/sidecar refresh started before a play must not restore older history.
             if (recentHistoryRevision != historyRevision) {
                 content = content.copy(recentlyPlayedTracks = mediaRegistry.home.recentlyPlayedTracks)
@@ -381,6 +413,7 @@ class NaviampCoreHomeController(
                     showSonicPathBuilder = sonicEnabled,
                     showSonicMixBuilder = sonicEnabled,
                     interfaceSettings = state.shell.general.interfaceSettings,
+                    savedGeneratedStations = scopedSavedStations(provider, sourceId, sourceIdentity),
                 )
                 val refreshedPage = state.shell.home.collectionPage?.let { currentPage ->
                     mappedContent.collectionSections
@@ -458,6 +491,52 @@ class NaviampCoreHomeController(
     }
 
     suspend fun refreshAfterConnection() = refresh()
+
+    internal fun generatedStationsChanged() {
+        val provider = providerSource.current() ?: return
+        val supplement = supplementSource.current()
+        val sourceId = currentHomeSourceId()
+        val identity = generatedRadioSourceIdentity()
+        val library = try { generatedRadio.load() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { return }
+        val current = library.stations.filter { it.belongsTo(sourceId, identity, provider.cacheNamespace) }.associateBy { it.id }
+        val stations = current.values.filter { it.saved || it.pinned }
+        cachedSavedStations = stations
+        mediaRegistry.updateHome(mediaRegistry.home.copy(generatedMixes = mediaRegistry.home.generatedMixes
+            .mapNotNull { current[it.id] }.filterNot { it.pinned }), mediaRegistry.sonicRows)
+        stateStore.updateShell { shell ->
+            val sonicEnabled = shell.playback.settings.effectiveSonicSimilarityEnabled() && provider.capabilities.supportsSonicSimilarity
+            val content = mediaRegistry.home.toSharedHomeUi(
+                coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
+                playlistTracksById = supplement.playlistTracksById,
+                keepDownloadedPlaylistIds = supplement.keepDownloadedPlaylistIds,
+                sonicDiscoveryRows = mediaRegistry.sonicRows,
+                canFavoriteAlbums = provider.capabilities.supportsAlbumFavorites,
+                showSonicPathBuilder = sonicEnabled,
+                showSonicMixBuilder = sonicEnabled,
+                interfaceSettings = shell.general.interfaceSettings,
+                savedGeneratedStations = stations,
+            )
+            val page = shell.home.collectionPage?.let { page ->
+                content.collectionSections.firstOrNull { it.id == page.section.id }?.let { page.copy(section = it) }
+            }
+            shell.copy(home = shell.home.copy(content = content, collectionPage = page))
+        }
+    }
+
+    private fun scopedSavedStations(
+        provider: MediaProvider,
+        sourceId: String?,
+        sourceIdentity: NaviampConnectSourceIdentity?,
+    ): List<GeneratedRadioStation> {
+        val stations = try { generatedRadio.load().stations }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { cachedSavedStations }
+        return stations.filter {
+            (it.saved || it.pinned) && it.belongsTo(sourceId, sourceIdentity, provider.cacheNamespace)
+        }.also { cachedSavedStations = it }
+    }
 
     fun restoreRecentRadioStreams(streams: List<RecentRadioStream>) {
         val provider = providerSource.current()
@@ -547,6 +626,8 @@ class NaviampCoreHomeController(
         refreshFailed = false
         cachedHomeProvider = null
         cachedHomeSourceId = null
+        cachedHomeLibraryScope = null
+        cachedSavedStations = emptyList()
         discoveryFeedAccount = null
         discoveryFeedSourceId = null
         refreshGeneration += 1

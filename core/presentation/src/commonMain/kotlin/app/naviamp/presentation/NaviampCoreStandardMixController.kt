@@ -59,6 +59,22 @@ class NaviampCoreStandardMixController(
     private var genreBrowser: GenreTrackBrowser? = null
     private var genreBrowserKey: Pair<String?, List<String>>? = null
 
+    internal fun stationRecipe(kind: String): app.naviamp.domain.radio.GeneratedRadioStation? {
+        val settings = stateStore.state.value.shell.playback.settings
+        val recipe = when (kind) {
+            "ArtistMix" -> app.naviamp.domain.radio.GeneratedRadioStation("", app.naviamp.domain.radio.artistMixRadioLabel(selectedArtists), app.naviamp.domain.radio.GeneratedRadioKind.Artists,
+                artists = selectedArtists.map(app.naviamp.domain.settings.SavedArtist::fromArtist),
+                seedTracks = selectedArtists.mapNotNull { artistTracks[it.id.value]?.firstOrNull() }.map(app.naviamp.domain.settings.SavedTrack::fromTrack))
+            "AlbumMix" -> app.naviamp.domain.radio.GeneratedRadioStation("", app.naviamp.domain.radio.albumMixRadioLabel(selectedAlbums), app.naviamp.domain.radio.GeneratedRadioKind.Albums,
+                albums = selectedAlbums.map(app.naviamp.domain.settings.SavedAlbum::fromAlbum),
+                seedTracks = selectedAlbums.mapNotNull { albumTracks[it.id.value]?.firstOrNull() }.map(app.naviamp.domain.settings.SavedTrack::fromTrack))
+            "GenreMix" -> app.naviamp.domain.radio.GeneratedRadioStation("", app.naviamp.domain.radio.genreMixRadioLabel(selectedGenres), app.naviamp.domain.radio.GeneratedRadioKind.Genres,
+                genres = selectedGenres.map { it.name })
+            else -> return null
+        }
+        return recipe.copy(tuning = settings.radioTuning, batchSize = settings.radioMinimumTracks, sonicSimilarity = settings.sonicSimilarityEnabled)
+    }
+
     private enum class CandidateKind { Artist, Album, Genre }
     private enum class CandidatePhase { Loading, Failed, Scheduled, Complete }
     private class CandidateLoad(

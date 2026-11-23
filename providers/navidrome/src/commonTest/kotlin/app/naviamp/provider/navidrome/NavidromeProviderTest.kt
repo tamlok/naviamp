@@ -42,6 +42,19 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NavidromeProviderTest {
+    @Test fun generatedRadioCatalogAnnotatesMembershipFromEachScopedRequest() = runTest {
+        val http = SequencedHttpClient(listOf(
+            """{"subsonic-response":{"status":"ok","searchResult3":{"song":[{"id":"one-track","title":"One","artist":"Artist"}]}}}""",
+            """{"subsonic-response":{"status":"ok","searchResult3":{"song":[{"id":"two-track","title":"Two","artist":"Artist"}]}}}""",
+        ))
+        val provider = NavidromeProvider(connection("https://music.example.test").copy(selectedMusicFolderIds = listOf("one", "two")), http)
+        val page = provider.generatedRadioCatalogPage(MediaPageRequest(limit = 10))
+        assertEquals(listOf("one-track", "two-track"), page.items.map { it.id.value })
+        assertEquals(listOf("one", "two"), page.items.map { it.musicFolderId })
+        assertTrue(http.urls[0].contains("musicFolderId=one"))
+        assertTrue(http.urls[1].contains("musicFolderId=two"))
+    }
+
     @Test fun libraryNamesUseTheAccountReadableMusicFoldersEndpoint() = runTest {
         val http = RecordingResponseHttpClient("""{"subsonic-response":{"status":"ok","musicFolders":{"musicFolder":[{"id":1,"name":"Music"},{"id":2,"name":"Archive"}]}}}""")
         val provider = NavidromeProvider(connection("https://music.example.test"), http)

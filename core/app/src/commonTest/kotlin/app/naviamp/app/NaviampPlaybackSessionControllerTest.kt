@@ -8,6 +8,9 @@ import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.settings.PlaybackSessionRestorePlan
 import app.naviamp.domain.settings.PlaybackSessionSavePlan
 import app.naviamp.domain.settings.PlaybackSessionSettings
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -337,6 +340,34 @@ class NaviampPlaybackSessionControllerTest {
             ),
         )
         assertEquals(2, repository.saveCount)
+    }
+
+    @Test
+    fun checkpointChangesBypassPositionAndTimeGatesEvenWhenTrackIdsDoNotChange() {
+        val repository = RecordingPlaybackSessionRepository()
+        val controller = NaviampPlaybackSessionController(repository)
+        val currentTrack = track("same")
+        val queue = PlaybackQueue(
+            listOf(currentTrack), 0, occurrences = listOf(RadioQueueOccurrence("generated", "station", "batch")),
+        )
+        val request = saveRequest(currentTrack, queue, 20.0).copy(generatedRadio = GeneratedRadioCheckpoint())
+        controller.planAndSaveThrottled(request, false, 100L, 10_000L)
+        assertEquals(1, repository.saveCount)
+        val paused = request.copy(generatedRadio = request.generatedRadio!!.copy(wasPaused = true))
+        assertIs<PlaybackSessionSavePlan.Save>(controller.planAndSavePositionIfNeeded(paused, 30.0))
+        assertEquals(true, repository.sessions["source"]?.generatedRadio?.wasPaused)
+        val finite = paused.copy(generatedRadio = paused.generatedRadio!!.copy(
+            mode = GeneratedRadioPlaybackMode.FiniteBatch, endlessEnabled = false, seenTrackIds = listOf("older"),
+        ))
+        assertIs<PlaybackSessionSavePlan.Save>(controller.planAndSaveThrottled(finite, false, 101L, 10_000L))
+        val userCopy = finite.copy(playbackQueue = queue.copy(occurrences = listOf(RadioQueueOccurrence("manual"))))
+        assertIs<PlaybackSessionSavePlan.Save>(controller.planAndSaveThrottled(userCopy, false, 102L, 10_000L))
+        assertEquals(userCopy.playbackQueue.occurrences, repository.sessions["source"]?.generatedRadio?.occurrences)
+        assertEquals(4, repository.saveCount)
+        assertIs<PlaybackSessionSavePlan.None>(controller.planAndSavePositionIfNeeded(userCopy, 30.0))
+        assertIs<PlaybackSessionSavePlan.None>(controller.planAndSaveThrottled(userCopy, false, 103L, 10_000L))
+        assertIs<PlaybackSessionSavePlan.Save>(controller.planAndSavePositionIfNeeded(userCopy.copy(generatedRadio = null), 30.0))
+        assertNull(repository.sessions["source"]?.generatedRadio)
     }
 
     private fun saveRequest(

@@ -432,6 +432,15 @@ interface LocalLibraryIndexRepository : ArtistPopularTracksRepository, FavoriteA
     /** Actual listening history, independent of stale provider catalog play-date metadata. */
     fun recentlyPlayedLibraryTracks(sourceId: String, limit: Long = 50): List<Track> = emptyList()
 
+    fun recentPlaybackHistory(sourceId: String, limit: Int = 500): List<app.naviamp.domain.home.HomePlaybackActivity> = emptyList()
+
+    /** Cached membership is proven only by a known folder in the selection; an empty selection means all folders. */
+    fun generatedRadioCatalogTrackIds(
+        sourceId: String,
+        trackIds: Set<TrackId>,
+        selectedMusicFolderIds: List<String>,
+    ): Set<TrackId> = emptySet()
+
     fun recordLibraryTrackPlayed(sourceId: String, track: Track, playedAtEpochMillis: Long) = Unit
 
     fun randomLibraryTrackForAlbum(sourceId: String, albumId: AlbumId): Track?

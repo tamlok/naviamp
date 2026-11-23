@@ -42,6 +42,11 @@ fun ColumnScope.NaviampProductRouteContent(
     val artistAppearanceState = rememberNaviampArtistAppearanceState(shellState.artistDetail.selectedArtist?.id)
     val routeStateHolder = rememberSaveableStateHolder()
 
+    if (shellState.generatedRadio.open) {
+        NaviampGeneratedRadioContent(shellState.generatedRadio, shellActions.generatedRadioActions, colors,
+            shellActions.mediaActions, Modifier.weight(1f), canDownload = shellState.shellChrome.supportsDownloads)
+        return
+    }
     Box(
         modifier = Modifier
             .weight(1f)
@@ -154,6 +159,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             Text("Play Mix")
                         }
                     }
+                    NaviampGeneratedRadioBuilderActions("ArtistMix", shellState.artistMixBuilder.selectedArtists.isNotEmpty(), shellActions.generatedRadioActions)
                 }
                 NaviampRoute.AlbumMix -> Column(
                     modifier = Modifier.fillMaxSize(),
@@ -185,6 +191,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             Text("Play Mix")
                         }
                     }
+                    NaviampGeneratedRadioBuilderActions("AlbumMix", shellState.albumMixBuilder.selectedAlbums.isNotEmpty(), shellActions.generatedRadioActions)
                 }
                 NaviampRoute.GenreMix -> Column(
                     modifier = Modifier.fillMaxSize(),
@@ -216,6 +223,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             Text("Play Mix")
                         }
                     }
+                    NaviampGeneratedRadioBuilderActions("GenreMix", shellState.genreMixBuilder.selectedGenres.isNotEmpty(), shellActions.generatedRadioActions)
                 }
                 NaviampRoute.SonicPath -> Column(
                     modifier = Modifier.fillMaxSize(),
@@ -312,6 +320,8 @@ fun ColumnScope.NaviampProductRouteContent(
                             }
                         }
                     }
+                    NaviampGeneratedRadioBuilderActions("SonicMix", shellState.sonicMixBuilder.selectedTracks.isNotEmpty() && !shellState.sonicMixBuilder.loading,
+                        shellActions.generatedRadioActions, sonic = true)
                 }
                 NaviampRoute.Radio -> NaviampInternetRadioContent(
                     colors = colors,

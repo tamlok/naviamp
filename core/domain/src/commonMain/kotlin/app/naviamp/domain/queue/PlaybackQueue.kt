@@ -1,6 +1,9 @@
 package app.naviamp.domain.queue
 
 import app.naviamp.domain.Track
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 enum class RepeatMode {
     Off,
@@ -13,7 +16,20 @@ data class PlaybackQueue(
     val currentIndex: Int = -1,
     val playNextCount: Int = 0,
     val groups: List<PlaybackQueueGroup> = emptyList(),
+    val occurrences: List<RadioQueueOccurrence> = emptyList(),
 ) {
+    init {
+        require(occurrences.isEmpty() || occurrences.size == tracks.size)
+    }
+
+    /** Legacy queues acquire identities once, before entering generated-session ownership. */
+    fun withUserOccurrences(): PlaybackQueue =
+        if (occurrences.isEmpty() && tracks.isNotEmpty()) {
+            copy(occurrences = newRadioQueueOccurrences(tracks.size))
+        } else {
+            this
+        }
+
     val current: Track?
         get() = tracks.getOrNull(currentIndex)
 
@@ -104,6 +120,7 @@ data class PlaybackQueue(
     fun withTracks(
         tracks: List<Track>,
         currentIndex: Int = 0,
+        occurrences: List<RadioQueueOccurrence> = emptyList(),
     ): PlaybackQueue =
         if (tracks.isEmpty()) {
             PlaybackQueue()
@@ -111,14 +128,22 @@ data class PlaybackQueue(
             PlaybackQueue(
                 tracks = tracks,
                 currentIndex = currentIndex.coerceIn(tracks.indices),
+                occurrences = occurrences,
             )
         }
 
     fun appendTracks(
         tracks: List<Track>,
         maxHistory: Int? = null,
+        occurrences: List<RadioQueueOccurrence> = emptyList(),
     ): PlaybackQueue {
         if (tracks.isEmpty()) return this
+        require(occurrences.isEmpty() || occurrences.size == tracks.size)
+        val combinedOccurrences = when {
+            this.occurrences.isNotEmpty() -> this.occurrences + occurrences.ifEmpty { newRadioQueueOccurrences(tracks.size) }
+            occurrences.isNotEmpty() -> newRadioQueueOccurrences(this.tracks.size) + occurrences
+            else -> emptyList()
+        }
 
         val prunedTrackCount = maxHistory
             ?.let { (currentIndex - it.coerceAtLeast(0)).coerceAtLeast(0) }
@@ -127,6 +152,7 @@ data class PlaybackQueue(
             tracks = (this.tracks + tracks).drop(prunedTrackCount),
             currentIndex = currentIndex - prunedTrackCount,
             playNextCount = effectivePlayNextCount,
+            occurrences = combinedOccurrences.drop(prunedTrackCount),
             groups = groups.afterDroppingPrefix(
                 droppedTrackCount = prunedTrackCount,
                 remainingTrackCount = this.tracks.size + tracks.size - prunedTrackCount,
@@ -176,6 +202,9 @@ data class PlaybackQueue(
             currentIndex = currentIndex - prunedTrackCount,
             playNextCount = insertionIndex - currentIndex - 1 + tracks.size,
             groups = retainedGroups,
+            occurrences = if (occurrences.isEmpty()) emptyList() else (
+                occurrences.take(insertionIndex) + newRadioQueueOccurrences(tracks.size) + occurrences.drop(insertionIndex)
+                ).drop(prunedTrackCount),
         )
     }
 
@@ -206,6 +235,9 @@ data class PlaybackQueue(
             currentIndex = currentIndex - prunedTrackCount,
             playNextCount = effectivePlayNextCount + 1,
             groups = retainedGroups,
+            occurrences = if (occurrences.isEmpty()) emptyList() else (
+                occurrences.take(insertionIndex) + newRadioQueueOccurrences(1) + occurrences.drop(insertionIndex)
+                ).drop(prunedTrackCount),
         )
     }
 
@@ -220,6 +252,7 @@ data class PlaybackQueue(
                 tracks = tracks,
                 currentIndex = 0,
                 groups = listOf(group.copy(startIndex = 0, endIndexExclusive = tracks.size)),
+                occurrences = if (occurrences.isEmpty()) emptyList() else newRadioQueueOccurrences(tracks.size),
             )
         }
 
@@ -283,6 +316,35 @@ data class PlaybackQueue(
             tracks = history + currentQueueTrack + priorityTracks + dedupedUpcoming,
             currentIndex = history.size,
             playNextCount = priorityTracks.size,
+            occurrences = if (occurrences.isEmpty()) emptyList() else (
+                occurrences.take(currentQueueIndex).drop(prunedTrackCount) +
+                    (occurrences.getOrNull(currentQueueIndex) ?: newRadioQueueOccurrences(1).single()) +
+                    occurrences.drop(currentIndex + 1).take(priorityTracks.size) +
+                    newRadioQueueOccurrences(dedupedUpcoming.size)
+                ),
+        )
+    }
+
+    /** Rebuilds only generated context; manual duplicates and priority requests are never discarded. */
+    fun replaceGeneratedUpcomingOccurrences(
+        tracks: List<Track>,
+        stationId: String,
+        batchId: String,
+    ): PlaybackQueue {
+        if (currentIndex !in this.tracks.indices) return this
+        val owned = withUserOccurrences()
+        val priorityEnd = currentIndex + 1 + effectivePlayNextCount
+        val retainedIndexes = this.tracks.indices.filter { index ->
+            index < priorityEnd || !owned.occurrences[index].generated
+        }
+        val retainedTracks = retainedIndexes.map(this.tracks::get)
+        val excludedIds = retainedTracks.mapTo(mutableSetOf()) { it.id }
+        val replacements = tracks.filter { excludedIds.add(it.id) }
+        return copy(
+            tracks = retainedTracks + replacements,
+            occurrences = retainedIndexes.map(owned.occurrences::get) +
+                newRadioQueueOccurrences(replacements.size, stationId, batchId),
+            groups = normalizedGroups().afterReordering(retainedIndexes, retainedTracks.size),
         )
     }
 
@@ -290,8 +352,12 @@ data class PlaybackQueue(
         val priorityTracks = playNext()
         val originalUpcoming = contextUpNext()
         if (originalUpcoming.size < 2 || currentIndex !in tracks.indices) return null
+        val prefixSize = currentIndex + 1 + priorityTracks.size
+        val indexes = shuffle.selectIndexes(originalUpcoming)
         return copy(
-            tracks = tracks.take(currentIndex + 1) + priorityTracks + shuffle.selectOrder(originalUpcoming),
+            tracks = tracks.take(prefixSize) + indexes.map(originalUpcoming::get),
+            occurrences = if (occurrences.isEmpty()) emptyList() else
+                occurrences.take(prefixSize) + indexes.map { occurrences[prefixSize + it] },
             playNextCount = priorityTracks.size,
             groups = emptyList(),
         ) to originalUpcoming
@@ -300,19 +366,39 @@ data class PlaybackQueue(
     fun toggleUpcomingShuffle(
         shuffledSnapshot: List<Track>?,
         shuffle: UpcomingShufflePolicy = UpcomingShufflePolicy(),
+        shuffledOccurrences: List<RadioQueueOccurrence>? = null,
     ): UpcomingShuffleToggle? =
         if (shuffledSnapshot == null) {
             val (queue, snapshot) = shuffleUpcoming(shuffle) ?: return null
-            UpcomingShuffleToggle(queue = queue, shuffledSnapshot = snapshot)
+            UpcomingShuffleToggle(
+                queue = queue,
+                shuffledSnapshot = snapshot,
+                shuffledOccurrences = occurrences.takeIf { it.isNotEmpty() }
+                    ?.drop(currentIndex + 1 + effectivePlayNextCount),
+            )
         } else {
-            UpcomingShuffleToggle(queue = restoreUpcoming(shuffledSnapshot), shuffledSnapshot = null)
+            UpcomingShuffleToggle(
+                queue = restoreUpcoming(shuffledSnapshot, shuffledOccurrences),
+                shuffledSnapshot = null,
+            )
         }
 
-    fun restoreUpcoming(tracks: List<Track>): PlaybackQueue {
+    fun restoreUpcoming(
+        tracks: List<Track>,
+        restoredOccurrences: List<RadioQueueOccurrence>? = null,
+    ): PlaybackQueue {
         if (currentIndex !in this.tracks.indices) return this
         val priorityTracks = playNext()
+        val prefixSize = currentIndex + 1 + priorityTracks.size
+        if (occurrences.isNotEmpty()) {
+            // A track-only snapshot cannot prove the identity of equal manual/generated copies.
+            if (restoredOccurrences == null || restoredOccurrences.size != tracks.size) return this
+            val currentContext = occurrences.drop(prefixSize).mapTo(mutableSetOf()) { it.id }
+            if (restoredOccurrences.mapTo(mutableSetOf()) { it.id } != currentContext) return this
+        }
         return copy(
-            tracks = this.tracks.take(currentIndex + 1) + priorityTracks + tracks,
+            tracks = this.tracks.take(prefixSize) + tracks,
+            occurrences = if (occurrences.isEmpty()) emptyList() else occurrences.take(prefixSize) + restoredOccurrences.orEmpty(),
             playNextCount = priorityTracks.size,
             groups = emptyList(),
         )
@@ -338,6 +424,7 @@ data class PlaybackQueue(
             tracks = nextTracks,
             currentIndex = nextCurrentIndex.takeIf { it in nextTracks.indices } ?: -1,
             playNextCount = nextPlayNextCount.coerceAtLeast(0),
+            occurrences = occurrences.filterIndexed { occurrenceIndex, _ -> occurrenceIndex != index },
         )
     }
 
@@ -360,6 +447,9 @@ data class PlaybackQueue(
             tracks = reordered,
             currentIndex = adjustedCurrentIndex,
             playNextCount = effectivePlayNextCount + if (selectedWasPriority) 0 else 1,
+            occurrences = if (occurrences.isEmpty()) emptyList() else occurrences.toMutableList().apply {
+                add(insertionIndex, removeAt(index))
+            },
         )
     }
 
@@ -379,6 +469,7 @@ data class PlaybackQueue(
             tracks = originalIndexes.map(tracks::get),
             playNextCount = effectivePlayNextCount,
             groups = normalizedGroups().afterReordering(originalIndexes, tracks.size),
+            occurrences = if (occurrences.isEmpty()) emptyList() else originalIndexes.map(occurrences::get),
         )
     }
 
@@ -397,6 +488,7 @@ data class PlaybackQueue(
             currentIndex = adjustedCurrentIndex,
             playNextCount = insertionIndex - adjustedCurrentIndex,
             groups = normalizedGroups().afterReordering(originalIndexes, tracks.size),
+            occurrences = if (occurrences.isEmpty()) emptyList() else originalIndexes.map(occurrences::get),
         )
     }
 
@@ -406,13 +498,18 @@ data class PlaybackQueue(
             tracks = tracks.take(currentIndex + 1),
             playNextCount = 0,
             groups = normalizedGroups().mapNotNull { it.normalized(currentIndex + 1) },
+            occurrences = occurrences.take(currentIndex + 1),
         )
     }
 
     /** Removes every queued occurrence except the track that is currently playing. */
     fun retainCurrentOnly(): PlaybackQueue {
         val currentTrack = current ?: return PlaybackQueue()
-        return PlaybackQueue(tracks = listOf(currentTrack), currentIndex = 0)
+        return PlaybackQueue(
+            tracks = listOf(currentTrack),
+            currentIndex = 0,
+            occurrences = occurrences.getOrNull(currentIndex)?.let(::listOf).orEmpty(),
+        )
     }
 
     fun removePlayedHistory(): PlaybackQueue {
@@ -421,6 +518,7 @@ data class PlaybackQueue(
             tracks = tracks.drop(currentIndex),
             currentIndex = 0,
             playNextCount = effectivePlayNextCount,
+            occurrences = occurrences.drop(currentIndex),
             groups = groups.afterDroppingPrefix(
                 droppedTrackCount = currentIndex,
                 remainingTrackCount = tracks.size - currentIndex,
@@ -448,6 +546,7 @@ data class PlaybackQueue(
             currentIndex = historyIndexes.size,
             playNextCount = remainingPriorityIndexes.size,
             groups = normalizedGroups().afterReordering(selectedIndexes, tracks.size),
+            occurrences = if (occurrences.isEmpty()) emptyList() else selectedIndexes.map(occurrences::get),
         )
     }
 }
@@ -464,4 +563,13 @@ fun resolveTrackOccurrenceIndex(
 data class UpcomingShuffleToggle(
     val queue: PlaybackQueue,
     val shuffledSnapshot: List<Track>?,
+    val shuffledOccurrences: List<RadioQueueOccurrence>? = null,
 )
+
+@OptIn(ExperimentalUuidApi::class)
+fun newRadioQueueOccurrences(
+    count: Int,
+    stationId: String? = null,
+    batchId: String? = null,
+): List<RadioQueueOccurrence> =
+    List(count) { RadioQueueOccurrence(Uuid.random().toString(), stationId, batchId) }

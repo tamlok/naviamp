@@ -4,6 +4,7 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.RepeatMode
 import app.naviamp.domain.queue.resolveTrackOccurrenceIndex
+import app.naviamp.domain.radio.RadioQueueOccurrence
 
 class PlaybackQueueController(
     initialQueue: PlaybackQueue = PlaybackQueue(),
@@ -157,8 +158,11 @@ class PlaybackQueueController(
         return applySelection(update)
     }
 
-    fun toggleUpcomingShuffle(shuffledSnapshot: List<Track>?): PlaybackShuffleToggle? {
-        val update = queueManager.toggleUpcomingShuffle(queue, shuffledSnapshot)
+    fun toggleUpcomingShuffle(
+        shuffledSnapshot: List<Track>?,
+        shuffledOccurrences: List<RadioQueueOccurrence>? = null,
+    ): PlaybackShuffleToggle? {
+        val update = queueManager.toggleUpcomingShuffle(queue, shuffledSnapshot, shuffledOccurrences)
         if (!update.changed) return null
         applyMutation(
             PlaybackQueueMutationUpdate(
@@ -167,7 +171,11 @@ class PlaybackQueueController(
                 clearPreparedNext = true,
             ),
         )
-        return PlaybackShuffleToggle(queue = queue, shuffledSnapshot = update.shuffledSnapshot)
+        return PlaybackShuffleToggle(
+            queue = queue,
+            shuffledSnapshot = update.shuffledSnapshot,
+            shuffledOccurrences = update.shuffledOccurrences,
+        )
     }
 
     fun finishedSelection(removePlayedTracksFromQueue: Boolean = false): PlaybackQueueSelection? {
@@ -279,4 +287,5 @@ data class PlaybackQueueSelection(
 data class PlaybackShuffleToggle(
     val queue: PlaybackQueue,
     val shuffledSnapshot: List<Track>?,
+    val shuffledOccurrences: List<RadioQueueOccurrence>? = null,
 )

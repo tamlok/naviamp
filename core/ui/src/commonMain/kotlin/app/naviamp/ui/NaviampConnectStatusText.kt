@@ -56,6 +56,9 @@ enum class NaviampConnectStatusText(val resource: StringResource) {
     TheTvDidNotPauseSoItsQueueWasLeftInPlace(Res.string.connect_status_the_tv_did_not_pause_so_its_queue_was_left_in_place),
     ThisDeviceCouldNotResolveEveryTrackSoTheTvKeptPlaybackAuthority(Res.string.connect_status_this_device_could_not_resolve_every_track_so_the_tv_kept_playback_authority),
     TheTvQueueIsNowPlayingOnThisDevice(Res.string.connect_status_the_tv_queue_is_now_playing_on_this_device),
+    GeneratedStationUpgradeRequired(Res.string.generated_radio_connect_upgrade),
+    GeneratedStationRecipeUnavailable(Res.string.generated_radio_connect_recipe),
+    GeneratedStationProvenanceUnavailable(Res.string.generated_radio_connect_provenance),
 }
 
 @Composable

@@ -29,6 +29,103 @@ import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class HomeServiceTest {
+    @Test fun coordinatorRetainsFailedSectionsOnlyWithinTheSameSourceAndLibrary() = runTest {
+        var content = HomeContent()
+        val coordinator = HomeContentCoordinator({ content = it }, {})
+        val request = HomeContentLoadRequest(FakeHomeProvider(), sourceId = "source", date = HomeDate(2026, 1))
+        val original = HomeContent(recentAlbums = listOf(album("kept")))
+        val failed = HomeContent(failedSections = setOf(HomeSection.RecentAlbums))
+        coordinator.load(request) { original }
+        coordinator.load(request) { failed }
+        assertEquals(original.recentAlbums, content.recentAlbums)
+        coordinator.load(request.copy(sourceId = "other-source")) { failed }
+        assertTrue(content.recentAlbums.isEmpty())
+        coordinator.load(request) { original }
+        val otherScope = object : MediaProvider by FakeHomeProvider() { override val cacheNamespace = "other-folder" }
+        coordinator.load(request.copy(provider = otherScope)) { failed }
+        assertTrue(content.recentAlbums.isEmpty())
+    }
+
+    @Test fun generatedMixesUseBoundedHistoryWithoutEagerRadioOrSeedDetailRequests() = runTest {
+        var historyLimit = 0
+        var queriedSource: String? = null
+        var radioCalls = 0
+        val provider = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun album(albumId: AlbumId) = error("Home must not resolve album seeds")
+            override suspend fun artist(artistId: ArtistId) = error("Home must not resolve artist seeds")
+            override suspend fun trackRadio(trackId: TrackId, count: Int): List<Track> { radioCalls++; error("eager radio") }
+            override suspend fun albumRadio(albumId: AlbumId, count: Int): List<Track> { radioCalls++; error("eager radio") }
+            override suspend fun artistRadio(artistId: ArtistId, count: Int): List<Track> { radioCalls++; error("eager radio") }
+        }
+        val history = object : HomeLibraryRepository {
+            override fun albumYears(sourceId: String): List<HomeAlbumYear> = emptyList()
+            override fun recentPlaybackHistory(sourceId: String, limit: Int): List<HomePlaybackActivity> {
+                queriedSource = sourceId
+                historyLimit = limit
+                return List(5) { HomePlaybackActivity(recentTrack("played", "played-album", "played-artist"), 1000) }
+            }
+        }
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val home = HomeService(provider, libraryRepository = history, sourceId = "source", date = HomeDate(2026, 1),
+            generatedRadio = repository, nowMillis = { 2000 }).load()
+        assertEquals("source", queriedSource)
+        assertEquals(HomeMixHistoryLimit, historyLimit)
+        assertEquals(0, radioCalls)
+        assertTrue(home.generatedMixes.isNotEmpty())
+        assertTrue(home.generatedMixes.any { it.artists.any { artist -> artist.id == "played-artist" } })
+        assertEquals(home.generatedMixes.map { it.id }, repository.load().rotations.single().stationIds)
+    }
+
+    @Test fun failedMixSignalsRetainThePersistedGenerationWithoutHidingOtherSections() = runTest {
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val original = HomeService(FakeHomeProvider(), sourceId = "source", date = HomeDate(2026, 1), generatedRadio = repository).load()
+        val provider = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun albumList(type: AlbumListType, limit: Int): List<Album> =
+                if (type == AlbumListType.Newest) listOf(album("newest-current")) else error("offline")
+        }
+        val refreshed = HomeService(provider, sourceId = "source", date = HomeDate(2026, 2), generatedRadio = repository)
+            .load(forceRefreshMixes = true)
+        assertEquals(original.generatedMixes, refreshed.generatedMixes)
+        assertEquals(listOf(album("newest-current")), refreshed.recentlyAddedAlbums)
+        assertTrue(HomeSection.GeneratedMixes in refreshed.failedSections)
+        val retained = HomeContent(failedSections = setOf(HomeSection.GeneratedMixes)).retainFailedSections(original)
+        assertEquals(original.generatedMixes, retained.generatedMixes)
+        assertTrue(HomeContent().retainFailedSections(original).generatedMixes.isEmpty())
+    }
+
+    @Test fun unknownSourceNeverAdoptsAnotherAccountsPersistedMixes() = runTest {
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val original = HomeService(FakeHomeProvider(), sourceId = "source", date = HomeDate(2026, 1), generatedRadio = repository).load()
+        assertTrue(original.generatedMixes.isNotEmpty())
+        val anonymous = HomeService(FakeHomeProvider(), date = HomeDate(2026, 1), generatedRadio = repository).load()
+        assertTrue(anonymous.generatedMixes.isEmpty())
+        val unsupported = HomeService(FakeHomeProvider(supportsTrackRadio = false), sourceId = "source",
+            date = HomeDate(2026, 1), generatedRadio = repository).load()
+        assertTrue(unsupported.generatedMixes.isEmpty())
+    }
+
+    @Test fun rejectedStaleLoadNeverPersistsRotationAndCancellationPropagatesThroughCoordinator() = runTest {
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val request = HomeContentLoadRequest(FakeHomeProvider(), sourceId = "source", date = HomeDate(2026, 1),
+            generatedRadio = repository, isCurrent = { false })
+        var published = false
+        val coordinator = HomeContentCoordinator({ published = true }, {})
+        assertFailsWith<CancellationException> { coordinator.load(request) }
+        assertFalse(published)
+        assertTrue(repository.load().rotations.isEmpty())
+    }
+
+    @Test fun mixPersistenceFailureIsSectionLocalAndDoesNotPublishUnstableRecipes() = runTest {
+        val repository = object : app.naviamp.domain.radio.GeneratedRadioRepository {
+            override fun load() = app.naviamp.domain.radio.GeneratedRadioLibrary()
+            override fun save(library: app.naviamp.domain.radio.GeneratedRadioLibrary) { error("disk full") }
+        }
+        val home = HomeService(FakeHomeProvider(), sourceId = "source", date = HomeDate(2026, 1), generatedRadio = repository).load()
+        assertTrue(home.generatedMixes.isEmpty())
+        assertTrue(HomeSection.GeneratedMixes in home.failedSections)
+        assertEquals(listOf(album("newest")), home.recentlyAddedAlbums)
+    }
+
     @Test fun failedDependenciesAreTypedAndSuccessfulEmptyClearsCachedSections() = runTest {
         val provider = object : MediaProvider by FakeHomeProvider() {
             override suspend fun genres(limit: Int): List<Genre> = error("genres unavailable")
@@ -273,6 +370,8 @@ class HomeServiceTest {
         assertFalse(HomeContent(favoriteAlbums = listOf(album("favorite"))).isEmpty)
         assertFalse(HomeContent(favoriteAlbumsFailed = true).isEmpty)
         assertFalse(HomeContent(favoriteArtistsStatus = FavoriteArtistsStatus.Failed).isEmpty)
+        assertFalse(HomeContent(generatedMixes = listOf(app.naviamp.domain.radio.GeneratedRadioStation("station", "Station",
+            app.naviamp.domain.radio.GeneratedRadioKind.Library))).isEmpty)
     }
 
     @Test

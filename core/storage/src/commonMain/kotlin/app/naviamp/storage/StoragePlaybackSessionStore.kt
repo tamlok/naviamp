@@ -9,6 +9,12 @@ import app.naviamp.domain.settings.PlaybackSessionSettings
 import app.naviamp.domain.settings.SavedInternetRadioStation
 import app.naviamp.domain.settings.SavedTrack
 import app.naviamp.domain.queue.PlaybackQueueGroup
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.Json
 import kotlin.time.TimeSource
 
@@ -20,6 +26,7 @@ class StoragePlaybackSessionStore(
 ) : PlaybackSessionRepository {
     private var performance = PlaybackSessionRepositoryPerformance()
     private val queueTrackIds = mutableMapOf<String, List<String>>()
+    private val queueOccurrencePayloads = mutableMapOf<String, Pair<List<RadioQueueOccurrence>, JsonElement>>()
     private val queuePayloadCharacters = mutableMapOf<String, Int>()
 
     override val playlistBookmarks: PlaylistPlaybackBookmarkRepository = object : PlaylistPlaybackBookmarkRepository {
@@ -77,6 +84,10 @@ class StoragePlaybackSessionStore(
                     positionSeconds = state.position_seconds,
                     internetRadioStation = radio,
                     nowPlayingOpen = state.now_playing_open != 0L,
+                    generatedRadio = state.generated_radio_checkpoint_payload?.let { payload ->
+                        // A corrupt new checkpoint must never make the legacy queue unreadable.
+                        runCatching { json.decodeFromString<GeneratedRadioCheckpoint>(payload) }.getOrNull()
+                    },
                 )
             }.getOrNull()
         } else {
@@ -104,6 +115,7 @@ class StoragePlaybackSessionStore(
             }
             queueTrackIds.remove(id)
             queuePayloadCharacters.remove(id)
+            queueOccurrencePayloads.remove(id)
             performance = performance.copy(
                 encodeMillis = null,
                 writeMillis = writeMark.elapsedNow().inWholeMicroseconds / 1_000.0,
@@ -127,6 +139,19 @@ class StoragePlaybackSessionStore(
             val queueGroupsPayload = session.queueGroups
                 .takeIf { it.isNotEmpty() }
                 ?.let { json.encodeToString(it) }
+            val generatedRadioPayload = session.generatedRadio?.let { checkpoint ->
+                val cached = queueOccurrencePayloads[id]
+                val occurrencePayload = if (cached != null && cached.first == checkpoint.occurrences) {
+                    cached.second
+                } else {
+                    json.encodeToJsonElement(checkpoint.occurrences).also {
+                        queueOccurrencePayloads[id] = checkpoint.occurrences to it
+                    }
+                }
+                // Only the large ordered occurrence list is cached. Pause/policy/exclusions are live.
+                val liveCheckpoint = json.encodeToJsonElement(checkpoint.copy(occurrences = emptyList())).jsonObject
+                json.encodeToString(JsonObject(liveCheckpoint + ("occurrences" to occurrencePayload)))
+            }
             val encodeMillis = encodeMark.elapsedNow().inWholeMicroseconds / 1_000.0
             val writeMark = TimeSource.Monotonic.markNow()
             queries.transaction {
@@ -150,6 +175,7 @@ class StoragePlaybackSessionStore(
                     internet_radio_payload = radioPayload,
                     now_playing_open = if (session.nowPlayingOpen) 1L else 0L,
                     updated_at_epoch_millis = nowEpochMillis(),
+                    generated_radio_checkpoint_payload = generatedRadioPayload,
                 )
                 queries.deletePlaybackSession(id)
             }

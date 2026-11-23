@@ -676,6 +676,7 @@ enum class SharedHomeCollectionItemAction {
     SelectRecentTrack,
     SelectSonicTrack,
     OpenFavoriteSongs,
+    StartGeneratedStation,
 }
 
 data class SharedHomeCollectionItemUi(
@@ -694,6 +695,7 @@ data class SharedHomeCollectionItemUi(
 
 enum class SharedHomeCollectionTitleResource {
     Recommendations,
+    SavedGeneratedStations,
 }
 
 data class SharedHomeCollectionSectionUi(
@@ -721,6 +723,7 @@ data class SharedHomeCollectionPageUi(
 object SharedHomeCollectionSectionIds {
     const val MixesForYou = app.naviamp.domain.settings.HomeSectionIds.MixesForYou
     const val NavibeatMixes = app.naviamp.domain.settings.HomeSectionIds.NavibeatMixes
+    const val SavedGeneratedStations = "saved-generated-stations"
 }
 
 data class SharedHomeDiscoveryTrackRowUi(
@@ -1072,6 +1075,7 @@ data class NaviampHomeActions(
     val onDiscoveryRequestsRefresh: () -> Unit = {},
     val onDiscoveryRequestSelected: (String?, Long, String) -> Unit = { _, _, _ -> },
     val onDiscoveryRequestsExternal: (String?, Long) -> Unit = { _, _ -> },
+    val onGeneratedRadioAction: (GeneratedRadioActionRequest) -> Unit = {},
 )
 
 data class NaviampMediaActions(
@@ -1179,6 +1183,7 @@ data class NaviampAppShellUiState(
     val nowPlaying: NowPlayingUi? = null,
     val connect: NaviampConnectSettingsUi = NaviampConnectSettingsUi(),
     val playlistMembership: NaviampTrackPlaylistMembershipUi? = null,
+    val generatedRadio: NaviampGeneratedRadioUi = NaviampGeneratedRadioUi(),
 )
 
 data class NaviampAppShellActions(
@@ -1204,6 +1209,7 @@ data class NaviampAppShellActions(
     val nowPlayingActions: NaviampNowPlayingActions,
     val connectActions: NaviampConnectSettingsActions? = null,
     val quickAccessActions: NaviampQuickAccessActions? = null,
+    val generatedRadioActions: NaviampGeneratedRadioActions = NaviampGeneratedRadioActions({}, {}),
 )
 
 data class SharedSonicPathBuilderActions(
@@ -1383,6 +1389,8 @@ data class NowPlayingUi(
     val activeRadioDjId: String? = null,
     val aurralSourceId: String? = null,
     val aurralRadioMetadata: String? = null,
+    val generatedStation: app.naviamp.domain.radio.GeneratedRadioStation? = null,
+    val generatedStatus: app.naviamp.domain.radio.GeneratedRadioStatus = app.naviamp.domain.radio.GeneratedRadioStatus.Inactive,
 )
 
 data class NowPlayingQueueContextUi(

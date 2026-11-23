@@ -29,6 +29,25 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 class NaviampCoreSettingsValueStoreTest {
+    @Test fun generatedStationRecipeAndBatchSurviveReopeningWithoutChangingSnapshotOrder() {
+        val values = MemorySettingsValues()
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "My station", app.naviamp.domain.radio.GeneratedRadioKind.Track,
+            sourceId = "source", seedTracks = listOf(SavedTrack("seed", "Seed", artistName = "Artist")), saved = true, pinned = true)
+        val batch = app.naviamp.domain.radio.GeneratedRadioBatch("batch", station.id, 1, 42,
+            listOf(SavedTrack("b", "B", artistName = "Artist"), SavedTrack("a", "A", artistName = "Artist")), resolvedRecipe = station)
+        val library = app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station), batches = listOf(batch))
+        naviampCoreSettingsValueCatalog(values).storedSettings.generatedRadio.save(library)
+        assertEquals(library, naviampCoreSettingsValueCatalog(values).storedSettings.generatedRadio.load())
+        val migration = naviampCoreProviderIdentitySettingsMigrationRepository(values)
+        migration.migrateProviderIdentitySettings("source", 1) { "new:$it" }
+        val migrated = naviampCoreSettingsValueCatalog(values).storedSettings.generatedRadio.load()
+        assertEquals("station", migrated.stations.single().id)
+        assertEquals(listOf("new:b", "new:a"), migrated.batches.single().tracks.map { it.id })
+        assertEquals("new:seed", migrated.stations.single().seedTracks.single().id)
+        assertEquals("new:seed", migrated.batches.single().resolvedRecipe?.seedTracks?.single()?.id)
+        assertEquals("station", migrated.batches.single().resolvedRecipe?.id)
+    }
+
     @Test
     fun quickAccessPersistsNormalizedAcrossReopeningRenamingAndRemoval() {
         val values = MemorySettingsValues()
@@ -331,7 +350,6 @@ class NaviampCoreSettingsValueStoreTest {
         assertEquals(2L, migration.providerIdentitySettingsVersion("server-a"))
         assertEquals(false, migration.migrateProviderIdentitySettings("server-a", 2L, transform))
         assertEquals(KeyProviderIdentityVersions, values.writtenKeys.last())
-        assertEquals(KeyInterface, values.writtenKeys[values.writtenKeys.lastIndex - 1])
         val reopenedMigration = naviampCoreProviderIdentitySettingsMigrationRepository(values)
         assertEquals(2L, reopenedMigration.providerIdentitySettingsVersion("server-a"))
         assertEquals(null, reopenedMigration.providerIdentitySettingsVersion("server-b"))

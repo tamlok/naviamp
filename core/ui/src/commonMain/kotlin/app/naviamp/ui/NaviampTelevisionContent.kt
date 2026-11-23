@@ -250,6 +250,7 @@ internal fun TelevisionHome(
                     },
                     onSelected = { item -> dispatchHomeCollectionItem(item, actions, mediaActions) },
                     onViewAll = { actions.onCollectionSelected(slot.id) },
+                    onPreview = { item -> item.generatedRadioPreviewRequest()?.let(actions.onGeneratedRadioAction) },
                 )
             }
         }
@@ -271,6 +272,7 @@ private fun TelevisionHomeCarousel(
     onItemFocused: (Int) -> Unit,
     onSelected: (SharedHomeCollectionItemUi) -> Unit,
     onViewAll: () -> Unit,
+    onPreview: (SharedHomeCollectionItemUi) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
@@ -298,6 +300,10 @@ private fun TelevisionHomeCarousel(
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
+        if (section.id == SharedHomeCollectionSectionIds.MixesForYou &&
+            section.items.any { it.action == SharedHomeCollectionItemAction.StartGeneratedStation }) {
+            Text(stringResource(Res.string.generated_radio_home_hint), color = colors.secondaryText)
+        }
         if (section.favoriteAlbumsFailed) {
             Text(stringResource(Res.string.favorite_albums_failed), color = colors.secondaryText)
         }
@@ -344,6 +350,7 @@ private fun TelevisionHomeCarousel(
                             onSectionFocused()
                         },
                         onClick = { onSelected(item) },
+                        onPreview = item.generatedRadioPreviewRequest()?.let { { onPreview(item) } },
                     )
                 }
                 TelevisionHomeViewAllCard(
@@ -371,13 +378,19 @@ private fun TelevisionHomeCard(
     onFocused: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onPreview: (() -> Unit)? = null,
 ) {
     TelevisionFocusableCard(
         colors = colors,
         width = TelevisionHomeCardWidth,
         onFocused = onFocused,
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.onPreviewKeyEvent { event ->
+            if (onPreview != null && event.key == Key.Menu) {
+                if (event.type == KeyEventType.KeyDown) onPreview()
+                true
+            } else false
+        },
     ) { focused ->
         val artworkShape = RoundedCornerShape(resolvedMediaArtworkCornerRadius(item.mediaKind, TelevisionHomeCardWidth, 7.dp))
         HomeCollectionArtwork(
@@ -387,6 +400,9 @@ private fun TelevisionHomeCard(
             Modifier.televisionMediaArtworkFocusEffect(focused, colors, artworkShape),
         )
         TelevisionCardLabels(item.localizedTitle(), item.localizedSubtitle(), colors)
+        if (onPreview != null) androidx.compose.material3.TextButton(onClick = onPreview) {
+            Text(stringResource(Res.string.generated_radio_preview))
+        }
     }
 }
 
@@ -512,6 +528,7 @@ internal fun TelevisionHomeCollection(
                                 colors = colors,
                                 onFocused = { focusedRowStart = televisionGridRowStart(index, columnCount) },
                                 onClick = { dispatchHomeCollectionItem(item, actions, mediaActions) },
+                                onPreview = item.generatedRadioPreviewRequest()?.let { request -> { actions.onGeneratedRadioAction(request) } },
                                 modifier = Modifier
                                     .focusRequester(focusRequesters[index])
                                     .testTag("$TelevisionHomeCollectionItemTestTagPrefix$index")
@@ -1647,6 +1664,9 @@ internal fun TelevisionNowPlaying(
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.testTag("tv-now-playing-queue-context"),
                             )
+                        }
+                        nowPlaying.generatedStation?.let { station ->
+                            NaviampGeneratedRadioContext(station, nowPlaying.generatedStatus, colors, actions.onGeneratedRadioAction)
                         }
                         if (displaySettings.showAudioInfo && nowPlaying.audioInfo.isNotBlank()) {
                             Text(nowPlaying.audioInfo, color = colors.mutedText, fontSize = 15.sp)

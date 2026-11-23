@@ -3,11 +3,19 @@ package app.naviamp.domain.sonicautoplay
 import app.naviamp.domain.provider.isDiscoveryPreview
 
 import app.naviamp.domain.Track
+import app.naviamp.domain.TrackId
+import app.naviamp.domain.eraReleaseYear
+import app.naviamp.domain.radio.RadioCandidate
+import app.naviamp.domain.radio.RadioTuningSettings
+import app.naviamp.domain.radio.selectRadioCandidates
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.radio.SimilarityRequest
 import app.naviamp.domain.radio.SimilarityService
-import app.naviamp.domain.radio.SimilaritySeedMatches
+import app.naviamp.domain.radio.SimilarityEndpoint
+import app.naviamp.domain.radio.SimilarityEndpointResult
+import app.naviamp.domain.radio.SimilarityResult
+import app.naviamp.domain.radio.SimilarityResultKind
 
 class SonicAutoplayService(
     private val provider: () -> MediaProvider?,
@@ -19,30 +27,36 @@ class SonicAutoplayService(
         limit: Int = DefaultSonicAutoplayAppendCount,
         preferSonicSimilarity: Boolean = true,
         onResult: (app.naviamp.domain.radio.SimilarityResult) -> Unit = {},
+        tuning: RadioTuningSettings = RadioTuningSettings(),
+        excludedTrackIds: Set<TrackId> = emptySet(),
     ): List<Track> {
         val activeProvider = provider() ?: return emptyList()
         val seeds = queue.sonicAutoplaySeeds(seedCount)
         if (seeds.isEmpty()) return emptyList()
 
-        val blockedTrackIds = queue.tracks.map { it.id }.toSet()
+        if (preferSonicSimilarity && !activeProvider.capabilities.supportsSonicSimilarity) {
+            onResult(SimilarityResult(SimilarityEndpoint.Sonic, emptyList(),
+                failure = SimilarityEndpointResult(SimilarityResultKind.Unsupported)))
+            return emptyList()
+        }
+        val blockedTrackIds = queue.tracks.mapTo(mutableSetOf()) { it.id }.apply { addAll(excludedTrackIds) }
         val targetCount = limit.coerceIn(1, MaxSonicAutoplayAppendCount)
         val result = SimilarityService(activeProvider).load(SimilarityRequest(
             seeds.map { it.id }, excludedTrackIds = blockedTrackIds,
             countPerSeed = maxOf(candidatesPerSeed, targetCount * 2), preferSonic = preferSonicSimilarity,
         ))
         onResult(result)
-        fun ranked(matches: List<SimilaritySeedMatches>): List<Track> =
-            matches.flatMapIndexed { seedIndex, seed ->
-                seed.matches.mapIndexed { matchIndex, match ->
-                    SonicAutoplayCandidate(match.track, match.score(seedIndex, matchIndex))
-                }
-            }.groupBy { it.track.id }
-                .mapNotNull { (_, candidates) -> candidates.maxByOrNull { it.score } }
-                .sortedByDescending { it.score }
-                .map { it.track }
-        return ranked(result.seedMatches)
-            .distinctBy { it.id }
-            .take(targetCount)
+        return selectRadioCandidates(
+            candidates = result.seedMatches.flatMapIndexed { index, seed ->
+                seed.matches.map { RadioCandidate(it.track, index, it.similarity ?: 0.5) }
+            },
+            targetCount = targetCount,
+            tuning = tuning,
+            excludedTrackIds = blockedTrackIds,
+            previousTrack = queue.tracks.lastOrNull(),
+            anchorArtistId = seeds.first().artistId,
+            decadeStart = seeds.first().eraReleaseYear?.let { (it / 10) * 10 },
+        )
     }
 }
 
@@ -53,16 +67,6 @@ fun PlaybackQueue.sonicAutoplaySeeds(limit: Int = DefaultSonicAutoplaySeedCount)
         .take(limit.coerceAtLeast(1))
 }
 
-private data class SonicAutoplayCandidate(
-    val track: Track,
-    val score: Double,
-)
-
-private fun app.naviamp.domain.provider.SonicSimilarTrack.score(seedIndex: Int, matchIndex: Int): Double =
-    (similarity ?: 0.5) - (seedIndex * SeedPenalty) - (matchIndex * MatchPenalty)
-
-private const val SeedPenalty = 0.02
-private const val MatchPenalty = 0.001
 const val DefaultSonicAutoplaySeedCount = 3
 const val DefaultSonicAutoplayCandidatesPerSeed = 12
 const val DefaultSonicAutoplayAppendCount = app.naviamp.domain.radio.DefaultRadioMinimumTracks

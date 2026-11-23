@@ -285,6 +285,74 @@ class StorageCriticalStoresTest {
     }
 
     @Test
+    fun generatedCatalogMembershipRequiresTheRequestedFolderRatherThanAnyCachedHit() = withStorage { fixture ->
+        val folderA = testTrack("folder-a", "A").copy(musicFolderId = "a")
+        val folderB = testTrack("folder-b", "B").copy(musicFolderId = "b")
+        val unknownFolder = testTrack("unknown-folder", "Unknown")
+        val cachedTracks = listOf(folderA, folderB, unknownFolder)
+        fixture.library.upsertLibraryTracks(fixture.sourceId, cachedTracks)
+        val requestedIds = cachedTracks.mapTo(mutableSetOf()) { it.id }.apply { add(TrackId("uncached")) }
+
+        assertEquals(setOf(folderB.id), fixture.library.generatedRadioCatalogTrackIds(
+            fixture.sourceId, requestedIds, selectedMusicFolderIds = listOf("b"),
+        ))
+        assertTrue(fixture.library.generatedRadioCatalogTrackIds(
+            fixture.sourceId, setOf(folderA.id, unknownFolder.id), selectedMusicFolderIds = listOf("b"),
+        ).isEmpty())
+        assertEquals(setOf(folderA.id, folderB.id), fixture.library.generatedRadioCatalogTrackIds(
+            fixture.sourceId, requestedIds, selectedMusicFolderIds = listOf("a", "b"),
+        ))
+        assertEquals(cachedTracks.mapTo(mutableSetOf()) { it.id }, fixture.library.generatedRadioCatalogTrackIds(
+            fixture.sourceId, requestedIds, selectedMusicFolderIds = emptyList(),
+        ))
+        assertTrue(fixture.library.generatedRadioCatalogTrackIds(
+            "another-source", requestedIds, selectedMusicFolderIds = emptyList(),
+        ).isEmpty())
+    }
+
+    @Test
+    fun generatedHistoryUsesCurrentSavedFoldersAndExcludesUnknownOrOtherSourceMembership() = withStorage { fixture ->
+        val sources = StorageMediaSourceStore(fixture.queries, nowMillis = { 3L })
+        fun selectFolders(ids: List<String>) {
+            val updated = sources.upsertProviderMediaSource(
+                ProviderMediaSourceConnection("Server", "https://example.test", "user", "token", "salt",
+                    selectedMusicFolderIds = ids),
+                cacheNamespace = "cache-${ids.joinToString()}",
+                providerId = "navidrome",
+                preferredSourceId = fixture.sourceId,
+            )
+            assertEquals(fixture.sourceId, updated.id)
+        }
+        val folderA = testTrack("folder-a", "A").copy(musicFolderId = "a")
+        val folderB = testTrack("folder-b", "B").copy(musicFolderId = "b")
+        val unknownFolder = testTrack("unknown-folder", "Unknown")
+        val otherSourceOnly = testTrack("other-source-only", "Other").copy(musicFolderId = "b")
+        fixture.library.upsertLibraryTracks(fixture.sourceId, listOf(folderA, folderB, unknownFolder))
+        val otherSource = sources.upsertProviderMediaSource(
+            ProviderMediaSourceConnection("Other", "https://other.test", "user", "token", "salt"),
+            cacheNamespace = "other", providerId = "navidrome",
+        )
+        fixture.library.upsertLibraryTracks(otherSource.id, listOf(otherSourceOnly))
+        val history = StoragePlaybackHistoryStore(fixture.queries)
+        history.recordPlaybackHistory(fixture.sourceId, folderA, 100L)
+        history.recordPlaybackHistory(fixture.sourceId, folderB, 200L)
+        history.recordPlaybackHistory(fixture.sourceId, folderA, 300L)
+        history.recordPlaybackHistory(fixture.sourceId, unknownFolder, 400L)
+        history.recordPlaybackHistory(fixture.sourceId, otherSourceOnly, 500L)
+
+        selectFolders(listOf("a"))
+        assertEquals(listOf(300L, 100L), fixture.library.recentPlaybackHistory(fixture.sourceId).map { it.playedAtEpochMillis })
+        selectFolders(listOf("b"))
+        val selectedHistory = fixture.library.recentPlaybackHistory(fixture.sourceId, limit = 1).single()
+        assertEquals(folderB.id, selectedHistory.track.id)
+        assertEquals(200L, selectedHistory.playedAtEpochMillis)
+        selectFolders(listOf("a", "b"))
+        assertEquals(listOf(300L, 200L, 100L), fixture.library.recentPlaybackHistory(fixture.sourceId).map { it.playedAtEpochMillis })
+        selectFolders(emptyList())
+        assertEquals(listOf(400L, 300L, 200L, 100L), fixture.library.recentPlaybackHistory(fixture.sourceId).map { it.playedAtEpochMillis })
+    }
+
+    @Test
     fun waveformCacheHonorsBucketCountTouchesAndEvictsOldestRows() = runBlocking {
         withStorage { fixture ->
             var now = 10L

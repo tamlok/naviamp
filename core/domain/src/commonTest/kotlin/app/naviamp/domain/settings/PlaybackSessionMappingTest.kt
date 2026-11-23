@@ -10,6 +10,12 @@ import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -316,6 +322,55 @@ class PlaybackSessionMappingTest {
                 saveIntervalMillis = 5_000L,
             ),
         )
+    }
+
+    @Test
+    fun generatedCheckpointRoundTripUsesLiveOccurrencesRatherThanStaleCheckpointOrdering() {
+        val occurrences = listOf(
+            RadioQueueOccurrence("history", "station", "first"),
+            RadioQueueOccurrence("current", "station", "first"), RadioQueueOccurrence("manual"),
+        )
+        val queue = PlaybackQueue(List(3) { track("same") }, 1, 1, occurrences = occurrences)
+        val checkpoint = GeneratedRadioCheckpoint(
+            wasPaused = true, mode = GeneratedRadioPlaybackMode.FiniteBatch,
+            seenTrackIds = listOf("old", "same"), occurrences = occurrences.reversed(),
+        )
+        val session = assertNotNull(playbackSessionFromQueue(queue, 42.0, checkpoint))
+        assertEquals(checkpoint.copy(occurrences = occurrences), session.generatedRadio)
+        val restored = assertNotNull(session.restoredTrackSession())
+        assertEquals(queue, restored.playbackQueue)
+        assertEquals(session.generatedRadio, restored.generatedRadio)
+        assertEquals(42.0, restored.playbackProgress.positionSeconds)
+    }
+
+    @Test
+    fun invalidCheckpointOccurrencesAreDiscardedWithoutLosingTheOrdinaryQueue() {
+        val session = PlaybackSessionSettings.fromTracks(listOf(track("same"), track("same")), 1)!!
+        for (occurrences in listOf(
+            emptyList(),
+            listOf(RadioQueueOccurrence(""), RadioQueueOccurrence("valid")),
+            listOf(RadioQueueOccurrence("missing")),
+            listOf(RadioQueueOccurrence("duplicate"), RadioQueueOccurrence("duplicate")),
+        )) {
+            val restored = assertNotNull(session.copy(
+                generatedRadio = GeneratedRadioCheckpoint(occurrences = occurrences),
+            ).restoredTrackSession())
+            assertNull(restored.generatedRadio)
+            assertEquals(session.toTracks(), restored.tracks)
+            assertEquals(1, restored.currentIndex)
+            assertTrue(restored.playbackQueue.occurrences.isEmpty())
+        }
+    }
+
+    @Test
+    fun generatedSavedPauseOverridesLaunchPreferenceButPlayingSessionsStillRespectIt() {
+        val paused = GeneratedRadioCheckpoint(wasPaused = true)
+        val pausedEffects = planPlaybackSessionRestoreEffects(true, true, true, paused)
+        assertFalse(pausedEffects.startPlayback)
+        assertTrue(pausedEffects.prepareSidecars)
+        assertFalse(planPlaybackSessionRestoreEffects(true, true, false, paused.copy(wasPaused = false)).startPlayback)
+        assertTrue(planPlaybackSessionRestoreEffects(true, true, true, paused.copy(wasPaused = false)).startPlayback)
+        assertTrue(planPlaybackSessionRestoreEffects(true, true, true).startPlayback)
     }
 
     private fun track(

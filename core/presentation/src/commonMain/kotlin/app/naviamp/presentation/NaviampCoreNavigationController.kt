@@ -29,6 +29,10 @@ data class NaviampCoreFavoriteSongsPage(val sourceId: String?) : NaviampNavigati
     override val route: NaviampRoute get() = NaviampRoute.Home
 }
 
+data class NaviampCoreGeneratedRadioPage(val stationId: String, val sourceId: String?) : NaviampNavigationPage {
+    override val route: NaviampRoute get() = NaviampRoute.Home
+}
+
 data class NaviampCoreDiscoveryPage(val sourceId: String?, val sourceGeneration: Long) : NaviampNavigationPage {
     override val route: NaviampRoute get() = NaviampRoute.Home
 }
@@ -114,6 +118,8 @@ class NaviampCoreNavigationController(
             }
             is NaviampCoreHomeCollectionPage -> restoreCommand(NaviampCoreCommand.Home.OpenCollection(page.sectionId))
             is NaviampCoreFavoriteSongsPage -> restoreCommand(NaviampCoreCommand.Home.OpenFavoriteSongs)
+            is NaviampCoreGeneratedRadioPage -> restoreCommand(NaviampCoreCommand.GeneratedRadio(
+                app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Open, page.stationId)))
             is NaviampCoreDiscoveryPage, is NaviampRoutePage -> recoverEnteredPage()
             else -> error("Unknown navigation page: $page")
         }
@@ -150,6 +156,7 @@ class NaviampCoreNavigationController(
     }
 
     private fun isRestorable(page: NaviampNavigationPage): Boolean = when (page) {
+        is NaviampCoreGeneratedRadioPage -> page.sourceId == stateStore.state.value.shell.connectionSettings.currentSourceId
         is NaviampCoreFavoriteSongsPage -> page.sourceId == stateStore.state.value.shell.connectionSettings.currentSourceId
         is NaviampCoreDiscoveryPage -> stateStore.state.value.shell.home.providerDiscovery?.let {
             it.sourceId == page.sourceId && it.sourceGeneration == page.sourceGeneration
@@ -175,6 +182,7 @@ class NaviampCoreNavigationController(
             albumDetail = if (clearDetails) NaviampAlbumDetailScreenUi() else shell.albumDetail,
             artistDetail = if (clearDetails) NaviampArtistDetailScreenUi() else shell.artistDetail,
             playlistDetail = if (clearDetails) NaviampPlaylistDetailScreenUi() else shell.playlistDetail,
+            generatedRadio = shell.generatedRadio.copy(open = navigation.currentEntry.page is NaviampCoreGeneratedRadioPage),
             home = shell.home.copy(
                 collectionPage = if (clearDetails) null else shell.home.collectionPage,
                 favoriteSongsPage = if (navigation.currentEntry.page is NaviampCoreFavoriteSongsPage) {

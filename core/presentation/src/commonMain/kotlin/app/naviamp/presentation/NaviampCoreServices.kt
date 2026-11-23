@@ -86,6 +86,7 @@ data class NaviampCoreRadioServices(
     val playback: NaviampCoreInternetRadioPlaybackPort,
     val recents: NaviampCoreInternetRadioRecentsPort,
     val generatedRecents: NaviampCoreGeneratedRadioRecentsPort,
+    val generated: app.naviamp.domain.radio.GeneratedRadioRepository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository(),
 )
 
 /** Native Cast SDK, LAN socket, secure randomness, and route picker effects. */

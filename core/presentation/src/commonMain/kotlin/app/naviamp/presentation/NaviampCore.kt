@@ -389,6 +389,8 @@ class NaviampCore private constructor(
                 stopDiscoverySample = samplePlayback::stop,
                 acquisitionRepository = services.content.discoveryAcquisitions,
                 nowMillis = services.clockEpochMillis,
+                generatedRadio = services.radio.generated,
+                generatedRadioSourceIdentity = { naviampCoreConnectSourceIdentity(stateStore, providerSource) },
             )
             val similarity = NaviampCoreSimilarityController(stateStore, providerSource) { provider ->
                 livePlayback.state.value.currentTrack?.takeUnless { it.isInternetRadioTrack() }
@@ -461,6 +463,7 @@ class NaviampCore private constructor(
                 services.downloads.network,
                 radio::stations,
             )
+            lateinit var generatedStations: NaviampCoreGeneratedRadioController
             val queuePlayback = NaviampCoreQueuePlaybackController(
                 playback = livePlayback,
                 queue = queue,
@@ -471,6 +474,7 @@ class NaviampCore private constructor(
                 profiles = services.playback.profiles,
                 playlistBookmarks = services.playback.sessions.playlistBookmarks,
                 resumePlaylists = { stateStore.state.value.shell.playback.settings.resumePlaylists },
+                beforePlayback = { generatedStations.stop() },
             )
             val downloads = NaviampCoreDownloadsController(
                 scope,
@@ -546,6 +550,25 @@ class NaviampCore private constructor(
                 currentSourceId = { stateStore.state.value.shell.connectionSettings.currentSourceId },
                 nowEpochMillis = services.clockEpochMillis,
             )
+            lateinit var resolveStationRecipe: suspend (String) -> app.naviamp.domain.radio.GeneratedRadioStation?
+            generatedStations = NaviampCoreGeneratedRadioController(
+                scope, stateStore, providerSource, livePlayback, queue, routedPlaybackEffects,
+                services.radio.generated, generatedRadioRecents, services.content.libraryIndex,
+                { naviampCoreConnectSourceIdentity(stateStore, providerSource) }, services.clockEpochMillis,
+                { nowPlayingPresenter.publish(playback.currentDisplay()) }, navigation::openNowPlaying,
+                { notifyLocalSettingsChanged(); home.generatedStationsChanged() },
+                { id -> navigation.openPage(NaviampCoreGeneratedRadioPage(id, stateStore.state.value.shell.connectionSettings.currentSourceId)) },
+                navigation::back,
+                { target ->
+                    when {
+                        target.startsWith("artist:") -> providerSource.current()?.artist(app.naviamp.domain.ArtistId(target.removePrefix("artist:")))?.artist?.let { mediaDetails.selectArtist(it.toSharedMediaItemUi()) }
+                        target.startsWith("album:") -> providerSource.current()?.album(app.naviamp.domain.AlbumId(target.removePrefix("album:")))?.album?.let { mediaDetails.selectAlbum(it.toSharedMediaItemUi(coverArtUrl = { id -> id?.let { providerSource.current()?.coverArtUrl(it) } })) }
+                    }
+                },
+                { kind -> resolveStationRecipe(kind) },
+            )
+            playback.generatedRadio = generatedStations
+            nowPlayingPresenter.generatedRadio = generatedStations
             lateinit var routeFavoriteSongs: (List<Track>, Int) -> Boolean
             lateinit var favoriteSongs: NaviampCoreFavoriteSongsController
             val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { provider, track ->
@@ -582,6 +605,7 @@ class NaviampCore private constructor(
                 onTrackUpdated = onTrackUpdated,
                 playOnSelectedDevice = { tracks, index -> routeFavoriteSongs(tracks, index) },
                 onRadioHistoryChanged = home::favoritesChanged,
+                generatedStations = generatedStations,
             )
             val playlistMembership = NaviampCorePlaylistMembershipCoordinator(
                 providerSource = providerSource,
@@ -652,11 +676,12 @@ class NaviampCore private constructor(
                 stateStore,
                 providerSource,
                 playlistBrowse,
-                playback = NaviampCoreSonicPlaybackPort { tracks, _ -> mediaTransactions.play(tracks) },
+                playback = NaviampCoreSonicPlaybackPort { tracks, _ -> generatedStations.playFinite(tracks) },
                 queue = NaviampCoreSonicQueuePort { tracks, _ -> mediaTransactions.addToQueue(tracks) },
             )
+            resolveStationRecipe = { kind -> if (kind == "SonicMix") sonicBuilders.stationRecipe() else standardMixes.stationRecipe(kind) }
             playback.attachNativePlayback()
-            val trackActions = NaviampCoreTrackActionController(mediaRegistry, mediaTransactions, playlistMembership::open)
+            val trackActions = NaviampCoreTrackActionController(mediaRegistry, mediaTransactions, playlistMembership::open, generatedStations)
             favoriteSongs = NaviampCoreFavoriteSongsController(stateStore, providerSource, navigation, mediaRegistry, mediaTransactions, trackActions)
             // Resolved mix commands re-enter the Connect-aware handler created below.
             var resolvedCommandHandler: NaviampCoreCommandHandler? = null
@@ -736,6 +761,7 @@ class NaviampCore private constructor(
                     )) }
                     stateStore.update { it.copy(overlays = it.overlays.copy(radioNotice = null)) }
                     playback.resetForSourceChange(previousSourceId, newSourceId)
+                    generatedStations.resetForSourceChange()
                     playlistMembership.reset()
                     downloads.resetForSourceChange()
                     radio.resetForSourceChange()
@@ -830,6 +856,7 @@ class NaviampCore private constructor(
                     playlistBrowse,
                     playlistTransactions,
                     radio,
+                    generatedStations,
                     recentRadio,
                     standardMixes,
                     sonicBuilders,
@@ -841,6 +868,34 @@ class NaviampCore private constructor(
                 ),
                 onAsyncFailure = onAsyncFailure,
             )
+            val generatedPort = object : NaviampCoreConnectGeneratedRadioPort {
+                override fun checkpoint() = generatedStations.checkpoint()
+                override fun status() = generatedStations.status
+                override fun open(station: app.naviamp.domain.radio.GeneratedRadioStation) = generatedStations.showTransferred(station)
+                override suspend fun retry(stationId: String, revision: Long) = generatedStations.retry(stationId, revision)
+                override suspend fun start(command: app.naviamp.domain.connect.NaviampConnectStationStart): Boolean {
+                    val station = generatedStations.resolveTransferred(command.station, command.sourceIdentity) ?: return false
+                    return generatedStations.startStation(station, routeRemote = false, endlessEnabled = command.endlessEnabled)
+                }
+                override suspend fun handoff(command: app.naviamp.domain.connect.NaviampConnectStationHandoff): Boolean {
+                    val station = command.checkpoint.station?.let { generatedStations.resolveTransferred(it, command.sourceIdentity,
+                        requireRecipe = command.checkpoint.mode == app.naviamp.domain.radio.GeneratedRadioPlaybackMode.Station) }
+                    if (station == null && (command.checkpoint.station != null || command.checkpoint.mode == app.naviamp.domain.radio.GeneratedRadioPlaybackMode.Station)) return false
+                    if (naviampCoreConnectSourceIdentity(stateStore, providerSource)?.isCompatibleWith(command.sourceIdentity) != true) return false
+                    val provider = providerSource.current() ?: return false
+                    val resolved = mutableMapOf<String, Track>()
+                    for (entry in command.queue.occurrences) {
+                        if (entry.mediaId !in resolved) resolved[entry.mediaId] = provider.track(app.naviamp.domain.TrackId(entry.mediaId)) ?: return false
+                    }
+                    if (!generatedStations.acceptsTransferredTracks(resolved.values.toList())) return false
+                    if (!providerSource.isCurrent(provider) || naviampCoreConnectSourceIdentity(stateStore, providerSource)?.isCompatibleWith(command.sourceIdentity) != true) return false
+                    return playback.handoffConnectQueue(
+                        app.naviamp.domain.connect.NaviampConnectHandoffQueue(command.sourceIdentity, command.queue, command.positionMillis, command.repeatMode, command.shuffled, command.playing),
+                        generatedCheckpoint = command.checkpoint.copy(station = station, wasPaused = !command.playing),
+                        resolvedTracks = command.queue.occurrences.map { resolved.getValue(it.mediaId) },
+                    )
+                }
+            }
             val connect = services.connect?.let { connectServices ->
                 val supportsRemotePlayback = NaviampConnectDeviceCapability.PlaybackTarget in
                     connectServices.deviceCapabilities
@@ -862,9 +917,20 @@ class NaviampCore private constructor(
                     revealTargetNowPlaying = navigation::openNowPlaying,
                     playbackOutputs = playbackOutputs,
                     trackSelectionContext = mediaRegistry::connectTrackSelectionContext,
+                    generatedRadio = generatedPort,
                 )
             }
             routeFavoriteSongs = { tracks, index -> connect?.playTracksOnSelectedDevice(tracks, index) == true }
+            generatedStations.routeStation = { station, endless -> connect?.startGeneratedStationOnSelectedDevice(station, endless) == true }
+            generatedStations.routeBatch = { station, batch -> connect?.playGeneratedBatchOnSelectedDevice(station, batch) == true }
+            generatedStations.onChanged = { connect?.onGeneratedRadioChanged() }
+            scope.launch {
+                var remote = stateStore.state.value.shell.connect.remotePlaybackAuthorityActive
+                stateStore.state.collect { state ->
+                    val active = state.shell.connect.remotePlaybackAuthorityActive
+                    if (active != remote) { remote = active; generatedStations.authorityChanged() }
+                }
+            }
             val castEffect = services.cast?.let { castServices ->
                 castServices.session ?: checkNotNull(castServices.channel).let { native ->
                     app.naviamp.app.NaviampCastChannelSessionEffect(scope, native.transport,
@@ -900,6 +966,8 @@ class NaviampCore private constructor(
                     queue = queue,
                     local = services.playback.effects,
                     publishNowPlaying = { nowPlayingPresenter.publish(playback.currentDisplay()) },
+                    onAuthoritativePlaybackChanged = { generatedStations.onPlaybackChanged() },
+                    onAuthorityChanged = generatedStations::authorityChanged,
                 ).also { controller ->
                     routedPlaybackEffects.cast = controller
                     controller.start()

@@ -24,6 +24,19 @@ class StoragePlaybackHistoryStore(
     fun recentlyPlayedTracks(sourceId: String, limit: Long): List<Track> =
         queries.selectRecentDistinctPlaybackTracks(sourceId, limit).executeAsList().map { it.toTrack() }
 
+    fun scopedHistory(
+        sourceId: String,
+        selectedMusicFolderIds: List<String>,
+        limit: Int,
+    ): List<app.naviamp.domain.home.HomePlaybackActivity> =
+        queries.selectScopedPlaybackHistory(
+            sourceId = sourceId,
+            allMusicFolders = if (selectedMusicFolderIds.isEmpty()) 1L else 0L,
+            selectedMusicFolderIds = selectedMusicFolderIds,
+            limit = limit.coerceIn(1, 2_000).toLong(),
+        ).executeAsList()
+            .map { app.naviamp.domain.home.HomePlaybackActivity(it.toTrack(), it.played_at_epoch_millis) }
+
     override fun recordPlaybackHistory(sourceId: String, track: Track, playedAtEpochMillis: Long) {
         queries.upsertPlaybackHistory(
             source_id = sourceId,

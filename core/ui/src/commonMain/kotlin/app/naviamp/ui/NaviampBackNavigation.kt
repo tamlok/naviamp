@@ -12,10 +12,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import app.naviamp.domain.provider.DiscoveryBrowseAction
 
 /** One visible-destination policy for native phone Back and shared mouse navigation. */
-enum class NaviampBackTarget { NowPlaying, DiscoveryRequests, DiscoveryArtist, DiscoveryBrowser, HomeCollection, Page }
+enum class NaviampBackTarget { NowPlaying, GeneratedRadio, DiscoveryRequests, DiscoveryArtist, DiscoveryBrowser, HomeCollection, Page }
 
 fun naviampBackTarget(shell: NaviampAppShellUiState): NaviampBackTarget? = when {
     shell.shellChrome.nowPlayingOpen -> NaviampBackTarget.NowPlaying
+    shell.generatedRadio.open -> NaviampBackTarget.GeneratedRadio
     shell.albumDetail.selectedAlbum != null -> NaviampBackTarget.Page
     shell.artistDetail.selectedArtist != null -> NaviampBackTarget.Page
     shell.playlistDetail.selectedPlaylist != null -> NaviampBackTarget.Page
@@ -29,6 +30,7 @@ fun naviampBackTarget(shell: NaviampAppShellUiState): NaviampBackTarget? = when 
 
 internal fun performNaviampBack(target: NaviampBackTarget, actions: NaviampAppShellActions) = when (target) {
     NaviampBackTarget.NowPlaying -> actions.navigationActions.onCloseNowPlaying()
+    NaviampBackTarget.GeneratedRadio -> actions.generatedRadioActions.onAction(GeneratedRadioActionRequest(GeneratedRadioAction.Close))
     NaviampBackTarget.DiscoveryRequests -> actions.homeActions.onDiscoveryRequestsDismiss()
     NaviampBackTarget.DiscoveryArtist -> actions.homeActions.onDiscoveryArtistDismiss()
     NaviampBackTarget.DiscoveryBrowser -> actions.homeActions.onDiscoveryBrowse(DiscoveryBrowseAction.Close)

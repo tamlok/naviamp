@@ -18,12 +18,87 @@ import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.playback.PlaybackState
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.RepeatMode
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.GeneratedRadioKind
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.GeneratedRadioStatus
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import app.naviamp.domain.connect.NaviampConnectStationStart
+import app.naviamp.domain.connect.NaviampConnectStationHandoff
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class NaviampCoreConnectTargetSnapshotFactoryTest {
+    @Test
+    fun stationSnapshotAndHandoffPreserveOccurrenceOwnershipInsteadOfInferringFromSongIds() {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener", listOf("library"))
+        val station = GeneratedRadioStation("station", "Library station", GeneratedRadioKind.Library,
+            sourceId = "sender-local-source", sourceIdentity = source, libraryScope = "sender-local-cache", revision = 7)
+        val duplicate = track("same-song", "Same song")
+        val occurrences = listOf(RadioQueueOccurrence("history", station.id, "batch-1"),
+            RadioQueueOccurrence("current", station.id, "batch-2"), RadioQueueOccurrence("manual"))
+        val queue = PlaybackQueue(List(3) { duplicate }, 1, playNextCount = 1, occurrences = occurrences)
+        val live = NaviampLivePlaybackState(queue = queue, currentTrack = duplicate,
+            playbackState = PlaybackState.Paused, progress = PlaybackProgress(27.5, 180.0))
+        val checkpoint = GeneratedRadioCheckpoint(station, mode = GeneratedRadioPlaybackMode.FiniteBatch,
+            wasPaused = true, endlessEnabled = false, seenTrackIds = listOf("earlier-song"), occurrences = occurrences)
+        val port = object : NaviampCoreConnectGeneratedRadioPort {
+            override fun checkpoint() = checkpoint
+            override fun status() = GeneratedRadioStatus.Exhausted
+            override fun open(station: GeneratedRadioStation) = error("Not a projection operation")
+            override suspend fun retry(stationId: String, revision: Long): Boolean = error("Not a projection operation")
+            override suspend fun start(command: NaviampConnectStationStart): Boolean = error("Not a projection operation")
+            override suspend fun handoff(command: NaviampConnectStationHandoff): Boolean = error("Not a projection operation")
+        }
+        val factory = NaviampCoreConnectTargetSnapshotFactory(
+            NaviampConnectDevice("target", "TV", NaviampConnectDeviceRole.Target), emptySet(), { source }, port)
+        val snapshot = factory.create(4, live, 100)
+        val handoff = naviampCoreConnectStationHandoff(live, source, checkpoint)
+        val portable = checkpoint.copy(station = station.copy(sourceId = null, libraryScope = ""))
+        assertEquals(1, snapshot.stationSessionVersion)
+        assertEquals("Exhausted", snapshot.generatedRadioState)
+        assertEquals(portable, snapshot.generatedRadio)
+        assertEquals(portable, handoff.checkpoint)
+        assertEquals(occurrences.map { it.id }, handoff.queue.occurrences.map { it.occurrenceId })
+        assertEquals("current", snapshot.playback.currentOccurrenceId)
+        assertEquals(27_500L, handoff.positionMillis)
+        assertEquals(false, handoff.playing)
+        assertEquals(1, handoff.queue.playNextCount)
+    }
+
+    @Test
+    fun anonymousFiniteSnapshotAndHandoffRetainPausePolicyAndStableDuplicateOccurrences() {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val duplicate = track("same-song", "Same song")
+        val occurrences = listOf(RadioQueueOccurrence("first"), RadioQueueOccurrence("second"))
+        val checkpoint = GeneratedRadioCheckpoint(mode = GeneratedRadioPlaybackMode.FiniteBatch,
+            wasPaused = true, endlessEnabled = false, seenTrackIds = listOf("heard"), occurrences = occurrences)
+        val live = NaviampLivePlaybackState(queue = PlaybackQueue(listOf(duplicate, duplicate), 1, occurrences = occurrences),
+            currentTrack = duplicate, playbackState = PlaybackState.Paused, progress = PlaybackProgress(12.5, 180.0))
+        val port = object : NaviampCoreConnectGeneratedRadioPort {
+            override fun checkpoint() = checkpoint
+            override fun status() = GeneratedRadioStatus.Exhausted
+            override fun open(station: GeneratedRadioStation) = error("Not a projection operation")
+            override suspend fun retry(stationId: String, revision: Long): Boolean = error("Not a projection operation")
+            override suspend fun start(command: NaviampConnectStationStart): Boolean = error("Not a projection operation")
+            override suspend fun handoff(command: NaviampConnectStationHandoff): Boolean = error("Not a projection operation")
+        }
+        val snapshot = NaviampCoreConnectTargetSnapshotFactory(
+            NaviampConnectDevice("target", "TV", NaviampConnectDeviceRole.Target), emptySet(), { source }, port).create(4, live, 100)
+        val handoff = naviampCoreConnectStationHandoff(live, source, checkpoint)
+        assertEquals(checkpoint, snapshot.generatedRadio)
+        assertEquals(checkpoint, handoff.checkpoint)
+        assertEquals(1, snapshot.stationSessionVersion)
+        assertEquals(snapshot.queue, handoff.queue)
+        assertEquals(listOf("first", "second"), handoff.queue.occurrences.map { it.occurrenceId })
+        assertEquals("second", snapshot.playback.currentOccurrenceId)
+        assertEquals(12_500L, handoff.positionMillis)
+        assertEquals(false, handoff.playing)
+    }
+
     private val factory = NaviampCoreConnectTargetSnapshotFactory(
         target = NaviampConnectDevice("tv", "Living Room", NaviampConnectDeviceRole.Target),
         capabilities = setOf(

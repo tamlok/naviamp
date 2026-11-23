@@ -4,6 +4,7 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.normalizedGroups
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
 
 data class RestoredPlaybackSession(
     val tracks: List<Track>,
@@ -11,12 +12,18 @@ data class RestoredPlaybackSession(
     val currentTrack: Track,
     val playbackQueue: PlaybackQueue,
     val playbackProgress: PlaybackProgress,
+    val generatedRadio: GeneratedRadioCheckpoint? = null,
 )
 
 fun PlaybackSessionSettings.restoredTrackSession(): RestoredPlaybackSession? {
     val tracks = toTracks()
     val currentIndex = currentIndex.takeIf { it in tracks.indices } ?: return null
     val currentTrack = tracks[currentIndex]
+    val checkpoint = generatedRadio?.takeIf { checkpoint ->
+        checkpoint.occurrences.size == tracks.size &&
+            checkpoint.occurrences.all { it.id.isNotBlank() } &&
+            checkpoint.occurrences.map { it.id }.toSet().size == tracks.size
+    }
     return RestoredPlaybackSession(
         tracks = tracks,
         currentIndex = currentIndex,
@@ -26,11 +33,13 @@ fun PlaybackSessionSettings.restoredTrackSession(): RestoredPlaybackSession? {
             currentIndex = currentIndex,
             playNextCount = playNextCount.coerceIn(0, tracks.size - currentIndex - 1),
             groups = queueGroups,
+            occurrences = checkpoint?.occurrences.orEmpty(),
         ),
         playbackProgress = PlaybackProgress(
             positionSeconds = positionSeconds,
             durationSeconds = currentTrack.durationSeconds?.toDouble(),
         ),
+        generatedRadio = checkpoint,
     )
 }
 
@@ -40,6 +49,7 @@ fun PlaybackSessionSettings.restoredPlaybackQueue(): PlaybackQueue =
 fun playbackSessionFromQueue(
     queue: PlaybackQueue,
     positionSeconds: Double? = null,
+    generatedRadio: GeneratedRadioCheckpoint? = null,
 ): PlaybackSessionSettings? =
     PlaybackSessionSettings.fromTracks(
         tracks = queue.tracks,
@@ -47,16 +57,18 @@ fun playbackSessionFromQueue(
         playNextCount = queue.playNextCount,
         queueGroups = queue.normalizedGroups(),
         positionSeconds = positionSeconds,
+        generatedRadio = generatedRadio?.copy(occurrences = queue.occurrences),
     )
 
 fun playbackSessionFromCurrentTrack(
     currentTrack: Track,
     queue: PlaybackQueue,
     positionSeconds: Double? = null,
+    generatedRadio: GeneratedRadioCheckpoint? = null,
 ): PlaybackSessionSettings? {
     val sessionQueue = queue.takeIf { it.current?.id == currentTrack.id }
         ?: PlaybackQueue(tracks = listOf(currentTrack), currentIndex = 0)
-    return playbackSessionFromQueue(sessionQueue, positionSeconds)
+    return playbackSessionFromQueue(sessionQueue, positionSeconds, generatedRadio.takeIf { sessionQueue === queue })
 }
 
 fun PlaybackSessionSettings.withPlaybackPosition(positionSeconds: Double?): PlaybackSessionSettings =

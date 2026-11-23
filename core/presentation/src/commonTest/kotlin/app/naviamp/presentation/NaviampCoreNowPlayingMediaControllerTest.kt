@@ -74,6 +74,83 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NaviampCoreNowPlayingMediaControllerTest {
+    @Test fun playlistAndVehicleStartsClearLiveAndRestoredRadioBeforeQueuePublication() = runTest {
+        for (vehicle in listOf(false, true)) for (shuffle in listOf(false, true)) for (restored in listOf(false, true)) {
+            val fixture = mediaFixture(this)
+            val recipe = app.naviamp.domain.radio.GeneratedRadioStation("owned", "Owned station", app.naviamp.domain.radio.GeneratedRadioKind.Track,
+                seedTracks = listOf(app.naviamp.domain.settings.SavedTrack.fromTrack(nowPlayingTrack("current"))))
+            assertTrue(fixture.generatedStations.startStation(fixture.generatedStations.bind(recipe)))
+            val checkpoint = assertNotNull(fixture.generatedStations.checkpoint())
+            if (restored) fixture.generatedStations.restore(checkpoint)
+            val observed = mutableListOf<app.naviamp.domain.radio.GeneratedRadioCheckpoint?>()
+            fixture.live.observe { state ->
+                if (state.queue.groups.any { it.target.id == "playlist" }) observed += fixture.generatedStations.checkpoint()
+            }
+            if (vehicle) {
+                val access = NaviampCoreVehicleCollectionAccess(fixture.store.state, { fixture.provider }, fixture.queuePlayback)
+                val collection = access.load(NaviampVehicleCollectionReference(NaviampVehicleCollectionKind.Playlist, "playlist", "Playlist"))
+                assertTrue(collection.play(shuffle = shuffle, resumePlaylist = !shuffle))
+            } else {
+                val navigation = NaviampCoreNavigationController(app.naviamp.app.NaviampNavigationController(), fixture.store, {})
+                val browse = NaviampCorePlaylistBrowseController(fixture.store, { fixture.provider }, navigation)
+                val playlists = NaviampCorePlaylistTransactionController(
+                    stateStore = fixture.store, providerSource = { fixture.provider }, browseController = browse,
+                    playback = NaviampCorePlaylistPlaybackPort { playlist, tracks, mix ->
+                        fixture.queuePlayback.play(tracks, shuffle = mix,
+                            groupTarget = app.naviamp.domain.playback.PlaybackProfileTarget(app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist, playlist.id),
+                            groupLabel = playlist.name, resumePlaylist = !mix)
+                    },
+                    queue = NaviampCorePlaylistQueuePort { _, _ -> error("Unexpected append") },
+                    downloads = NaviampCorePlaylistDownloadPort { _, _, _ -> error("Unexpected download") },
+                    sessionPort = fakeCoreServices(fixture.provider).connection,
+                )
+                playlists.execute(NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
+                    app.naviamp.ui.SharedMediaItemUi("playlist", "Playlist", ""), app.naviamp.ui.NaviampPlaylistDetailCommand.Play(shuffle))))
+            }
+            val expected = fixture.provider.playlistContents.getValue("playlist").map { it.id.value }
+            val queue = fixture.live.state.value.queue
+            if (shuffle) assertEquals(expected.groupingBy { it }.eachCount(), queue.tracks.groupingBy { it.id.value }.eachCount())
+            else assertEquals(expected, queue.tracks.map { it.id.value })
+            assertEquals(0, queue.currentIndex)
+            assertEquals("playlist", queue.groups.single().target.id)
+            assertNull(fixture.generatedStations.checkpoint())
+            assertTrue(observed.isNotEmpty())
+            assertTrue(observed.all { it == null }, "Ordinary queues must never publish with a generated-radio checkpoint")
+        }
+    }
+
+    @Test fun generatedPreviewSelectionKeepsWholeBatchWithoutStealingLibraryOrPlaylistRows() = runTest {
+        val fixture = mediaFixture(this)
+        val tracks = listOf(nowPlayingTrack("duplicate"), nowPlayingTrack("middle"), nowPlayingTrack("duplicate"))
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("preview", "Preview", app.naviamp.domain.radio.GeneratedRadioKind.Track)
+        val preview = app.naviamp.ui.NaviampGeneratedRadioUi(station = station, open = true,
+            batch = app.naviamp.domain.radio.GeneratedRadioBatch("batch", station.id, station.revision, 42,
+                tracks.map(app.naviamp.domain.settings.SavedTrack::fromTrack)))
+        fixture.store.updateShell { it.copy(generatedRadio = preview) }
+        val registry = NaviampCoreMediaRegistry()
+        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, {}, fixture.generatedStations)
+        val request = app.naviamp.ui.SharedTrackRowActionRequest(app.naviamp.ui.SharedTrackRowUi("middle", "Middle", "Artist"),
+            app.naviamp.ui.SharedTrackRowAction.Select)
+        controller.execute(NaviampCoreCommand.Media.TrackAction(request))
+        assertEquals(tracks, fixture.live.state.value.queue.tracks)
+        assertEquals(1, fixture.live.state.value.queue.currentIndex)
+        assertEquals(app.naviamp.domain.radio.GeneratedRadioPlaybackMode.FiniteBatch, fixture.generatedStations.checkpoint()?.mode)
+
+        val libraryTracks = listOf(nowPlayingTrack("library-first"), tracks[1])
+        registry.updateLibraryTracks(libraryTracks, replace = true)
+        controller.execute(NaviampCoreCommand.Library.TrackAction(request))
+        assertEquals(libraryTracks, fixture.live.state.value.queue.tracks)
+        assertNull(fixture.generatedStations.checkpoint())
+
+        fixture.store.updateShell { it.copy(generatedRadio = preview) }
+        controller.execute(NaviampCoreCommand.Media.TrackAction(request))
+        registry.updateSelectedPlaylist(app.naviamp.domain.Playlist("playlist", "Playlist", 2), listOf(tracks[1], nowPlayingTrack("playlist-last")))
+        controller.execute(NaviampCoreCommand.Detail.PlaylistTrack(request))
+        assertEquals(listOf("middle", "playlist-last"), fixture.live.state.value.queue.tracks.map { it.id.value })
+        assertEquals("playlist", fixture.live.state.value.queue.groups.single().target.id)
+        assertNull(fixture.generatedStations.checkpoint())
+    }
+
     @Test
     fun compactLyricsFontCyclePersistsWithoutReloadingLyrics() = runTest {
         val fixture = mediaFixture(this)
@@ -878,11 +955,9 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertEquals("current", fixture.live.state.value.queue.current?.id?.value)
         assertTrue(fixture.live.state.value.queue.tracks.any { it.id.value == "radio" })
         assertTrue(fixture.effects.selections.isEmpty())
-        assertEquals("Playing current radio", fixture.store.state.value.overlays.status)
         val recentSection = fixture.store.state.value.shell.home.content.collectionSections
             .single { it.id == app.naviamp.domain.settings.HomeSectionIds.RecentRadio }
         assertEquals("track:current", recentSection.items.single().mediaItem.id)
-        assertEquals("2 tracks", recentSection.items.single().mediaItem.subtitle)
 
         fixture.live.replace(
             fixture.live.state.value.copy(
@@ -929,11 +1004,10 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertTrue(fixture.store.state.value.overlays.trackRadioGenerating)
         assertEquals(listOf("past", "current", "next"), fixture.live.state.value.queue.tracks.map { it.id.value })
         assertTrue(fixture.effects.selections.isEmpty())
-        assertEquals("Playing current radio while the queue builds", fixture.store.state.value.overlays.status)
 
         buildGate.complete(Unit)
         request.await()
-        assertEquals(listOf("past", "current", "radio"), fixture.live.state.value.queue.tracks.map { it.id.value })
+        assertEquals(listOf("past", "current", "next", "radio"), fixture.live.state.value.queue.tracks.map { it.id.value })
         assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
     }
 
@@ -1051,7 +1125,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
             fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio))
 
             val after = fixture.live.state.value
-            assertEquals(listOf("first", "second", "third", "current", "radio"), after.queue.tracks.map { it.id.value })
+            assertEquals(listOf("first", "second", "third", "current", "old-upcoming", "radio"), after.queue.tracks.map { it.id.value })
             assertEquals(3, after.queue.currentIndex)
             assertEquals("third", after.queue.previous().current?.id?.value)
             assertEquals(before.copy(queue = after.queue), after)
@@ -1085,7 +1159,6 @@ class NaviampCoreNowPlayingMediaControllerTest {
         assertEquals(before, fixture.live.state.value)
         assertTrue(fixture.effects.appliedQueues.isEmpty())
         assertEquals(app.naviamp.domain.radio.RadioBuildOutcome.Empty, fixture.store.state.value.overlays.radioNotice?.outcome)
-        assertEquals("Playing current radio while the queue builds", fixture.store.state.value.overlays.status)
         assertFalse(fixture.store.state.value.overlays.trackRadioGenerating)
     }
 
@@ -1147,7 +1220,6 @@ class NaviampCoreNowPlayingMediaControllerTest {
 
         assertEquals("current", fixture.live.state.value.queue.current?.id?.value)
         assertTrue(fixture.live.state.value.queue.tracks.any { it.id.value == "radio" })
-        assertEquals("Playing current radio", fixture.store.state.value.overlays.status)
     }
 
     @Test
@@ -1246,6 +1318,8 @@ private data class MediaFixture(
     val transactions: NaviampCoreMediaTransactions,
     val artistActivity: RecordingFavoriteArtistActivity,
     val catalog: NaviampCoreCatalogController,
+    val generatedStations: NaviampCoreGeneratedRadioController,
+    val queuePlayback: NaviampCoreQueuePlaybackController,
 )
 
 private suspend fun MediaFixture.showFavoriteSongs() {
@@ -1350,6 +1424,18 @@ private fun mediaFixture(
     val artistActivity = RecordingFavoriteArtistActivity()
     val registry = NaviampCoreMediaRegistry()
     val catalog = NaviampCoreCatalogController(store, { provider }, mediaRegistry = registry)
+    val generatedRecents = NaviampRecentRadioStreamController(
+        load = { recentRadioStreams }, save = { recentRadioStreams = it }, currentSourceId = { "source" })
+    val generatedStations = NaviampCoreGeneratedRadioController(scope, store, { provider }, live, queue, effects,
+        app.naviamp.domain.radio.MemoryGeneratedRadioRepository(app.naviamp.domain.radio.GeneratedRadioLibrary(
+            preferences = app.naviamp.domain.radio.GeneratedRadioPreferences(endlessEnabled = false))), generatedRecents, null, { null }, { 1_000L },
+        { presenter.publish() }, {}, {}, {}, {}, {}, { null })
+    transport.generatedRadio = generatedStations
+    presenter.generatedRadio = generatedStations
+    val queuePlayback = NaviampCoreQueuePlaybackController(live, queue, effects, { presenter.publish() }, {},
+        activeSourceId = { store.state.value.shell.connectionSettings.currentSourceId },
+        playlistBookmarks = app.naviamp.app.NaviampPlaylistBookmarkController(bookmarks),
+        resumePlaylists = { store.state.value.shell.playback.settings.resumePlaylists }, beforePlayback = generatedStations::stop)
     val generatedRadio = NaviampCoreMediaTransactions(
         stateStore = store,
         busyIndicator = NaviampCoreBusyIndicator(store),
@@ -1358,10 +1444,7 @@ private fun mediaFixture(
         playback = live,
         queue = queue,
         effects = effects,
-        queuePlayback = NaviampCoreQueuePlaybackController(live, queue, effects, { presenter.publish() }, {},
-            activeSourceId = { store.state.value.shell.connectionSettings.currentSourceId },
-            playlistBookmarks = app.naviamp.app.NaviampPlaylistBookmarkController(bookmarks),
-            resumePlaylists = { store.state.value.shell.playback.settings.resumePlaylists }),
+        queuePlayback = queuePlayback,
         downloads = downloads,
         mediaDetails = mediaDetails,
         recentRadioStreams = NaviampRecentRadioStreamController(
@@ -1375,6 +1458,7 @@ private fun mediaFixture(
         openNowPlaying = {},
         favoriteArtistActivity = artistActivity,
         onTrackUpdated = catalog::trackUpdated,
+        generatedStations = generatedStations,
     )
     val controller = NaviampCoreNowPlayingMediaController(
         stateStore = store,
@@ -1412,6 +1496,8 @@ private fun mediaFixture(
         generatedRadio,
         artistActivity,
         catalog,
+        generatedStations,
+        queuePlayback,
     )
 }
 
@@ -1669,7 +1755,7 @@ class NaviampCoreConnectTrackSelectionTargetTest {
 
         val local = targetFixture(this)
         local.registry.updateAlbum(local.provider.album(AlbumId("album")))
-        NaviampCoreTrackActionController(local.registry, local.fixture.transactions) {}.execute(
+        NaviampCoreTrackActionController(local.registry, local.fixture.transactions, openPlaylistMembership = {}).execute(
             NaviampCoreCommand.Detail.AlbumTrack(app.naviamp.ui.SharedTrackRowActionRequest(
                 app.naviamp.ui.SharedTrackRowUi("album-3", "album-3", "Artist"),
                 app.naviamp.ui.SharedTrackRowAction.Select)))

@@ -383,9 +383,11 @@ private fun JdbcSqliteDriver.removeDiscMetadataColumns() {
         }
     }
 }
-/** Rewind the branch-only table before assigning a historical user_version to a fixture. */
+/** Rewind later schema additions before assigning a historical user_version to a fixture. */
 private fun JdbcSqliteDriver.createSchemaWithoutAcquisitions() {
     NaviampStorageDatabase.Schema.create(this)
     execute(null, "DROP TABLE discovery_acquisition", 0)
     execute(null, "ALTER TABLE media_source DROP COLUMN aurral_companion", 0)
+    execute(null, "DROP TABLE playlist_playback_bookmark", 0)
+    execute(null, "ALTER TABLE playback_session_state DROP COLUMN generated_radio_checkpoint_payload", 0)
 }

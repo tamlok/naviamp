@@ -16,6 +16,7 @@ data class SettingsSyncLocalSnapshot(
     val visualizer: VisualizerSettings = VisualizerSettings(),
     val recentRadioStreams: List<RecentRadioStream> = emptyList(),
     val recentInternetRadioStations: List<SavedInternetRadioStation> = emptyList(),
+    val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
 )
 
 data class ImportedSettingsSyncServerProfiles(
@@ -31,6 +32,7 @@ data class AppliedSettingsSyncDocument(
     val recentRadioStreams: List<RecentRadioStream>,
     val recentInternetRadioStations: List<SavedInternetRadioStation>,
     val importedServerProfiles: ImportedSettingsSyncServerProfiles,
+    val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
 )
 
 /** Applies the platform-neutral repository mutations and normalization for a synced document. */
@@ -39,6 +41,7 @@ fun applySettingsSyncDocument(
     mediaSourceRepository: ProviderMediaSourceRepository,
     radioDjPresetRepository: RadioDjPresetRepository,
     localPlayback: PlaybackSettings = PlaybackSettings(),
+    localGeneratedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
 ): AppliedSettingsSyncDocument {
     val preferences = document.preferences
     val importedServerProfiles = importSettingsSyncServerProfiles(
@@ -62,8 +65,15 @@ fun applySettingsSyncDocument(
         recentRadioStreams = preferences.recentRadioStreams,
         recentInternetRadioStations = preferences.recentInternetRadioStations,
         importedServerProfiles = importedServerProfiles,
+        generatedRadio = generatedRadioForSettingsImport(document, localGeneratedRadio),
     )
 }
+
+private fun generatedRadioForSettingsImport(
+    document: SettingsSyncDocument,
+    local: app.naviamp.domain.radio.GeneratedRadioLibrary,
+): app.naviamp.domain.radio.GeneratedRadioLibrary = if (document.schemaVersion < 2) local else
+    (document.preferences.generatedRadio ?: app.naviamp.domain.radio.GeneratedRadioLibrary()).normalized()
 
 fun buildSettingsSyncDocument(
     snapshot: SettingsSyncLocalSnapshot,
@@ -80,6 +90,7 @@ fun buildSettingsSyncDocument(
             visualizer = snapshot.visualizer,
             recentRadioStreams = snapshot.recentRadioStreams,
             recentInternetRadioStations = snapshot.recentInternetRadioStations,
+            generatedRadio = snapshot.generatedRadio,
         ),
     ).normalized()
 

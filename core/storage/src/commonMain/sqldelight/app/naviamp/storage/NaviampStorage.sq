@@ -375,7 +375,8 @@ CREATE TABLE playback_session_state (
   internet_radio_payload TEXT,
   now_playing_open INTEGER NOT NULL,
   updated_at_epoch_millis INTEGER NOT NULL,
-  queue_groups_payload TEXT
+  queue_groups_payload TEXT,
+  generated_radio_checkpoint_payload TEXT
 );
 
 CREATE TABLE playback_session_queue (
@@ -642,7 +643,7 @@ DELETE FROM playback_session
 WHERE source_id = ?;
 
 selectPlaybackSessionState:
-SELECT current_index, play_next_count, queue_groups_payload, position_seconds, internet_radio_payload, now_playing_open
+SELECT current_index, play_next_count, queue_groups_payload, position_seconds, internet_radio_payload, now_playing_open, generated_radio_checkpoint_payload
 FROM playback_session_state
 WHERE source_id = ?;
 
@@ -667,8 +668,9 @@ INSERT OR REPLACE INTO playback_session_state(
   position_seconds,
   internet_radio_payload,
   now_playing_open,
-  updated_at_epoch_millis
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+  updated_at_epoch_millis,
+  generated_radio_checkpoint_payload
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deletePlaybackSessionQueue:
 DELETE FROM playback_session_queue
@@ -1493,6 +1495,18 @@ WHERE source_id = ?
 ORDER BY played_at_epoch_millis DESC
 LIMIT ?;
 
+selectScopedPlaybackHistory:
+SELECT history.* FROM playback_history AS history
+WHERE history.source_id = :sourceId
+AND EXISTS (
+  SELECT 1 FROM library_track AS track
+  WHERE track.source_id = history.source_id
+  AND track.remote_track_id = history.remote_track_id
+  AND (:allMusicFolders = 1 OR track.music_folder_id IN :selectedMusicFolderIds)
+)
+ORDER BY history.played_at_epoch_millis DESC
+LIMIT :limit;
+
 selectRecentDistinctPlaybackTracks:
 SELECT * FROM playback_history AS history
 WHERE source_id = :sourceId
@@ -2157,3 +2171,8 @@ VALUES (?, ?, ?, ?, ?);
 
 updateAurralCompanion:
 UPDATE media_source SET aurral_companion = :payload WHERE id = :sourceId OR server_connection_key = :serverConnectionKey;
+
+selectGeneratedRadioCatalogTrackIds:
+SELECT remote_track_id FROM library_track
+WHERE source_id = :sourceId AND remote_track_id IN :trackIds
+AND (:allMusicFolders = 1 OR music_folder_id IN :selectedMusicFolderIds);

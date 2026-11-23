@@ -32,6 +32,10 @@ import app.naviamp.ui.NowPlayingQueueAction
 import app.naviamp.ui.NowPlayingSelectionAction
 import app.naviamp.ui.NowPlayingUi
 import app.naviamp.ui.nowPlayingQueueContext
+import app.naviamp.domain.connect.NaviampConnectStationRetry
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.GeneratedRadioStatus
+import app.naviamp.ui.GeneratedRadioAction
 
 internal fun NaviampConnectTargetSnapshot.toRemoteNowPlayingUi(
     targetName: String,
@@ -100,6 +104,9 @@ internal fun NaviampConnectTargetSnapshot.toRemoteNowPlayingUi(
             ((queue.currentIndex + 1)..queue.occurrences.lastIndex).map(::item)
         },
         relatedEmptyLabel = "Related tracks stay on the TV queue.",
+        generatedStation = generatedRadio?.station,
+        generatedStatus = GeneratedRadioStatus.entries.firstOrNull { it.name == generatedRadioState }
+            ?: GeneratedRadioStatus.Inactive,
     )
 }
 
@@ -114,7 +121,16 @@ internal fun createNaviampCoreConnectRemoteNowPlayingActions(
     snapshot: () -> NaviampConnectTargetSnapshot?,
     send: (NaviampConnectCommand) -> Unit,
     onStopControlling: () -> Unit = {},
+    openGeneratedStation: (GeneratedRadioStation) -> Unit = {},
 ): NaviampNowPlayingActions = NaviampNowPlayingActions(
+    onGeneratedRadioAction = { request ->
+        val station = snapshot()?.generatedRadio?.station
+        if (station != null && request.stationId == station.id) when (request.action) {
+            GeneratedRadioAction.Open -> openGeneratedStation(station)
+            GeneratedRadioAction.Retry -> send(NaviampConnectStationRetry(station.id, station.revision))
+            else -> Unit
+        }
+    },
     onPlaybackAction = { request ->
         val current = snapshot() ?: return@NaviampNowPlayingActions
         request.toNaviampConnectPlaybackCommand(current)?.let(send)

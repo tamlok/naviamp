@@ -23,6 +23,29 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
 
 class JellyfinProviderTest {
+    @Test fun generatedRadioCatalogPagesProveEachSelectedLibraryRoot() = runTest {
+        val fixture = fixture(responses = linkedMapOf(
+            "parentId=empty" to """{"Items":[],"TotalRecordCount":0}""",
+            "parentId=one" to """{"Items":[{"Id":"one-track","Name":"One","ParentId":"album-parent-one"}],"TotalRecordCount":1}""",
+            "parentId=two" to """{"Items":[{"Id":"two-track","Name":"Two","ParentId":"album-parent-two"}],"TotalRecordCount":1}""",
+            "includeItemTypes=Audio" to """{"Items":[{"Id":"outside","Name":"Outside"}],"TotalRecordCount":1}""",
+        ), selectedMusicFolderIds = listOf("empty", "one", "two"))
+        val first = fixture.provider.generatedRadioCatalogPage(MediaPageRequest(limit = 10))
+        assertEquals(listOf("one-track"), first.items.map { it.id.value })
+        assertEquals(listOf("one"), first.items.map { it.musicFolderId })
+        val second = fixture.provider.generatedRadioCatalogPage(assertNotNull(first.nextRequest))
+        assertEquals(listOf("two-track"), second.items.map { it.id.value })
+        assertEquals(listOf("two"), second.items.map { it.musicFolderId })
+        assertNull(second.nextRequest)
+        assertTrue(fixture.http.requestedUrls.all { "parentId=" in it })
+    }
+
+    @Test fun anAlbumParentIsNotEvidenceOfMusicLibraryMembership() = runTest {
+        val fixture = fixture(responses = mapOf("/Items/track" to
+            """{"Id":"track","Name":"Track","ParentId":"album-not-library"}"""))
+        assertNull(assertNotNull(fixture.provider.track(TrackId("track"))).musicFolderId)
+    }
+
     @Test fun artworkResolutionDependsOnItsPresentation() {
         val provider = fixture().provider
         assertTrue(provider.coverArtUrl("cover").contains("maxWidth=512"))

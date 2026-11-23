@@ -157,6 +157,10 @@ private fun HomeCollectionSection(
                 }
             }
         }
+        if (section.id == SharedHomeCollectionSectionIds.MixesForYou &&
+            section.items.any { it.action == SharedHomeCollectionItemAction.StartGeneratedStation }) {
+            Text(stringResource(Res.string.generated_radio_home_hint), color = colors.secondaryText)
+        }
     }
 }
 
@@ -177,6 +181,7 @@ private fun FavoriteArtistStatus(section: SharedHomeCollectionSectionUi, colors:
 @Composable
 internal fun SharedHomeCollectionSectionUi.localizedTitle(): String = when (titleResource) {
     SharedHomeCollectionTitleResource.Recommendations -> stringResource(Res.string.home_recommendations)
+    SharedHomeCollectionTitleResource.SavedGeneratedStations -> stringResource(Res.string.generated_radio_saved)
     null -> when {
         id == app.naviamp.domain.settings.HomeSectionIds.GenreSpotlight && titleArgument != null ->
             stringResource(Res.string.home_more_in, titleArgument).uppercase()
@@ -529,6 +534,8 @@ internal fun dispatchHomeCollectionItem(
 ) {
     when (item.action) {
         SharedHomeCollectionItemAction.OpenFavoriteSongs -> actions.onFavoriteSongsSelected()
+        SharedHomeCollectionItemAction.StartGeneratedStation -> actions.onGeneratedRadioAction(
+            GeneratedRadioActionRequest(GeneratedRadioAction.Start, item.mediaItem.id))
         SharedHomeCollectionItemAction.PlayAlbum -> mediaActions.onMediaItemAction(item.mediaItem.playAlbumRequest())
         SharedHomeCollectionItemAction.PlayAlbumMix -> mediaActions.onMediaItemAction(item.mediaItem.playAlbumMixRequest())
         SharedHomeCollectionItemAction.OpenAlbum ->
@@ -567,6 +574,7 @@ internal fun dispatchHomeCollectionItem(
     }
 }
 
+@Composable
 private fun homeCollectionMenuItems(
     item: SharedHomeCollectionItemUi,
     actions: NaviampHomeActions,
@@ -574,6 +582,19 @@ private fun homeCollectionMenuItems(
     includeFavorite: Boolean = false,
 ): List<NaviampRowMenuItem> = buildList {
     if (item.action == SharedHomeCollectionItemAction.OpenFavoriteSongs) return@buildList
+    if (item.action == SharedHomeCollectionItemAction.StartGeneratedStation) {
+        val previewLabel = stringResource(Res.string.generated_radio_preview)
+        add(NaviampRowMenuItem(previewLabel, NaviampTransportIcons.Radio, {
+            actions.onGeneratedRadioAction(GeneratedRadioActionRequest(GeneratedRadioAction.Open, item.mediaItem.id))
+        }))
+        return@buildList
+    }
+    if (item.action == SharedHomeCollectionItemAction.SelectRecentRadio) {
+        val previewLabel = stringResource(Res.string.generated_radio_preview)
+        add(NaviampRowMenuItem(previewLabel, NaviampTransportIcons.Radio, {
+            actions.onGeneratedRadioAction(GeneratedRadioActionRequest(GeneratedRadioAction.Open, item.mediaItem.id, "RecentRadio"))
+        }))
+    }
     if (item.artwork == SharedHomeCollectionArtwork.NavibeatGenerated) {
         add(NaviampRowMenuItem("Shuffle mix", NaviampTransportIcons.Shuffle, {
             mediaActions.onMediaItemAction(

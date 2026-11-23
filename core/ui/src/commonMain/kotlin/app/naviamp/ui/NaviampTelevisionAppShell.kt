@@ -708,6 +708,8 @@ private fun TelevisionConnectedContent(
         }
     }
     when {
+        uiState.generatedRadio.open -> NaviampGeneratedRadioContent(uiState.generatedRadio, actions.generatedRadioActions,
+            colors, televisionMediaActions, canDownload = uiState.shellChrome.supportsDownloads, television = true)
         uiState.albumDetail.selectedAlbum != null -> TelevisionAlbumDetail(
             screen = uiState.albumDetail,
             colors = colors,

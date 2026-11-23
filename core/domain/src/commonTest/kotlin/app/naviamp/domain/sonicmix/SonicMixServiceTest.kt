@@ -14,6 +14,11 @@ import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
 import app.naviamp.domain.provider.SonicSimilarTrack
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlin.time.Instant
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -106,6 +111,52 @@ class SonicMixServiceTest {
         )
 
         assertEquals(listOf("seed-one", "seed-two"), mix.map { it.id.value })
+    }
+
+    @Test
+    fun recentBiasDecaysWithActualAgeAndNormalizesInvalidAndFutureDates() {
+        val now = Instant.parse("2026-11-23T00:00:00Z").toEpochMilliseconds()
+        val recent = SonicSimilarTrack(track("recent").copy(lastPlayedAtIso8601 = "2026-11-22T00:00:00Z"), 0.7)
+        val old = SonicSimilarTrack(track("old").copy(lastPlayedAtIso8601 = "2025-11-22T00:00:00Z"), 0.7)
+        val invalid = SonicSimilarTrack(track("invalid").copy(lastPlayedAtIso8601 = "not-a-date"), 0.7)
+        val future = SonicSimilarTrack(track("future").copy(lastPlayedAtIso8601 = "2030-01-01T00:00:00Z"), 0.7)
+        assertTrue(sonicMixCandidateScore(recent, SonicMixBias.Recent, now) > sonicMixCandidateScore(old, SonicMixBias.Recent, now))
+        assertTrue(sonicMixCandidateScore(recent, SonicMixBias.Recent, now) >
+            sonicMixCandidateScore(recent, SonicMixBias.Recent, now + 365L * 86_400_000))
+        assertEquals(0.7, sonicMixCandidateScore(invalid, SonicMixBias.Recent, now))
+        assertEquals(0.95, sonicMixCandidateScore(future, SonicMixBias.Recent, now))
+    }
+
+    @Test
+    fun injectedClockChangesRecentMixOrdering() = runTest {
+        val now = Instant.parse("2026-11-23T00:00:00Z").toEpochMilliseconds()
+        val seedOne = track("one")
+        val seedTwo = track("two")
+        val recent = track("recent").copy(lastPlayedAtIso8601 = "2026-11-23T00:00:00Z")
+        val close = track("closer")
+        val provider = FakeSonicMixProvider(matches = mapOf(seedOne.id to listOf(
+            SonicSimilarTrack(close, 0.9), SonicSimilarTrack(recent, 0.7))))
+        val request = SonicMixRequest(listOf(seedOne, seedTwo), bias = SonicMixBias.Recent)
+        assertEquals("recent", SonicMixService(provider) { now }.buildMix(request).first().id.value)
+        assertEquals("closer", SonicMixService(provider) { now + 365L * 86_400_000 }.buildMix(request).first().id.value)
+    }
+
+    @Test
+    fun sonicMixSharesDeadlineAndKeepsPartialMatchesWithoutSubstitution() = runTest {
+        val provider = object : MediaProvider by FakeSonicMixProvider() {
+            override suspend fun sonicSimilarTrackMatches(trackId: TrackId, count: Int): List<SonicSimilarTrack> {
+                if (trackId.value == "two") delay(60_000)
+                return listOf(SonicSimilarTrack(track("match")))
+            }
+            override suspend fun instantMixTracks(trackId: TrackId, count: Int): List<Track> = error("Must not substitute")
+        }
+        val request = SonicMixRequest(listOf(track("one"), track("two")))
+        assertEquals(listOf("match"), SonicMixService(provider).buildMix(request).map { it.id.value })
+        assertEquals(30_000L, testScheduler.currentTime)
+        val cancelled = object : MediaProvider by provider {
+            override suspend fun sonicSimilarTrackMatches(trackId: TrackId, count: Int): List<SonicSimilarTrack> = throw CancellationException()
+        }
+        assertFailsWith<CancellationException> { SonicMixService(cancelled).buildMix(request) }
     }
 
     private class FakeSonicMixProvider(

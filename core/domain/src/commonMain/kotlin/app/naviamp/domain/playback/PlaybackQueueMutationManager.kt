@@ -4,6 +4,7 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.queue.UpcomingShufflePolicy
+import app.naviamp.domain.radio.RadioQueueOccurrence
 
 class PlaybackQueueMutationManager(
     private val upcomingShuffle: UpcomingShufflePolicy = UpcomingShufflePolicy(),
@@ -142,17 +143,20 @@ class PlaybackQueueMutationManager(
     fun toggleUpcomingShuffle(
         currentQueue: PlaybackQueue,
         shuffledSnapshot: List<Track>?,
+        shuffledOccurrences: List<RadioQueueOccurrence>? = null,
     ): PlaybackShuffleUpdate {
-        val toggle = currentQueue.toggleUpcomingShuffle(shuffledSnapshot, upcomingShuffle)
+        val toggle = currentQueue.toggleUpcomingShuffle(shuffledSnapshot, upcomingShuffle, shuffledOccurrences)
             ?: return PlaybackShuffleUpdate(
                 queue = currentQueue,
                 shuffledSnapshot = shuffledSnapshot,
                 changed = false,
+                shuffledOccurrences = shuffledOccurrences,
             )
         return PlaybackShuffleUpdate(
             queue = toggle.queue,
             shuffledSnapshot = toggle.shuffledSnapshot,
             changed = true,
+            shuffledOccurrences = toggle.shuffledOccurrences,
         )
     }
 

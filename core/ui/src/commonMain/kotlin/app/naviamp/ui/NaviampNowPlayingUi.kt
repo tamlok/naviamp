@@ -216,6 +216,7 @@ data class NaviampNowPlayingActions(
     val onPlaylistMembershipDismissed: () -> Unit = {},
     val onCreateRadioDj: () -> Unit = {},
     val onFindInAurral: (String, String, String) -> Unit = { _, _, _ -> },
+    val onGeneratedRadioAction: (GeneratedRadioActionRequest) -> Unit = {},
 ) {
     fun playback(action: NowPlayingPlaybackAction) {
         onPlaybackAction(NowPlayingPlaybackActionRequest(action))
@@ -1278,6 +1279,9 @@ private fun NowPlayingDetails(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().testTag("now-playing-queue-context"),
                 )
+            }
+            nowPlaying.generatedStation?.let { station ->
+                NaviampGeneratedRadioContext(station, nowPlaying.generatedStatus, colors, actions.onGeneratedRadioAction)
             }
         }
 

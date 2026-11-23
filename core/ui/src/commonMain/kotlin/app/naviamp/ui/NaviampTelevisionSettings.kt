@@ -357,6 +357,7 @@ private fun TelevisionSettingsCategoryPage(
             returnFocusRequester,
             returnChoice,
             onChoiceSelected,
+            actions.generatedRadioActions,
         )
         TelevisionSettingsCategory.Lyrics -> TelevisionLyricsSettings(
             uiState,
@@ -803,6 +804,7 @@ internal fun TelevisionPlaybackSettings(
     returnFocusRequester: FocusRequester,
     returnChoice: TelevisionSettingsChoicePage?,
     onChoiceSelected: (TelevisionSettingsChoicePage) -> Unit,
+    generatedRadioActions: NaviampGeneratedRadioActions? = null,
 ) {
     val capability = uiState.playback
     val settings = capability.settings
@@ -814,6 +816,11 @@ internal fun TelevisionPlaybackSettings(
                     capability.similarityTest, capability.radioDiagnostics,
                     onTestSimilarity.takeIf { capability.similarityDiagnosticsAvailable }, actions.onPlaybackSettingsChanged,
                     verticalFocusNavigation = true)
+            }
+        }
+        generatedRadioActions?.let { generated ->
+            item(key = "generated-radio-settings") {
+                NaviampGeneratedRadioPreferences(uiState.generatedRadio.preferences, colors, generated.onPreferencesChanged)
             }
         }
         if (capability.replayGainAvailable) {

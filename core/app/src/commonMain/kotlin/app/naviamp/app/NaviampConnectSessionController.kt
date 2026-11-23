@@ -1,6 +1,8 @@
 package app.naviamp.app
 
 import app.naviamp.domain.connect.NaviampConnectAcknowledgement
+import app.naviamp.domain.connect.NaviampConnectStationSessionVersion
+import app.naviamp.domain.connect.requiresStationSession
 import app.naviamp.domain.connect.NaviampConnectCapability
 import app.naviamp.domain.connect.NaviampConnectCommand
 import app.naviamp.domain.connect.NaviampConnectCommandRequest
@@ -56,6 +58,7 @@ data class NaviampConnectControllerSessionState(
     val pendingRequests: List<NaviampConnectPendingRequest> = emptyList(),
     val terminalResults: Map<String, NaviampConnectRequestTerminalResult> = emptyMap(),
     val lastError: NaviampConnectErrorMessage? = null,
+    val stationSessionVersion: Int = 0,
 )
 
 sealed interface NaviampConnectRequestTerminalResult {
@@ -92,6 +95,7 @@ class NaviampConnectControllerSession(
     private val outboundMutex = Mutex()
     private val lastPong = MutableStateFlow<Long?>(null)
     private var heartbeatNonce = 0L
+    private val snapshotRequestRevisions = mutableMapOf<String, Long>()
 
     val state: StateFlow<NaviampConnectControllerSessionState> = mutableState.asStateFlow()
 
@@ -103,9 +107,11 @@ class NaviampConnectControllerSession(
         snapshot: NaviampConnectTargetSnapshot,
         nextOutboundSequence: Long = 0L,
         lastReceivedSequence: Long = -1L,
+        stationSessionVersion: Int = 0,
     ) {
         require(sessionId.isNotBlank()) { "An authenticated Connect session ID is required." }
         require(protocolVersion > 0) { "The negotiated protocol version must be positive." }
+        snapshotRequestRevisions.clear()
         require(nextOutboundSequence >= 0L) { "The next outbound sequence must not be negative." }
         require(lastReceivedSequence >= -1L) { "The last received sequence is invalid." }
         nextSequence = nextOutboundSequence
@@ -116,7 +122,8 @@ class NaviampConnectControllerSession(
             protocolVersion = protocolVersion,
             target = target,
             capabilities = capabilities,
-            snapshot = newerSnapshot(mutableState.value.snapshot, snapshot),
+            stationSessionVersion = minOf(stationSessionVersion, snapshot.stationSessionVersion).coerceAtLeast(0),
+            snapshot = snapshot,
             lastError = null,
         )
     }
@@ -127,6 +134,12 @@ class NaviampConnectControllerSession(
             current.sessionId == null || current.protocolVersion == null
         ) {
             return reject(NaviampConnectErrorCode.TargetUnavailable, "The target is disconnected.", retryable = true)
+        }
+        if (command.requiresStationSession() && current.stationSessionVersion < NaviampConnectStationSessionVersion) {
+            return reject(
+                NaviampConnectErrorCode.UnsupportedCapability,
+                "Upgrade the playback device to transfer or start a generated station. Its queue was not changed.",
+            )
         }
         val required = command.requiredCapability()
         if (required != null && required !in current.capabilities) {
@@ -199,7 +212,7 @@ class NaviampConnectControllerSession(
         lastReceivedSequence = envelope.sequence
 
         when (val message = envelope.message) {
-            is NaviampConnectAcknowledgement -> acknowledge(envelope.responseToRequestId)
+            is NaviampConnectAcknowledgement -> acknowledge(envelope.responseToRequestId, message.revision)
             is NaviampConnectSnapshotMessage -> applySnapshot(message.snapshot)
             is NaviampConnectErrorMessage -> applyError(envelope.responseToRequestId, message)
             is NaviampConnectPing -> sendMessage(NaviampConnectPong(message.sentAtEpochMillis))
@@ -297,8 +310,26 @@ class NaviampConnectControllerSession(
         )
     }
 
-    private fun acknowledge(requestId: String?) {
+    /** An acknowledgement may arrive before its snapshot; returning playback must wait for both. */
+    suspend fun awaitRequestedSnapshot(requestId: String, timeoutMillis: Long): NaviampConnectTargetSnapshot? {
+        val revision = snapshotRequestRevisions[requestId] ?: return null
+        return try {
+            withTimeoutOrNull(timeoutMillis) {
+                state.first { it.snapshot != null && it.snapshot.revision >= revision }.snapshot
+            }
+        } finally {
+            snapshotRequestRevisions.remove(requestId)
+        }
+    }
+
+    private fun acknowledge(requestId: String?, revision: Long) {
         if (requestId == null) return
+        if (mutableState.value.pendingRequests.any { it.requestId == requestId && it.command == NaviampConnectRequestSnapshot }) {
+            snapshotRequestRevisions[requestId] = revision
+            if (snapshotRequestRevisions.size > MaximumRetainedTerminalResults) {
+                snapshotRequestRevisions.remove(snapshotRequestRevisions.keys.first())
+            }
+        }
         completeRequest(requestId, NaviampConnectRequestTerminalResult.Acknowledged)
     }
 
@@ -373,6 +404,9 @@ fun NaviampConnectCommand.isNaviampConnectIdempotent(): Boolean = when (this) {
     is app.naviamp.domain.connect.NaviampConnectStartMedia,
     is app.naviamp.domain.connect.NaviampConnectQueueMedia,
     is app.naviamp.domain.connect.NaviampConnectHandoffQueue,
+    is app.naviamp.domain.connect.NaviampConnectStationStart,
+    is app.naviamp.domain.connect.NaviampConnectStationHandoff,
+    is app.naviamp.domain.connect.NaviampConnectStationRetry,
     is app.naviamp.domain.connect.NaviampConnectOfferConnectionProvisioning,
     -> false
     app.naviamp.domain.connect.NaviampConnectClearUpNext -> true
@@ -497,6 +531,11 @@ class NaviampConnectTargetSession(
             sendError(requestId, NaviampConnectErrorCode.InvalidRequest, "A command request ID is required.")
             return
         }
+        if (command.requiresStationSession() && snapshot.stationSessionVersion < NaviampConnectStationSessionVersion) {
+            sendError(requestId, NaviampConnectErrorCode.UnsupportedCapability,
+                "This playback device does not support generated station sessions. Its queue was not changed.")
+            return
+        }
         val required = command.requiredCapability()
         if (required != null && required !in snapshot.capabilities) {
             sendError(
@@ -524,6 +563,8 @@ class NaviampConnectTargetSession(
             is NaviampConnectHandoffQueue -> command.sourceIdentity
             is NaviampConnectStartMedia -> command.sourceIdentity
             is app.naviamp.domain.connect.NaviampConnectQueueMedia -> command.sourceIdentity
+            is app.naviamp.domain.connect.NaviampConnectStationStart -> command.sourceIdentity
+            is app.naviamp.domain.connect.NaviampConnectStationHandoff -> command.sourceIdentity
             else -> null
         }
         if (requestedSourceIdentity != null &&

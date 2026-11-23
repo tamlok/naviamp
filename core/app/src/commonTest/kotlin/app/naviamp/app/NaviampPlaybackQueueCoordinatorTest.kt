@@ -380,6 +380,69 @@ class NaviampPlaybackQueueCoordinatorTest {
         assertEquals(listOf(history, current, radioTrack, sonicTrack), playback.state.value.queue.tracks)
     }
 
+    @Test
+    fun generatedStartAppendAndRefreshPreserveCurrentPlaybackAndManualDuplicates() {
+        val playback = NaviampLivePlaybackController()
+        val coordinator = NaviampPlaybackQueueCoordinator(playback)
+        val start = coordinator.startGeneratedQueue(listOf(track("current"), track("old")), "station", "first")
+        val currentOccurrence = start.queue.occurrences.first()
+        assertTrue(start.clearPreparedNext)
+        coordinator.playNextTrack(track("old"))
+        coordinator.appendTracks(listOf(track("current")))
+        val priorityOccurrence = playback.state.value.queue.occurrences[1]
+        val refreshed = coordinator.replaceGeneratedUpcomingOccurrences(
+            listOf(track("old"), track("fresh")), "station", "fresh",
+        )
+        assertFalse(refreshed.clearPreparedNext)
+        assertEquals(listOf("current", "old", "current", "fresh"), refreshed.queue.tracks.map { it.id.value })
+        assertEquals(currentOccurrence, refreshed.queue.occurrences.first())
+        assertEquals(priorityOccurrence, refreshed.queue.occurrences[1])
+        assertFalse(refreshed.queue.occurrences[2].generated)
+        val appended = coordinator.appendGeneratedBatch(
+            listOf(track("fresh"), track("next"), track("next")), "station", "second",
+        )
+        assertEquals(listOf("current", "old", "current", "fresh", "next"), appended.queue.tracks.map { it.id.value })
+        assertEquals("second", appended.queue.occurrences.last().batchId)
+        assertEquals(currentOccurrence, appended.queue.occurrences.first())
+        assertFalse(coordinator.appendGeneratedBatch(listOf(track("next")), "station", "third").tracksChanged)
+    }
+
+    @Test
+    fun shuffledOccurrenceSnapshotTracksRemovalInsertionSelectionAndTrimming() {
+        val playback = NaviampLivePlaybackController()
+        val coordinator = NaviampPlaybackQueueCoordinator(playback)
+        coordinator.startGeneratedQueue(listOf(track("current"), track("same"), track("other"), track("last")), "station", "batch")
+        coordinator.appendTracks(listOf(track("same")))
+        val original = playback.state.value.queue
+        val userOccurrence = original.occurrences.last()
+        coordinator.toggleUpcomingShuffle()
+        val generatedCopyIndex = playback.state.value.queue.occurrences.indexOf(original.occurrences[1])
+        coordinator.removeAt(generatedCopyIndex)
+        coordinator.appendGeneratedBatch(listOf(track("new")), "station", "new-batch")
+        coordinator.toggleUpcomingShuffle()
+        val restored = playback.state.value.queue
+        assertEquals(listOf("current", "other", "last", "same", "new"), restored.tracks.map { it.id.value })
+        assertEquals(userOccurrence, restored.occurrences[3])
+        assertFalse(restored.occurrences.any { it.id == original.occurrences[1].id })
+        coordinator.toggleUpcomingShuffle()
+        coordinator.selectNext()
+        coordinator.finishCurrentTrack(removePlayedTracksFromQueue = true)
+        val beforeRestore = playback.state.value.queue
+        coordinator.toggleUpcomingShuffle()
+        assertEquals(beforeRestore.occurrences.map { it.id }.toSet(), playback.state.value.queue.occurrences.map { it.id }.toSet())
+        assertEquals(beforeRestore.occurrences.first(), playback.state.value.queue.occurrences.first())
+    }
+
+    @Test
+    fun generatedRefreshInvalidatesPreparationOnlyWhenTheNextOccurrenceChanges() {
+        val playback = NaviampLivePlaybackController()
+        val coordinator = NaviampPlaybackQueueCoordinator(playback)
+        coordinator.startGeneratedQueue(listOf(track("current"), track("next")), "station", "first")
+        val refreshed = coordinator.replaceGeneratedUpcomingOccurrences(listOf(track("next")), "station", "second")
+        assertTrue(refreshed.clearPreparedNext)
+        assertEquals("second", refreshed.queue.occurrences[1].batchId)
+    }
+
     private fun track(id: String) = Track(
         id = TrackId(id),
         title = "Track $id",

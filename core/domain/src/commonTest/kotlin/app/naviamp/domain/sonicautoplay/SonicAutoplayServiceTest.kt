@@ -52,7 +52,7 @@ class SonicAutoplayServiceTest {
 
         val tracks = service.continuationTracks(queue, limit = 5)
 
-        assertEquals(listOf("candidate-2", "candidate-1"), tracks.map { it.id.value })
+        assertEquals(listOf("candidate-1", "candidate-2"), tracks.map { it.id.value })
         assertEquals(listOf("seed-2", "seed-1"), provider.requests)
         assertEquals(emptyList(), provider.radioRequests)
     }
@@ -173,6 +173,29 @@ class SonicAutoplayServiceTest {
         assertEquals(30, tracks.size)
         assertEquals("sonic-60", tracks.first().id.value)
         assertEquals(emptyList(), provider.radioRequests)
+    }
+
+    @Test
+    fun explicitSonicCapabilityLossNeverCallsRegularMethod() = runTest {
+        val provider = FakeSonicProvider(supportsSonicSimilarity = false,
+            radioBySeed = mapOf("seed" to listOf(track("regular"))))
+        assertEquals(emptyList(), SonicAutoplayService({ provider }).continuationTracks(PlaybackQueue(listOf(track("seed")), 0)))
+        assertEquals(emptyList(), provider.radioRequests)
+    }
+
+    @Test
+    fun autoplayAppliesCurrentTuningExclusionsAndManualTailSeam() = runTest {
+        val seed = track("seed").copy(artistId = ArtistId("a"), albumReleaseYear = 1990)
+        val manual = track("manual").copy(artistId = ArtistId("a"))
+        val same = track("same").copy(artistId = ArtistId("a"), albumReleaseYear = 1995)
+        val other = track("other").copy(artistId = ArtistId("b"), albumReleaseYear = 1995)
+        val recent = track("recent").copy(artistId = ArtistId("c"), albumReleaseYear = 1995)
+        val provider = FakeSonicProvider(matchesBySeed = mapOf("seed" to listOf(
+            SonicSimilarTrack(recent, 1.0), SonicSimilarTrack(same, 0.9), SonicSimilarTrack(other, 0.8),
+            SonicSimilarTrack(track("unknown"), 1.0))))
+        val selected = SonicAutoplayService({ provider }).continuationTracks(PlaybackQueue(listOf(seed, manual), 0),
+            tuning = app.naviamp.domain.radio.RadioTuningSettings(sameDecadeOnly = true), excludedTrackIds = setOf(recent.id))
+        assertEquals(listOf(other, same), selected)
     }
 
     private class FakeSonicProvider(

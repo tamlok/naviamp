@@ -2,6 +2,7 @@ package app.naviamp.domain.playback
 
 import app.naviamp.domain.Track
 import app.naviamp.domain.queue.PlaybackQueue
+import app.naviamp.domain.radio.RadioQueueOccurrence
 
 data class PlaybackQueueUpdate(
     val queue: PlaybackQueue,
@@ -24,6 +25,7 @@ data class PlaybackShuffleUpdate(
     val queue: PlaybackQueue,
     val shuffledSnapshot: List<Track>?,
     val changed: Boolean,
+    val shuffledOccurrences: List<RadioQueueOccurrence>? = null,
 )
 
 sealed interface PlaybackQueueNavigationCommand {

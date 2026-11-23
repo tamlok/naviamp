@@ -20,6 +20,7 @@ import app.naviamp.domain.radio.internetRadioTrack
 import app.naviamp.domain.radio.RadioDjPreset
 import app.naviamp.domain.radio.RadioDjPresetRepository
 import app.naviamp.domain.radio.RadioTuningSettings
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
 import app.naviamp.domain.provider.ProviderIdNavidrome
 import app.naviamp.domain.provider.providerDescriptor
 import app.naviamp.domain.source.ConnectionHeaderDefinition
@@ -1007,6 +1008,7 @@ data class PlaybackSessionSettings(
     val positionSeconds: Double? = null,
     val internetRadioStation: SavedInternetRadioStation? = null,
     val nowPlayingOpen: Boolean = false,
+    val generatedRadio: GeneratedRadioCheckpoint? = null,
 ) {
     fun currentTrack(): Track? =
         tracks.getOrNull(currentIndex)?.toTrack() ?: internetRadioStation?.toTrack()
@@ -1021,6 +1023,7 @@ data class PlaybackSessionSettings(
             playNextCount: Int = 0,
             queueGroups: List<PlaybackQueueGroup> = emptyList(),
             positionSeconds: Double? = null,
+            generatedRadio: GeneratedRadioCheckpoint? = null,
         ): PlaybackSessionSettings? {
             if (tracks.isEmpty() || currentIndex !in tracks.indices) return null
             return PlaybackSessionSettings(
@@ -1029,6 +1032,7 @@ data class PlaybackSessionSettings(
                 playNextCount = playNextCount.coerceIn(0, tracks.size - currentIndex - 1),
                 queueGroups = queueGroups.mapNotNull { it.normalized(tracks.size) },
                 positionSeconds = positionSeconds?.takeIf { it > 0.0 },
+                generatedRadio = generatedRadio,
             )
         }
 

@@ -43,6 +43,79 @@ import kotlin.test.assertTrue
 
 class NaviampCoreCastControllerTest {
     @Test
+    fun authoritativeReceiverProgressPrefillsTwoBatchesBeforeFinishAndPreservesThemOnReturn() = runTest {
+        val provider = FakeCoreMediaProvider(supportsStreamingTranscode = true)
+        val initial = PlaybackQueue(listOf(provider.track), 0,
+            occurrences = listOf(app.naviamp.domain.radio.RadioQueueOccurrence("first", "station", "batch-0")))
+        val live = NaviampLivePlaybackController(NaviampLivePlaybackState(queue = initial, currentTrack = provider.track,
+            playbackState = PlaybackState.Playing, progress = PlaybackProgress(0.0, 180.0)))
+        val queue = NaviampPlaybackQueueCoordinator(live).also { it.restoreQueue(initial) }
+        val outputs = NaviampPlaybackOutputSelectionController()
+        val native = FakeSessionEffect()
+        val local = FakeLocalEffects()
+        val sessions = NaviampCastSessionController(native, outputs)
+        val castScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+        var token = 0
+        var batches = 0
+        val cast = NaviampCoreCastController(castScope, sessions, outputs,
+            NaviampCastMediaEndpointController(
+                server = object : NaviampCastHttpServerEffect {
+                    override suspend fun start(handler: suspend (NaviampCastHttpRequest, NaviampCastHttpResponse) -> Unit) =
+                        "http://192.0.2.1:1234"
+                    override suspend fun stop() = Unit
+                },
+                leases = NaviampCastMediaLeaseController(
+                    NaviampCastSecureTokenSource { "casttoken${(++token).toString().padStart(32, '0')}" }, { 0L }),
+                source = NaviampCoreCastMediaByteSource(NaviampCoreMediaProviderSource { provider }, FakeCastMediaStore()),
+            ), NaviampCoreMediaProviderSource { provider }, live, queue, local, {},
+            onAuthoritativePlaybackChanged = {
+                // Test the transport boundary: a completed sender batch appends to the shared queue,
+                // not to a receiver-owned shadow queue, before its finished event loads another item.
+                val current = live.state.value
+                if (current.playbackState == PlaybackState.Playing &&
+                    (current.progress.positionSeconds ?: 0.0) >= 120 && current.queue.upNext().isEmpty() && batches < 2
+                ) {
+                    batches++
+                    queue.appendGeneratedBatch(listOf(provider.track.copy(id = TrackId("batch-track-$batches"))),
+                        "station", "batch-$batches")
+                }
+            })
+        cast.start()
+        val selection = sessions.onTargetSelected(NaviampCastTarget("tv", "TV"))
+        sessions.onConnected(selection, "TV")
+        advanceUntilIdle()
+        repeat(2) { index ->
+            val url = native.loaded.last().mediaUrl
+            sessions.onMediaStatus(selection, NaviampCastReceiverStatus(NaviampCastReceiverPlayerState.Playing,
+                130_000, 180_000, 75, mediaUrl = "stale-url"))
+            advanceUntilIdle()
+            assertEquals(index, batches)
+            sessions.onMediaStatus(selection, NaviampCastReceiverStatus(NaviampCastReceiverPlayerState.Playing,
+                130_000, 180_000, 75, mediaUrl = url))
+            advanceUntilIdle()
+            assertEquals(index + 1, batches)
+            assertEquals(index + 1, native.loaded.size, "Appending must not restart the receiver's current audio")
+            assertEquals(1, live.state.value.queue.upNext().size)
+            sessions.onMediaStatus(selection, NaviampCastReceiverStatus(NaviampCastReceiverPlayerState.Idle,
+                180_000, 180_000, 75, finished = true, mediaUrl = url))
+            advanceUntilIdle()
+            assertEquals(TrackId("batch-track-${index + 1}"), live.state.value.queue.current?.id)
+            assertEquals(index + 2, native.loaded.size)
+        }
+        sessions.onMediaStatus(selection, NaviampCastReceiverStatus(NaviampCastReceiverPlayerState.Paused,
+            17_000, 180_000, 75, mediaUrl = native.loaded.last().mediaUrl))
+        advanceUntilIdle()
+        sessions.selectLocal()
+        advanceUntilIdle()
+        assertEquals(17.0, local.restoredAt)
+        assertEquals(0, local.starts)
+        assertEquals(PlaybackState.Paused, live.state.value.playbackState)
+        assertTrue(live.state.value.queue.occurrences.all { it.stationId == "station" })
+        assertEquals(2, batches)
+        castScope.cancel()
+    }
+
+    @Test
     fun shutdownWaitsForReceiverBeforeDeletingMediaAndNeverRestartsLocal() = runTest {
         val provider = FakeCoreMediaProvider(supportsStreamingTranscode = true)
         val queueValue = PlaybackQueue(listOf(provider.track), 0)

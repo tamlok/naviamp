@@ -187,8 +187,8 @@ internal fun NaviampCoreCommand.connectMediaSelectionOrNull(): NaviampCoreConnec
     }
     is NaviampCoreCommand.Home.SelectInternetRadio ->
         NaviampCoreConnectMediaSelection(NaviampConnectMediaType.InternetRadioStation, item.id)
-    // Existing protocol intent: every target, old or new, plays seed-track radio (similar songs),
-    // which has no album fallback, so a remote mix can never become the seed album.
+    // Marks a playback intent for interruption/disconnected-target handling. Connected routing
+    // defers radio selections to Core recipe construction instead of sending this legacy flag.
     is NaviampCoreCommand.Home.StartAlbumMix ->
         NaviampCoreConnectMediaSelection(NaviampConnectMediaType.Track, seed.id.value, startRadio = true)
     else -> null
@@ -298,7 +298,7 @@ internal class NaviampCoreConnectCommandHandler(
         val startsFavoriteSongs = command is NaviampCoreCommand.Home.PlayFavoriteSongs ||
             command is NaviampCoreCommand.Home.FavoriteSongAction && command.request.action == SharedTrackRowAction.Select
         val action = (command as? NaviampCoreCommand.NowPlaying.Playback)?.request?.action
-        if (startsFavoriteSongs || command.connectMediaSelectionOrNull() != null || action in setOf(
+        if (startsFavoriteSongs || command.startsGeneratedRadioPlayback() || command.connectMediaSelectionOrNull() != null || action in setOf(
             app.naviamp.ui.NowPlayingPlaybackAction.TogglePlayPause, app.naviamp.ui.NowPlayingPlaybackAction.Resume,
             app.naviamp.ui.NowPlayingPlaybackAction.PlayCurrent, app.naviamp.ui.NowPlayingPlaybackAction.Next,
             app.naviamp.ui.NowPlayingPlaybackAction.Previous)) beforeMainPlayback()
@@ -306,6 +306,13 @@ internal class NaviampCoreConnectCommandHandler(
 }
 
 /** Intent is recorded before deferred work, so a later OS callback cannot overtake a phone/car click. */
+private fun NaviampCoreCommand.startsGeneratedRadioPlayback(): Boolean =
+    this is NaviampCoreCommand.GeneratedRadio && request.action in setOf(
+        app.naviamp.ui.GeneratedRadioAction.Start,
+        app.naviamp.ui.GeneratedRadioAction.PlayBatch,
+        app.naviamp.ui.GeneratedRadioAction.StartFromMix,
+    )
+
 private fun NaviampCoreCommand.invalidatesInterruptionResume(): Boolean = when (this) {
     is NaviampCoreCommand.NowPlaying.Playback -> request.action in setOf(
         app.naviamp.ui.NowPlayingPlaybackAction.Pause, app.naviamp.ui.NowPlayingPlaybackAction.Stop,
@@ -322,5 +329,5 @@ private fun NaviampCoreCommand.invalidatesInterruptionResume(): Boolean = when (
     is NaviampCoreCommand.Home.PlayFavoriteSongs -> true
     is NaviampCoreCommand.Home.FavoriteSongAction -> request.action == SharedTrackRowAction.Select ||
         request.action == SharedTrackRowAction.StartRadio
-    else -> connectMediaSelectionOrNull() != null
+    else -> startsGeneratedRadioPlayback() || connectMediaSelectionOrNull() != null
 }

@@ -16,6 +16,9 @@ import app.naviamp.domain.provider.ConnectionValidation
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
+import app.naviamp.domain.settings.SavedTrack
+import app.naviamp.domain.settings.SavedArtist
+import app.naviamp.domain.settings.SavedAlbum
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -29,12 +32,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertSame
 
 class RadioServiceTest {
-    @Test fun unavailableSonicUsesInstantMixForTrackAndAlbumRadioWithoutCallingSonic() = runTest {
+    @Test fun unavailableSonicRejectsTrackAlbumAndArtistRadioWithoutSubstitution() = runTest {
         val provider = FakeRadioProvider(radioTracks = listOf(track("regular")))
         val service = RadioService(provider, similarityMethod = RadioSimilarityMethod.SonicSimilarity)
-        assertEquals(listOf("regular"), service.trackRadio(track("seed"), true).map { it.id.value })
-        assertEquals(listOf("regular"), service.trackRadio(TrackId("seed")).map { it.id.value })
-        assertTrue(service.albumRadio(AlbumId("album-one")).any { it.id.value == "regular" })
+        assertFailsWith<UnsupportedOperationException> { service.trackRadio(track("seed"), true) }
+        assertFailsWith<UnsupportedOperationException> { service.trackRadio(TrackId("seed")) }
+        assertFailsWith<UnsupportedOperationException> { service.albumRadio(AlbumId("album-one")) }
+        assertFailsWith<UnsupportedOperationException> { service.artistRadio(ArtistId("artist-one")) }
+        assertEquals(0, provider.trackRadioCalls)
         assertEquals(0, provider.sonicCalls)
     }
 
@@ -204,13 +209,14 @@ class RadioServiceTest {
         assertEquals(0, provider.trackRadioCalls)
     }
 
-    @Test fun unadvertisedSonicReportsInstantMixAsTheActualSource() = runTest {
+    @Test fun unadvertisedSonicReportsUnsupportedWithoutCallingInstantMix() = runTest {
         val provider = FakeRadioProvider(radioTracks = listOf(track("regular")))
         var endpoint: SimilarityEndpoint? = null
-        assertEquals(listOf(track("regular")), RadioService(provider,
-            onSimilarityResult = { endpoint = it.source }).trackRadio(track("seed"), true))
-        assertEquals(SimilarityEndpoint.Regular, endpoint)
-        assertEquals(1, provider.trackRadioCalls)
+        assertFailsWith<UnsupportedOperationException> {
+            RadioService(provider, onSimilarityResult = { endpoint = it.source }).trackRadio(track("seed"), true)
+        }
+        assertEquals(SimilarityEndpoint.Sonic, endpoint)
+        assertEquals(0, provider.trackRadioCalls)
         assertEquals(listOf(track("regular")), RadioService(provider).trackRadio(track("seed"), false))
         assertEquals(0, provider.sonicCalls)
     }
@@ -636,6 +642,117 @@ class RadioServiceTest {
         assertEquals(listOf(track("sonic")), service.trackRadio(TrackId("seed")))
         assertEquals(3, base.sonicCalls)
         assertEquals(0, base.trackRadioCalls)
+    }
+
+    @Test
+    fun stationContinuationRetainsOriginalSeedsAndBalancesEachBatch() = runTest {
+        val seeds = listOf(track("seed-a", ArtistId("a")), track("seed-b", ArtistId("b")))
+        val requests = mutableListOf<TrackId>()
+        val provider = object : MediaProvider by FakeRadioProvider() {
+            override suspend fun instantMixTracks(trackId: TrackId, count: Int): List<Track> {
+                requests += trackId
+                val artist = if (trackId == seeds[0].id) "a" else "b"
+                return (1..20).map { track("$artist-$it", ArtistId(artist), albumReleaseYear = 1995) } +
+                    track("unknown-$artist", ArtistId(artist))
+            }
+        }
+        val station = GeneratedRadioStation("station", "Mix", GeneratedRadioKind.Track,
+            seedTracks = seeds.map(SavedTrack::fromTrack), batchSize = 4,
+            tuning = RadioTuningSettings(sameDecadeOnly = true), resolvedDecadeStart = 1990)
+        val service = RadioService(provider, count = 100)
+        val first = service.stationTracks(station)
+        val second = service.stationTracks(station, first.mapTo(mutableSetOf()) { it.id }, first.last())
+        assertEquals(listOf("a-1", "b-1", "a-2", "b-2"), first.map { it.id.value })
+        assertEquals(listOf("a-3", "b-3", "a-4", "b-4"), second.map { it.id.value })
+        assertEquals(seeds.map { it.id } + seeds.map { it.id }, requests)
+        assertTrue(second.none { it in first })
+    }
+
+    @Test
+    fun allRegularStationModesUseOneTotalBatchAndOriginalEntities() = runTest {
+        val calledArtists = mutableListOf<String>()
+        val calledAlbums = mutableListOf<String>()
+        val provider = object : MediaProvider by FakeRadioProvider() {
+            fun tracks(prefix: String) = (1..10).map { track("$prefix-$it", ArtistId(prefix), albumReleaseYear = 1995)
+                .copy(genres = listOf("Jazz")) }
+            override suspend fun artistRadio(artistId: ArtistId, count: Int): List<Track> {
+                calledArtists += artistId.value
+                return tracks(artistId.value)
+            }
+            override suspend fun albumRadio(albumId: AlbumId, count: Int): List<Track> {
+                calledAlbums += albumId.value
+                return tracks(albumId.value)
+            }
+            override suspend fun randomSongs(limit: Int, genre: String?, fromYear: Int?, toYear: Int?) = tracks("random")
+            override suspend fun genreRadio(genre: String, count: Int) = tracks("genre")
+        }
+        for (kind in listOf(GeneratedRadioKind.Artist, GeneratedRadioKind.Artists, GeneratedRadioKind.Album,
+            GeneratedRadioKind.Albums, GeneratedRadioKind.RandomAlbum, GeneratedRadioKind.Genres,
+            GeneratedRadioKind.Decade, GeneratedRadioKind.Library)) {
+            val station = GeneratedRadioStation("id", "name", kind, batchSize = 3,
+                artists = listOf(SavedArtist("a", "A"), SavedArtist("b", "B")),
+                albums = listOf(SavedAlbum("one", "One", "A"), SavedAlbum("two", "Two", "B")),
+                genres = listOf("Jazz"), fromYear = 1990, toYear = 1999)
+            assertEquals(3, RadioService(provider).stationTracks(station).size, kind.name)
+        }
+        assertEquals(listOf("a", "b", "a", "b"), calledArtists)
+        assertEquals(listOf("one", "two", "one", "two", "one", "two"), calledAlbums)
+    }
+
+    @Test
+    fun stationRejectsUnknownAnchorsAndConflictingArtistsBeforeRequests() = runTest {
+        val provider = FakeRadioProvider(radioTracks = listOf(track("other")))
+        val station = GeneratedRadioStation("id", "name", GeneratedRadioKind.Track,
+            seedTracks = listOf(SavedTrack.fromTrack(track("seed"))), tuning = RadioTuningSettings(sameDecadeOnly = true))
+        assertFailsWith<RadioRecipeValidationException> { RadioService(provider).stationTracks(station) }
+        assertFailsWith<RadioRecipeValidationException> {
+            RadioService(provider).stationTracks(station.copy(tuning = RadioTuningSettings(artistRunMode = RadioArtistRunMode.SingleArtist),
+                resolvedArtistId = "artist-one", artists = listOf(SavedArtist("other", "Other"))))
+        }
+        assertEquals(0, provider.trackRadioCalls)
+    }
+
+    @Test
+    fun stationSonicCapabilityLossEmptyAndFailureNeverChangeMethod() = runTest {
+        val station = GeneratedRadioStation("id", "name", GeneratedRadioKind.Track,
+            seedTracks = listOf(SavedTrack.fromTrack(track("seed"))), sonicSimilarity = true)
+        val unsupported = FakeRadioProvider(radioTracks = listOf(track("regular")))
+        assertFailsWith<UnsupportedOperationException> { RadioService(unsupported).stationTracks(station) }
+        assertEquals(0, unsupported.trackRadioCalls)
+        val empty = FakeRadioProvider(supportsSonicSimilarity = true, radioTracks = listOf(track("regular")))
+        assertEquals(emptyList(), RadioService(empty).stationTracks(station))
+        assertEquals(0, empty.trackRadioCalls)
+        val failed = FakeRadioProvider(supportsSonicSimilarity = true, sonicFailure = IllegalStateException("failed"))
+        assertFailsWith<IllegalStateException> { RadioService(failed).stationTracks(station) }
+        assertEquals(0, failed.trackRadioCalls)
+    }
+
+    @Test
+    fun stationRetainsPartialCandidatesAtDeadlineAndPropagatesCancellation() = runTest {
+        val seeds = listOf(track("first"), track("second"))
+        val provider = object : MediaProvider by FakeRadioProvider(supportsSonicSimilarity = true) {
+            override suspend fun sonicSimilarTrackMatches(trackId: TrackId, count: Int): List<app.naviamp.domain.provider.SonicSimilarTrack> {
+                if (trackId == seeds.last().id) delay(60_000)
+                return listOf(app.naviamp.domain.provider.SonicSimilarTrack(track("match")))
+            }
+        }
+        val station = GeneratedRadioStation("id", "name", GeneratedRadioKind.SonicMix,
+            seedTracks = seeds.map(SavedTrack::fromTrack), sonicSimilarity = true)
+        val started = testScheduler.currentTime
+        assertEquals(listOf(track("match")), RadioService(provider).stationTracks(station))
+        assertEquals(30_000L, testScheduler.currentTime - started)
+        assertFailsWith<CancellationException> { withTimeout(100) { RadioService(provider).stationTracks(station) } }
+    }
+
+    @Test
+    fun stationHardFiltersAndRecentExclusionsReturnShortOrEmptyWithoutTopUp() = runTest {
+        val provider = FakeRadioProvider(radioTracks = listOf(track("old", albumReleaseYear = 1975),
+            track("recent", albumReleaseYear = 1995), track("unknown")))
+        val station = GeneratedRadioStation("id", "name", GeneratedRadioKind.Track,
+            seedTracks = listOf(SavedTrack.fromTrack(track("seed", albumReleaseYear = 1993))),
+            tuning = RadioTuningSettings(sameDecadeOnly = true), resolvedDecadeStart = 1990)
+        assertEquals(emptyList(), RadioService(provider).stationTracks(station, setOf(TrackId("recent"))))
+        assertEquals(1, provider.trackRadioCalls)
     }
 
     private class FakeRadioProvider(

@@ -261,6 +261,44 @@ class RadioRequestsTest {
         assertEquals("Loading track radio...", trackRadioLoadingStatus())
     }
 
+    @Test
+    fun factoriesRetainTypedMultiSeedOrderAndResolvedRandomAlbum() {
+        val artists = listOf(Artist(ArtistId("b:one"), "B"), Artist(ArtistId("a"), "A"))
+        val seed = track("seed")
+        val artistRecipe = assertNotNull(artistMixSeededRadioRequest(artists + artists.first(), seed).recipe)
+        assertEquals(GeneratedRadioKind.Artists, artistRecipe.kind)
+        assertEquals(listOf("b:one", "a"), artistRecipe.artists.map { it.id })
+        assertEquals(listOf("seed"), artistRecipe.seedTracks.map { it.id })
+        assertTrue(artistRecipe.includeSeeds)
+        assertEquals("", artistRecipe.id)
+        assertNull(artistRecipe.sourceId)
+        val albums = listOf(Album(AlbumId("b:one"), "B", "Artist", null, null),
+            Album(AlbumId("a"), "A", "Artist", null, null))
+        assertEquals(listOf("b:one", "a"), assertNotNull(albumMixSeededRadioRequest(albums, seed).recipe).albums.map { it.id })
+        val random = assertNotNull(randomAlbumSeededRadioRequest(albums.first(), seed).recipe)
+        assertEquals(GeneratedRadioKind.RandomAlbum, random.kind)
+        assertEquals(listOf("b:one"), random.albums.map { it.id })
+        assertEquals(listOf("Jazz", "Rock"), assertNotNull(genreMixRadioRequest(listOf(Genre("Jazz"), Genre("Rock"))).recipe).genres)
+        val home = assertNotNull(albumHomeMixSeededRadioRequest(albums.first(), seed, true).recipe)
+        assertEquals(GeneratedRadioKind.Track, home.kind)
+        assertTrue(home.sonicSimilarity)
+        assertEquals(listOf("b:one"), home.excludedAlbumIds)
+    }
+
+    @Test
+    fun requestFailuresNeverConsumeCallerCancellation() = runTest {
+        val service = RadioService(FakeRadioProvider())
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> {
+            trackRadioLoadResult(track("seed")) { throw kotlinx.coroutines.CancellationException() }
+        }
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> {
+            seededRadioExpansionResult(service) { throw kotlinx.coroutines.CancellationException() }
+        }
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> {
+            radioRequestStartResult(service, null) { throw kotlinx.coroutines.CancellationException() }
+        }
+    }
+
     private fun track(
         id: String,
         title: String = "Track $id",

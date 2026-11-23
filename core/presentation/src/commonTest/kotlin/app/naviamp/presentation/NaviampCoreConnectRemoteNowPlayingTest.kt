@@ -41,6 +41,54 @@ import kotlin.test.assertTrue
 
 class NaviampCoreConnectRemoteNowPlayingTest {
     @Test
+    fun remoteStationIdentityAndRetryStayIndependentOfItsCurrentSong() {
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "Original artist blend",
+            app.naviamp.domain.radio.GeneratedRadioKind.Artists, revision = 5)
+        val current = snapshot().copy(generatedRadio = app.naviamp.domain.radio.GeneratedRadioCheckpoint(station),
+            generatedRadioState = "Exhausted", stationSessionVersion = 1)
+        val ui = current.toRemoteNowPlayingUi("TV")
+        assertEquals(station, ui.generatedStation)
+        assertEquals(app.naviamp.domain.radio.GeneratedRadioStatus.Exhausted, ui.generatedStatus)
+        val sent = mutableListOf<NaviampConnectCommand>()
+        var opened: app.naviamp.domain.radio.GeneratedRadioStation? = null
+        val actions = createNaviampCoreConnectRemoteNowPlayingActions({ current }, sent::add,
+            openGeneratedStation = { opened = it })
+        actions.onGeneratedRadioAction(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Open, station.id))
+        assertEquals(station, opened)
+        assertTrue(sent.isEmpty())
+        actions.onGeneratedRadioAction(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Retry, station.id))
+        assertEquals(listOf<NaviampConnectCommand>(app.naviamp.domain.connect.NaviampConnectStationRetry(station.id, 5)), sent)
+        actions.onGeneratedRadioAction(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Retry, "stale-station"))
+        assertEquals(1, sent.size)
+        assertEquals(app.naviamp.domain.radio.GeneratedRadioStatus.Inactive,
+            current.copy(generatedRadioState = "FutureState").toRemoteNowPlayingUi("TV").generatedStatus)
+    }
+
+    @Test
+    fun anonymousFiniteQueueRemainsControllableWithoutInventingStationActions() {
+        val remote = snapshot()
+        val checkpoint = app.naviamp.domain.radio.GeneratedRadioCheckpoint(
+            mode = app.naviamp.domain.radio.GeneratedRadioPlaybackMode.FiniteBatch,
+            endlessEnabled = false, wasPaused = true,
+            occurrences = remote.queue.occurrences.map { app.naviamp.domain.radio.RadioQueueOccurrence(it.occurrenceId) })
+        val current = remote.copy(generatedRadio = checkpoint, stationSessionVersion = 1,
+            playback = remote.playback.copy(state = NaviampConnectPlaybackState.Paused), generatedRadioState = "Exhausted")
+        val ui = current.toRemoteNowPlayingUi("TV")
+        assertNull(ui.generatedStation)
+        assertTrue(ui.isPaused)
+        assertEquals(app.naviamp.domain.radio.GeneratedRadioStatus.Exhausted, ui.generatedStatus)
+        val sent = mutableListOf<NaviampConnectCommand>()
+        val actions = createNaviampCoreConnectRemoteNowPlayingActions({ current }, sent::add,
+            openGeneratedStation = { error("An anonymous finite queue has no station recipe to open") })
+        actions.onGeneratedRadioAction(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Open, null))
+        actions.onGeneratedRadioAction(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Retry, null))
+        assertTrue(sent.isEmpty())
+        actions.selectItem(ui.upNext.last(), NowPlayingSelectionAction.SelectQueueItem)
+        assertEquals(listOf<NaviampConnectCommand>(NaviampConnectSelectQueueOccurrence("2:third")), sent)
+        assertEquals(checkpoint, current.generatedRadio)
+    }
+
+    @Test
     fun projectsRemoteQueueAndCapabilitiesIntoSharedNowPlayingUi() {
         val ui = snapshot().toRemoteNowPlayingUi("Living Room TV") { id -> id?.let { "cover://$it" } }
 

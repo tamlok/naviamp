@@ -235,6 +235,13 @@ every queue. Artist, Album, and Genre Mix work broadly; servers with sonic simil
 unlock Sonic Mix, Sonic Path, related tracks, track radio, and sonic autoplay. Generated results can
 be edited in the queue or saved as a normal playlist.
 
+Development builds additionally separate generated stations from their saved batches: preview,
+refresh, name and pin a station, or replay the exact batch. Explicit stations keep their original
+seeds and tuning while prefilling upcoming music, independently of ordinary autoplay. Home mix
+recommendations use listening activity and favorites with an exploration allocation. Strict genre,
+decade and artist constraints can return fewer tracks rather than silently changing the mix.
+Station-preserving Connect transfer requires updated peers; settings backup/sync uses schema 2.
+
 Genre Mix can organize the genre tags found on your server into a library-specific MusicBrainz
 hierarchy. Expand a broad genre to browse its subgenres, or select the parent to include every
 matching descendant in one mix. Tags that do not map cleanly stay visible, and smaller or sparsely

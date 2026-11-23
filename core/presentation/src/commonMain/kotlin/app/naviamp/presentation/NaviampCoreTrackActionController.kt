@@ -9,6 +9,7 @@ class NaviampCoreTrackActionController(
     private val registry: NaviampCoreMediaRegistry,
     private val media: NaviampCoreMediaTransactions,
     private val openPlaylistMembership: suspend (Track) -> Unit,
+    private val generatedRadio: NaviampCoreGeneratedRadioController? = null,
 ) : NaviampCoreCommandController {
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.Media.TrackAction,
@@ -26,7 +27,8 @@ class NaviampCoreTrackActionController(
         val albumContext = registry.albumDetails.takeIf { command is NaviampCoreCommand.Detail.AlbumTrack }
         val playlistContext = registry.selectedPlaylist.takeIf { command is NaviampCoreCommand.Detail.PlaylistTrack }
         val (request, tracks) = when (command) {
-            is NaviampCoreCommand.Media.TrackAction -> command.request to registry.search.tracks
+            is NaviampCoreCommand.Media.TrackAction -> command.request to
+                generatedRadio?.previewTracksFor(command.request.track.id).orEmpty().ifEmpty { registry.search.tracks }
             is NaviampCoreCommand.Library.TrackAction -> command.request to registry.libraryTracks
             is NaviampCoreCommand.Detail.AlbumTrack -> command.request to albumContext?.tracks.orEmpty().inAlbumOrder()
             is NaviampCoreCommand.Detail.ArtistPopularTrack -> command.request to
@@ -44,6 +46,9 @@ class NaviampCoreTrackActionController(
                 artistName = command.request.artistName,
             ) to registry.sonicRows.rows.firstOrNull { it.id.value == command.request.rowId }?.tracks.orEmpty()
             else -> return null
+        }
+        if (command is NaviampCoreCommand.Media.TrackAction && generatedRadio?.playPreviewSelection(request, tracks) == true) {
+            return NaviampCoreCommandResult.Completed
         }
         executeTrackAction(request, tracks, albumContext, playlistContext)
         return NaviampCoreCommandResult.Completed

@@ -306,6 +306,8 @@ fun NaviampSharedSettingsContent(
     supportsSonicSimilarity: Boolean = false,
     similarityTest: NaviampSimilarityTestUi = NaviampSimilarityTestUi(),
     radioDiagnostics: app.naviamp.domain.radio.RadioBuildDiagnostics? = null,
+    generatedRadio: NaviampGeneratedRadioUi = NaviampGeneratedRadioUi(),
+    generatedRadioActions: NaviampGeneratedRadioActions? = null,
     onTestSimilarity: (() -> Unit)? = null,
     connectionCapabilities: NaviampConnectionCapabilitiesUi = NaviampConnectionCapabilitiesUi(),
     downloadBytes: Long = 0L,
@@ -419,6 +421,8 @@ fun NaviampSharedSettingsContent(
                     onInterfaceSettingsChanged = onInterfaceSettingsChanged,
                 )
                 NaviampSettingsCategory.Experience -> NaviampExperienceSettingsSection(
+                    generatedRadio = generatedRadio,
+                    generatedRadioActions = generatedRadioActions,
                     colors = colors,
                     scrollState = contentScrollState,
                     viewportBounds = contentViewport,
@@ -753,6 +757,8 @@ fun NaviampExperienceSettingsSection(
     supportsSonicSimilarity: Boolean,
     similarityTest: NaviampSimilarityTestUi = NaviampSimilarityTestUi(),
     radioDiagnostics: app.naviamp.domain.radio.RadioBuildDiagnostics? = null,
+    generatedRadio: NaviampGeneratedRadioUi = NaviampGeneratedRadioUi(),
+    generatedRadioActions: NaviampGeneratedRadioActions? = null,
     onTestSimilarity: (() -> Unit)? = null,
     onInterfaceSettingsChanged: (InterfaceSettings) -> Unit,
     onPlaybackSettingsChanged: (PlaybackSettings) -> Unit,
@@ -774,15 +780,20 @@ fun NaviampExperienceSettingsSection(
                 onPlaybackSettingsChanged = onPlaybackSettingsChanged,
                 onCacheSettingsChanged = onCacheSettingsChanged,
             )
-            ExperienceSettingsPage.Radio -> RadioSettingsSection(
-                colors = colors,
-                playbackSettings = playbackSettings,
-                supportsSonicSimilarity = supportsSonicSimilarity,
-                similarityTest = similarityTest,
-                radioDiagnostics = radioDiagnostics,
-                onTestSimilarity = onTestSimilarity,
-                onPlaybackSettingsChanged = onPlaybackSettingsChanged,
-            )
+            ExperienceSettingsPage.Radio -> {
+                RadioSettingsSection(
+                    colors = colors,
+                    playbackSettings = playbackSettings,
+                    supportsSonicSimilarity = supportsSonicSimilarity,
+                    similarityTest = similarityTest,
+                    radioDiagnostics = radioDiagnostics,
+                    onTestSimilarity = onTestSimilarity,
+                    onPlaybackSettingsChanged = onPlaybackSettingsChanged,
+                )
+                generatedRadioActions?.let { actions ->
+                    NaviampGeneratedRadioPreferences(generatedRadio.preferences, colors, actions.onPreferencesChanged)
+                }
+            }
             ExperienceSettingsPage.Lyrics -> LyricsSettings(
                 colors = colors,
                 playbackSettings = playbackSettings,
@@ -5817,7 +5828,7 @@ private fun DownloadQualityChangeDialog(
 }
 
 @Composable
-private fun SettingsCheckboxRow(
+internal fun SettingsCheckboxRow(
     colors: NaviampColors,
     checked: Boolean,
     enabled: Boolean = true,

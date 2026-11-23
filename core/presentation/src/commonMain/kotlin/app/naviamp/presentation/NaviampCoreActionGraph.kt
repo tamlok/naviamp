@@ -100,6 +100,7 @@ fun createNaviampCoreActions(
     )
 
     val shell = NaviampAppShellActions(
+        generatedRadioActions = naviampCoreGeneratedRadioActions(handler),
         quickAccessActions = app.naviamp.ui.NaviampQuickAccessActions(
             onPin = { send(NaviampCoreCommand.QuickAccess.Pin(it)) },
             onRemove = { send(NaviampCoreCommand.QuickAccess.Remove(it)) },
@@ -288,6 +289,7 @@ fun createNaviampCoreActions(
             onTrackAction = { send(NaviampCoreCommand.Detail.PlaylistTrack(it)) },
         ),
         homeActions = NaviampHomeActions(
+            onGeneratedRadioAction = { send(NaviampCoreCommand.GeneratedRadio(it)) },
             onDiscoveryArtistSelected = { send(NaviampCoreCommand.Home.OpenDiscoveryArtist(it)) },
             onDiscoveryArtistDetails = { send(NaviampCoreCommand.Home.SelectDiscoveryArtist(it)) },
             onDiscoveryArtistDismiss = { send(NaviampCoreCommand.Home.DismissDiscoveryArtist) },
@@ -328,6 +330,7 @@ fun createNaviampCoreActions(
             onMediaItemAction = { send(NaviampCoreCommand.Media.ItemAction(it)) },
         ),
         nowPlayingActions = NaviampNowPlayingActions(
+            onGeneratedRadioAction = { send(NaviampCoreCommand.GeneratedRadio(it)) },
             onFindInAurral = { source, station, metadata -> send(NaviampCoreCommand.Home.FindInAurral(source, radioId = station, radioMetadata = metadata)) },
             onPlaybackAction = { send(NaviampCoreCommand.NowPlaying.Playback(it)) },
             onDisplayAction = { send(NaviampCoreCommand.NowPlaying.Display(it)) },

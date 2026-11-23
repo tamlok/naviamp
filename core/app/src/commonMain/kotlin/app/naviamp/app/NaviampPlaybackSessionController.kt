@@ -5,6 +5,7 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.cache.PlaybackSessionRepository
 import app.naviamp.domain.playback.shouldSavePlaybackPosition
 import app.naviamp.domain.queue.PlaybackQueue
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
 import app.naviamp.domain.settings.PlaybackSessionRestorePlan
 import app.naviamp.domain.settings.PlaybackSessionSavePlan
 import app.naviamp.domain.settings.PlaybackSessionSettings
@@ -21,6 +22,7 @@ data class NaviampPlaybackSessionSaveRequest(
     val playbackQueue: PlaybackQueue,
     val progressPositionSeconds: Double?,
     val platformPositionSeconds: Double? = null,
+    val generatedRadio: GeneratedRadioCheckpoint? = null,
 )
 
 /**
@@ -71,6 +73,7 @@ class NaviampPlaybackSessionController(
             progressPositionSeconds = request.progressPositionSeconds,
             notificationPositionSeconds = request.platformPositionSeconds,
             existingSession = load(request.sourceId),
+            generatedRadio = request.generatedRadio,
         )
         lastPlanMillis = planningMark.elapsedNow().inWholeMicroseconds / 1_000.0
         if (plan is PlaybackSessionSavePlan.Save) {
@@ -85,6 +88,7 @@ class NaviampPlaybackSessionController(
         request: NaviampPlaybackSessionSaveRequest,
         saveThresholdSeconds: Double,
     ): PlaybackSessionSavePlan {
+        if (generatedCheckpointChanged(request)) return planAndSave(request)
         val positionSeconds = request.progressPositionSeconds ?: return PlaybackSessionSavePlan.None
         val lastSavedPosition = savedPosition(request.sourceId)
             ?.takeIf { saved -> saved.trackId == request.currentTrack?.id?.value }
@@ -112,7 +116,7 @@ class NaviampPlaybackSessionController(
             shouldThrottlePlaybackSessionSave(
                 activeSourceId = request.sourceId,
                 hasPlaybackTarget = request.currentTrack != null || request.station != null,
-                force = force,
+                force = force || generatedCheckpointChanged(request),
                 nowMillis = nowMillis,
                 lastSavedAtMillis = lastSavedAtMillis[request.sourceId] ?: 0L,
                 saveIntervalMillis = saveIntervalMillis,
@@ -143,7 +147,7 @@ class NaviampPlaybackSessionController(
             shouldThrottlePlaybackSessionSave(
                 activeSourceId = sourceId,
                 hasPlaybackTarget = session?.currentTrack() != null,
-                force = force,
+                force = force || session?.generatedRadio != load(sourceId)?.generatedRadio,
                 nowMillis = nowMillis,
                 lastSavedAtMillis = lastSavedAtMillis[sourceId] ?: 0L,
                 saveIntervalMillis = saveIntervalMillis,
@@ -160,8 +164,9 @@ class NaviampPlaybackSessionController(
         playbackQueue: PlaybackQueue,
         positionSeconds: Double?,
         sourceId: String? = null,
+        generatedRadio: GeneratedRadioCheckpoint? = null,
     ): PlaybackSessionSettings? =
-        playbackSessionFromQueue(playbackQueue, positionSeconds)
+        playbackSessionFromQueue(playbackQueue, positionSeconds, generatedRadio)
             ?.copy(nowPlayingOpen = load(sourceId)?.nowPlayingOpen == true)
             .also { session ->
             save(session, sourceId)
@@ -195,6 +200,10 @@ class NaviampPlaybackSessionController(
             repositoryPerformance.queueRewritten?.let { "Session queue rewritten" to it.toString() },
         )
     }
+
+    private fun generatedCheckpointChanged(request: NaviampPlaybackSessionSaveRequest): Boolean =
+        request.generatedRadio?.copy(occurrences = request.playbackQueue.occurrences) !=
+            load(request.sourceId)?.generatedRadio
 
     private fun savedPosition(sourceId: String?): SavedPlaybackPosition? {
         if (initializedPositionSources.add(sourceId)) {

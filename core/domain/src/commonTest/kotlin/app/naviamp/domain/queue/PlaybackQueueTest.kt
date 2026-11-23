@@ -2,6 +2,10 @@ package app.naviamp.domain.queue
 
 import app.naviamp.domain.Track
 import app.naviamp.domain.TrackId
+import app.naviamp.domain.radio.RadioQueueOccurrence
+import kotlin.random.Random
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -347,6 +351,113 @@ class PlaybackQueueTest {
         assertEquals(queue, queue.moveUpcoming(fromIndex = 1, toIndex = 2))
         assertEquals(queue, queue.moveUpcoming(fromIndex = 0, toIndex = 2))
         assertEquals(queue, queue.moveUpcoming(fromIndex = 2, toIndex = 3))
+    }
+
+    @Test
+    fun everyReorderSelectionAndTrimKeepsOccurrenceIdentityWithIdenticalTracks() {
+        val sameTrack = track("duplicate")
+        val queue = PlaybackQueue(
+            tracks = List(5) { sameTrack },
+            currentIndex = 1,
+            playNextCount = 1,
+            occurrences = listOf(
+                RadioQueueOccurrence("history", "station", "old"),
+                RadioQueueOccurrence("current", "station", "old"),
+                RadioQueueOccurrence("priority"),
+                RadioQueueOccurrence("generated", "station", "old"),
+                RadioQueueOccurrence("manual"),
+            ),
+        )
+        val operations = listOf(
+            queue.removeAt(0) to listOf("current", "priority", "generated", "manual"),
+            queue.moveToNext(4) to listOf("history", "current", "priority", "manual", "generated"),
+            queue.moveToPlayNext(4) to listOf("history", "current", "priority", "manual", "generated"),
+            queue.moveUpcoming(4, 2) to listOf("history", "current", "manual", "priority", "generated"),
+            queue.jumpTo(4) to listOf("history", "current", "manual", "priority", "generated"),
+            queue.jumpTo(0) to listOf("history", "priority", "current", "generated", "manual"),
+            queue.jumpTo(3, moveSelectedToCurrent = false) to queue.occurrences.map { it.id },
+            queue.clearUpcoming() to listOf("history", "current"),
+            queue.retainCurrentOnly() to listOf("current"),
+            queue.removePlayedHistory() to listOf("current", "priority", "generated", "manual"),
+        )
+        operations.forEach { (updated, expectedIds) ->
+            assertEquals(expectedIds, updated.occurrences.map { it.id })
+            assertEquals(updated.tracks.size, updated.occurrences.size)
+            updated.occurrences.forEach { occurrence ->
+                assertEquals(queue.occurrences.single { it.id == occurrence.id }, occurrence)
+            }
+        }
+    }
+
+    @Test
+    fun userInsertionsAndHistoryPruningNeverInheritGeneratedAttribution() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("history"), track("same"), track("next")),
+            currentIndex = 1,
+            occurrences = newRadioQueueOccurrences(3, "station", "batch"),
+        )
+        val appended = queue.appendTracks(listOf(track("same"), track("same")), maxHistory = 0)
+        assertEquals(listOf("same", "next", "same", "same"), appended.tracks.map { it.id.value })
+        assertEquals(queue.occurrences.drop(1), appended.occurrences.take(2))
+        assertTrue(appended.occurrences.takeLast(2).all { !it.generated })
+        assertEquals(4, appended.occurrences.map { it.id }.toSet().size)
+        val priority = queue.playNextTracks(listOf(track("same"), track("same")), maxHistory = 0)
+        assertEquals(queue.occurrences[1], priority.occurrences[0])
+        assertTrue(priority.occurrences.drop(1).take(2).all { !it.generated })
+        assertEquals(queue.occurrences.last(), priority.occurrences.last())
+        val single = queue.playNextTrack(track("same"), maxHistory = 0)
+        assertFalse(single.occurrences[1].generated)
+        assertEquals(queue.occurrences.last(), single.occurrences.last())
+    }
+
+    @Test
+    fun generatedReplacementRetainsHistoryCurrentPriorityAndManualDuplicateOccurrences() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("history"), track("same"), track("priority"), track("same"), track("same"), track("old")),
+            currentIndex = 1,
+            playNextCount = 1,
+            occurrences = listOf(
+                RadioQueueOccurrence("history", "station", "old"),
+                RadioQueueOccurrence("current", "station", "old"),
+                RadioQueueOccurrence("priority", "station", "old"),
+                RadioQueueOccurrence("generated-copy", "station", "old"),
+                RadioQueueOccurrence("manual-copy"),
+                RadioQueueOccurrence("old", "station", "old"),
+            ),
+        )
+        val replaced = queue.replaceGeneratedUpcomingOccurrences(
+            listOf(track("same"), track("new"), track("new")), "station", "fresh",
+        )
+        assertEquals(listOf("history", "same", "priority", "same", "new"), replaced.tracks.map { it.id.value })
+        assertEquals(listOf("history", "current", "priority", "manual-copy"), replaced.occurrences.dropLast(1).map { it.id })
+        assertEquals(1, replaced.currentIndex)
+        assertEquals(1, replaced.playNextCount)
+        assertEquals("fresh", replaced.occurrences.last().batchId)
+        val emptied = queue.replaceGeneratedUpcomingOccurrences(emptyList(), "station", "empty")
+        assertEquals(replaced.occurrences.dropLast(1), emptied.occurrences)
+    }
+
+    @Test
+    fun shuffleRoundTripPreservesGeneratedAndManualCopiesOfTheSameTrack() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("current"), track("priority"), track("same"), track("other"), track("same")),
+            currentIndex = 0,
+            playNextCount = 1,
+            occurrences = listOf(
+                RadioQueueOccurrence("current", "station", "batch"), RadioQueueOccurrence("priority"),
+                RadioQueueOccurrence("generated", "station", "batch"), RadioQueueOccurrence("other"),
+                RadioQueueOccurrence("manual"),
+            ),
+        )
+        val shuffled = assertNotNull(queue.toggleUpcomingShuffle(null, UpcomingShufflePolicy(Random(4))))
+        assertEquals(queue.occurrences.take(2), shuffled.queue.occurrences.take(2))
+        shuffled.queue.occurrences.forEachIndexed { index, occurrence ->
+            assertEquals(queue.tracks[queue.occurrences.indexOf(occurrence)], shuffled.queue.tracks[index])
+        }
+        val restored = assertNotNull(shuffled.queue.toggleUpcomingShuffle(
+            shuffled.shuffledSnapshot, shuffledOccurrences = shuffled.shuffledOccurrences,
+        ))
+        assertEquals(queue, restored.queue)
     }
 
     private fun track(id: String): Track =

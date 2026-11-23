@@ -53,6 +53,10 @@ fun PlaybackSessionSettings.migratedProviderIdentities(transform: (String) -> St
     tracks = tracks.map { it.migratedProviderIdentities(transform) },
     queueGroups = queueGroups.map { it.migratedProviderIdentities(transform) },
     internetRadioStation = internetRadioStation?.migratedProviderIdentities(transform),
+    generatedRadio = generatedRadio?.copy(
+        station = generatedRadio?.station?.migratedProviderIdentities(transform),
+        seenTrackIds = generatedRadio?.seenTrackIds.orEmpty().map(transform),
+    ),
 )
 
 fun RecentRadioStream.migratedProviderIdentities(
@@ -76,3 +80,11 @@ fun SavedInternetRadioStation.migratedProviderIdentities(
     transform: (String) -> String,
 ): SavedInternetRadioStation =
     if (this.sourceId == sourceId) migratedProviderIdentities(transform) else this
+
+fun app.naviamp.domain.radio.GeneratedRadioStation.migratedProviderIdentities(transform: (String) -> String) = copy(
+    seedTracks = seedTracks.map { it.migratedProviderIdentities(transform) },
+    artists = artists.map { it.migratedProviderIdentities(transform) },
+    albums = albums.map { it.migratedProviderIdentities(transform) },
+    resolvedArtistId = resolvedArtistId?.let(transform),
+    excludedAlbumIds = excludedAlbumIds.map(transform),
+)

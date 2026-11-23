@@ -52,6 +52,80 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreHomeControllerTest {
+    @Test fun homeConnectionLoadsKeepPersistedMixesAndExplicitRefreshRotatesThemLazily() = runTest {
+        var calls = 0
+        val provider = object : MediaProvider by HomeTestProvider(supportsTrackRadio = true) {
+            override val capabilities = HomeTestProvider(supportsTrackRadio = true).capabilities.copy(supportsAlbumFavorites = false)
+            override suspend fun albumList(type: AlbumListType, limit: Int): List<Album> {
+                calls++
+                return (1..30).map { Album(AlbumId("${type.name}-$it"), "Album $it", "Artist $it", null, null) }.take(limit)
+            }
+            override suspend fun trackRadio(trackId: TrackId, count: Int): List<Track> = error("Home generated a batch eagerly")
+            override suspend fun album(albumId: AlbumId): AlbumDetails = error("Home resolved a seed eagerly")
+        }
+        val store = NaviampCoreStateStore()
+        val registry = NaviampCoreMediaRegistry()
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val home = NaviampCoreHomeController(store, { provider }, NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
+            NaviampCoreHomeDateSource { HomeDate(2026, 100) }, mediaRegistry = registry, generatedRadio = repository,
+            supplementSource = NaviampCoreHomeSupplementSource { NaviampCoreHomeSupplement(sourceId = "source") })
+        home.refreshAfterConnection()
+        val first = registry.home.generatedMixes
+        assertEquals(8, first.size)
+        home.refreshAfterConnection()
+        assertEquals(first, registry.home.generatedMixes)
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertFalse(first.map { it.id } == registry.home.generatedMixes.map { it.id })
+        val pinned = registry.home.generatedMixes.first().copy(saved = true, pinned = true, name = "My station")
+        repository.save(repository.load().copy(stations = repository.load().stations.map { if (it.id == pinned.id) pinned else it }))
+        val previousCalls = calls
+        home.generatedStationsChanged()
+        assertEquals(previousCalls, calls)
+        assertFalse(registry.home.generatedMixes.any { it.id == pinned.id })
+        val savedSection = store.state.value.shell.home.content.collectionSections.single {
+            it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations
+        }
+        assertEquals(pinned.id, savedSection.items.single().mediaItem.id)
+        assertEquals("My station", savedSection.items.single().mediaItem.title)
+        repository.save(repository.load().copy(stations = repository.load().stations.filterNot { it.id == pinned.id }))
+        home.generatedStationsChanged()
+        assertTrue(store.state.value.shell.home.content.collectionSections
+            .firstOrNull { it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations }?.items.isNullOrEmpty())
+    }
+
+    @Test fun folderChangeRejectsInflightHomeRotationBeforePersistence() = runTest {
+        var namespace = "folder-one"
+        var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val provider = object : MediaProvider by HomeTestProvider(supportsTrackRadio = true) {
+            override val capabilities = HomeTestProvider(supportsTrackRadio = true).capabilities.copy(supportsAlbumFavorites = false)
+            override val cacheNamespace get() = namespace
+            override suspend fun albumList(type: AlbumListType, limit: Int): List<Album> {
+                if (type == AlbumListType.Newest) gate?.await()
+                return listOf(Album(AlbumId(namespace), namespace, "Artist", null, null))
+            }
+        }
+        val store = NaviampCoreStateStore()
+        val registry = NaviampCoreMediaRegistry()
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository()
+        val home = NaviampCoreHomeController(store, { provider }, NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
+            NaviampCoreHomeDateSource { HomeDate(2026, 100) }, mediaRegistry = registry, generatedRadio = repository,
+            supplementSource = NaviampCoreHomeSupplementSource { NaviampCoreHomeSupplement(sourceId = "source") })
+        home.refreshAfterConnection()
+        val original = repository.load()
+        gate = kotlinx.coroutines.CompletableDeferred()
+        val job = launch { home.execute(NaviampCoreCommand.Home.Refresh) }
+        runCurrent()
+        namespace = "folder-two"
+        gate!!.complete(Unit)
+        job.join()
+        assertTrue(job.isCancelled)
+        assertEquals(original, repository.load())
+        gate = null
+        home.refreshAfterConnection()
+        assertTrue(registry.home.generatedMixes.all { it.libraryScope == "folder-two" })
+        assertTrue(registry.home.generatedMixes.none { station -> original.stations.any { it.id == station.id } })
+    }
+
     @Test fun refreshAndConnectionLoadReplaceCachedPlaylistIdsBeforeOpeningHomeCards() = runTest {
         for (afterConnection in listOf(false, true)) {
             val legacy = Playlist("f47ac10b-58cc-4372-a567-0e02b2c3d479", "Soundtrack", 34, coverArtId = "old-cover")
@@ -435,6 +509,7 @@ class NaviampCoreHomeControllerTest {
 
     @Test fun unavailableCollectionsDoNotPushAndMixBuildersReturnToTheirCollection() = runTest {
         val store = NaviampCoreStateStore()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source")) }
         val history = NaviampNavigationController()
         lateinit var home: NaviampCoreHomeController
         val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) })
@@ -865,6 +940,7 @@ class NaviampCoreHomeControllerTest {
     @Test
     fun collectionPageNavigationAndLayoutAreOwnedByCore() = runTest {
         val store = NaviampCoreStateStore()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source")) }
         val controller = NaviampCoreHomeController(
             stateStore = store,
             providerSource = NaviampCoreMediaProviderSource { HomeTestProvider(supportsTrackRadio = true) },
@@ -878,7 +954,7 @@ class NaviampCoreHomeControllerTest {
         controller.execute(NaviampCoreCommand.Home.Refresh)
 
         controller.dispatch(NaviampCoreCommand.Home.OpenCollection(SharedHomeCollectionSectionIds.MixesForYou))
-        assertEquals("MIXES FOR YOU", store.state.value.shell.home.collectionPage?.section?.title)
+        assertEquals(SharedHomeCollectionSectionIds.MixesForYou, store.state.value.shell.home.collectionPage?.section?.id)
 
         controller.interfaceSettingsChanged(
             InterfaceSettings(

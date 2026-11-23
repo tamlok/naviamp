@@ -5,6 +5,7 @@ import app.naviamp.domain.Track
 import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.playback.PlaybackStreamMetadata
 import app.naviamp.domain.queue.PlaybackQueue
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
 
 sealed interface PlaybackSessionSavePlan {
     data object None : PlaybackSessionSavePlan
@@ -46,6 +47,7 @@ sealed interface PlaybackSessionRestorePlan {
         val playbackQueue: PlaybackQueue = restoredSession.playbackQueue
         val currentTrack: Track = restoredSession.currentTrack
         val playbackProgress: PlaybackProgress = restoredSession.playbackProgress
+        val generatedRadio: GeneratedRadioCheckpoint? = restoredSession.generatedRadio
     }
 }
 
@@ -58,11 +60,13 @@ fun planPlaybackSessionRestoreEffects(
     restored: Boolean,
     hasCurrentTrack: Boolean,
     startPlayingOnLaunch: Boolean,
+    generatedRadio: GeneratedRadioCheckpoint? = null,
 ): PlaybackSessionRestoreEffects {
     val restoredTrackAvailable = restored && hasCurrentTrack
+    val shouldStart = startPlayingOnLaunch && generatedRadio?.wasPaused != true
     return PlaybackSessionRestoreEffects(
-        startPlayback = restoredTrackAvailable && startPlayingOnLaunch,
-        prepareSidecars = restoredTrackAvailable && !startPlayingOnLaunch,
+        startPlayback = restoredTrackAvailable && shouldStart,
+        prepareSidecars = restoredTrackAvailable && !shouldStart,
     )
 }
 
@@ -86,6 +90,7 @@ fun planPlaybackSessionSave(
     progressPositionSeconds: Double?,
     notificationPositionSeconds: Double?,
     existingSession: PlaybackSessionSettings?,
+    generatedRadio: GeneratedRadioCheckpoint? = null,
 ): PlaybackSessionSavePlan {
     if (activeSourceId == null) return PlaybackSessionSavePlan.None
     if (station != null) {
@@ -107,6 +112,7 @@ fun planPlaybackSessionSave(
         currentTrack = track,
         queue = playbackQueue,
         positionSeconds = positionSeconds,
+        generatedRadio = generatedRadio,
     ) ?: return PlaybackSessionSavePlan.None
     return PlaybackSessionSavePlan.Save(
         session = session.copy(nowPlayingOpen = existingSession?.nowPlayingOpen == true),

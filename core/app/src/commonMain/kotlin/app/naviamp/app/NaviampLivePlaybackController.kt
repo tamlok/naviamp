@@ -7,6 +7,7 @@ import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.playback.PlaybackState
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.RepeatMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,6 +25,7 @@ data class NaviampLivePlaybackState(
     val playbackState: PlaybackState = PlaybackState.Idle,
     val repeatMode: RepeatMode = RepeatMode.Off,
     val shuffledUpNextSnapshot: List<Track>? = null,
+    val shuffledUpNextOccurrences: List<RadioQueueOccurrence>? = null,
 )
 
 /** Shared owner of live, user-visible playback state; it does not execute audio commands. */
@@ -65,7 +67,31 @@ class NaviampLivePlaybackController(
     fun updateCurrentStation(station: InternetRadioStation?) =
         update { current -> current.copy(currentStation = station) }
 
-    fun updateQueue(queue: PlaybackQueue) = update { current -> current.copy(queue = queue) }
+    fun updateQueue(queue: PlaybackQueue) = update { current ->
+        val snapshot = current.shuffledUpNextOccurrences
+        if (snapshot == null) {
+            // A legacy track-only shuffle snapshot cannot cross into occurrence ownership.
+            current.copy(
+                queue = queue,
+                shuffledUpNextSnapshot = current.shuffledUpNextSnapshot.takeIf { queue.occurrences.isEmpty() },
+            )
+        } else {
+            val contextStart = queue.currentIndex + 1 + queue.playNextCount.coerceAtLeast(0)
+            val context = queue.occurrences.drop(contextStart.coerceAtLeast(0))
+            val indexes = queue.occurrences.withIndex().associate { it.value.id to it.index }
+            val available = context.mapTo(mutableSetOf()) { it.id }
+            val retained = snapshot.filter { it.id in available }
+            val retainedIds = retained.mapTo(mutableSetOf()) { it.id }
+            val ordered = retained + context.filter { it.id !in retainedIds }
+            // New/replaced queues end the previous shuffle session instead of resurrecting it.
+            val active = retained.isNotEmpty()
+            current.copy(
+                queue = queue,
+                shuffledUpNextSnapshot = ordered.takeIf { active }?.map { queue.tracks[indexes.getValue(it.id)] },
+                shuffledUpNextOccurrences = ordered.takeIf { active },
+            )
+        }
+    }
 
     fun applyQueueChange(
         queue: PlaybackQueue,
@@ -117,8 +143,12 @@ class NaviampLivePlaybackController(
     fun updateRepeatMode(repeatMode: RepeatMode) =
         update { current -> current.copy(repeatMode = repeatMode) }
 
-    fun updateShuffledUpNextSnapshot(snapshot: List<Track>?) =
-        update { current -> current.copy(shuffledUpNextSnapshot = snapshot) }
+    fun updateShuffledUpNextSnapshot(
+        snapshot: List<Track>?,
+        occurrences: List<RadioQueueOccurrence>? = null,
+    ) = update { current ->
+        current.copy(shuffledUpNextSnapshot = snapshot, shuffledUpNextOccurrences = occurrences.takeIf { snapshot != null })
+    }
 
     private inline fun update(transform: (NaviampLivePlaybackState) -> NaviampLivePlaybackState) {
         // Native state and clock callbacks can arrive on different threads. Retry field changes

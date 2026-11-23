@@ -46,6 +46,7 @@ data class NaviampCoreStoredSettings(
     val saveSyncRuntime: (SettingsSyncRuntimeState) -> Unit,
     val loadRecentPlaylistIds: () -> List<String> = { emptyList() },
     val saveRecentPlaylistIds: (List<String>) -> Unit = {},
+    val generatedRadio: app.naviamp.domain.radio.GeneratedRadioRepository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository(),
 )
 
 /** Adds shared repository-backed settings without making a host reconstruct product state. */
@@ -143,6 +144,7 @@ fun naviampCoreStoredServiceCatalog(
                     visualizer = settings.loadVisualizer(),
                     recentRadioStreams = settings.loadRecentRadioStreams(),
                     recentInternetRadioStations = settings.loadRecentInternetRadioStations(),
+                    generatedRadio = settings.generatedRadio.load(),
                 )
             },
             applyDocument = { document ->
@@ -151,6 +153,7 @@ fun naviampCoreStoredServiceCatalog(
                     mediaSourceRepository = repositories.providerMediaSources,
                     radioDjPresetRepository = repositories.radioDjPresets,
                     localPlayback = settings.loadPlayback(),
+                    localGeneratedRadio = settings.generatedRadio.load(),
                 )
                 settings.saveInterface(applied.interfaceSettings)
                 if (persistImportedPlayback == null) playback.settings.apply(applied.playbackSettings, redownload = false)
@@ -158,6 +161,7 @@ fun naviampCoreStoredServiceCatalog(
                 settings.saveVisualizer(applied.visualizer)
                 settings.saveRecentRadioStreams(applied.recentRadioStreams)
                 settings.saveRecentInternetRadioStations(applied.recentInternetRadioStations)
+                settings.generatedRadio.save(applied.generatedRadio)
             },
         ),
         port = settingsSyncPort,
@@ -237,6 +241,7 @@ fun naviampCoreStoredServiceCatalog(
             ),
         ),
         radio = defaults.radio.copy(
+            generated = settings.generatedRadio,
             recents = internetRadioRecents,
             generatedRecents = NaviampCoreGeneratedRadioRecentsPort(
                 load = settings.loadRecentRadioStreams,

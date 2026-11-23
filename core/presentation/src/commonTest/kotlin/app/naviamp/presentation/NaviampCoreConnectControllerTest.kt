@@ -67,6 +67,224 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampCoreConnectControllerTest {
     @Test
+    fun finiteBatchReplayRequiresNegotiationAndTransfersExactOrderWithAutoplayDisabled() = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "Saved batch",
+            app.naviamp.domain.radio.GeneratedRadioKind.Library, sourceIdentity = source, revision = 2)
+        val tracks = listOf("second", "first", "first").map {
+            app.naviamp.domain.settings.SavedTrack(id = it, title = it, artistName = "Artist")
+        }
+        val batch = app.naviamp.domain.radio.GeneratedRadioBatch("batch", station.id, station.revision, 0, tracks)
+        for (version in listOf(0, 1)) {
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            val (controller, _, _) = remoteFixture(queueHandoffSupported = true, stationSessionVersion = version,
+                sourceIdentity = { source }) { sent += it }
+            assertTrue(controller.playGeneratedBatchOnSelectedDevice(station, batch))
+            runCurrent()
+            if (version == 0) assertTrue(sent.isEmpty()) else {
+                val handoff = (sent.single().message as NaviampConnectCommandRequest).command as
+                    app.naviamp.domain.connect.NaviampConnectStationHandoff
+                assertEquals(app.naviamp.domain.radio.GeneratedRadioPlaybackMode.FiniteBatch, handoff.checkpoint.mode)
+                assertFalse(handoff.checkpoint.endlessEnabled)
+                assertEquals(tracks.map { it.id }, handoff.queue.occurrences.map { it.mediaId })
+                assertEquals(3, handoff.checkpoint.occurrences.map { it.id }.distinct().size)
+                assertTrue(handoff.checkpoint.occurrences.all { it.stationId == station.id && it.batchId == batch.id })
+                assertEquals(0L, handoff.positionMillis)
+                assertTrue(handoff.playing)
+            }
+            controller.close()
+        }
+    }
+
+    @Test
+    fun stationHandoffNeverDowngradesToLegacyQueueOnUnsupportedTargets() = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val track = FakeCoreMediaProvider().track
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "Station",
+            app.naviamp.domain.radio.GeneratedRadioKind.Library, sourceIdentity = source)
+        val occurrences = listOf(app.naviamp.domain.radio.RadioQueueOccurrence("generated", station.id, "batch"),
+            app.naviamp.domain.radio.RadioQueueOccurrence("manual"))
+        val checkpoint = app.naviamp.domain.radio.GeneratedRadioCheckpoint(station, wasPaused = true, occurrences = occurrences)
+        for (version in listOf(0, 1)) {
+            val local = NaviampLivePlaybackController(NaviampLivePlaybackState(
+                queue = PlaybackQueue(listOf(track, track), 0, occurrences = occurrences), currentTrack = track,
+                playbackState = PlaybackState.Paused, progress = app.naviamp.domain.playback.PlaybackProgress(19.0, 180.0)))
+            val before = local.state.value
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            val (controller, _, _) = remoteFixture(queueHandoffSupported = true, stationSessionVersion = version,
+                sourceIdentity = { source }, localPlayback = local, generatedRadio = RecordingGeneratedRadioPort(checkpoint)) { sent += it }
+            controller.actions.onRemoteHandoffQueue()
+            runCurrent()
+            if (version == 0) assertTrue(sent.isEmpty()) else {
+                val handoff = (sent.single().message as NaviampConnectCommandRequest).command as
+                    app.naviamp.domain.connect.NaviampConnectStationHandoff
+                assertEquals(checkpoint, handoff.checkpoint)
+                assertEquals(19_000L, handoff.positionMillis)
+                assertFalse(handoff.playing)
+            }
+            assertEquals(before, local.state.value)
+            controller.close()
+        }
+    }
+
+    @Test
+    fun anonymousFiniteHandoffPreservesPolicyOnlyOnNegotiatedTargets() = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val track = FakeCoreMediaProvider().track
+        val occurrences = listOf(app.naviamp.domain.radio.RadioQueueOccurrence("first"),
+            app.naviamp.domain.radio.RadioQueueOccurrence("second"))
+        val checkpoint = app.naviamp.domain.radio.GeneratedRadioCheckpoint(
+            mode = app.naviamp.domain.radio.GeneratedRadioPlaybackMode.FiniteBatch, wasPaused = true,
+            endlessEnabled = false, seenTrackIds = listOf("heard"), occurrences = occurrences)
+        for (version in listOf(0, 1)) {
+            val local = NaviampLivePlaybackController(NaviampLivePlaybackState(
+                queue = PlaybackQueue(listOf(track, track), 1, occurrences = occurrences), currentTrack = track,
+                playbackState = PlaybackState.Paused, progress = app.naviamp.domain.playback.PlaybackProgress(19.0, 180.0)))
+            val before = local.state.value
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            val (controller, store, _) = remoteFixture(queueHandoffSupported = true, stationSessionVersion = version,
+                sourceIdentity = { source }, localPlayback = local, generatedRadio = RecordingGeneratedRadioPort(checkpoint)) { sent += it }
+            controller.actions.onRemoteHandoffQueue()
+            runCurrent()
+            if (version == 0) {
+                assertTrue(sent.isEmpty())
+                assertEquals(app.naviamp.ui.NaviampConnectStatusText.GeneratedStationUpgradeRequired,
+                    store.state.value.shell.connect.statusMessage?.text)
+            } else {
+                val handoff = (sent.single().message as NaviampConnectCommandRequest).command as
+                    app.naviamp.domain.connect.NaviampConnectStationHandoff
+                assertEquals(checkpoint, handoff.checkpoint)
+                assertEquals(listOf("first", "second"), handoff.queue.occurrences.map { it.occurrenceId })
+                assertEquals(1, handoff.queue.currentIndex)
+                assertEquals(19_000L, handoff.positionMillis)
+                assertFalse(handoff.playing)
+            }
+            assertEquals(before, local.state.value)
+            controller.close()
+        }
+    }
+
+    @Test
+    fun returningStationPausesTargetAndWaitsForFreshCheckpointBeforeTakingAuthority() = returningGeneratedQueue(false)
+
+    @Test
+    fun returningAnonymousFiniteQueueRetainsCheckpointPolicy() = returningGeneratedQueue(true)
+
+    private fun returningGeneratedQueue(anonymous: Boolean) = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val station = if (anonymous) null else app.naviamp.domain.radio.GeneratedRadioStation("station", "Original seeds",
+            app.naviamp.domain.radio.GeneratedRadioKind.Library, sourceIdentity = source, revision = 6)
+        val checkpoint = app.naviamp.domain.radio.GeneratedRadioCheckpoint(station,
+            mode = if (anonymous) app.naviamp.domain.radio.GeneratedRadioPlaybackMode.FiniteBatch
+                else app.naviamp.domain.radio.GeneratedRadioPlaybackMode.Station,
+            endlessEnabled = !anonymous,
+            occurrences = listOf(app.naviamp.domain.radio.RadioQueueOccurrence("entry", station?.id, if (anonymous) null else "batch")))
+        val remote = NaviampConnectTargetSnapshot(1,
+            NaviampConnectDevice("tv", "TV", NaviampConnectDeviceRole.Target), emptySet(), sourceIdentity = source,
+            playback = app.naviamp.domain.connect.NaviampConnectPlaybackSnapshot(
+                state = app.naviamp.domain.connect.NaviampConnectPlaybackState.Playing, positionMillis = 1_000),
+            queue = app.naviamp.domain.connect.NaviampConnectQueueSnapshot(listOf(
+                app.naviamp.domain.connect.NaviampConnectQueueOccurrence("entry", "song", "Song", "Artist")), 0),
+            stationSessionVersion = 1, generatedRadio = checkpoint)
+        lateinit var activeSession: NaviampConnectControllerSession
+        val sent = mutableListOf<app.naviamp.domain.connect.NaviampConnectCommand>()
+        val port = RecordingGeneratedRadioPort(null)
+        val localTrack = FakeCoreMediaProvider().track
+        val local = NaviampLivePlaybackController(NaviampLivePlaybackState(queue = PlaybackQueue(listOf(localTrack), 0),
+            currentTrack = localTrack, playbackState = PlaybackState.Paused))
+        val (controller, store, session) = remoteFixture(queueHandoffSupported = true, stationSessionVersion = 1,
+            extraCapabilities = setOf(NaviampConnectCapability.QueueRead), sourceIdentity = { source },
+            localPlayback = local, generatedRadio = port) { envelope ->
+            val command = (envelope.message as NaviampConnectCommandRequest).command
+            sent += command
+            val revision = if (command == app.naviamp.domain.connect.NaviampConnectPause) 2L else 3L
+            activeSession.receive(NaviampConnectEnvelope(1, "session", revision,
+                responseToRequestId = envelope.requestId,
+                message = app.naviamp.domain.connect.NaviampConnectAcknowledgement(revision)))
+        }
+        activeSession = session
+        session.receive(NaviampConnectEnvelope(1, "session", 1,
+            message = app.naviamp.domain.connect.NaviampConnectSnapshotMessage(remote)))
+        controller.actions.onReceiveRemoteQueue()
+        runCurrent()
+        assertEquals(listOf(app.naviamp.domain.connect.NaviampConnectPause,
+            app.naviamp.domain.connect.NaviampConnectRequestSnapshot), sent)
+        assertTrue(port.handoffs.isEmpty(), "Acknowledgement alone cannot authorize a stale checkpoint")
+        val fresh = remote.copy(revision = 3, playback = remote.playback.copy(
+            state = app.naviamp.domain.connect.NaviampConnectPlaybackState.Paused, positionMillis = 34_567),
+            generatedRadio = checkpoint.copy(wasPaused = true, seenTrackIds = listOf("last-heard")))
+        session.receive(NaviampConnectEnvelope(1, "session", 4,
+            message = app.naviamp.domain.connect.NaviampConnectSnapshotMessage(fresh)))
+        runCurrent()
+        val handoff = port.handoffs.single()
+        assertEquals(34_567L, handoff.positionMillis)
+        assertEquals(listOf("last-heard"), handoff.checkpoint.seenTrackIds)
+        assertEquals(station, handoff.checkpoint.station)
+        assertEquals(checkpoint.copy(seenTrackIds = listOf("last-heard")), handoff.checkpoint)
+        assertTrue(handoff.playing)
+        assertFalse(handoff.checkpoint.wasPaused)
+        assertFalse(store.state.value.shell.connect.remotePlaybackAuthorityActive)
+        controller.close()
+    }
+
+    private class RecordingGeneratedRadioPort(
+        private val current: app.naviamp.domain.radio.GeneratedRadioCheckpoint?,
+    ) : NaviampCoreConnectGeneratedRadioPort {
+        val handoffs = mutableListOf<app.naviamp.domain.connect.NaviampConnectStationHandoff>()
+        override fun checkpoint() = current
+        override fun status() = app.naviamp.domain.radio.GeneratedRadioStatus.Active
+        override fun open(station: app.naviamp.domain.radio.GeneratedRadioStation) = error("Not an inspection test")
+        override suspend fun retry(stationId: String, revision: Long): Boolean = error("Not a retry test")
+        override suspend fun start(command: app.naviamp.domain.connect.NaviampConnectStationStart): Boolean = error("Not a start test")
+        override suspend fun handoff(command: app.naviamp.domain.connect.NaviampConnectStationHandoff): Boolean {
+            handoffs += command
+            return true
+        }
+    }
+
+    @Test
+    fun generatedStationUsesNegotiatedFullRecipeOrRejectsWithoutLocalFallback() = runTest {
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val station = app.naviamp.domain.radio.GeneratedRadioStation(
+            "station", "Two artists", app.naviamp.domain.radio.GeneratedRadioKind.Artists,
+            sourceIdentity = source, revision = 4, sonicSimilarity = true,
+            artists = listOf(app.naviamp.domain.settings.SavedArtist("b", "B"), app.naviamp.domain.settings.SavedArtist("a", "A")),
+        )
+        for (version in listOf(0, 1)) {
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            val (controller, store, _) = remoteFixture(sourceIdentity = { source }, stationSessionVersion = version) { sent += it }
+            assertTrue(controller.startGeneratedStationOnSelectedDevice(station, endlessEnabled = false))
+            runCurrent()
+            if (version == 0) {
+                assertTrue(sent.isEmpty())
+                assertEquals(app.naviamp.ui.NaviampConnectStatusText.GeneratedStationUpgradeRequired,
+                    store.state.value.shell.connect.statusMessage?.text)
+            } else {
+                val command = (sent.single().message as NaviampConnectCommandRequest).command
+                val start = command as app.naviamp.domain.connect.NaviampConnectStationStart
+                assertEquals(station, start.station)
+                assertFalse(start.endlessEnabled)
+            }
+            controller.actions.onPlaybackDeviceSelected(null)
+            assertFalse(controller.startGeneratedStationOnSelectedDevice(station, endlessEnabled = true))
+            controller.close()
+        }
+    }
+
+    @Test
+    fun radioIntentsDeferToCompleteCoreRecipesRatherThanSendingLegacyStartRadio() = runTest {
+        val sent = mutableListOf<NaviampConnectEnvelope>()
+        val source = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val (controller, _, _) = remoteFixture(sourceIdentity = { source }, stationSessionVersion = 1) { sent += it }
+        val command = NaviampCoreCommand.Media.TrackAction(app.naviamp.ui.SharedTrackRowActionRequest(
+            app.naviamp.ui.SharedTrackRowUi("song", "Song", "Artist"), app.naviamp.ui.SharedTrackRowAction.StartRadio))
+        assertFalse(controller.routeProductCommand(command))
+        runCurrent()
+        assertTrue(sent.isEmpty())
+        controller.close()
+    }
+
+    @Test
     fun manualTrustedReconnectUsesChangedAddressWithoutDiscoveryOrAutomaticRetry() = runTest {
         var storedTrust: String? = null
         val trust = NaviampConnectTrustRepository(object : NaviampConnectTrustStorageEffect {
@@ -1120,41 +1338,6 @@ class NaviampCoreConnectControllerTest {
         controller.close()
     }
 
-    @Test
-    fun homeMixOnARemoteTargetIsSentAsSeedTrackRadioAndNeverAsTheAlbum() = runTest {
-        val sent = mutableListOf<app.naviamp.domain.connect.NaviampConnectEnvelope>()
-        val identity = app.naviamp.domain.connect.NaviampConnectSourceIdentity("navidrome", "https://music.test", "me")
-        val (controller, _, _) = remoteFixture(sourceIdentity = { identity },
-            extraCapabilities = setOf(app.naviamp.domain.connect.NaviampConnectCapability.CatalogPlayback)) { sent += it }
-        val local = mutableListOf<NaviampCoreCommand>()
-        val handler = NaviampCoreConnectCommandHandler(object : NaviampCoreCommandHandler {
-            override fun dispatch(command: NaviampCoreCommand) { local += command }
-            override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult {
-                local += command
-                return NaviampCoreCommandResult.Completed
-            }
-        }, controller)
-        val album = app.naviamp.domain.Album(app.naviamp.domain.AlbumId("single"), "Single", "Artist", null, null)
-        val seed = app.naviamp.domain.Track(
-            id = app.naviamp.domain.TrackId("seed"), title = "Seed", artistName = "Artist", albumId = album.id,
-            albumTitle = album.title, durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
-        )
-        val tile = NaviampCoreCommand.Media.ItemAction(app.naviamp.ui.NaviampMediaItemActionRequest(
-            app.naviamp.ui.SharedMediaItemUi("single", "Single", "Artist"), app.naviamp.ui.NaviampMediaItemCommand.PlayAlbumMix))
-
-        // The tile is resolved locally first (seed lookup), then the resolved mix goes to the target.
-        handler.execute(tile)
-        handler.execute(NaviampCoreCommand.Home.StartAlbumMix(album, seed))
-        runCurrent()
-
-        assertEquals(listOf<NaviampCoreCommand>(tile), local)
-        val started = sent.map { it.message }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectCommandRequest>()
-            .map { it.command }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectStartMedia>().single()
-        assertEquals(app.naviamp.domain.connect.NaviampConnectMediaType.Track, started.mediaType)
-        assertEquals("seed", started.mediaId)
-        assertTrue(started.startRadio)
-        controller.close()
-    }
 
     @Test
     fun anIdlePeerThatStopsRespondingTriggersReconnect() = runTest {
@@ -1373,6 +1556,8 @@ class NaviampCoreConnectControllerTest {
         sourceIdentity: () -> app.naviamp.domain.connect.NaviampConnectSourceIdentity? = { null },
         trackSelectionContext: (NaviampCoreCommand) -> app.naviamp.domain.connect.NaviampConnectPlaybackContext? = { null },
         extraCapabilities: Set<app.naviamp.domain.connect.NaviampConnectCapability> = emptySet(),
+        stationSessionVersion: Int = 0,
+        generatedRadio: NaviampCoreConnectGeneratedRadioPort? = null,
         send: suspend (app.naviamp.domain.connect.NaviampConnectEnvelope) -> Unit,
     ): Triple<NaviampCoreConnectController, NaviampCoreStateStore, NaviampConnectControllerSession> {
         var stored: String? = null
@@ -1409,7 +1594,7 @@ class NaviampCoreConnectControllerTest {
             discovery = discovery, permissionSettings = permissionSettings,
             newOpaqueId = { "unused" }, newPairingCode = { "123456" }, nowEpochMillis = { testScheduler.currentTime },
         ), providerSessions = providerSessions, sourceIdentity = sourceIdentity, localPlayback = playback,
-            trackSelectionContext = trackSelectionContext)
+            trackSelectionContext = trackSelectionContext, generatedRadio = generatedRadio)
         if (discovery != null) controller.actions.onRefreshTargets()
         var next = 0
         val session = NaviampConnectControllerSession(NaviampConnectSessionTransport(send),
@@ -1421,7 +1606,8 @@ class NaviampCoreConnectControllerTest {
             addAll(extraCapabilities)
             if (queueHandoffSupported) add(NaviampConnectCapability.QueueHandoff)
         },
-            NaviampConnectTargetSnapshot(0, target, emptySet()))
+            NaviampConnectTargetSnapshot(0, target, emptySet(), stationSessionVersion = stationSessionVersion),
+            stationSessionVersion = stationSessionVersion)
         controller.adoptControllerSession(session, companionProvisioningSupported)
         return Triple(controller, store, session)
     }

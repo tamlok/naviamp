@@ -1,5 +1,13 @@
 package app.naviamp.presentation
 import app.naviamp.ui.NaviampConnectStatusMessage
+import app.naviamp.domain.connect.NaviampConnectStationStart
+import app.naviamp.domain.connect.NaviampConnectStationHandoff
+import app.naviamp.domain.connect.NaviampConnectStationSessionVersion
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.GeneratedRadioBatch
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
 import app.naviamp.ui.NaviampConnectStatusText
 
 import app.naviamp.app.NaviampConnectAdvertisingController
@@ -150,6 +158,7 @@ class NaviampCoreConnectController(
     private val playbackOutputs: NaviampPlaybackOutputSelectionController = NaviampPlaybackOutputSelectionController(),
     private val trackSelectionContext: (NaviampCoreCommand) -> app.naviamp.domain.connect.NaviampConnectPlaybackContext? =
         { null },
+    private val generatedRadio: NaviampCoreConnectGeneratedRadioPort? = null,
 ) {
     private val controllerScope = CoroutineScope(
         scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]),
@@ -321,6 +330,7 @@ class NaviampCoreConnectController(
             snapshot = { controllerSession?.state?.value?.snapshot },
             send = ::sendRemoteCommand,
             onStopControlling = ::stopControlling,
+            openGeneratedStation = { generatedRadio?.open(it) },
         ),
     )
 
@@ -500,6 +510,103 @@ class NaviampCoreConnectController(
         }
     }
 
+    /** True means handled, including a rejected transfer. Never fall back to local generation. */
+    internal fun startGeneratedStationOnSelectedDevice(
+        station: GeneratedRadioStation,
+        endlessEnabled: Boolean,
+    ): Boolean {
+        if (playbackDestination.selectedTrustedDeviceId() == null) return false
+        val connected = controllerSession
+        if (!canControl || connected == null || !playbackDestination.isConnectedRemote()) {
+            notice = app.naviamp.ui.NaviampConnectStatusNotice.RemoteUnavailable
+            publish()
+            return true
+        }
+        if (connected.state.value.stationSessionVersion < NaviampConnectStationSessionVersion) {
+            unsupportedGeneratedStation()
+            return true
+        }
+        val identity = sourceIdentity()
+        if (identity == null || station.sourceIdentity?.isCompatibleWith(identity) != true) {
+            sourceMismatchRecoveryVisible = true
+            status = null
+            publish()
+            return true
+        }
+        val command = try {
+            NaviampConnectStationStart(identity, station.copy(sourceId = null, libraryScope = ""), endlessEnabled)
+        } catch (_: IllegalArgumentException) {
+            status = null
+            statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.GeneratedStationRecipeUnavailable)
+            publish()
+            return true
+        }
+        sendRemoteCommand(command, activatesPlaybackAuthority = true)
+        return true
+    }
+
+    private fun unsupportedGeneratedStation() {
+        status = null
+        statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.GeneratedStationUpgradeRequired)
+        publish()
+    }
+
+    /** Exact batch replay is negotiated too: an older target could otherwise enable ordinary autoplay. */
+    internal fun playGeneratedBatchOnSelectedDevice(station: GeneratedRadioStation, batch: GeneratedRadioBatch): Boolean {
+        if (playbackDestination.selectedTrustedDeviceId() == null) return false
+        val connected = controllerSession
+        if (!canControl || connected == null || !playbackDestination.isConnectedRemote()) {
+            notice = app.naviamp.ui.NaviampConnectStatusNotice.RemoteUnavailable
+            publish()
+            return true
+        }
+        if (connected.state.value.stationSessionVersion < NaviampConnectStationSessionVersion) {
+            unsupportedGeneratedStation()
+            return true
+        }
+        val identity = sourceIdentity()
+        if (identity == null || station.sourceIdentity?.isCompatibleWith(identity) != true) {
+            sourceMismatchRecoveryVisible = true
+            status = null
+            publish()
+            return true
+        }
+        if (batch.stationId != station.id || batch.stationRevision != station.revision || batch.tracks.size !in 1..10_000) {
+            status = null
+            statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.GeneratedStationRecipeUnavailable)
+            publish()
+            return true
+        }
+        val transferId = services.newOpaqueId()
+        val tracks = batch.tracks.map { it.toTrack() }
+        val occurrences = tracks.indices.map { RadioQueueOccurrence("$transferId:$it", station.id, batch.id) }
+        val queue = app.naviamp.domain.queue.PlaybackQueue(tracks, 0, occurrences = occurrences)
+        val command = try {
+            naviampCoreConnectStationHandoff(
+                NaviampLivePlaybackState(queue = queue, currentTrack = tracks.first()), identity,
+                GeneratedRadioCheckpoint(station, mode = GeneratedRadioPlaybackMode.FiniteBatch,
+                    endlessEnabled = false, occurrences = occurrences), playing = true,
+            )
+        } catch (_: IllegalArgumentException) {
+            status = null
+            statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.GeneratedStationRecipeUnavailable)
+            publish()
+            return true
+        }
+        sendRemoteCommand(command, activatesPlaybackAuthority = true)
+        return true
+    }
+
+    /** Fetch/error/recipe transitions need a snapshot even when no playback track changed. */
+    fun onGeneratedRadioChanged() {
+        if (targetSession == null) return
+        targetSnapshotPublishJob?.cancel()
+        targetSnapshotPublishJob = controllerScope.launch {
+            delay(TargetSnapshotDebounceMillis)
+            publishTargetPlaybackSnapshot()
+        }
+    }
+
     /** Consumes a resolved queue only when Connect owns the selected output; never starts local audio. */
     internal fun playTracksOnSelectedDevice(tracks: List<app.naviamp.domain.Track>, index: Int = 0): Boolean {
         if (playbackDestination.selectedTrustedDeviceId() == null) return false
@@ -573,6 +680,9 @@ class NaviampCoreConnectController(
         val selection = command.connectMediaSelectionOrNull()
             ?.withTrackListContext(trackSelectionContext(command))
             ?: return false
+        // Core first resolves the complete recipe and then calls startGeneratedStationOnSelectedDevice.
+        // Sending this legacy flag would silently discard tuning and multi-seed station identity.
+        if (selection.startRadio) return false
         val identity = sourceIdentity()
         if (identity == null) {
             status = "Connect this device to the same music source before playing on the TV."
@@ -1332,6 +1442,7 @@ class NaviampCoreConnectController(
             target = localTargetDevice,
             capabilities = supportedTargetCapabilities,
             sourceIdentity = sourceIdentity,
+            generatedRadio = generatedRadio,
         )
         val live = playback.connectLiveState()
         val snapshot = snapshots.create(
@@ -1347,6 +1458,7 @@ class NaviampCoreConnectController(
                 capabilities = supportedTargetCapabilities,
                 snapshot = snapshot,
                 companionProvisioningSupported = NaviampConnectCapability.ConnectionProvisioning in supportedTargetCapabilities,
+                stationSessionVersion = snapshot.stationSessionVersion,
                 initialSetupAllowed = initialSetupAuthorization.permitsSetup(session.sessionId,
                     targetIsEmpty(), services.nowEpochMillis()),
             ),
@@ -1369,6 +1481,7 @@ class NaviampCoreConnectController(
                 catalog,
                 stateStore,
                 snapshots,
+                generatedRadio = generatedRadio,
                 offerProvisioning = { offer ->
                     trace(NaviampCoreConnectTraceKind.SetupOfferReceived, offer.setupId)
                     val automatic = offer.initialSetup && initialSetupAuthorization.permitsSetup(
@@ -1435,6 +1548,7 @@ class NaviampCoreConnectController(
             snapshot = welcome.snapshot,
             nextOutboundSequence = session.nextOutboundSequence(),
             lastReceivedSequence = welcomeEnvelope.sequence,
+            stationSessionVersion = welcome.stationSessionVersion,
         )
         authenticatedSession = session
         controllerInitialSetupAllowed = welcome.initialSetupAllowed &&
@@ -1736,15 +1850,30 @@ class NaviampCoreConnectController(
             return
         }
         val connected = checkNotNull(controllerSession)
+        val checkpoint = generatedRadio?.checkpoint()
+        if (checkpoint != null && connected.state.value.stationSessionVersion < NaviampConnectStationSessionVersion) {
+            unsupportedGeneratedStation()
+            return
+        }
         val trustedDeviceId = playbackDestination.selectedTrustedDeviceId()
         controllerScope.launch {
             status = "Sending this queue to ${connected.state.value.target?.displayName ?: "the TV"}…"
             statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.SendingThisQueueToDevice, listOf(connected.state.value.target?.displayName))
             publish()
-            val handoff = if (playing == null) {
-                naviampCoreConnectQueueHandoff(checkNotNull(live), checkNotNull(identity))
-            } else {
-                naviampCoreConnectQueueHandoff(checkNotNull(live), checkNotNull(identity), playing)
+            val handoff = try {
+                if (checkpoint != null) naviampCoreConnectStationHandoff(
+                    checkNotNull(live), checkNotNull(identity), checkpoint,
+                    playing ?: (live.playbackState == app.naviamp.domain.playback.PlaybackState.Playing ||
+                        live.playbackState == app.naviamp.domain.playback.PlaybackState.Loading),
+                ) else naviampCoreConnectQueueHandoff(
+                    checkNotNull(live), checkNotNull(identity),
+                    playing ?: (live.playbackState == app.naviamp.domain.playback.PlaybackState.Playing),
+                )
+            } catch (_: IllegalArgumentException) {
+                status = null
+                statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.GeneratedStationProvenanceUnavailable)
+                publish()
+                return@launch
             }
             when (val sent = sendBounded(connected, handoff)) {
                 null -> return@launch
@@ -1968,22 +2097,50 @@ class NaviampCoreConnectController(
             publish()
             return
         }
+        if (remote.generatedRadio != null &&
+            (generatedRadio == null || connected.state.value.stationSessionVersion < NaviampConnectStationSessionVersion)
+        ) {
+            unsupportedGeneratedStation()
+            return
+        }
         controllerScope.launch {
-            val wasPlaying = remote.playback.state ==
-                app.naviamp.domain.connect.NaviampConnectPlaybackState.Playing
+            val wasPlaying = remote.playback.state == app.naviamp.domain.connect.NaviampConnectPlaybackState.Playing ||
+                remote.playback.state == app.naviamp.domain.connect.NaviampConnectPlaybackState.Buffering
             if (wasPlaying && !sendRemoteCommandAndAwait(NaviampConnectPause)) {
                 status = "The TV did not pause, so its queue was left in place."
                 statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.TheTvDidNotPauseSoItsQueueWasLeftInPlace)
                 publish()
                 return@launch
             }
-            val accepted = playback.handoffConnectQueue(
+            if (controllerSession !== connected) return@launch
+            // Request a fresh authoritative position/checkpoint after pausing, not the old UI snapshot.
+            if (remote.generatedRadio != null && !sendRemoteCommandAndAwait(app.naviamp.domain.connect.NaviampConnectRequestSnapshot, awaitSnapshot = true)) {
+                if (wasPlaying) sendRemoteCommand(NaviampConnectPlay)
+                return@launch
+            }
+            if (controllerSession !== connected) return@launch
+            val current = connected.state.value.snapshot ?: return@launch
+            val checkpoint = current.generatedRadio
+            val accepted = if (remote.generatedRadio != null && checkpoint == null) false else if (checkpoint != null) {
+                val handoff = try {
+                    NaviampConnectStationHandoff(
+                        sourceIdentity = remoteIdentity,
+                        checkpoint = checkpoint.copy(wasPaused = !wasPlaying),
+                        queue = current.queue,
+                        positionMillis = current.playback.positionMillis,
+                        repeatMode = current.playback.repeatMode,
+                        shuffled = current.playback.shuffled,
+                        playing = wasPlaying,
+                    )
+                } catch (_: IllegalArgumentException) { null }
+                handoff != null && generatedRadio?.handoff(handoff) == true
+            } else playback.handoffConnectQueue(
                 NaviampConnectHandoffQueue(
                     sourceIdentity = remoteIdentity,
-                    queue = remote.queue,
-                    positionMillis = remote.playback.positionMillis,
-                    repeatMode = remote.playback.repeatMode,
-                    shuffled = remote.playback.shuffled,
+                    queue = current.queue,
+                    positionMillis = current.playback.positionMillis,
+                    repeatMode = current.playback.repeatMode,
+                    shuffled = current.playback.shuffled,
                     playing = wasPlaying,
                 ),
             )
@@ -1992,6 +2149,7 @@ class NaviampCoreConnectController(
                 status = "This device could not resolve every track, so the TV kept playback authority."
                 statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.ThisDeviceCouldNotResolveEveryTrackSoTheTvKeptPlaybackAuthority)
             } else {
+                playbackDestination.selectLocal()
                 status = "The TV queue is now playing on this device."
                 statusMessage = NaviampConnectStatusMessage(NaviampConnectStatusText.TheTvQueueIsNowPlayingOnThisDevice)
             }
@@ -2001,13 +2159,16 @@ class NaviampCoreConnectController(
 
     private suspend fun sendRemoteCommandAndAwait(
         command: app.naviamp.domain.connect.NaviampConnectCommand,
+        awaitSnapshot: Boolean = false,
     ): Boolean {
         val connected = controllerSession ?: return false
         return when (val sent = sendBounded(connected, command)) {
             null -> false
-            is app.naviamp.app.NaviampConnectCommandSendResult.Sent ->
-                awaitRemoteCommand(connected, sent.requestId) is
+            is app.naviamp.app.NaviampConnectCommandSendResult.Sent -> {
+                val acknowledged = awaitRemoteCommand(connected, sent.requestId) is
                     app.naviamp.app.NaviampConnectRequestTerminalResult.Acknowledged
+                acknowledged && (!awaitSnapshot || connected.awaitRequestedSnapshot(sent.requestId, 10_000L) != null)
+            }
             is app.naviamp.app.NaviampConnectCommandSendResult.Rejected -> false
             is app.naviamp.app.NaviampConnectCommandSendResult.Failed -> {
                 handleControllerWriteFailure(connected, sent.result)

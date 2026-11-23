@@ -53,6 +53,29 @@ targets without platform-specific product behavior. The complete experience chec
   session to create stream requests; compatible transferred metadata may establish the queue
   immediately while target-side enrichment or validation continues asynchronously.
 
+### Generated station session extension (development)
+
+`stationSessionVersion` is an additive integer, defaulting to zero for older peers. Version 1
+support enables `station_start`, `station_handoff` and revision-bound `station_retry` commands.
+No new enum capability is placed in pre-negotiation discovery/hello payloads. An unsupported
+station operation is rejected before playback changes; a recipe is never attached to the legacy
+`handoff_queue` command where an older target would silently discard it.
+
+Station handoff carries the complete original recipe, source/library identity, ordered occurrence
+provenance, position, repeat/shuffle and finite-versus-continuous policy. The target resolves catalog
+IDs through its own provider and validates the source before accepting ownership. Recipes and
+snapshots contain no authenticated stream URLs or provider credentials. Explicit batch replay uses
+the negotiated handoff with finite policy, preserving duplicates without enabling autoplay.
+Anonymous finite Sonic/preview batches carry occurrence IDs and finite policy without requiring a
+station recipe. Preserving that no-autoplay policy also requires the extension; older peers are
+rejected rather than silently turning a finite batch into ordinary autoplay. Ordinary unmarked
+queues continue to use the unchanged legacy handoff path.
+
+Only the playback owner requests new batches. Return-to-local pauses the target and waits for an
+acknowledged fresh snapshot before restoring the recipe/checkpoint. Station status changes publish
+even when the queue has not changed. Cast remains sender-owned: its receiver plays media, not
+recommendation recipes.
+
 ## Version 1 security review — 2026-09-04
 
 **Decision:** Approved for the Android TV preview on Android and JVM/Desktop. This is an internal

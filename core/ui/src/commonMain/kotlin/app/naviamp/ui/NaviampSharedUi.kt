@@ -628,6 +628,8 @@ internal fun ConnectedContent(
     }
 
     val browseContent: @Composable () -> Unit = { when {
+        uiState.generatedRadio.open -> NaviampGeneratedRadioContent(uiState.generatedRadio, actions.generatedRadioActions,
+            colors, mediaActions, canDownload = uiState.shellChrome.supportsDownloads)
         albumDetail.selectedAlbum != null -> NaviampAlbumDetailContent(
             colors = colors,
             screen = albumDetail,
@@ -714,6 +716,7 @@ internal fun ConnectedContent(
                 if (artistMixBuilder.selectedArtists.isNotEmpty()) {
                     PrimaryButton("Play Mix", colors, onClick = artistMixActions.onPlay)
                 }
+                NaviampGeneratedRadioBuilderActions("ArtistMix", artistMixBuilder.selectedArtists.isNotEmpty(), actions.generatedRadioActions)
             }
             SharedRoute.AlbumMix -> Column(
                 modifier = Modifier.fillMaxSize(),
@@ -736,6 +739,7 @@ internal fun ConnectedContent(
                 if (albumMixBuilder.selectedAlbums.isNotEmpty()) {
                     PrimaryButton("Play Mix", colors, onClick = albumMixActions.onPlay)
                 }
+                NaviampGeneratedRadioBuilderActions("AlbumMix", albumMixBuilder.selectedAlbums.isNotEmpty(), actions.generatedRadioActions)
             }
             SharedRoute.GenreMix -> Column(
                 modifier = Modifier.fillMaxSize(),
@@ -758,6 +762,7 @@ internal fun ConnectedContent(
                 if (genreMixBuilder.selectedGenres.isNotEmpty()) {
                     PrimaryButton("Play Mix", colors, onClick = genreMixActions.onPlay)
                 }
+                NaviampGeneratedRadioBuilderActions("GenreMix", genreMixBuilder.selectedGenres.isNotEmpty(), actions.generatedRadioActions)
             }
             SharedRoute.SonicPath -> Column(
                 modifier = Modifier.fillMaxSize(),
@@ -822,6 +827,8 @@ internal fun ConnectedContent(
                         }
                     }
                 }
+                NaviampGeneratedRadioBuilderActions("SonicMix", sonicMixBuilder.selectedTracks.isNotEmpty() && !sonicMixBuilder.loading,
+                    actions.generatedRadioActions, sonic = true)
             }
             SharedRoute.Radio -> NaviampInternetRadioContent(
                 colors = colors,
@@ -836,6 +843,8 @@ internal fun ConnectedContent(
                 stateHolder = routeStateHolder,
             ) {
                 NaviampSettingsContent(
+                    generatedRadio = uiState.generatedRadio,
+                    generatedRadioActions = actions.generatedRadioActions,
                     colors = colors,
                     desktopShortcutPlatform = uiState.capabilities.desktopShortcutPlatform,
                     connectionSettings = connectionSettings,
@@ -1030,9 +1039,13 @@ fun NaviampSettingsContent(
     connect: NaviampConnectSettingsUi = NaviampConnectSettingsUi(),
     connectActions: NaviampConnectSettingsActions? = null,
     showTitle: Boolean = true,
+    generatedRadio: NaviampGeneratedRadioUi = NaviampGeneratedRadioUi(),
+    generatedRadioActions: NaviampGeneratedRadioActions? = null,
 ) {
     val connection = connectionSettings.connection
     NaviampSharedSettingsContent(
+        generatedRadio = generatedRadio,
+        generatedRadioActions = generatedRadioActions,
         colors = colors,
         modifier = modifier,
         showTitle = showTitle,

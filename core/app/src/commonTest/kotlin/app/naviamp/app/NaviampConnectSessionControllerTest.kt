@@ -25,6 +25,15 @@ import app.naviamp.domain.connect.NaviampConnectSourceIdentity
 import app.naviamp.domain.connect.NaviampConnectStartMedia
 import app.naviamp.domain.connect.NaviampConnectRepeatMode
 import app.naviamp.domain.connect.NaviampConnectTargetSnapshot
+import app.naviamp.domain.connect.NaviampConnectStationStart
+import app.naviamp.domain.connect.NaviampConnectStationHandoff
+import app.naviamp.domain.connect.NaviampConnectQueueOccurrence
+import app.naviamp.domain.connect.NaviampConnectRequestSnapshot
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.GeneratedRadioKind
+import app.naviamp.domain.radio.GeneratedRadioCheckpoint
+import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.joinAll
@@ -38,6 +47,115 @@ import kotlin.test.assertTrue
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampConnectSessionControllerTest {
+    @Test
+    fun stationSupportMustBeNegotiatedOnBothWelcomeAndSnapshotBeforeAnyWrite() = runTest {
+        for ((welcomeVersion, snapshotVersion) in listOf(0 to 0, 1 to 0, 0 to 1)) {
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            val controller = NaviampConnectControllerSession(NaviampConnectSessionTransport(sent::add), incrementingRequestIds())
+            val initial = snapshot(0).copy(stationSessionVersion = snapshotVersion,
+                capabilities = capabilities() + setOf(NaviampConnectCapability.CatalogPlayback, NaviampConnectCapability.QueueHandoff))
+            controller.connect(SessionId, 1, targetDevice(), initial.capabilities, initial,
+                stationSessionVersion = welcomeVersion)
+            val handoff = stationHandoff()
+            for (command in listOf(NaviampConnectStationStart(handoff.sourceIdentity, handoff.checkpoint.station!!),
+                handoff, stationHandoff(anonymous = true))) {
+                val rejected = assertIs<NaviampConnectCommandSendResult.Rejected>(controller.send(command))
+                assertEquals(NaviampConnectErrorCode.UnsupportedCapability, rejected.error.code)
+            }
+            assertTrue(sent.isEmpty())
+            assertEquals(initial, controller.state.value.snapshot)
+        }
+    }
+
+    @Test
+    fun unsupportedMismatchedLibraryAndStaleStationHandoffsCannotReachPlaybackExecutor() = rejectedGeneratedHandoffs(false)
+
+    @Test
+    fun unsupportedMismatchedLibraryAndStaleFiniteHandoffsCannotReachPlaybackExecutor() = rejectedGeneratedHandoffs(true)
+
+    private fun rejectedGeneratedHandoffs(anonymous: Boolean) = runTest {
+        val handoff = stationHandoff(anonymous)
+        val supported = snapshot(0).copy(stationSessionVersion = 1, sourceIdentity = handoff.sourceIdentity,
+            capabilities = capabilities() + NaviampConnectCapability.QueueHandoff)
+        for ((initial, expectedError) in listOf(
+            supported.copy(stationSessionVersion = 0) to NaviampConnectErrorCode.UnsupportedCapability,
+            supported.copy(sourceIdentity = handoff.sourceIdentity.copy(libraryIds = listOf("different-library"))) to
+                NaviampConnectErrorCode.SourceMismatch,
+            supported.copy(revision = 3) to NaviampConnectErrorCode.RevisionConflict,
+        )) {
+            val sent = mutableListOf<NaviampConnectEnvelope>()
+            var executed = 0
+            val target = NaviampConnectTargetSession(SessionId, 1, initial, NaviampConnectSessionTransport(sent::add),
+                NaviampConnectTargetCommandExecutor { _, current ->
+                    executed++
+                    NaviampConnectTargetCommandResult.Success(current, changed = false)
+                })
+            target.receive(commandEnvelope(0, "handoff", handoff))
+            assertEquals(0, executed)
+            assertEquals(initial, target.snapshot())
+            assertEquals(expectedError, sent.mapNotNull { it.message as? NaviampConnectErrorMessage }.single().code)
+        }
+    }
+
+    @Test
+    fun negotiatedHandoffPreservesCheckpointAndExecutesOnlyOnceForRepeatedRequest() = negotiatedGeneratedHandoff(false)
+
+    @Test
+    fun negotiatedAnonymousFiniteHandoffPreservesPolicyAndExecutesOnlyOnce() = negotiatedGeneratedHandoff(true)
+
+    private fun negotiatedGeneratedHandoff(anonymous: Boolean) = runTest {
+        val handoff = stationHandoff(anonymous)
+        val sent = mutableListOf<NaviampConnectEnvelope>()
+        var executions = 0
+        val initial = snapshot(0).copy(stationSessionVersion = 1, sourceIdentity = handoff.sourceIdentity,
+            capabilities = capabilities() + NaviampConnectCapability.QueueHandoff)
+        val target = NaviampConnectTargetSession(SessionId, 1, initial, NaviampConnectSessionTransport(sent::add),
+            NaviampConnectTargetCommandExecutor { command, current ->
+                val accepted = assertIs<NaviampConnectStationHandoff>(command)
+                executions++
+                NaviampConnectTargetCommandResult.Success(current.copy(revision = 1,
+                    generatedRadio = accepted.checkpoint, queue = accepted.queue,
+                    playback = current.playback.copy(positionMillis = accepted.positionMillis)), changed = true)
+            })
+        target.receive(commandEnvelope(0, "same-request", handoff))
+        target.receive(commandEnvelope(1, "same-request", handoff))
+        assertEquals(1, executions)
+        assertEquals(handoff.checkpoint, target.snapshot().generatedRadio)
+        assertEquals(12_345L, target.snapshot().playback.positionMillis)
+        assertEquals(2, sent.count { it.message is NaviampConnectAcknowledgement })
+        assertEquals(1, sent.count { it.message is NaviampConnectSnapshotMessage })
+    }
+
+    @Test
+    fun returningPlaybackWaitsForTheSnapshotRevisionAcknowledgedByResampling() = runTest {
+        val controller = NaviampConnectControllerSession(NaviampConnectSessionTransport {}, incrementingRequestIds())
+        controller.connect(SessionId, 1, targetDevice(), capabilities(), snapshot(0))
+        val request = assertIs<NaviampConnectCommandSendResult.Sent>(controller.send(NaviampConnectRequestSnapshot))
+        controller.receive(NaviampConnectEnvelope(1, SessionId, 0, responseToRequestId = request.requestId,
+            message = NaviampConnectAcknowledgement(2)))
+        val awaited = async { controller.awaitRequestedSnapshot(request.requestId, 1_000) }
+        runCurrent()
+        assertTrue(!awaited.isCompleted)
+        controller.receive(NaviampConnectEnvelope(1, SessionId, 1, message = NaviampConnectSnapshotMessage(snapshot(1))))
+        runCurrent()
+        assertTrue(!awaited.isCompleted)
+        val fresh = snapshot(2).copy(playback = NaviampConnectPlaybackSnapshot(positionMillis = 42_000))
+        controller.receive(NaviampConnectEnvelope(1, SessionId, 2, message = NaviampConnectSnapshotMessage(fresh)))
+        assertEquals(fresh, awaited.await())
+    }
+
+    private fun stationHandoff(anonymous: Boolean = false): NaviampConnectStationHandoff {
+        val source = sourceIdentity("listener")
+        val station = if (anonymous) null else GeneratedRadioStation("station", "Library", GeneratedRadioKind.Library, sourceIdentity = source, revision = 3)
+        return NaviampConnectStationHandoff(source,
+            GeneratedRadioCheckpoint(station = station, wasPaused = true, seenTrackIds = listOf("previous"),
+                mode = if (anonymous) GeneratedRadioPlaybackMode.FiniteBatch else GeneratedRadioPlaybackMode.Station,
+                endlessEnabled = !anonymous,
+                occurrences = listOf(RadioQueueOccurrence("entry", station?.id, if (anonymous) null else "batch"))),
+            NaviampConnectQueueSnapshot(listOf(NaviampConnectQueueOccurrence("entry", "song", "Song", "Artist")), 0),
+            12_345, NaviampConnectRepeatMode.Off, shuffled = false, playing = false)
+    }
+
     @Test
     fun losingTheControllerTransportDoesNotIssuePlaybackCommandsOrStopTheTarget() = runTest {
         val playing = snapshot(0).let { it.copy(playback = it.playback.copy(state = NaviampConnectPlaybackState.Playing)) }

@@ -26,7 +26,50 @@ repeated clicks during the same request do not start another build or dismiss it
 The existing serialized preference and Autoplay keys remain compatible with local storage,
 export/import, and sync. Stored explicit choices survive. Unconfigured settings and older exports
 with the original false default use Instant Mix; they no longer automatically opt into Sonic.
-There is no database migration.
+The method-preference change itself needs no database migration; generated-session persistence below adds one.
+
+### Generated stations in development builds
+
+Generated station recipes, preview batches and active playback checkpoints are separate. Start
+station generates from its original seeds; Play this batch replays the saved order, including
+duplicates, without station continuation or ordinary autoplay. Sonic Mix retains finite Play and
+adds an explicit continuous-radio action; Sonic Path remains finite.
+
+Explicit stations use a separate endless-radio preference, enabled by default. They prefetch at
+two upcoming tracks or sixty seconds remaining. Repeat overrides extension; pause, stop, queue
+replacement and source/authority changes cannot be undone by a late result. Appending a batch does
+not restart the current track. Refreshing a preview does not affect playback; Apply replaces only
+generated upcoming occurrences, preserving user additions, priority entries and duplicates.
+
+All generated modes share seed balancing, familiarity and artist/album spacing. Artist-block and
+single-artist modes override incompatible spacing preferences. Same-decade and single-artist
+restrictions do not broaden an empty result. Sonic Recent bias uses timestamp age. Recommendations
+exclude recent listening for 24 hours by default, configurable independently of exact batch replay.
+Short/empty results remain valid; no selected-method substitution is permitted.
+
+Home recommendations use listening activity, favorites and an exploration allocation. The daily
+selection persists across navigation/restarts; explicit refresh rotates eligible seeds. Saved and
+pinned stations live in their own Home collection and are not replaced by rotation. Preview and
+station actions are shared with keyboard/TV surfaces. Cached metadata is not downloaded audio.
+
+Recipes, pins and preferences use settings-sync schema 2. Upgrade devices sharing the settings
+file; older builds cannot preserve these fields when forcibly exporting. Importing a version-1
+document preserves local station fields that version 1 cannot represent. Legacy radio batches
+remain exact; missing source/seed/options information is not guessed. SQL migration 32 adds the
+nullable generated playback checkpoint, written atomically with the queue. The checkpoint records
+pause state separately from queue structure, so saving unchanged tracks cannot lose a pause.
+Finite batch checkpoints also retain unique occurrence IDs, including duplicate songs, so a
+restart cannot discard their pause and no-autoplay policy. Preview-only seed resolution is kept
+with the batch and does not rewrite a saved recipe. Cached selected-library membership requires
+matching folder metadata; unknown membership is resolved through the provider's scoped catalog.
+
+Additional acceptance: cross two natural generated-batch boundaries; insert a manual duplicate,
+refresh/apply while paused, and confirm its occurrence and position survive; clear Up Next during
+a slow request; restore a paused session with launch-autoplay enabled; round-trip version-1 and
+version-2 settings; check strict-filter exhaustion and source/library changes. The Android adapter
+acceptance separates proactive stations from ordinary autoplay-at-EOF. Connect station transfer
+requires negotiated support; Cast retains generation in the sender and fills the shared queue
+before loading its next item. Neither path is proof of native gapless audio by itself.
 
 ## Acceptance checks
 

@@ -821,34 +821,52 @@ class NaviampCoreConnectionControllerTest {
         assertFalse(picker.loading)
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
-    fun savingLibrarySourcesReconnectsSilentlyAndRefreshesTheCurrentSource() = kotlinx.coroutines.test.runTest {
+    fun savingLibrarySourcesInvalidatesTheSameSourceBeforeReloadingItsNewScope() = kotlinx.coroutines.test.runTest {
         val transitions = mutableListOf<Pair<String?, String>>()
         var connectedNotifications = 0
+        val events = mutableListOf<String>()
         val fixture = fixture(
             selectedMusicFolderIds = listOf("1"),
             availableMusicFolders = listOf(
                 ConnectionFormMusicFolder("1", "Music", defaultSelected = true),
                 ConnectionFormMusicFolder("2", "Classical"),
             ),
-            onSourceChanging = { previous, next -> transitions += previous to next },
-            onConnected = { connectedNotifications += 1 },
+            onSourceChanging = { previous, next ->
+                transitions += previous to next
+                events += "invalidate"
+            },
+            onConnected = {
+                connectedNotifications += 1
+                events += "reload"
+            },
         )
         fixture.controller.execute(NaviampCoreCommand.Connection.ConnectSaved(savedConnectionUi()))
         fixture.port.connectRequests.clear()
         transitions.clear()
         connectedNotifications = 0
+        events.clear()
         fixture.controller.execute(NaviampCoreCommand.Library.OpenSources)
         fixture.controller.dispatch(NaviampCoreCommand.Library.ToggleSource("2"))
+        fixture.controller.dispatch(NaviampCoreCommand.Library.ToggleSource("1"))
+        val gate = CompletableDeferred<Unit>()
+        fixture.port.connectGate = gate
 
-        fixture.controller.execute(NaviampCoreCommand.Library.SaveSources)
+        val save = launch { fixture.controller.execute(NaviampCoreCommand.Library.SaveSources) }
+        runCurrent()
+        assertTrue(events.isEmpty(), "The old scope stays valid until the new provider session connects")
+        gate.complete(Unit)
+        save.join()
 
         val (request, plan) = fixture.port.connectRequests.single()
-        assertEquals(listOf("1", "2"), (request as NaviampCoreConnectionRequest.Form).form.selectedMusicFolderIds)
+        assertEquals(listOf("2"), (request as NaviampCoreConnectionRequest.Form).form.selectedMusicFolderIds)
         assertEquals("source-1", request.savedConnectionId)
         assertTrue(plan.restoreSavedSession)
         assertEquals(listOf<Pair<String?, String>>("source-1" to "source-1"), transitions)
         assertEquals(1, connectedNotifications)
+        assertEquals(listOf("invalidate", "reload"), events)
+        assertEquals(listOf("2"), fixture.port.inventory.connections.single().selectedMusicFolderIds)
         assertFalse(fixture.store.state.value.shell.library.sourcePicker.visible)
     }
 
@@ -893,9 +911,14 @@ class NaviampCoreConnectionControllerTest {
 
     @Test
     fun failedLibrarySourceSaveKeepsTheConnectedSessionAndPickerOpen() = kotlinx.coroutines.test.runTest {
-        val fixture = fixture(availableMusicFolders = listOf(ConnectionFormMusicFolder("1", "Music")))
+        var invalidations = 0
+        val fixture = fixture(
+            availableMusicFolders = listOf(ConnectionFormMusicFolder("1", "Music")),
+            onSourceChanging = { _, _ -> invalidations++ },
+        )
         fixture.controller.execute(NaviampCoreCommand.Connection.ConnectSaved(savedConnectionUi()))
         fixture.port.connectRequests.clear()
+        invalidations = 0
         fixture.controller.execute(NaviampCoreCommand.Library.OpenSources)
         fixture.port.connectFailure = IllegalStateException("provider rejected selection")
 
@@ -907,6 +930,7 @@ class NaviampCoreConnectionControllerTest {
         assertEquals(NaviampLibrarySourcePickerError.SaveFailed, picker.errorKind)
         assertTrue(fixture.store.state.value.shell.connectionSettings.connection.connected)
         assertEquals("source-1", fixture.store.state.value.shell.connectionSettings.currentSourceId)
+        assertEquals(0, invalidations)
     }
 
     @Test fun inPlaceSelectionUsesStoredCredentialsAndPreservesPhoneEditorAndAccountState() = kotlinx.coroutines.test.runTest {

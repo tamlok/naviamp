@@ -759,7 +759,7 @@ class NaviampCorePlaybackControllerTest {
     }
 
     @Test
-    fun nativeQueueEndUsesInstantMixWithoutSonicSupportEvenWithASavedSonicPreference() = runTest {
+    fun nativeQueueEndHonorsExplicitMethodWhenSonicSupportIsAbsent() = runTest {
         for (savedSonic in listOf(false, true)) {
             val fixture = playbackFixture(this, supportsSonicSimilarity = false)
             fixture.store.updateShell { it.copy(playback = it.playback.copy(settings =
@@ -769,9 +769,10 @@ class NaviampCorePlaybackControllerTest {
             fixture.controller.attachNativePlayback()
             fixture.effects.observer?.onStateChanged(PlaybackState.Finished)
             advanceUntilIdle()
-            assertEquals("regular", fixture.live.state.value.currentTrack?.id?.value)
+            assertEquals(if (savedSonic) "five" else "regular", fixture.live.state.value.currentTrack?.id?.value)
             assertEquals(emptyList(), fixture.provider.sonicRequests)
-            assertEquals(null, fixture.store.state.value.overlays.radioNotice)
+            assertEquals(if (savedSonic) app.naviamp.domain.radio.RadioBuildOutcome.Unsupported else null,
+                fixture.store.state.value.overlays.radioNotice?.outcome)
         }
     }
 

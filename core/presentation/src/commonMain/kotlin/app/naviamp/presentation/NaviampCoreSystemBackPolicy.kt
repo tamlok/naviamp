@@ -8,6 +8,7 @@ fun NaviampCoreState.systemBackCommand(): NaviampCoreCommand? = when {
     overlays.statsForNerdsVisible -> NaviampCoreCommand.Settings.CloseStats
     else -> when (app.naviamp.ui.naviampBackTarget(shell)) {
         app.naviamp.ui.NaviampBackTarget.NowPlaying -> NaviampCoreCommand.Navigation.CloseNowPlaying
+        app.naviamp.ui.NaviampBackTarget.GeneratedRadio -> NaviampCoreCommand.GeneratedRadio(app.naviamp.ui.GeneratedRadioActionRequest(app.naviamp.ui.GeneratedRadioAction.Close))
         app.naviamp.ui.NaviampBackTarget.DiscoveryRequests -> NaviampCoreCommand.Home.DismissDiscoveryRequests
         app.naviamp.ui.NaviampBackTarget.DiscoveryArtist -> NaviampCoreCommand.Home.DismissDiscoveryArtist
         app.naviamp.ui.NaviampBackTarget.DiscoveryBrowser -> NaviampCoreCommand.Home.Browse(app.naviamp.domain.provider.DiscoveryBrowseAction.Close)

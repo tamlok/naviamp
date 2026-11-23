@@ -17,10 +17,17 @@ import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.settings.RecentRadioStream
 import app.naviamp.domain.radio.recentRadioStreamsForSource
 import kotlinx.coroutines.CancellationException
+import app.naviamp.domain.connect.NaviampConnectSourceIdentity
+import app.naviamp.domain.radio.DefaultRadioMinimumTracks
+import app.naviamp.domain.radio.GeneratedRadioRepository
+import app.naviamp.domain.radio.GeneratedRadioStation
+import app.naviamp.domain.radio.MemoryGeneratedRadioRepository
+import app.naviamp.domain.radio.RadioTuningSettings
+import kotlin.random.Random
 
 enum class HomeSection {
     RecentlyAdded, RandomAlbums, RecentAlbums, FrequentAlbums, Artists, FavoriteArtists,
-    FavoriteAlbums, Playlists, RecentlyPlayed, RadioStations, Genres, GenreSpotlight, Decade,
+    FavoriteAlbums, Playlists, RecentlyPlayed, RadioStations, Genres, GenreSpotlight, Decade, GeneratedMixes,
 }
 
 data class HomeContent(
@@ -51,10 +58,12 @@ data class HomeContent(
     val decadeToYear: Int = 0,
     val decadeAlbums: List<Album> = emptyList(),
     val failedSections: Set<HomeSection> = emptySet(),
+    val generatedMixes: List<GeneratedRadioStation> = emptyList(),
 ) {
     val isEmpty: Boolean
         get() = recentlyAddedAlbums.isEmpty() &&
             mixAlbums.isEmpty() &&
+            generatedMixes.isEmpty() &&
             recentAlbums.isEmpty() &&
             frequentAlbums.isEmpty() &&
             randomAlbums.isEmpty() &&
@@ -144,6 +153,8 @@ interface HomeLibraryRepository : FavoriteArtistActivityRepository {
     fun recentlyPlayedTracks(sourceId: String, limit: Long = 12): List<Track> = emptyList()
 
     fun recordPlayedTrack(sourceId: String, track: Track, playedAtEpochMillis: Long) = Unit
+
+    fun recentPlaybackHistory(sourceId: String, limit: Int = HomeMixHistoryLimit): List<HomePlaybackActivity> = emptyList()
 }
 
 data class HomeAlbumYear(
@@ -158,12 +169,23 @@ class HomeService(
     private val sourceId: String? = null,
     private val date: HomeDate,
     private val observedAtIso8601: () -> String = { "" },
+    private val generatedRadio: GeneratedRadioRepository = MemoryGeneratedRadioRepository(),
+    private val generatedRadioSourceIdentity: NaviampConnectSourceIdentity? = null,
+    private val nowMillis: () -> Long = { 0L },
+    private val random: Random = Random.Default,
+    private val sonicSimilarity: Boolean = false,
+    private val radioTuning: RadioTuningSettings = RadioTuningSettings(),
+    private val radioBatchSize: Int = DefaultRadioMinimumTracks,
+    private val isCurrent: () -> Boolean = { true },
 ) {
+    private val libraryScope = provider.cacheNamespace
+
     suspend fun load(
         recentRadioStreams: List<RecentRadioStream> = emptyList(),
         recentInternetRadioStations: List<InternetRadioStation> = emptyList(),
         artistLimit: Int = HomeDefaultArtistLimit,
         forceRefreshRecentlyAdded: Boolean = false,
+        forceRefreshMixes: Boolean = false,
     ): HomeContent {
         val failures = mutableSetOf<HomeSection>()
         val genres = attempt(HomeSection.Genres, failures, emptyList()) { provider.genres(limit = 12) }
@@ -179,7 +201,7 @@ class HomeService(
         val favoriteAlbums = attempt(HomeSection.FavoriteAlbums, failures, emptyList()) { loadFavoriteAlbums() }
         val randomPool = attempt(HomeSection.RandomAlbums, failures, emptyList()) { albumList(AlbumListType.Random, limit = 14) }
         if (HomeSection.Genres in failures) failures += HomeSection.GenreSpotlight
-        return HomeContent(
+        val content = HomeContent(
             date = date,
             recentlyAddedAlbums = attempt(HomeSection.RecentlyAdded, failures, emptyList()) {
                 albumList(
@@ -188,7 +210,7 @@ class HomeService(
                     maxAgeMillis = if (forceRefreshRecentlyAdded) 0L else HomeRecentlyAddedMaximumAgeMillis,
                 )
             },
-            // Mix tiles start similar-song radio; without track radio they would only replay albums.
+            // Keep album metadata available to builders; the visible mix shelf uses generated recipes.
             mixAlbums = if (provider.capabilities.supportsTrackRadio) randomPool.take(8) else emptyList(),
             recentAlbums = attempt(HomeSection.RecentAlbums, failures, emptyList()) { albumList(AlbumListType.Recent, limit = 6) },
             frequentAlbums = attempt(HomeSection.FrequentAlbums, failures, emptyList()) { albumList(AlbumListType.Frequent, limit = 6) },
@@ -221,6 +243,37 @@ class HomeService(
             decadeAlbums = decadePick?.albums.orEmpty(),
             failedSections = failures.toSet(),
         )
+        val id = sourceId
+        if (!isCurrent() || provider.cacheNamespace != libraryScope) throw CancellationException("Home source changed")
+        val mixes = if (id != null && provider.capabilities.supportsTrackRadio) {
+            val activity = attempt(HomeSection.GeneratedMixes, failures, emptyList()) {
+                libraryRepository?.recentPlaybackHistory(id, HomeMixHistoryLimit).orEmpty()
+            }
+            val inputFailed = failures.any { it in HomeMixInputSections }
+            if (inputFailed) failures += HomeSection.GeneratedMixes
+            attempt(HomeSection.GeneratedMixes, failures, emptyList()) {
+                HomeMixRecommendations(generatedRadio, nowMillis, random).load(
+                    sourceId = id,
+                    sourceIdentity = generatedRadioSourceIdentity,
+                    libraryScope = libraryScope,
+                    date = date,
+                    signals = HomeMixSignals(
+                        activity = activity,
+                        favoriteArtists = favoriteArtists,
+                        favoriteAlbums = favoriteAlbums,
+                        frequentAlbums = content.frequentAlbums,
+                        recentAlbums = content.recentAlbums,
+                        explorationAlbums = randomPool,
+                    ),
+                    refresh = forceRefreshMixes,
+                    inputsFailed = inputFailed,
+                    sonicSimilarity = sonicSimilarity && provider.capabilities.supportsSonicSimilarity,
+                    tuning = radioTuning,
+                    batchSize = radioBatchSize,
+                )
+            }
+        } else emptyList()
+        return content.copy(generatedMixes = mixes, failedSections = failures.toSet())
     }
 
     private var favoriteStatus = FavoriteArtistsStatus.Unsupported
@@ -341,6 +394,7 @@ fun HomeContent.retainFailedSections(previous: HomeContent): HomeContent {
     return copy(
         recentlyAddedAlbums = retain(HomeSection.RecentlyAdded, recentlyAddedAlbums, previous.recentlyAddedAlbums),
         mixAlbums = retain(HomeSection.RandomAlbums, mixAlbums, previous.mixAlbums),
+        generatedMixes = retain(HomeSection.GeneratedMixes, generatedMixes, previous.generatedMixes),
         randomAlbums = retain(HomeSection.RandomAlbums, randomAlbums, previous.randomAlbums),
         recentAlbums = retain(HomeSection.RecentAlbums, recentAlbums, previous.recentAlbums),
         frequentAlbums = retain(HomeSection.FrequentAlbums, frequentAlbums, previous.frequentAlbums),
@@ -363,6 +417,8 @@ fun HomeContent.retainFailedSections(previous: HomeContent): HomeContent {
 }
 
 private const val HomeRecentlyAddedMaximumAgeMillis = 5 * 60 * 1000L
+private val HomeMixInputSections = setOf(HomeSection.GeneratedMixes, HomeSection.FavoriteArtists,
+    HomeSection.FavoriteAlbums, HomeSection.FrequentAlbums, HomeSection.RecentAlbums, HomeSection.RandomAlbums)
 
 data class HomeStation(
     val id: String,

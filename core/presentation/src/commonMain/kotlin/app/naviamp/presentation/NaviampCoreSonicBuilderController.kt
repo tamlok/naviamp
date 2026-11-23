@@ -52,6 +52,14 @@ class NaviampCoreSonicBuilderController(
     private var pathBuildGeneration = 0L
     private var mixBuildGeneration = 0L
 
+    internal fun stationRecipe(): app.naviamp.domain.radio.GeneratedRadioStation? =
+        selectedMixTracks.takeIf { it.size >= 2 }?.let { seeds ->
+            app.naviamp.domain.radio.GeneratedRadioStation("", seeds.joinToString(" / ") { it.title }, app.naviamp.domain.radio.GeneratedRadioKind.SonicMix,
+                seedTracks = seeds.map(app.naviamp.domain.settings.SavedTrack::fromTrack), sonicSimilarity = true,
+                tuning = stateStore.state.value.shell.playback.settings.radioTuning,
+                batchSize = currentMixUi().targetLength, sonicBias = currentMixUi().bias.name, includeSeeds = currentMixUi().includeSeeds)
+        }
+
     private enum class CandidateKind { Start, End, Mix }
     private enum class CandidatePhase { Loading, Failed, Scheduled, Complete }
     private class CandidateLoad(

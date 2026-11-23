@@ -25,6 +25,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NaviampCoreQueuePlaybackControllerTest {
+    @Test fun rejectedQueueStartsDoNotRunPlaybackCleanup() {
+        var cleanups = 0
+        val fixture = fixture(beforePlayback = { cleanups++ })
+        assertEquals(false, fixture.controller.play(emptyList()))
+        assertEquals(false, fixture.controller.play(testTracks(), downloadedOnly = true))
+        assertEquals(0, cleanups)
+        assertTrue(fixture.controller.play(testTracks()))
+        assertEquals(1, cleanups)
+    }
+
     @Test
     fun switchingPlaylistsResumesEachCanonicalTrackAndClockBeforeStartingAudio() {
         val fixture = fixture()
@@ -195,6 +205,7 @@ private data class QueuePlaybackFixture(
 private fun fixture(
     profiles: Map<PlaybackProfileTarget, PlaybackProfile> = emptyMap(),
     resumePlaylists: () -> Boolean = { true },
+    beforePlayback: () -> Unit = {},
 ): QueuePlaybackFixture {
     val live = NaviampLivePlaybackController()
     val effects = QueuePlaybackEffects()
@@ -211,6 +222,7 @@ private fun fixture(
         profiles = MapPlaybackProfileRepository(profiles),
         playlistBookmarks = bookmarkController,
         resumePlaylists = resumePlaylists,
+        beforePlayback = beforePlayback,
     )
     return QueuePlaybackFixture(live, effects, controller, bookmarks)
 }
