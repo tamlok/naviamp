@@ -59,12 +59,21 @@ fun naviampCoreProviderIdentitySettingsMigrationRepository(
         val installed = readProviderIdentitySettingsVersions(values, json)
         if ((installed[sourceId] ?: 0L) >= targetVersion) return false
 
+        val interfaceSettings = read(values, json, KeyInterface, InterfaceSettings())
+        val migratedInterface = interfaceSettings.copy(
+            quickAccess = interfaceSettings.quickAccess.mapNotNull { value ->
+                val pin = value.normalized() ?: return@mapNotNull null
+                if (pin.sourceId == sourceId) pin.copy(itemId = transform(pin.itemId)) else pin
+            },
+        ).normalized()
+
         val recentRadio = read(values, json, KeyRecentRadio, emptyList<RecentRadioStream>())
             .map { it.migratedProviderIdentities(sourceId, transform) }
         val recentInternetRadio = read(values, json, KeyRecentInternetRadio, emptyList<SavedInternetRadioStation>())
             .map { it.migratedProviderIdentities(sourceId, transform) }
         write(values, json, KeyRecentRadio, recentRadio)
         write(values, json, KeyRecentInternetRadio, recentInternetRadio)
+        write(values, json, KeyInterface, migratedInterface)
         values.write(
             KeyProviderIdentityVersions,
             json.encodeToString(

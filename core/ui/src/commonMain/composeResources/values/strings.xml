@@ -69,6 +69,8 @@
 
     <string name="common_unknown">Unknown</string>
     <string name="common_back">Back</string>
+    <string name="quick_access_pin">Pin to Quick Access</string>
+    <string name="quick_access_remove">Remove from Quick Access</string>
     <string name="common_cancel">Cancel</string>
     <string name="common_close">Close</string>
     <string name="common_delete">Delete</string>

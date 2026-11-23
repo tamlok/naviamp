@@ -67,6 +67,8 @@
     <string name="settings_category_about_subtitle">Version, bibliotecas, cambios</string>
     <string name="common_unknown">Desconocido</string>
     <string name="common_back">Atrás</string>
+    <string name="quick_access_pin">Anclar al acceso rápido</string>
+    <string name="quick_access_remove">Quitar del acceso rápido</string>
     <string name="common_cancel">Cancelar</string>
     <string name="common_close">Cerrar</string>
     <string name="common_delete">Eliminar</string>

@@ -203,6 +203,7 @@ data class InterfaceSettings(
     val albumArtworkOverrides: List<AlbumArtworkOverride> = emptyList(),
     val trackSwipes: TrackSwipeSettings = TrackSwipeSettings(),
     val theme: NaviampThemeSettings = NaviampThemeSettings(),
+    val quickAccess: List<QuickAccessPin> = emptyList(),
 ) {
     fun normalized(): InterfaceSettings = copy(
         artistTopTracksLimit = normalizedArtistTopTracksLimit(artistTopTracksLimit),
@@ -212,6 +213,8 @@ data class InterfaceSettings(
         singleColorHex = normalizedSingleColorHex(singleColorHex),
         albumArtworkOverrides = albumArtworkOverrides.mapNotNull(AlbumArtworkOverride::normalized)
             .distinctBy { it.sourceId to it.albumId },
+        quickAccess = quickAccess.mapNotNull(QuickAccessPin::normalized)
+            .distinctBy { Triple(it.sourceId, it.kind, it.itemId) },
         homeSectionPresentations = homeSectionPresentations
             .filterKeys { it.isNotBlank() }
             .map { (id, presentation) -> id.trim() to presentation.normalized(id.trim()) }

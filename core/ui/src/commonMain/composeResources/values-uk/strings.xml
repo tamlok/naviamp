@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">Відновлювати списки відтворення</string>
     <string name="settings_resume_playlists_description">Продовжувати списки відтворення з останнього треку та позиції відтворення</string>
     <string name="common_back">Назад</string>
+    <string name="quick_access_pin">Закріпити у швидкому доступі</string>
+    <string name="quick_access_remove">Видалити зі швидкого доступу</string>
     <string name="settings_category_appearance_title">Оформлення</string>
     <string name="settings_category_appearance_subtitle">Теми й кольори</string>
     <string name="settings_category_experience_subtitle">Налаштуйте поведінку на свій смак</string>

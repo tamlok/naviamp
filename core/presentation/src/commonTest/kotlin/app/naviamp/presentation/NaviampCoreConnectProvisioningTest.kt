@@ -10,12 +10,31 @@ import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.ConnectionFormState
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.PlaybackSettings
+import app.naviamp.domain.settings.QuickAccessKind
+import app.naviamp.domain.settings.QuickAccessPin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 
 class NaviampCoreConnectProvisioningTest {
+    @Test
+    fun portablePreferencesKeepLocalQuickAccessWithoutImportingUnmappedSourceIds() {
+        val localPin = QuickAccessPin("local-source", QuickAccessKind.Playlist, "item", "Local playlist")
+        val offeredPins = listOf(
+            QuickAccessPin("sender-source", QuickAccessKind.Album, "item", "Sender album"),
+            localPin.copy(title = "Coincident sender identity"),
+        )
+        val local = InterfaceSettings(quickAccess = listOf(localPin))
+        val offered = InterfaceSettings(keepScreenAwake = true, quickAccess = offeredPins)
+
+        val applied = local.withConnectPortableValues(offered)
+        assertEquals(listOf(localPin), applied.quickAccess)
+        assertEquals(true, applied.keepScreenAwake)
+        assertEquals(listOf(localPin), local.withConnectPortableValues(InterfaceSettings()).quickAccess)
+        assertEquals(emptyList(), InterfaceSettings().withConnectPortableValues(offered).quickAccess)
+    }
+
     @Test
     fun themePreferencesTransferThroughConnectAndPreserveTargetHostPolicy() {
         val ready = assertIs<NaviampCoreConnectProvisioningExport.Ready>(ConnectionFormState(

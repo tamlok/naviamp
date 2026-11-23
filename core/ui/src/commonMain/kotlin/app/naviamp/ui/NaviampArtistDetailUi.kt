@@ -60,6 +60,7 @@ import app.naviamp.domain.settings.AppBackgroundStyle
 import app.naviamp.domain.settings.DefaultSingleColorHex
 import app.naviamp.domain.settings.toggleSelectedMusicFolderId
 import app.naviamp.domain.media.AlbumReleaseSection
+import app.naviamp.domain.settings.QuickAccessKind
 import app.naviamp.ui.generated.resources.discovery_find_in_aurral
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.*
@@ -104,15 +105,20 @@ fun NaviampArtistDetailContent(
             background = headerBackground,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) { colors ->
-            IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
-                Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
+                    Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+                }
+                Text(
+                    screen.selectedArtist?.title ?: "Artist",
+                    color = colors.primaryText,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
             }
-            Text(
-                screen.selectedArtist?.title ?: "Artist",
-                color = colors.primaryText,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-            )
             screen.status?.let { Text(it, color = colors.secondaryText) }
         }
         return
@@ -319,7 +325,7 @@ private fun ArtistDetailContent(
             colors = colors,
             background = headerBackground,
         ) { colors ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 NaviampTooltip("Back", colors) {
                     IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                         Icon(
@@ -337,6 +343,7 @@ private fun ArtistDetailContent(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             Row(
@@ -378,6 +385,7 @@ private fun ArtistDetailContent(
                     )
                     NaviampResponsiveActionRow(
                         colors = colors,
+                        trailingToggle = naviampQuickAccessAction(detail.artist, QuickAccessKind.Artist),
                         actions = listOfNotNull(
                             NaviampDetailAction("Play artist catalog", NaviampTransportIcons.Play, { onArtistPlay(displayedAlbums) }, displayedAlbums.isNotEmpty()),
                             NaviampDetailAction("Start artist radio", NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),

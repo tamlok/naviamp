@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.domain.settings.QuickAccessKind
+import app.naviamp.domain.settings.QuickAccessPin
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
@@ -559,11 +561,83 @@ class NaviampMainNavigationUiTest {
                 onNodeWithTag("page-back").assertIsDisplayed()
                 runOnIdle { assertTrue(backLabel.isNotBlank() && backLabel != "Back") }
                 onNodeWithTag("page-back").assertContentDescriptionEquals(backLabel)
-                    .assertTextEquals(backLabel).performClick()
+                    .performClick()
                 onNodeWithTag("page-back").assertDoesNotExist()
                 runOnIdle { assertEquals(1, backCalls) }
             }
         }
+    }
+
+    @Test
+    fun overflowingShortcutsScrollAndActivateInEveryPlacement() {
+        listOf(800 to 600, 412 to 818, 320 to 640).forEach { (width, height) ->
+            runDesktopComposeUiTest(width, height) {
+                val pins = (1..20).map { QuickAccessPin("source", QuickAccessKind.Playlist, "$it", "Playlist $it") }
+                var opened: QuickAccessPin? = null
+                setContent {
+                    CompositionLocalProvider(LocalNaviampQuickAccess provides NaviampQuickAccessUi(
+                        "source", pins, null, NaviampQuickAccessActions({}, {}, { opened = it }),
+                    )) { NavigationFixture() }
+                }
+                if (width < 360) openDrawer()
+                onNodeWithTag("quick-access-Playlist-20").performScrollTo().assertIsDisplayed().performClick()
+                runOnIdle { assertEquals(pins.last(), opened, "Shortcut activation at ${width}x$height") }
+                if (width < 360) assertDrawerClosed()
+                else onNodeWithTag("main-destination-Home").performScrollTo().assertIsDisplayed()
+                onNodeWithTag("footer-action").assertIsDisplayed()
+            }
+        }
+    }
+
+    @Test
+    fun removingFocusedDrawerShortcutKeepsTabLoopWithinRemainingNavigation() = runDesktopComposeUiTest(320, 640) {
+        var pins by mutableStateOf(listOf(QuickAccessPin("source", QuickAccessKind.Album, "album", "Album")))
+        lateinit var inputMode: InputModeManager
+        setContent {
+            inputMode = LocalInputModeManager.current
+            CompositionLocalProvider(LocalNaviampQuickAccess provides NaviampQuickAccessUi(
+                "source", pins, null, NaviampQuickAccessActions({}, { pins = emptyList() }, {}),
+            )) { NavigationFixture() }
+        }
+        runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }
+        openDrawer()
+        onNodeWithTag("quick-access-Album-album").performScrollTo()
+            .performSemanticsAction(SemanticsActions.RequestFocus)
+        onNodeWithTag("quick-access-Album-album").assertIsFocused().performKeyInput {
+            withKeyDown(Key.ShiftLeft) { pressKey(Key.F10) }
+        }
+        onNodeWithText("Remove from Quick Access").performClick()
+        onNodeWithTag("quick-access-Album-album").assertDoesNotExist()
+        onRoot().performKeyInput { pressKey(Key.Tab) }
+        onNodeWithTag("main-navigation-close").assertIsFocused()
+        onRoot().performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.Tab) } }
+        onNodeWithTag("main-destination-My").assertIsFocused()
+        onNodeWithTag("footer-action").assertIsNotFocused()
+    }
+
+    @Test
+    fun selectedShortcutFollowsVisibleAlbumBeforeRetainedArtistAndFiltersOtherSources() = runDesktopComposeUiTest(800, 600) {
+        val album = QuickAccessPin("source", QuickAccessKind.Album, "album", "Album")
+        val artist = QuickAccessPin("source", QuickAccessKind.Artist, "artist", "Artist")
+        var shell by mutableStateOf(NaviampAppShellUiState().let { state -> state.copy(
+            connectionSettings = state.connectionSettings.copy(currentSourceId = "source"),
+            general = state.general.copy(interfaceSettings = state.general.interfaceSettings.copy(
+                quickAccess = listOf(album, artist, album.copy(sourceId = "other", itemId = "hidden")),
+            )),
+            albumDetail = state.albumDetail.copy(selectedAlbum = SharedMediaItemUi("album", "Album", "")),
+            artistDetail = state.artistDetail.copy(selectedArtist = SharedMediaItemUi("artist", "Artist", "")),
+        ) })
+        setContent {
+            CompositionLocalProvider(LocalNaviampQuickAccess provides rememberNaviampQuickAccess(
+                shell, NaviampQuickAccessActions({}, {}, {}),
+            )) { NavigationFixture(SharedRoute.Library) }
+        }
+        onNodeWithTag("quick-access-Album-album").assertIsSelected()
+        onNodeWithTag("quick-access-Artist-artist").assertIsNotSelected()
+        onNodeWithTag("quick-access-Album-hidden").assertDoesNotExist()
+        runOnIdle { shell = shell.copy(albumDetail = NaviampAlbumDetailScreenUi()) }
+        onNodeWithTag("quick-access-Artist-artist").assertIsSelected()
+        onNodeWithTag("quick-access-Album-album").assertIsNotSelected()
     }
 
     private fun ComposeUiTest.openDrawer() {

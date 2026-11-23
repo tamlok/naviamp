@@ -50,6 +50,13 @@ sealed interface NaviampCoreCommand {
         data object Back : Navigation
     }
 
+    sealed interface QuickAccess : NaviampCoreCommand {
+        val pin: app.naviamp.domain.settings.QuickAccessPin
+        data class Pin(override val pin: app.naviamp.domain.settings.QuickAccessPin) : QuickAccess
+        data class Remove(override val pin: app.naviamp.domain.settings.QuickAccessPin) : QuickAccess
+        data class Open(override val pin: app.naviamp.domain.settings.QuickAccessPin) : QuickAccess
+    }
+
     sealed interface Connection : NaviampCoreCommand {
         data class ChooseCertificate(val kind: NaviampConnectionCertificateKind, val companion: Boolean = false) : Connection
         data class ChangeForm(val form: ConnectionFormState) : Connection

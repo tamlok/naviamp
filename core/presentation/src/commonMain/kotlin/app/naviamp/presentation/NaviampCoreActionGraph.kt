@@ -100,6 +100,11 @@ fun createNaviampCoreActions(
     )
 
     val shell = NaviampAppShellActions(
+        quickAccessActions = app.naviamp.ui.NaviampQuickAccessActions(
+            onPin = { send(NaviampCoreCommand.QuickAccess.Pin(it)) },
+            onRemove = { send(NaviampCoreCommand.QuickAccess.Remove(it)) },
+            onOpen = { send(NaviampCoreCommand.QuickAccess.Open(it)) },
+        ),
         navigationActions = NaviampShellNavigationActions(
             onRouteSelected = { send(NaviampCoreCommand.Navigation.SelectRoute(it)) },
             onRouteReplaced = { send(NaviampCoreCommand.Navigation.ReplaceRoute(it)) },

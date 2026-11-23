@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">プレイリストを再開</string>
     <string name="settings_resume_playlists_description">前回の曲と再生位置からプレイリストを再開します</string>
     <string name="common_back">戻る</string>
+    <string name="quick_access_pin">クイックアクセスにピン留め</string>
+    <string name="quick_access_remove">クイックアクセスから削除</string>
     <string name="settings_category_appearance_title">外観</string>
     <string name="settings_category_appearance_subtitle">テーマと色</string>
     <string name="settings_category_experience_subtitle">思いどおりの動作に</string>

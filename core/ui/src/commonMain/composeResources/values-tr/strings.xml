@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">Çalma listelerine kaldığı yerden devam et</string>
     <string name="settings_resume_playlists_description">Çalma listelerine son parçadan ve konumdan devam et</string>
     <string name="common_back">Geri</string>
+    <string name="quick_access_pin">Hızlı erişime sabitle</string>
+    <string name="quick_access_remove">Hızlı erişimden kaldır</string>
     <string name="settings_category_appearance_title">Görünüm</string>
     <string name="settings_category_appearance_subtitle">Temalar ve renkler</string>
     <string name="settings_category_experience_subtitle">İstediğiniz gibi çalışsın</string>

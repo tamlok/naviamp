@@ -42,6 +42,11 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import app.naviamp.domain.settings.QuickAccessPin
 import androidx.compose.ui.unit.dp
 import app.naviamp.ui.generated.resources.*
 import kotlinx.coroutines.launch
@@ -113,11 +118,17 @@ internal fun NaviampMainScaffold(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val toggleFocus = remember { FocusRequester() }
-    val drawerFocus = remember { List(NaviampMainRoutes.size + 1) { FocusRequester() } }
+    val quickAccess = LocalNaviampQuickAccess.current
+    val pins = quickAccess?.pins.orEmpty()
+    val drawerFocus = remember(pins) { List(NaviampMainRoutes.size + pins.size + 1) { FocusRequester() } }
     var focusedDrawerItem by remember { mutableIntStateOf(0) }
     var restoreToggleFocus by remember { mutableStateOf(false) }
     val selected = naviampMainNavigationSelection(selectedRoute)
     val currentSelected by rememberUpdatedState(selected)
+    val selectedDrawerIndex = quickAccess?.selected?.let { pin -> pins.indexOf(pin).takeIf { it >= 0 } }
+        ?.plus(NaviampMainRoutes.size + 1)
+        ?: (NaviampMainRoutes.indexOf(currentSelected).takeIf { it >= 0 }?.plus(1) ?: 1)
+    val currentDrawerIndex by rememberUpdatedState(selectedDrawerIndex)
     val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
     val openDrawer: () -> Unit = { scope.launch { drawerState.open() } }
 
@@ -141,11 +152,17 @@ internal fun NaviampMainScaffold(
                 restoreToggleFocus = true
                 // Material requests its first focus on opening. Select our destination afterwards.
                 withFrameNanos { }
-                drawerFocus[NaviampMainRoutes.indexOf(currentSelected).takeIf { it >= 0 }?.plus(1) ?: 1]
-                    .requestFocus()
+                drawerFocus[currentDrawerIndex.coerceIn(drawerFocus.indices)].requestFocus()
             } else if (drawerState.targetValue == DrawerValue.Closed && restoreToggleFocus) {
                 restoreToggleFocus = false
                 toggleFocus.requestFocus()
+            }
+        }
+        LaunchedEffect(pins) {
+            if (drawerVisible && focusedDrawerItem > NaviampMainRoutes.size) {
+                val next = focusedDrawerItem.coerceIn(drawerFocus.indices)
+                withFrameNanos { }
+                drawerFocus[next].requestFocus()
             }
         }
 
@@ -160,7 +177,7 @@ internal fun NaviampMainScaffold(
                             Key.Escape -> { closeDrawer(); true }
                             Key.Tab -> {
                                 val step = if (event.isShiftPressed) -1 else 1
-                                val next = (focusedDrawerItem + step + drawerFocus.size) % drawerFocus.size
+                                val next = (focusedDrawerItem.coerceIn(drawerFocus.indices) + step + drawerFocus.size) % drawerFocus.size
                                 drawerFocus[next].requestFocus()
                                 true
                             }
@@ -205,6 +222,17 @@ internal fun NaviampMainScaffold(
                                             modifier = Modifier.fillMaxWidth().focusRequester(drawerFocus[index + 1])
                                                 .onFocusChanged { if (it.isFocused) focusedDrawerItem = index + 1 },
                                         )
+                                    }
+                                    pins.forEachIndexed { index, pin ->
+                                        key(pin.navigationKey) {
+                                            val focusIndex = NaviampMainRoutes.size + index + 1
+                                            MainQuickAccessItem(
+                                                pin, colors, horizontal = true, revealKey = viewportHeight,
+                                                onClick = { quickAccess!!.actions.onOpen(pin); closeDrawer() },
+                                                modifier = Modifier.fillMaxWidth().focusRequester(drawerFocus[focusIndex])
+                                                    .onFocusChanged { if (it.isFocused) focusedDrawerItem = focusIndex },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -277,6 +305,14 @@ private fun MainNavigationRail(selected: SharedRoute?, colors: NaviampColors, on
             MainNavigationItem(route, selected == route, colors, onClick = { onRouteSelected(route) },
                 modifier = Modifier.fillMaxWidth(), revealKey = viewportSize)
         }
+        LocalNaviampQuickAccess.current?.let { quickAccess ->
+            quickAccess.pins.forEach { pin ->
+                key(pin.navigationKey) {
+                    MainQuickAccessItem(pin, colors, onClick = { quickAccess.actions.onOpen(pin) },
+                        modifier = Modifier.fillMaxWidth(), revealKey = viewportSize)
+                }
+            }
+        }
     }
 }
 
@@ -289,11 +325,18 @@ internal fun MainNavigationBottom(
 ) {
     BoxWithConstraints(modifier.fillMaxWidth().background(colors.controlSurface).testTag("main-navigation-bottom")) {
         val viewportWidth = maxWidth
-        val cellWidth = (viewportWidth / NaviampMainRoutes.size).coerceAtLeast(72.dp)
+        val quickAccess = LocalNaviampQuickAccess.current
+        val cellWidth = (viewportWidth / (NaviampMainRoutes.size + quickAccess?.pins.orEmpty().size)).coerceAtLeast(72.dp)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup()) {
             NaviampMainRoutes.forEach { route ->
                 MainNavigationItem(route, selected == route, colors, onClick = { onRouteSelected(route) },
                     modifier = Modifier.width(cellWidth), revealKey = viewportWidth)
+            }
+            quickAccess?.pins?.forEach { pin ->
+                key(pin.navigationKey) {
+                    MainQuickAccessItem(pin, colors, onClick = { quickAccess.actions.onOpen(pin) },
+                        modifier = Modifier.width(cellWidth), revealKey = viewportWidth)
+                }
             }
         }
     }
@@ -317,10 +360,62 @@ private fun MainNavigationItem(
         SharedRoute.My -> Res.string.nav_my
         else -> error("Not a main destination: $route")
     })
+    MainNavigationButton(label, route.icon, "main-destination-${route.name}", selected, colors,
+        onClick, modifier, horizontal, revealKey)
+}
+
+@Composable
+internal fun MainQuickAccessItem(
+    pin: QuickAccessPin,
+    colors: NaviampColors,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    horizontal: Boolean = false,
+    revealKey: Any? = null,
+) {
+    val quickAccess = LocalNaviampQuickAccess.current ?: return
+    val menu = remember(pin.navigationKey) { NaviampItemMenuState() }
+    val removeLabel = stringResource(Res.string.quick_access_remove)
+    Box {
+        MainNavigationButton(
+            pin.title, pin.kind.icon, "quick-access-${pin.kind.name}-${pin.itemId}",
+            quickAccess.selected?.sameTarget(pin) == true, colors, onClick,
+            modifier.naviampItemContextMenu(menu).onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.F10 && event.isShiftPressed) {
+                    menu.toggleFromButton(); true
+                } else false
+            }.semantics {
+                customActions = listOf(CustomAccessibilityAction(removeLabel) {
+                    quickAccess.actions.onRemove(pin); true
+                })
+            }, horizontal, revealKey, maxLines = 2,
+        )
+        NaviampDropdownMenu(menu.expanded, menu::dismiss, cursorPosition = menu.cursorPosition) {
+            NaviampDropdownMenuItem(removeLabel, NaviampIcons.Pin, onClick = {
+                menu.dismiss()
+                quickAccess.actions.onRemove(pin)
+            })
+        }
+    }
+}
+
+@Composable
+private fun MainNavigationButton(
+    label: String,
+    icon: ImageVector,
+    tag: String,
+    selected: Boolean,
+    colors: NaviampColors,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    horizontal: Boolean,
+    revealKey: Any?,
+    maxLines: Int = Int.MAX_VALUE,
+) {
     val bringIntoView = remember { BringIntoViewRequester() }
     var focused by remember { mutableStateOf(false) }
     val density = LocalDensity.current
-    LaunchedEffect(selected, focused, density.fontScale, revealKey) {
+    LaunchedEffect(selected || focused, density.fontScale, revealKey) {
         if (selected || focused) {
             withFrameNanos { }
             bringIntoView.bringIntoView()
@@ -332,19 +427,21 @@ private fun MainNavigationItem(
         .onFocusChanged { focused = it.isFocused }
         .clip(RoundedCornerShape(8.dp))
         .background(if (selected) colors.accent else colors.controlSurface)
-        .testTag("main-destination-${route.name}")
+        .testTag(tag)
         .selectable(selected = selected, role = Role.Tab, onClick = onClick)
         .padding(horizontal = 8.dp, vertical = 8.dp)
     if (horizontal) {
         Row(itemModifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
-            Text(label, color = foreground, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
+            Text(label, color = foreground, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f),
+                maxLines = maxLines, overflow = TextOverflow.Ellipsis)
         }
     } else {
         Column(itemModifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Icon(route.icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = null, tint = foreground, modifier = Modifier.size(24.dp))
             Text(label, color = foreground, style = MaterialTheme.typography.labelMedium,
-                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

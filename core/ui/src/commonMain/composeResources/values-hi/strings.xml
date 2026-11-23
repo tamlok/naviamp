@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">प्लेलिस्ट वहीं से फिर शुरू करें</string>
     <string name="settings_resume_playlists_description">प्लेलिस्ट को पिछले ट्रैक में जहाँ छोड़ा था, वहीं से जारी रखें</string>
     <string name="common_back">वापस</string>
+    <string name="quick_access_pin">त्वरित पहुँच में पिन करें</string>
+    <string name="quick_access_remove">त्वरित पहुँच से हटाएँ</string>
     <string name="settings_category_appearance_title">दिखावट</string>
     <string name="settings_category_appearance_subtitle">थीम और रंग</string>
     <string name="settings_category_experience_subtitle">ऐप को अपने हिसाब से चलाएँ</string>

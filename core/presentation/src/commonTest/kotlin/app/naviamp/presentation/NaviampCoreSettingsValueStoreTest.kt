@@ -12,6 +12,10 @@ import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import app.naviamp.domain.settings.PlaybackSettings
+import app.naviamp.domain.settings.QuickAccessKind
+import app.naviamp.domain.settings.QuickAccessPin
+import app.naviamp.domain.settings.withQuickAccessPin
+import app.naviamp.domain.settings.withoutQuickAccessPin
 import app.naviamp.domain.settings.effectiveSonicSimilarityEnabled
 import app.naviamp.domain.settings.RecentRadioKind
 import app.naviamp.domain.settings.RecentRadioStream
@@ -25,6 +29,40 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
 class NaviampCoreSettingsValueStoreTest {
+    @Test
+    fun quickAccessPersistsNormalizedAcrossReopeningRenamingAndRemoval() {
+        val values = MemorySettingsValues()
+        val pins = QuickAccessKind.entries.map { kind -> QuickAccessPin("source-a", kind, "item", kind.name) } +
+            QuickAccessPin("source-b", QuickAccessKind.Playlist, "item", "Other account")
+        val expected = InterfaceSettings(language = InterfaceLanguage.German, quickAccess = pins)
+        naviampCoreSettingsValueCatalog(values).storedSettings.saveInterface(expected.copy(quickAccess =
+            listOf(pins.first().copy(sourceId = " source-a ", title = " Playlist ")) + pins +
+                pins.first().copy(itemId = " ")))
+        val reopened = naviampCoreSettingsValueCatalog(values).storedSettings
+        assertEquals(expected, reopened.loadInterface())
+        assertEquals(expected, Json.decodeFromString<InterfaceSettings>(values.entries.getValue(KeyInterface)))
+
+        val renamed = pins.first().copy(title = "Renamed")
+        reopened.saveInterface(reopened.loadInterface().withQuickAccessPin(renamed))
+        val afterRename = naviampCoreSettingsValueCatalog(values).storedSettings
+        assertEquals(listOf(renamed) + pins.drop(1), afterRename.loadInterface().quickAccess)
+        afterRename.saveInterface(afterRename.loadInterface().withoutQuickAccessPin(pins.first()))
+        assertEquals(pins.drop(1), naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface().quickAccess)
+
+        values.entries[KeyInterface] = """{"language":"German"}"""
+        assertEquals(InterfaceSettings(language = InterfaceLanguage.German),
+            naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+        values.entries[KeyInterface] = """{"language":"German","quickAccess":[
+            {"sourceId":" source-a ","kind":"Playlist","itemId":" item ","title":" Playlist "},
+            {"sourceId":"source-a","kind":"Playlist","itemId":"item","title":"Duplicate"},
+            {"sourceId":"source-a","kind":"Artist","itemId":" ","title":"Invalid"}
+        ]}"""
+        val normalized = naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface()
+        assertEquals(InterfaceSettings(language = InterfaceLanguage.German, quickAccess = listOf(pins.first())), normalized)
+        naviampCoreSettingsValueCatalog(values).storedSettings.saveInterface(normalized)
+        assertEquals(normalized, naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
+    }
+
     @Test
     fun registeredThemeSelectionsAndEveryModePersistAcrossReopeningTheLocalCatalog() {
         val values = MemorySettingsValues()
@@ -253,6 +291,12 @@ class NaviampCoreSettingsValueStoreTest {
         val oldTrack = "old-track"
         val oldStation = "old-station"
         val migrated = mapOf(oldAlbum to "new-album", oldTrack to "new-track", oldStation to "new-station")
+        val pins = QuickAccessKind.entries.flatMap { kind -> listOf(
+            QuickAccessPin("server-a", kind, oldAlbum, "Pinned ${kind.name}"),
+            QuickAccessPin("server-b", kind, oldAlbum, "Other ${kind.name}"),
+        ) }
+        val originalInterface = InterfaceSettings(language = InterfaceLanguage.German, quickAccess = pins)
+        settings.saveInterface(originalInterface)
         settings.saveRecentRadioStreams(
             listOf(
                 RecentRadioStream(
@@ -286,6 +330,15 @@ class NaviampCoreSettingsValueStoreTest {
         assertEquals(true, migration.migrateProviderIdentitySettings("server-a", 2L, transform))
         assertEquals(2L, migration.providerIdentitySettingsVersion("server-a"))
         assertEquals(false, migration.migrateProviderIdentitySettings("server-a", 2L, transform))
+        assertEquals(KeyProviderIdentityVersions, values.writtenKeys.last())
+        assertEquals(KeyInterface, values.writtenKeys[values.writtenKeys.lastIndex - 1])
+        val reopenedMigration = naviampCoreProviderIdentitySettingsMigrationRepository(values)
+        assertEquals(2L, reopenedMigration.providerIdentitySettingsVersion("server-a"))
+        assertEquals(null, reopenedMigration.providerIdentitySettingsVersion("server-b"))
+        assertEquals(false, reopenedMigration.migrateProviderIdentitySettings("server-a", 2L) { error("Already migrated") })
+        assertEquals(originalInterface.copy(quickAccess = pins.map { pin ->
+            if (pin.sourceId == "server-a") pin.copy(itemId = "new-album") else pin
+        }), naviampCoreSettingsValueCatalog(values).storedSettings.loadInterface())
 
         val streams = settings.loadRecentRadioStreams()
         assertEquals("album:new-album", streams[0].id)
@@ -301,8 +354,10 @@ class NaviampCoreSettingsValueStoreTest {
 
 private class MemorySettingsValues : NaviampCoreSettingsValueStore {
     val entries = mutableMapOf<String, String>()
+    val writtenKeys = mutableListOf<String>()
     override fun read(key: String): String? = entries[key]
     override fun write(key: String, value: String) {
         entries[key] = value
+        writtenKeys += key
     }
 }

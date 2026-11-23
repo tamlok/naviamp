@@ -2,6 +2,7 @@ package app.naviamp.domain.settings
 
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.cache.ProviderMediaSourceRepository
+import app.naviamp.domain.provider.ProviderIdJellyfin
 import app.naviamp.domain.radio.RadioDjPresetRepository
 import app.naviamp.domain.source.ConnectionHeaderDefinition
 import app.naviamp.domain.source.ConnectionTlsSettings
@@ -20,6 +21,7 @@ data class SettingsSyncLocalSnapshot(
 data class ImportedSettingsSyncServerProfiles(
     val importedCount: Int = 0,
     val firstConnectionForm: ConnectionFormState? = null,
+    val sourceIdByProfileId: Map<String, String> = emptyMap(),
 )
 
 data class AppliedSettingsSyncDocument(
@@ -39,20 +41,27 @@ fun applySettingsSyncDocument(
     localPlayback: PlaybackSettings = PlaybackSettings(),
 ): AppliedSettingsSyncDocument {
     val preferences = document.preferences
+    val importedServerProfiles = importSettingsSyncServerProfiles(
+        serverProfiles = document.serverProfiles,
+        repository = mediaSourceRepository,
+    )
     // A receiving device's capabilities must never erase portable preferences, and a document
     // never carries another device's volume, output device, or diagnostic settings.
     val importedPlayback = preferences.playback.normalized().withDeviceLocalSettingsFrom(localPlayback)
     radioDjPresetRepository.replaceRadioDjPresets(importedPlayback.radioDjs)
     return AppliedSettingsSyncDocument(
-        interfaceSettings = preferences.interfaceSettings.normalized(),
+        interfaceSettings = preferences.interfaceSettings.copy(
+            quickAccess = preferences.interfaceSettings.quickAccess.mapNotNull { value ->
+                val pin = value.normalized() ?: return@mapNotNull null
+                val sourceId = importedServerProfiles.sourceIdByProfileId[pin.sourceId] ?: return@mapNotNull null
+                if (pin.sourceId == sourceId) pin else pin.copy(sourceId = sourceId)
+            },
+        ).normalized(),
         playbackSettings = importedPlayback.copy(radioDjs = radioDjPresetRepository.radioDjPresets()),
         visualizer = preferences.visualizer,
         recentRadioStreams = preferences.recentRadioStreams,
         recentInternetRadioStations = preferences.recentInternetRadioStations,
-        importedServerProfiles = importSettingsSyncServerProfiles(
-            serverProfiles = document.serverProfiles,
-            repository = mediaSourceRepository,
-        ),
+        importedServerProfiles = importedServerProfiles,
     )
 }
 
@@ -185,20 +194,23 @@ fun importSettingsSyncServerProfiles(
 ): ImportedSettingsSyncServerProfiles {
     val profiles = serverProfiles.mapNotNull { it.normalized() }
     var importedCount = 0
+    val sourceIdByProfileId = mutableMapOf<String, String>()
     profiles.forEach { profile ->
         val existing = (repository as? app.naviamp.domain.cache.MediaSourceRepository)?.mediaSources()
             ?.firstOrNull { profile.identifies(it) }
-        repository.upsertProviderMediaSource(
+        val identity = repository.upsertProviderMediaSource(
             connection = profile.toProviderMediaSourceConnection(existing),
             cacheNamespace = existing?.cacheNamespace ?: profile.cacheNamespace,
             preferredSourceId = existing?.id,
             providerId = profile.providerId,
         )
+        sourceIdByProfileId[profile.id] = identity.id
         importedCount++
     }
     return ImportedSettingsSyncServerProfiles(
         importedCount = importedCount,
         firstConnectionForm = profiles.firstOrNull()?.toConnectionFormState(password = ""),
+        sourceIdByProfileId = sourceIdByProfileId,
     )
 }
 
@@ -239,7 +251,13 @@ private fun SettingsSyncServerProfile.toProviderMediaSourceConnection(existing: 
     )
 
 private val SettingsSyncServerProfile.cacheNamespace: String
-    get() = "${providerId}:${primaryUrl}:${username}"
+    get() = buildString {
+        append("${providerId}:${primaryUrl}:${username}")
+        if (selectedMusicFolderIds.isNotEmpty()) {
+            append(if (providerId == ProviderIdJellyfin) ":libraries=" else ":folders=")
+            append(selectedMusicFolderIds.joinToString(","))
+        }
+    }
 
 private fun PlaybackSettings.withoutDeviceLocalSettings(): PlaybackSettings =
     withDeviceLocalSettingsFrom(PlaybackSettings())

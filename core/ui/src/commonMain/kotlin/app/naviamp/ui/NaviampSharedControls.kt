@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +30,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -435,6 +439,31 @@ internal fun MiniPlayerIconButton(
 }
 
 @Composable
+internal fun MiniPlayerToggleButton(
+    action: NaviampDetailAction,
+    colors: NaviampColors,
+    modifier: Modifier = Modifier,
+    size: Dp = 38.dp,
+) {
+    NaviampTooltip(action.label, colors) {
+        IconToggleButton(
+            checked = action.selected,
+            onCheckedChange = { action.onClick() },
+            enabled = action.enabled,
+            modifier = modifier.size(size).semantics { contentDescription = action.label },
+            colors = IconButtonDefaults.iconToggleButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.primaryText,
+                checkedContainerColor = colors.primaryText.copy(alpha = 0.14f),
+                checkedContentColor = colors.primaryText,
+            ),
+        ) {
+            Icon(action.icon, contentDescription = null, modifier = Modifier.size(size * 0.58f))
+        }
+    }
+}
+
+@Composable
 internal fun SectionHeader(text: String, colors: NaviampColors) {
     Text(text, color = colors.primaryText, fontWeight = FontWeight.Bold, fontSize = 15.sp)
 }
@@ -556,18 +585,22 @@ internal fun responsiveVisibleActionCount(
     return if (actionCount <= availableSlots) actionCount else (availableSlots - 1).coerceAtLeast(0)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NaviampResponsiveActionRow(
     colors: NaviampColors,
     actions: List<NaviampDetailAction>,
     modifier: Modifier = Modifier,
+    trailingToggle: NaviampDetailAction? = null,
 ) {
-    if (actions.isEmpty()) return
+    if (actions.isEmpty() && trailingToggle == null) return
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val visibleCount = responsiveVisibleActionCount(maxWidth.value, actions.size)
+        val trailingWidth = if (trailingToggle == null) 0f else 44f // Same 38dp button plus 6dp gap as other tools.
+        val visibleCount = responsiveVisibleActionCount(maxWidth.value - trailingWidth, actions.size)
         val visibleActions = actions.take(visibleCount)
         val hiddenActions = actions.drop(visibleCount)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
+            itemVerticalAlignment = Alignment.CenterVertically) {
             visibleActions.forEach { action ->
                 MiniPlayerIconButton(
                     colors = colors,
@@ -589,6 +622,7 @@ fun NaviampResponsiveActionRow(
                     selected = hiddenActions.any { it.selected },
                 )
             }
+            trailingToggle?.let { MiniPlayerToggleButton(it, colors) }
         }
     }
 }

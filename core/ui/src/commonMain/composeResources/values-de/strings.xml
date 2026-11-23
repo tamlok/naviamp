@@ -157,6 +157,8 @@
     <string name="settings_category_about_subtitle">Version, Bibliotheken, Änderungsprotokoll</string>
     <string name="common_unknown">Unbekannt</string>
     <string name="common_back">Zurück</string>
+    <string name="quick_access_pin">An Schnellzugriff anheften</string>
+    <string name="quick_access_remove">Aus Schnellzugriff entfernen</string>
     <string name="common_cancel">Abbrechen</string>
     <string name="common_close">Schließen</string>
     <string name="common_delete">Löschen</string>

@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">استئناف قوائم التشغيل</string>
     <string name="settings_resume_playlists_description">متابعة قوائم التشغيل من آخر مقطع وموضع توقف</string>
     <string name="common_back">رجوع</string>
+    <string name="quick_access_pin">تثبيت في الوصول السريع</string>
+    <string name="quick_access_remove">إزالة من الوصول السريع</string>
     <string name="settings_category_appearance_title">المظهر</string>
     <string name="settings_category_appearance_subtitle">السمات والألوان</string>
     <string name="settings_category_experience_subtitle">اجعل التطبيق يعمل كما تريد</string>

@@ -102,6 +102,7 @@ internal fun InterfaceSettings.withConnectPortableValues(offered: InterfaceSetti
         showDesktopTooltips = showDesktopTooltips,
         globalKeyboardShortcuts = globalKeyboardShortcuts,
         trackSwipes = trackSwipes,
+        quickAccess = quickAccess,
     ).normalized()
 
 internal fun PlaybackSettings.withConnectPortableValues(offered: PlaybackSettings): PlaybackSettings =

@@ -11,6 +11,44 @@ import kotlinx.serialization.json.jsonObject
 
 class SettingsSyncDocumentTest {
     @Test
+    fun quickAccessSurvivesPortableDocumentRoundTripsAndOlderDocumentsDefaultEmpty() {
+        val pins = QuickAccessKind.entries.map { kind ->
+            QuickAccessPin("source-a", kind, "shared-item-id", kind.name)
+        } + QuickAccessPin("source-b", QuickAccessKind.Playlist, "shared-item-id", "Other account")
+        val expected = InterfaceSettings(language = InterfaceLanguage.German, quickAccess = pins)
+        val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(interfaceSettings = expected), 1L, "sender")
+        val restored = SettingsSyncJson.decode(SettingsSyncJson.encode(document)).preferences.interfaceSettings
+        assertEquals(expected, restored)
+        val rebuilt = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(interfaceSettings = restored), 2L, "receiver")
+        assertEquals(expected, SettingsSyncJson.decode(SettingsSyncJson.encode(rebuilt)).preferences.interfaceSettings)
+        assertTrue(SettingsSyncJson.decode("{}").preferences.interfaceSettings.quickAccess.isEmpty())
+        val older = SettingsSyncJson.decode("""{"preferences":{"interfaceSettings":{"language":"German"}}}""")
+        assertEquals(InterfaceSettings(language = InterfaceLanguage.German), older.preferences.interfaceSettings)
+    }
+
+    @Test
+    fun quickAccessJsonNormalizesInvalidAndDuplicatePinsWithoutChangingUnrelatedSettings() {
+        val restored = SettingsSyncJson.decode("""
+            {"preferences":{"interfaceSettings":{"language":"German","quickAccess":[
+                {"sourceId":" source-a ","kind":"Playlist","itemId":" list ","title":" Playlist "},
+                {"sourceId":"source-a","kind":"Playlist","itemId":"list","title":"Duplicate"},
+                {"sourceId":"source-a","kind":"Album","itemId":"list","title":"Album"},
+                {"sourceId":" ","kind":"Artist","itemId":"artist","title":"Artist"},
+                {"sourceId":"source-a","kind":"Artist","itemId":" ","title":"Artist"},
+                {"sourceId":"source-a","kind":"Artist","itemId":"artist","title":" "}
+            ]}}}
+        """.trimIndent()).preferences.interfaceSettings
+        val expected = InterfaceSettings(language = InterfaceLanguage.German, quickAccess = listOf(
+            QuickAccessPin("source-a", QuickAccessKind.Playlist, "list", "Playlist"),
+            QuickAccessPin("source-a", QuickAccessKind.Album, "list", "Album"),
+        ))
+        assertEquals(expected, restored)
+        assertEquals(expected, SettingsSyncJson.decode(SettingsSyncJson.encode(SettingsSyncDocument(
+            preferences = SettingsSyncPreferences(interfaceSettings = restored),
+        ))).preferences.interfaceSettings)
+    }
+
+    @Test
     fun playlistResumeSurvivesExportImportAndSyncDocumentRebuild() {
         for (enabled in listOf(true, false)) {
             val settings = PlaybackSettings(resumePlaylists = enabled, gaplessEnabled = false)

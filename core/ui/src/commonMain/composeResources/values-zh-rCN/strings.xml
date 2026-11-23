@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">继续播放歌单</string>
     <string name="settings_resume_playlists_description">从上次的曲目和播放位置继续播放歌单</string>
     <string name="common_back">返回</string>
+    <string name="quick_access_pin">固定到快速访问</string>
+    <string name="quick_access_remove">从快速访问中移除</string>
     <string name="settings_category_appearance_title">外观</string>
     <string name="settings_category_appearance_subtitle">主题和颜色</string>
     <string name="settings_category_experience_subtitle">按你的方式运行</string>

@@ -71,6 +71,8 @@
     <string name="settings_category_about_subtitle">Wersje, biblioteki, historia zmian</string>
     <string name="common_unknown">Nieznane</string>
     <string name="common_back">Wstecz</string>
+    <string name="quick_access_pin">Przypnij do szybkiego dostępu</string>
+    <string name="quick_access_remove">Usuń z szybkiego dostępu</string>
     <string name="common_cancel">Anuluj</string>
     <string name="common_close">Zamknij</string>
     <string name="common_delete">Usuń</string>

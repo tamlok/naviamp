@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">Возобновлять плейлисты</string>
     <string name="settings_resume_playlists_description">Продолжать плейлисты с последнего трека и позиции воспроизведения</string>
     <string name="common_back">Назад</string>
+    <string name="quick_access_pin">Закрепить в быстром доступе</string>
+    <string name="quick_access_remove">Удалить из быстрого доступа</string>
     <string name="settings_category_appearance_title">Оформление</string>
     <string name="settings_category_appearance_subtitle">Темы и цвета</string>
     <string name="settings_category_experience_subtitle">Настройте поведение по своему вкусу</string>

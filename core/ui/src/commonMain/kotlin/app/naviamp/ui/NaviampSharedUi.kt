@@ -218,6 +218,7 @@ private fun NaviampSharedAppShellContent(
         LocalSquareAlbumArtwork provides interfaceSettings.squareAlbumArtwork,
         LocalTrackSwipeSettings provides interfaceSettings.trackSwipes,
         LocalNaviampTooltipsEnabled provides interfaceSettings.showDesktopTooltips,
+        LocalNaviampQuickAccess provides rememberNaviampQuickAccess(uiState, actions.quickAccessActions),
     ) {
     NaviampApplicationUpdateEffect(
         enabled = supportsApplicationUpdates && interfaceSettings.checkForUpdates,

@@ -5,6 +5,8 @@ import org.jetbrains.compose.resources.pluralStringResource
 import app.naviamp.ui.generated.resources.*
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.naviamp.domain.settings.AlbumSortOrder
+import app.naviamp.domain.settings.QuickAccessKind
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.flow.first
@@ -84,7 +92,8 @@ internal fun TelevisionAlbumDetail(
     ) {
         item(key = "album-hero:${detail.album.id}") {
             TelevisionDetailHero(
-                title = detail.album.title,
+                item = detail.album,
+                quickAccessKind = QuickAccessKind.Album,
                 mediaKind = SharedMediaItemKind.Album,
                 subtitle = detail.album.subtitle,
                 metadata = listOfNotNull(
@@ -180,7 +189,8 @@ internal fun TelevisionArtistDetail(
     ) {
         item(key = televisionArtistHeroKey(detail.artist.id)) {
             TelevisionDetailHero(
-                title = detail.artist.title,
+                item = detail.artist,
+                quickAccessKind = QuickAccessKind.Artist,
                 subtitle = detail.artist.subtitle,
                 metadata = televisionReleaseCountLabel(detail.albums.size),
                 coverArtUrl = detail.artist.coverArtUrl,
@@ -404,7 +414,8 @@ internal fun TelevisionPlaylistDetail(
     ) {
         item(key = "playlist-hero:${playlist.id}") {
             TelevisionDetailHero(
-                title = playlist.title,
+                item = playlist,
+                quickAccessKind = QuickAccessKind.Playlist,
                 mediaKind = SharedMediaItemKind.Playlist,
                 subtitle = "",
                 metadata = trackCountDurationLabel(detail.tracks.size, detail.totalDurationLabel),
@@ -489,7 +500,8 @@ private data class TelevisionHeroAction(
 
 @Composable
 private fun TelevisionDetailHero(
-    title: String,
+    item: SharedMediaItemUi,
+    quickAccessKind: QuickAccessKind,
     subtitle: String,
     metadata: String,
     coverArtUrl: String?,
@@ -502,12 +514,30 @@ private fun TelevisionDetailHero(
     initialActionDownFocusRequester: FocusRequester? = null,
     topNavigationFocusRequester: FocusRequester? = null,
 ) {
-    val initialActionFocusRequester = remember(title) { FocusRequester() }
+    val quickAccess = naviampQuickAccessAction(item, quickAccessKind)
+    val actionFocus = remember(item.id, actions.size) { List(actions.size) { FocusRequester() } }
+    val toggleFocus = remember(item.id) { FocusRequester() }
+    var toggleFocused by remember(item.id) { mutableStateOf(false) }
+    val firstEnabled = actions.indexOfFirst { it.enabled }
+    val lastEnabled = actions.indexOfLast { it.enabled }
+    val focusManager = LocalFocusManager.current
+    val inputMode = LocalInputModeManager.current
     NaviampDetailHeader(
         colors = colors,
         verticalArrangement = Arrangement.spacedBy(12.dp),
         background = background,
     ) { colors ->
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                item.title,
+                color = colors.primaryText,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(22.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -535,14 +565,6 @@ private fun TelevisionDetailHero(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                Text(
-                    title,
-                    color = colors.primaryText,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
                 if (subtitle.isNotBlank()) {
                     Text(
                         subtitle,
@@ -555,45 +577,59 @@ private fun TelevisionDetailHero(
                 if (metadata.isNotBlank()) {
                     Text(metadata, color = colors.mutedText, fontSize = 16.sp)
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) false else {
+                            val direction = when (event.key) {
+                                Key.DirectionLeft -> FocusDirection.Left
+                                Key.DirectionRight -> FocusDirection.Right
+                                Key.DirectionUp -> FocusDirection.Up
+                                Key.DirectionDown -> FocusDirection.Down
+                                else -> null
+                            }
+                            if (direction == null) false else {
+                                inputMode.requestInputMode(InputMode.Keyboard)
+                                focusManager.moveFocus(direction)
+                            }
+                        }
+                    },
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     actions.forEachIndexed { index, action ->
                         TelevisionDetailActionButton(
                             action,
                             colors,
-                            modifier = if (index == 0) {
-                                Modifier
-                                    .focusRequester(initialActionFocusRequester)
-                                    .onPreviewKeyEvent { event ->
-                                        if (
-                                            event.type == KeyEventType.KeyDown &&
-                                            event.key == Key.DirectionUp &&
-                                            topNavigationFocusRequester != null
-                                        ) {
-                                            topNavigationFocusRequester.requestFocus()
-                                            true
-                                        } else if (
-                                            event.type == KeyEventType.KeyDown &&
-                                            event.key == Key.DirectionDown &&
-                                            initialActionDownFocusRequester != null
-                                        ) {
-                                            initialActionDownFocusRequester.requestFocus()
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    }
-                            } else {
-                                Modifier
+                            modifier = Modifier.focusRequester(actionFocus[index]).focusProperties {
+                                val previous = (index - 1 downTo 0).firstOrNull { actions[it].enabled }
+                                val next = (index + 1 until actions.size).firstOrNull { actions[it].enabled }
+                                left = previous?.let { actionFocus[it] } ?: FocusRequester.Default
+                                right = next?.let { actionFocus[it] }
+                                    ?: if (quickAccess != null) toggleFocus else FocusRequester.Default
+                                if (index == firstEnabled) {
+                                    up = topNavigationFocusRequester ?: FocusRequester.Default
+                                    down = initialActionDownFocusRequester ?: FocusRequester.Default
+                                }
                             },
                         )
+                    }
+                    quickAccess?.let { action ->
+                        MiniPlayerToggleButton(action, colors, Modifier.focusRequester(toggleFocus)
+                            .focusProperties {
+                                left = actionFocus.getOrNull(lastEnabled) ?: FocusRequester.Default
+                                up = topNavigationFocusRequester ?: FocusRequester.Default
+                                down = if (firstEnabled >= 0) initialActionDownFocusRequester ?: FocusRequester.Default
+                                    else FocusRequester.Default
+                            }
+                            .onFocusChanged { toggleFocused = it.isFocused }
+                            .televisionFocusEffect(toggleFocused, colors, RoundedCornerShape(24.dp)))
                     }
                 }
             }
         }
     }
-    LaunchedEffect(title) {
+    LaunchedEffect(item.id, firstEnabled, quickAccess != null) {
         withFrameNanos { }
-        initialActionFocusRequester.requestFocus()
+        if (firstEnabled >= 0) actionFocus[firstEnabled].requestFocus()
+        else if (quickAccess != null) toggleFocus.requestFocus()
     }
 }
 
@@ -846,7 +882,17 @@ private fun TelevisionDetailLoading(
         verticalArrangement = Arrangement.spacedBy(18.dp),
         background = background,
     ) { colors ->
-        Text(title, color = colors.primaryText, fontSize = 34.sp, fontWeight = FontWeight.Black)
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title,
+                color = colors.primaryText,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Text(status ?: stringResource(Res.string.tv_loading), color = colors.secondaryText, fontSize = 19.sp)
     }
 }

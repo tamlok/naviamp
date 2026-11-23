@@ -3,6 +3,8 @@
     <string name="settings_resume_playlists">Lanjutkan daftar putar</string>
     <string name="settings_resume_playlists_description">Lanjutkan daftar putar dari lagu dan posisi terakhir</string>
     <string name="common_back">Kembali</string>
+    <string name="quick_access_pin">Sematkan ke Akses Cepat</string>
+    <string name="quick_access_remove">Hapus dari Akses Cepat</string>
     <string name="settings_category_appearance_title">Tampilan</string>
     <string name="settings_category_appearance_subtitle">Tema dan warna</string>
     <string name="settings_category_experience_subtitle">Atur cara kerja sesuai keinginan Anda</string>

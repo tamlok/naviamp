@@ -1,8 +1,11 @@
 package app.naviamp.domain.settings
 import app.naviamp.domain.radio.withRadioSimilarityMethod
 
+import app.naviamp.domain.cache.MediaSourceRepository
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.cache.ProviderMediaSourceRepository
+import app.naviamp.domain.provider.ProviderIdAurral
+import app.naviamp.domain.provider.ProviderIdJellyfin
 import app.naviamp.domain.provider.ProviderIdNavidrome
 import app.naviamp.domain.provider.ProviderIdSubsonic
 import app.naviamp.domain.playback.ReplayGainMode
@@ -13,6 +16,7 @@ import app.naviamp.domain.source.ConnectionHeaderDefinition
 import app.naviamp.domain.source.ConnectionSecondaryUrl
 import app.naviamp.domain.source.ConnectionTlsSettings
 import app.naviamp.domain.source.SavedMediaSource
+import app.naviamp.domain.source.stableMediaSourceId
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -20,6 +24,107 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SettingsSyncMappingTest {
+    @Test
+    fun freshImportsUseExactProviderNamespacesAndStableIdsForEveryLibraryScope() {
+        for (providerId in listOf(ProviderIdNavidrome, ProviderIdSubsonic, ProviderIdAurral, ProviderIdJellyfin)) {
+            val scopes = listOf(emptyList(), listOf(" folder-two ", "folder-one", "folder-two"), listOf("folder-three"))
+            val profiles = scopes.mapIndexed { index, scope ->
+                savedSource().toSettingsSyncServerProfile().copy(
+                    id = "exported-$index",
+                    providerId = providerId,
+                    selectedMusicFolderIds = scope,
+                )
+            }
+            val pins = profiles.flatMap { profile -> QuickAccessKind.entries.map { kind ->
+                QuickAccessPin(profile.id, kind, "shared-item", "${profile.id} ${kind.name}")
+            } }
+            val exported = SettingsSyncDocument(serverProfiles = profiles, preferences = SettingsSyncPreferences(
+                interfaceSettings = InterfaceSettings(language = InterfaceLanguage.German, quickAccess = pins),
+            ))
+            val repository = RecordingProviderMediaSourceRepository()
+            val applied = applySettingsSyncDocument(SettingsSyncJson.decode(SettingsSyncJson.encode(exported)),
+                repository, RecordingRadioDjPresetRepository())
+            val baseNamespace = "$providerId:https://navidrome.lan:ursasmar"
+            val scopePrefix = if (providerId == ProviderIdJellyfin) ":libraries=" else ":folders="
+            val namespaces = listOf(baseNamespace, "$baseNamespace${scopePrefix}folder-two,folder-one",
+                "$baseNamespace${scopePrefix}folder-three")
+            val sourceIds = namespaces.map(::stableMediaSourceId)
+
+            assertEquals(namespaces, repository.cacheNamespaces)
+            assertEquals(listOf<String?>(null, null, null), repository.preferredSourceIds)
+            assertEquals(3, sourceIds.toSet().size)
+            assertEquals(profiles.mapIndexed { index, profile -> profile.id to sourceIds[index] }.toMap(),
+                applied.importedServerProfiles.sourceIdByProfileId)
+            val expectedPins = pins.map { pin -> pin.copy(sourceId = sourceIds[profiles.indexOfFirst { it.id == pin.sourceId }]) }
+            assertEquals(expectedPins, applied.interfaceSettings.quickAccess)
+            assertEquals(InterfaceLanguage.German, applied.interfaceSettings.language)
+            assertEquals(listOf(emptyList(), listOf("folder-two", "folder-one"), listOf("folder-three")),
+                repository.connections.map { it.selectedMusicFolderIds })
+
+            val reexported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(
+                serverProfiles = repository.mediaSources(), interfaceSettings = applied.interfaceSettings,
+            ), 2L, "receiver")
+            val restored = applySettingsSyncDocument(SettingsSyncJson.decode(SettingsSyncJson.encode(reexported)),
+                RecordingProviderMediaSourceRepository(), RecordingRadioDjPresetRepository())
+            assertEquals(expectedPins, restored.interfaceSettings.quickAccess)
+        }
+    }
+
+    @Test
+    fun existingIdentityAndNamespaceAreReusedAndPinsAreDeduplicatedAfterRemapping() {
+        val local = savedSource().copy(id = "receiving-device-source")
+        val otherScope = local.copy(id = "other-scope", cacheNamespace = "${local.cacheNamespace}:folders=other",
+            selectedMusicFolderIds = listOf("other"))
+        val repository = RecordingProviderMediaSourceRepository(listOf(otherScope, local))
+        val profile = local.toSettingsSyncServerProfile().copy(id = "exported-source",
+            selectedMusicFolderIds = listOf("folder-two", "folder-one"))
+        val first = QuickAccessPin(profile.id, QuickAccessKind.Playlist, "item", "First title")
+        val document = SettingsSyncDocument(
+            serverProfiles = listOf(profile, profile.copy(id = "exported-alias")),
+            preferences = SettingsSyncPreferences(interfaceSettings = InterfaceSettings(quickAccess = listOf(
+                first.copy(sourceId = " exported-source ", itemId = " item ", title = " First title "),
+                first.copy(sourceId = "exported-alias", title = "Duplicate target"),
+                first.copy(kind = QuickAccessKind.Artist, title = "Artist"),
+                first.copy(itemId = " "),
+            ))),
+        )
+
+        val applied = applySettingsSyncDocument(document, repository, RecordingRadioDjPresetRepository())
+
+        assertEquals(listOf<String?>(local.id, local.id), repository.preferredSourceIds)
+        assertEquals(listOf(local.cacheNamespace, local.cacheNamespace), repository.cacheNamespaces)
+        assertEquals(mapOf(profile.id to local.id, "exported-alias" to local.id),
+            applied.importedServerProfiles.sourceIdByProfileId)
+        assertEquals(listOf(first.copy(sourceId = local.id),
+            first.copy(sourceId = local.id, kind = QuickAccessKind.Artist, title = "Artist")),
+            applied.interfaceSettings.quickAccess)
+        assertTrue(repository.connections.all { it.token == local.token && it.salt == local.salt && it.nativeToken == local.nativeToken })
+    }
+
+    @Test
+    fun unmappedPinsAreRejectedEvenWhenAnExportedIdCoincidesWithALocalSource() {
+        val local = savedSource().copy(id = "coincident-local-id")
+        val repository = RecordingProviderMediaSourceRepository(listOf(local))
+        val profile = local.toSettingsSyncServerProfile().copy(id = "exported-profile")
+        val pin = QuickAccessPin(local.id, QuickAccessKind.Album, "item", "Must not cross-bind")
+        val document = SettingsSyncDocument(
+            serverProfiles = listOf(profile, profile.copy(id = "invalid-profile", primaryUrl = " ")),
+            preferences = SettingsSyncPreferences(interfaceSettings = InterfaceSettings(
+                language = InterfaceLanguage.German,
+                quickAccess = listOf(pin, pin.copy(sourceId = "unknown"), pin.copy(sourceId = "invalid-profile")),
+            )),
+        )
+
+        val applied = applySettingsSyncDocument(document, repository, RecordingRadioDjPresetRepository())
+
+        assertEquals(mapOf(profile.id to local.id), applied.importedServerProfiles.sourceIdByProfileId)
+        assertEquals(InterfaceSettings(language = InterfaceLanguage.German), applied.interfaceSettings)
+        val withoutProfiles = applySettingsSyncDocument(document.copy(serverProfiles = emptyList()),
+            repository, RecordingRadioDjPresetRepository())
+        assertTrue(withoutProfiles.interfaceSettings.quickAccess.isEmpty())
+        assertTrue(withoutProfiles.importedServerProfiles.sourceIdByProfileId.isEmpty())
+    }
+
     @Test
     fun playlistResumeAppliesFromPortableSettingsAndSurvivesReexport() {
         for (enabled in listOf(true, false)) {
@@ -347,8 +452,8 @@ class SettingsSyncMappingTest {
         assertEquals("Goosepod", result.firstConnectionForm?.displayName)
         assertEquals(
             listOf(
-                "navidrome:https://navidrome.lan:ursasmar",
-                "navidrome:https://away.example:demo2",
+                "navidrome:https://navidrome.lan:ursasmar:folders=folder-one,folder-two",
+                "navidrome:https://away.example:demo2:folders=folder-one,folder-two",
             ),
             repository.cacheNamespaces,
         )
@@ -461,9 +566,20 @@ class SettingsSyncMappingTest {
             lastSyncCompletedAtEpochMillis = 4L,
         )
 
-    private class RecordingProviderMediaSourceRepository : ProviderMediaSourceRepository {
+    private class RecordingProviderMediaSourceRepository(
+        initialSources: List<SavedMediaSource> = emptyList(),
+    ) : ProviderMediaSourceRepository, MediaSourceRepository {
         val connections = mutableListOf<ProviderMediaSourceConnection>()
         val cacheNamespaces = mutableListOf<String>()
+        val preferredSourceIds = mutableListOf<String?>()
+        private val sources = initialSources.associateBy { it.id }.toMutableMap()
+
+        override fun latestMediaSource(): SavedMediaSource? = sources.values.lastOrNull()
+        override fun mediaSources(): List<SavedMediaSource> = sources.values.toList()
+        override fun mediaSource(sourceId: String): SavedMediaSource? = sources[sourceId]
+        override fun deleteMediaSource(sourceId: String) {
+            sources.remove(sourceId)
+        }
 
         override fun upsertProviderMediaSource(
             connection: ProviderMediaSourceConnection,
@@ -473,8 +589,33 @@ class SettingsSyncMappingTest {
         ): MediaSourceIdentity {
             connections += connection
             cacheNamespaces += cacheNamespace
+            preferredSourceIds += preferredSourceId
+            val id = preferredSourceId ?: sources.values.firstOrNull { it.cacheNamespace == cacheNamespace }?.id
+                ?: stableMediaSourceId(cacheNamespace)
+            sources[id] = SavedMediaSource(
+                id = id,
+                providerId = providerId,
+                cacheNamespace = cacheNamespace,
+                displayName = connection.displayName,
+                baseUrl = connection.baseUrl,
+                username = connection.username,
+                token = connection.token,
+                salt = connection.salt,
+                nativeToken = connection.nativeToken,
+                password = connection.password,
+                authenticationMode = connection.authenticationMode,
+                tlsSettings = connection.tlsSettings,
+                secondaryUrls = connection.secondaryUrls,
+                customHeaders = connection.customHeaders,
+                selectedMusicFolderIds = connection.selectedMusicFolderIds,
+                aurralCompanion = connection.aurralCompanion,
+                createdAtEpochMillis = 1L,
+                lastConnectedAtEpochMillis = null,
+                lastSyncStartedAtEpochMillis = null,
+                lastSyncCompletedAtEpochMillis = null,
+            )
             return MediaSourceIdentity(
-                id = "source_${connections.size}",
+                id = id,
                 cacheNamespace = cacheNamespace,
                 displayName = connection.displayName,
             )

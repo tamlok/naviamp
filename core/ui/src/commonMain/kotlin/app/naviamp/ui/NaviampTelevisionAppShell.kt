@@ -1,6 +1,8 @@
 package app.naviamp.ui
 
 import app.naviamp.domain.settings.albumArtworkPreference
+import app.naviamp.domain.settings.QuickAccessKind
+import app.naviamp.domain.settings.QuickAccessPin
 
 import app.naviamp.ui.generated.resources.connect_setup_code_consent
 import org.jetbrains.compose.resources.stringResource
@@ -272,7 +274,10 @@ private fun NaviampTelevisionAppShellContent(
         }
     }
 
-    CompositionLocalProvider(LocalSquareAlbumArtwork provides interfaceSettings.squareAlbumArtwork) {
+    CompositionLocalProvider(
+        LocalSquareAlbumArtwork provides interfaceSettings.squareAlbumArtwork,
+        LocalNaviampQuickAccess provides rememberNaviampQuickAccess(uiState, actions.quickAccessActions),
+    ) {
     NaviampFontSizeScope(
         fontSize = interfaceSettings.generalFontSize,
     ) {
@@ -427,6 +432,14 @@ private fun NaviampTelevisionAppShellContent(
                                     },
                                     onClicked = enterNavigationDestination,
                                     onEnterContent = enterNavigationDestination,
+                                    onQuickAccessSelected = { pin ->
+                                        suppressedFocusActivation = if (pin.kind == QuickAccessKind.Playlist)
+                                            NaviampTelevisionDestination.Playlists else NaviampTelevisionDestination.Library
+                                        nowPlayingPreview = false
+                                        returnToNowPlayingFromSearch = false
+                                        contentEntryDestination = null
+                                        actions.quickAccessActions?.onOpen?.invoke(pin)
+                                    },
                                     onSettingsSelected = {
                                         contentEntryDestination = null
                                         returnToNowPlayingFromSearch = false
@@ -550,11 +563,13 @@ private fun TelevisionNavigationBar(
     onClicked: (NaviampTelevisionDestination) -> Unit,
     onEnterContent: (NaviampTelevisionDestination) -> Unit,
     onSettingsSelected: () -> Unit,
+    onQuickAccessSelected: (QuickAccessPin) -> Unit,
     account: NaviampSavedConnectionUi?,
     accountFocusRequester: FocusRequester,
     restoreAccountFocus: Boolean,
     onAccountsSelected: () -> Unit,
 ) {
+    val quickAccess = LocalNaviampQuickAccess.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -596,6 +611,12 @@ private fun TelevisionNavigationBar(
                     onClick = { onClicked(destination) },
                     onFocused = { onFocused(destination) },
                     onDown = { onEnterContent(destination) },
+                )
+            }
+            items(quickAccess?.pins.orEmpty(), key = { "quick-access:${it.navigationKey}" }) { pin ->
+                MainQuickAccessItem(
+                    pin, colors, horizontal = true, onClick = { onQuickAccessSelected(pin) },
+                    modifier = Modifier.width(220.dp).focusProperties { canFocus = navigationFocused },
                 )
             }
         }

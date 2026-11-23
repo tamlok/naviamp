@@ -1203,6 +1203,7 @@ data class NaviampAppShellActions(
     val mediaActions: NaviampMediaActions,
     val nowPlayingActions: NaviampNowPlayingActions,
     val connectActions: NaviampConnectSettingsActions? = null,
+    val quickAccessActions: NaviampQuickAccessActions? = null,
 )
 
 data class SharedSonicPathBuilderActions(

@@ -42,6 +42,7 @@ import app.naviamp.domain.smartplaylist.SmartPlaylistDefinition
 import app.naviamp.domain.smartplaylist.SmartPlaylistEditingResult
 import app.naviamp.domain.smartplaylist.SmartPlaylistDraft
 import app.naviamp.domain.settings.ConnectionFormMusicFolder
+import app.naviamp.domain.settings.QuickAccessKind
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
@@ -528,15 +529,20 @@ fun NaviampPlaylistDetailContent(
             background = headerBackground,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) { colors ->
-            IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
-                Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
+                    Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+                }
+                Text(
+                    screen.selectedPlaylist?.title ?: "Playlist",
+                    color = colors.primaryText,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
             }
-            Text(
-                screen.selectedPlaylist?.title ?: "Playlist",
-                color = colors.primaryText,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-            )
             screen.status?.let { Text(it, color = colors.secondaryText) }
         }
         return
@@ -737,7 +743,7 @@ private fun PlaylistDetailContent(
             },
     ) {
         NaviampDetailHeader(colors = colors, background = headerBackground) { colors ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                     Icon(
                         NaviampIcons.Back,
@@ -783,6 +789,7 @@ private fun PlaylistDetailContent(
                     fontSize = 18.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -805,6 +812,7 @@ private fun PlaylistDetailContent(
                     status?.let { Text(it, color = colors.secondaryText, fontSize = 11.sp) }
                     NaviampResponsiveActionRow(
                         colors = colors,
+                        trailingToggle = naviampQuickAccessAction(detail.playlist, QuickAccessKind.Playlist),
                         actions = buildList {
                             add(NaviampDetailAction(stringResource(Res.string.playlists_play), NaviampTransportIcons.Play, onPlayPlaylist, detail.tracks.isNotEmpty()))
                             add(NaviampDetailAction(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, onShufflePlaylist, detail.tracks.size > 1))

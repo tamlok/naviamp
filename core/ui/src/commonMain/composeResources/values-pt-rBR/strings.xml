@@ -458,6 +458,8 @@
     <string name="settings_category_about_subtitle">Versão, bibliotecas, histórico de alterações</string>
     <string name="common_unknown">Desconhecido</string>
     <string name="common_back">Voltar</string>
+    <string name="quick_access_pin">Fixar no Acesso rápido</string>
+    <string name="quick_access_remove">Remover do Acesso rápido</string>
     <string name="common_cancel">Cancelar</string>
     <string name="common_close">Fechar</string>
     <string name="common_delete">Excluir</string>

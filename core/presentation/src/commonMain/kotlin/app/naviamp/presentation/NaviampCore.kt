@@ -818,6 +818,7 @@ class NaviampCore private constructor(
             router = NaviampCoreCommandRouter(
                 scope = scope,
                 controllers = listOf(
+                    NaviampCoreQuickAccessController(stateStore) { router.dispatch(it) },
                     navigation,
                     connection,
                     settings,
