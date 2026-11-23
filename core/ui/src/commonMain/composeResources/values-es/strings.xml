@@ -367,7 +367,7 @@
     <string name="home_more_in">Más en %1$s</string>
     <string name="home_from_decade">De %1$s</string>
     <string name="home_recently_played">REPRODUCIDO RECIENTEMENTE</string>
-    <string name="home_recommendations">RECOMENDACIONES PARA TI</string>
+    <string name="home_recommendations">RECOMENDACIONES</string>
     <string name="search_title">Buscar</string>
     <string name="search_music_label">Buscar música</string>
     <string name="search_searching">Buscando...</string>

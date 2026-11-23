@@ -451,7 +451,7 @@
     <string name="home_more_in">Mehr in %1$s</string>
     <string name="home_from_decade">Von %1$s</string>
     <string name="home_recently_played">ZULETZT GESPIELT</string>
-    <string name="home_recommendations">EMPFEHLUNGEN FÜR DICH</string>
+    <string name="home_recommendations">EMPFEHLUNGEN</string>
     <string name="search_title">Suchen</string>
     <string name="search_music_label">Musik suchen</string>
     <string name="search_searching">Suche...</string>

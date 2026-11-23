@@ -387,7 +387,7 @@
     <string name="discovery_releases">रिलीज़</string>
     <string name="home_scroll_left">बाईं ओर स्क्रॉल करें</string>
     <string name="home_scroll_right">दाईं ओर स्क्रॉल करें</string>
-    <string name="home_recommendations">आपके लिए सुझाव</string>
+    <string name="home_recommendations">सुझाव</string>
     <string name="settings_recommendations">आपके लिए सुझाव</string>
     <string name="favorite_songs_title">पसंदीदा गाने</string>
     <string name="favorite_songs_subtitle">वे सभी गाने जिन्हें आपने पसंदीदा के रूप में चिह्नित किया है</string>

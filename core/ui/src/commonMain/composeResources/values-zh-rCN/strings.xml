@@ -387,7 +387,7 @@
     <string name="discovery_releases">发行作品</string>
     <string name="home_scroll_left">向左滚动</string>
     <string name="home_scroll_right">向右滚动</string>
-    <string name="home_recommendations">为你推荐</string>
+    <string name="home_recommendations">推荐</string>
     <string name="settings_recommendations">为你推荐</string>
     <string name="favorite_songs_title">收藏的歌曲</string>
     <string name="favorite_songs_subtitle">您收藏的所有歌曲</string>

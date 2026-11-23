@@ -487,7 +487,7 @@
     <string name="discovery_releases">Wydania</string>
     <string name="home_scroll_left">Przewiń w lewo</string>
     <string name="home_scroll_right">Przewiń w prawo</string>
-    <string name="home_recommendations">POLECANE DLA CIEBIE</string>
+    <string name="home_recommendations">POLECANE</string>
     <string name="settings_recommendations">Polecane dla Ciebie</string>
     <string name="favorite_songs_title">Ulubione utwory</string>
     <string name="favorite_songs_subtitle">Wszystkie utwory oznaczone przez Ciebie jako ulubione</string>

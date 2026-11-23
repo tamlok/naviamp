@@ -387,7 +387,7 @@
     <string name="discovery_releases">Релизы</string>
     <string name="home_scroll_left">Прокрутить влево</string>
     <string name="home_scroll_right">Прокрутить вправо</string>
-    <string name="home_recommendations">РЕКОМЕНДАЦИИ ДЛЯ ВАС</string>
+    <string name="home_recommendations">РЕКОМЕНДАЦИИ</string>
     <string name="settings_recommendations">Рекомендации для вас</string>
     <string name="favorite_songs_title">Избранные песни</string>
     <string name="favorite_songs_subtitle">Все песни, которые вы добавили в избранное</string>
