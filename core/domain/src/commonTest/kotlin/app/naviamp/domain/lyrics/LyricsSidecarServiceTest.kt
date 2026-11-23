@@ -762,6 +762,62 @@ class LyricsSidecarServiceTest {
         assertEquals(listOf("lrclib", "lrcmux", "lrcapi", "store:lrclib"), events)
     }
 
+    @Test
+    fun cachedBestEffortIsReportedBeforeNetworkWhileExactUpgradeStillWins() = runTest {
+        val events = mutableListOf<String>()
+        val gate = CompletableDeferred<Unit>()
+        val cached = lyrics(LyricsSource.Lrclib, true, "Cached")
+            .copy(matchQuality = LyricsMatchQuality.BestEffort)
+        val exact = lyrics(LyricsSource.Lrclib, true, "Exact")
+        val online = object : LyricsProvider {
+            override val id = "online"
+            override val capabilities = setOf(LyricsTiming.LineSynced)
+            override suspend fun lyrics(track: Track, onCandidate: (LyricsSearchCandidate) -> Unit): Lyrics {
+                events += "network"
+                gate.await()
+                return exact
+            }
+        }
+        val repository = RecordingLyricsRepository(providers = listOf(online), cachedOnlineLyrics = mapOf("online" to cached))
+        var preview: LyricsSidecarResult? = null
+        val loading = async {
+            service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, true,
+                onCachedLyrics = { preview = it; events += "cached" })
+        }
+        runCurrent()
+        assertSame(cached, preview?.lyrics)
+        assertEquals(LyricsMatchQuality.BestEffort, preview?.lyrics?.matchQuality)
+        assertEquals(listOf("cached", "network"), events)
+        assertFalse(loading.isCompleted)
+        gate.complete(Unit)
+        assertSame(exact, loading.await().lyrics)
+    }
+
+    @Test
+    fun explicitRefreshNeverReportsTheDeletedCachedPreview() = runTest {
+        val cached = lyrics(LyricsSource.Provider, false, "Old").copy(matchQuality = LyricsMatchQuality.BestEffort)
+        val fresh = lyrics(LyricsSource.Provider, false, "Fresh")
+        val repository = RecordingLyricsRepository(providerLyrics = fresh, cachedLyrics = cached)
+        val previews = mutableListOf<LyricsSidecarResult>()
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, false,
+            forceRefresh = true, onCachedLyrics = previews::add)
+        assertSame(fresh, result.lyrics)
+        assertTrue(previews.isEmpty())
+        assertEquals(listOf("source:track"), repository.cleared)
+    }
+
+    @Test
+    fun disabledOnlineSourcesNeverPublishTheirCachedPreview() = runTest {
+        val cached = lyrics(LyricsSource.Lrclib, true, "Online cached").copy(matchQuality = LyricsMatchQuality.BestEffort)
+        val repository = RecordingLyricsRepository(cachedOnlineLyrics = mapOf("online" to cached))
+        val previews = mutableListOf<LyricsSidecarResult>()
+        val result = service(repository).loadLyrics("source", FakeMediaProvider(), track(), StreamQuality.Original, false, false,
+            onCachedLyrics = previews::add)
+        assertEquals(null, result.lyrics)
+        assertTrue(previews.isEmpty())
+        assertTrue(repository.onlineRequests.isEmpty())
+    }
+
     private fun deferredCandidate(text: String, duration: Double? = track().durationSeconds?.toDouble(), source: LyricsSource = LyricsSource.Lrclib) =
         TestDeferredCandidate(track(), lyrics(source, synced = true, text = text), duration = duration)
 

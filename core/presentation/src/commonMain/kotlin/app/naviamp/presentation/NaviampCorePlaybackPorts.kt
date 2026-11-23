@@ -99,7 +99,7 @@ enum class NaviampCoreRelatedTracksStatus {
 interface NaviampCoreNowPlayingSidecarPort {
     fun snapshot(): NaviampCoreNowPlayingSidecars
     suspend fun loadForTrack(track: Track)
-    suspend fun loadLyrics(track: Track, forceRefresh: Boolean = false)
+    suspend fun loadLyrics(track: Track, forceRefresh: Boolean = false, onCachedLyrics: () -> Unit = {})
     suspend fun changeLyricsOffset(track: Track, offsetMillis: Int)
     fun updateStreamMetadata(metadata: PlaybackStreamMetadata) = Unit
     suspend fun loadInternetRadioArtwork(

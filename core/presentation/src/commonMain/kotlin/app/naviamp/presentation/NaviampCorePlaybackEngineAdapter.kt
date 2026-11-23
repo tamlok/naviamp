@@ -86,6 +86,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1025,7 +1027,7 @@ class NaviampCoreMutableNowPlayingSidecars : NaviampCoreNowPlayingSidecarPort {
         state = NaviampCoreNowPlayingSidecars(trackId = track.id)
     }
 
-    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean) = Unit
+    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean, onCachedLyrics: () -> Unit) = Unit
 
     override suspend fun changeLyricsOffset(track: app.naviamp.domain.Track, offsetMillis: Int) = Unit
 
@@ -1108,10 +1110,13 @@ class NaviampCoreProviderNowPlayingSidecars(
 ) : NaviampCoreNowPlayingSidecarPort by delegate {
     private var loadGeneration = 0L
     private var lyricsGeneration = 0L
+    private var activeLyricsLookup: Job? = null
 
     override suspend fun loadForTrack(track: app.naviamp.domain.Track) {
         val generation = ++loadGeneration
         ++lyricsGeneration
+        activeLyricsLookup?.cancel()
+        activeLyricsLookup = null
         val previousAlbum = delegate.snapshot().album?.takeIf { it.id == track.albumId }
         delegate.loadForTrack(track)
         if (track.id.isDiscoveryPreview()) return
@@ -1167,10 +1172,12 @@ class NaviampCoreProviderNowPlayingSidecars(
         }
     }
 
-    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean) {
+    override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean, onCachedLyrics: () -> Unit) {
         if (delegate.snapshot().trackId != track.id) return
         beforeLyricsLoad(track)
         val generation = ++lyricsGeneration
+        activeLyricsLookup?.cancel()
+        activeLyricsLookup = null
         delegate.updateLyrics(null, null, null)
         delegate.updateLyricsLoading(false)
         if (track.id.isDiscoveryPreview()) return
@@ -1189,13 +1196,19 @@ class NaviampCoreProviderNowPlayingSidecars(
             generation == lyricsGeneration && delegate.snapshot().trackId == track.id &&
                 providerSource.current() === provider &&
                 (sourceId() ?: provider.cacheNamespace) == activeSourceId
+        fun withSavedOffset(lyrics: app.naviamp.domain.Lyrics?) = lyricsOffsetController?.withSavedOffset(
+            sourceId = activeSourceId, track = track, lyrics = lyrics,
+        ) ?: lyrics
+        var cachedPublished = false
 
         delegate.updateLyricsLoading(true)
         try {
             val loaded = coroutineScope {
+                val lookupJob = coroutineContext[Job]!!
+                activeLyricsLookup = lookupJob
                 val loadingStatus = launch {
                     delay(CoreLyricsLoadingStatusDelayMillis)
-                    if (isCurrentRequest()) {
+                    if (isCurrentRequest() && !cachedPublished) {
                         delegate.updateLyrics(
                             lyrics = null,
                             availableTiming = null,
@@ -1215,17 +1228,27 @@ class NaviampCoreProviderNowPlayingSidecars(
                         displayTimingPreference = settings.effectiveLyricsDisplayTimingPreference(),
                         searchOrder = settings.lyricsSearchOrder,
                         forceRefresh = forceRefresh,
+                        onCachedLyrics = { cached ->
+                            if (isCurrentRequest()) {
+                                val lyrics = withSavedOffset(cached.lyrics)
+                                if (isCurrentRequest() && lyrics != null && lyrics.lines.isNotEmpty()) {
+                                    cachedPublished = true
+                                    loadingStatus.cancel()
+                                    delegate.updateLyrics(lyrics, cached.availableTiming, null)
+                                    delegate.updateLyricsLoading(false)
+                                    onCachedLyrics()
+                                }
+                            }
+                        },
                     )
                 } finally {
                     loadingStatus.cancel()
+                    if (activeLyricsLookup === lookupJob) activeLyricsLookup = null
                 }
             }
             if (!isCurrentRequest()) return
-            val lyrics = lyricsOffsetController?.withSavedOffset(
-                sourceId = activeSourceId,
-                track = track,
-                lyrics = loaded.lyrics,
-            ) ?: loaded.lyrics
+            if (loaded.lyrics == null && cachedPublished) return
+            val lyrics = withSavedOffset(loaded.lyrics)
             if (isCurrentRequest()) {
                 delegate.updateLyrics(
                     lyrics = lyrics,
@@ -1235,10 +1258,14 @@ class NaviampCoreProviderNowPlayingSidecars(
             }
         } catch (error: Throwable) {
             if (error is CancellationException) {
-                if (isCurrentRequest()) delegate.updateLyrics(null, null, null)
+                if (!isCurrentRequest()) {
+                    currentCoroutineContext().ensureActive()
+                    return
+                }
+                delegate.updateLyrics(null, null, null)
                 throw error
             }
-            if (isCurrentRequest()) {
+            if (isCurrentRequest() && !cachedPublished) {
                 delegate.updateLyrics(null, null, lyricsUnavailableStatus(error))
             }
         } finally {

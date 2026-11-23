@@ -18,6 +18,8 @@ import app.naviamp.domain.settings.normalizedLyricsSearchOrder
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withTimeoutOrNull
 
 data class LyricsSidecarResult(
@@ -89,6 +91,7 @@ class LyricsSidecarService(
         displayTimingPreference: LyricsTimingPreference = timingPreference,
         searchOrder: List<LyricsSourcePreference> = emptyList(),
         forceRefresh: Boolean = false,
+        onCachedLyrics: (LyricsSidecarResult) -> Unit = {},
     ): LyricsSidecarResult = lookupMutex.withLock {
         val activeSearchOrder = searchOrder.normalizedLyricsSearchOrder()
             .filter { source -> onlineLyricsEnabled || source != LyricsSourcePreference.Online }
@@ -119,6 +122,7 @@ class LyricsSidecarService(
             timingPreference = timingPreference,
             displayTimingPreference = displayTimingPreference,
             activeSearchOrder = activeSearchOrder,
+            onCachedLyrics = if (forceRefresh) { _ -> } else onCachedLyrics,
         )
         // Best-effort results must be rechecked so a later exact match can replace them.
         if (result.lyrics?.matchQuality == LyricsMatchQuality.Exact) {
@@ -139,6 +143,7 @@ class LyricsSidecarService(
         timingPreference: LyricsTimingPreference,
         displayTimingPreference: LyricsTimingPreference,
         activeSearchOrder: List<LyricsSourcePreference>,
+        onCachedLyrics: (LyricsSidecarResult) -> Unit,
     ): LyricsSidecarResult {
         var loadedProviderLyrics: Lyrics? = null
         var loadedEmbeddedLyrics: Lyrics? = null
@@ -209,6 +214,13 @@ class LyricsSidecarService(
                     -> Unit
                 }
             }
+        }
+
+        val cachedPreview = candidates.minWithOrNull(RankedLyricsOrder)?.lyrics
+            ?: cachedBestEffort.minWithOrNull(RankedLyricsOrder)?.lyrics
+        if (cachedPreview != null && cachedPreview.lines.isNotEmpty()) {
+            currentCoroutineContext().ensureActive()
+            onCachedLyrics(result(cachedPreview))
         }
 
         var firstError: Throwable? = null

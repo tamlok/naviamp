@@ -682,6 +682,30 @@ class NaviampCoreNowPlayingMediaControllerTest {
     }
 
     @Test
+    fun cachedLyricsArePublishedWhilePausedBeforeRevalidationCompletes() = runTest {
+        val fixture = mediaFixture(this)
+        fixture.live.updatePlaybackState(PlaybackState.Paused)
+        fixture.sidecars.cachedPreview = app.naviamp.domain.Lyrics(
+            app.naviamp.domain.LyricsSource.Lrclib, true, listOf(app.naviamp.domain.LyricLine(0, "Cached lyrics")),
+            matchQuality = app.naviamp.domain.LyricsMatchQuality.BestEffort,
+        )
+        val gate = CompletableDeferred<Unit>()
+        fixture.sidecars.revalidationGate = gate
+        val request = launch {
+            fixture.controller.execute(NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
+                NowPlayingDisplayAction.EnsureLyrics, lyricsTrackId = "current",
+            )))
+        }
+        runCurrent()
+        assertFalse(request.isCompleted)
+        assertEquals(listOf("Cached lyrics"), fixture.store.state.value.shell.nowPlaying!!.lyricsLines.map { it.text })
+        assertFalse(fixture.store.state.value.shell.nowPlaying!!.lyricsLoading)
+        assertNull(fixture.store.state.value.shell.nowPlaying!!.lyricsStatus)
+        gate.complete(Unit)
+        request.join()
+    }
+
+    @Test
     fun fullPlayerRequestsLyricsWithoutRetogglingOrReloadingCompletedSidecars() = runTest {
         val fixture = mediaFixture(this)
         val request = NaviampCoreCommand.NowPlaying.Display(NowPlayingDisplayActionRequest(
@@ -1360,6 +1384,8 @@ private class NowPlayingTestSidecars : NaviampCoreNowPlayingSidecarPort {
     val lyricsLoads = mutableListOf<String>()
     val refreshedTracks = mutableListOf<String>()
     var refreshGate: CompletableDeferred<Unit>? = null
+    var cachedPreview: app.naviamp.domain.Lyrics? = null
+    var revalidationGate: CompletableDeferred<Unit>? = null
     var state = NaviampCoreNowPlayingSidecars(
         trackId = TrackId("current"),
         visualizerFrame = PlaybackVisualizerFrame(listOf(0.25f, 0.75f), 1L),
@@ -1371,8 +1397,14 @@ private class NowPlayingTestSidecars : NaviampCoreNowPlayingSidecarPort {
     override suspend fun loadForTrack(track: Track) {
         state = state.copy(trackId = track.id, lyrics = null, lyricsStatus = null)
     }
-    override suspend fun loadLyrics(track: Track, forceRefresh: Boolean) {
+    override suspend fun loadLyrics(track: Track, forceRefresh: Boolean, onCachedLyrics: () -> Unit) {
         lyricsLoads += track.id.value
+        if (!forceRefresh && cachedPreview != null) {
+            state = state.copy(lyrics = cachedPreview, lyricsStatus = null, lyricsLoading = false)
+            onCachedLyrics()
+            revalidationGate?.await()
+            return
+        }
         if (forceRefresh) {
             refreshedTracks += track.id.value
             state = state.copy(lyricsLoading = true)

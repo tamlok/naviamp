@@ -36,7 +36,7 @@ fun unavailableNaviampCorePlaybackServices(
         sidecars = object : NaviampCoreNowPlayingSidecarPort {
             override fun snapshot() = NaviampCoreNowPlayingSidecars()
             override suspend fun loadForTrack(track: Track) = Unit
-            override suspend fun loadLyrics(track: Track, forceRefresh: Boolean) = Unit
+            override suspend fun loadLyrics(track: Track, forceRefresh: Boolean, onCachedLyrics: () -> Unit) = Unit
             override suspend fun changeLyricsOffset(track: Track, offsetMillis: Int) = Unit
         },
         visualizerSettings = object : NaviampCoreVisualizerSettingsPort {

@@ -106,7 +106,7 @@ class NaviampCoreNowPlayingMediaController(
             sidecars.loadForTrack(track)
             val lyricsNeeded = playbackController.currentDisplay().lyricsVisible ||
                 stateStore.state.value.shell.shellChrome.selectedVisualizer == NaviampVisualizer.LyricMirrorTunnel
-            if (lyricsNeeded) sidecars.loadLyrics(track)
+            if (lyricsNeeded) loadLyrics(track)
         }
         presenter.publish(playbackController.currentDisplay())
     }
@@ -129,6 +129,12 @@ class NaviampCoreNowPlayingMediaController(
         return (updated.favoritedAtIso8601 != null) == favorite
     }
 
+    private suspend fun loadLyrics(track: Track, forceRefresh: Boolean = false) {
+        sidecars.loadLyrics(track, forceRefresh) {
+            presenter.publish(playbackController.currentDisplay())
+        }
+    }
+
     private suspend fun display(request: NowPlayingDisplayActionRequest) {
         when (request.action) {
             NowPlayingDisplayAction.EnsureLyrics -> {
@@ -139,7 +145,7 @@ class NaviampCoreNowPlayingMediaController(
                 val sidecar = sidecars.snapshot()
                 // A pending track-sidecar load will observe lyricsVisible after it finishes.
                 if (sidecar.trackId == track.id && !sidecar.lyricsLoading && sidecar.lyrics == null && sidecar.lyricsStatus == null) {
-                    sidecars.loadLyrics(track)
+                    loadLyrics(track)
                 }
             }
             NowPlayingDisplayAction.RefreshLyrics -> {
@@ -153,7 +159,7 @@ class NaviampCoreNowPlayingMediaController(
                 ) return
                 coroutineScope {
                     val refresh = async(start = CoroutineStart.UNDISPATCHED) {
-                        sidecars.loadLyrics(track, forceRefresh = true)
+                        loadLyrics(track, forceRefresh = true)
                     }
                     presenter.publish(playbackController.currentDisplay())
                     refresh.await()
@@ -171,7 +177,7 @@ class NaviampCoreNowPlayingMediaController(
                 val track = currentTrackOrPublish() ?: return
                 val visible = !playbackController.currentDisplay().lyricsVisible
                 playbackController.updateDisplay { it.copy(lyricsVisible = visible) }
-                if (visible) sidecars.loadLyrics(track)
+                if (visible) loadLyrics(track)
             }
             NowPlayingDisplayAction.ChangeLyricsOffset -> {
                 val track = currentTrackOrPublish() ?: return
@@ -191,7 +197,7 @@ class NaviampCoreNowPlayingMediaController(
                     stateStore.updateShell { shell ->
                         shell.copy(playback = shell.playback.copy(settings = updated))
                     }
-                    currentTrack()?.let { sidecars.loadLyrics(it) }
+                    currentTrack()?.let { loadLyrics(it) }
                 }
             }
             NowPlayingDisplayAction.ToggleVisualizer ->
@@ -202,7 +208,7 @@ class NaviampCoreNowPlayingMediaController(
                     publishStatus("Visualizer selection is missing.")
                 } else {
                     selectVisualizer(visualizer)
-                    if (visualizer == NaviampVisualizer.LyricMirrorTunnel) currentTrack()?.let { sidecars.loadLyrics(it) }
+                    if (visualizer == NaviampVisualizer.LyricMirrorTunnel) currentTrack()?.let { loadLyrics(it) }
                 }
             }
             NowPlayingDisplayAction.CycleVisualizer -> {
@@ -213,7 +219,7 @@ class NaviampCoreNowPlayingMediaController(
                         cycleNaviampVisualizer(shell.shellChrome.selectedVisualizer, direction)?.let { visualizer ->
                             selectVisualizer(visualizer)
                             if (visualizer == NaviampVisualizer.LyricMirrorTunnel) {
-                                currentTrack()?.let { sidecars.loadLyrics(it) }
+                                currentTrack()?.let { loadLyrics(it) }
                             }
                         }
                     }

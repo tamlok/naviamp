@@ -639,7 +639,7 @@ class NaviampCorePlaybackController(
         val lyricsNeeded = display.lyricsVisible ||
             stateStore.state.value.shell.shellChrome.selectedVisualizer == NaviampVisualizer.LyricMirrorTunnel
         if (lyricsNeeded && playback.state.value.currentTrack?.id == track.id) {
-            sidecars.loadLyrics(track)
+            sidecars.loadLyrics(track, onCachedLyrics = { presenter.publish(display) })
         }
     }
 
