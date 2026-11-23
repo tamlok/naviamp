@@ -14,10 +14,15 @@ import app.naviamp.domain.lyrics.timing
 import app.naviamp.domain.provider.MediaProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlin.coroutines.CoroutineContext
 
 interface LyricsSidecarStore {
     fun clearCachedLyrics(sourceId: String, trackId: String)
@@ -95,10 +100,13 @@ class LyricsSidecarCacheService(
         ignoreUnknownKeys = true
         encodeDefaults = true
     },
+    private val workContext: CoroutineContext = Dispatchers.Default,
 ) {
+    private val mutationMutex = Mutex()
+
     suspend fun clearCachedLyrics(sourceId: String, trackId: TrackId) {
-        withContext(Dispatchers.Default) {
-            store.clearCachedLyrics(sourceId, trackId.value)
+        withContext(workContext) {
+            mutationMutex.withLock { store.clearCachedLyrics(sourceId, trackId.value) }
         }
     }
 
@@ -108,7 +116,7 @@ class LyricsSidecarCacheService(
         trackId: TrackId,
         acceptedTimings: Set<LyricsTiming> = LyricsTiming.entries.toSet(),
     ): Lyrics? =
-        withContext(Dispatchers.Default) {
+        withContext(workContext) {
             val cached = cachedLyricsEntry(sourceId, trackId)
             if (
                 cached != null &&
@@ -135,7 +143,7 @@ class LyricsSidecarCacheService(
         trackId: TrackId,
         lyrics: Lyrics,
     ): Lyrics =
-        withContext(Dispatchers.Default) {
+        withContext(workContext) {
             storeLyrics(sourceId, trackId, lyrics)
             lyrics
         }
@@ -146,7 +154,7 @@ class LyricsSidecarCacheService(
         provider: LyricsProvider,
         acceptedTimings: Set<LyricsTiming> = LyricsTiming.entries.toSet(),
     ): Lyrics? =
-        withContext(Dispatchers.Default) {
+        withContext(workContext) {
             readCachedOnlineLyrics(sourceId, track.id, provider.id)
                 ?.takeIf { lyrics -> lyrics.timing in acceptedTimings }
                 ?.let { return@withContext it }
@@ -159,7 +167,7 @@ class LyricsSidecarCacheService(
         sourceId: String,
         trackId: TrackId,
     ): Lyrics? =
-        withContext(Dispatchers.Default) {
+        withContext(workContext) {
             cachedLyricsEntry(sourceId, trackId)?.lyrics
         }
 
@@ -168,7 +176,7 @@ class LyricsSidecarCacheService(
         trackId: TrackId,
         providerId: String,
     ): Lyrics? =
-        withContext(Dispatchers.Default) {
+        withContext(workContext) {
             readCachedOnlineLyrics(sourceId, trackId, providerId)
         }
 
@@ -202,11 +210,12 @@ class LyricsSidecarCacheService(
         return row.toLyrics()
     }
 
-    private fun storeLyrics(
+    private suspend fun storeLyrics(
         sourceId: String,
         trackId: TrackId,
         lyrics: Lyrics,
-    ) {
+    ) = mutationMutex.withLock {
+        currentCoroutineContext().ensureActive()
         val linesJson = lyrics.linesJson()
         val now = nowMillis()
         store.upsertCachedLyrics(
@@ -225,12 +234,13 @@ class LyricsSidecarCacheService(
         )
     }
 
-    private fun storeOnlineLyrics(
+    private suspend fun storeOnlineLyrics(
         sourceId: String,
         trackId: TrackId,
         onlineProviderId: String,
         lyrics: Lyrics,
-    ) {
+    ) = mutationMutex.withLock {
+        currentCoroutineContext().ensureActive()
         val linesJson = lyrics.linesJson()
         val now = nowMillis()
         store.upsertCachedOnlineLyrics(

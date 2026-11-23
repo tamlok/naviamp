@@ -61,10 +61,12 @@ fun naviampCorePlaybackServiceCatalog(
     prepareWaveformAnalysis: suspend () -> Unit = {},
     waveformWorkContext: CoroutineContext = EmptyCoroutineContext,
 ): NaviampCorePlaybackServices {
+    lateinit var effects: NaviampCorePlaybackEngineAdapter
     val settings = NaviampCorePlaybackEngineSettings(
         engine = engine,
         initial = initialPlaybackSettings,
         persist = persistPlaybackSettings,
+        onChanged = { effects.refreshLyricsPrefetch() },
     )
     val waveformService = AudioWaveformService(
         waveformRepository = waveformRepository,
@@ -84,7 +86,7 @@ fun naviampCorePlaybackServiceCatalog(
         lyricsSidecarService = lyricsService,
         sidecarStatusRepository = sidecarStatusRepository,
     )
-    val effects = NaviampCorePlaybackEngineAdapter(
+    effects = NaviampCorePlaybackEngineAdapter(
         scope = scope,
         engine = engine,
         providerSource = providerSource,
@@ -107,7 +109,28 @@ fun naviampCorePlaybackServiceCatalog(
                 timingPreference = playback.effectiveLyricsTimingPreference(),
                 displayTimingPreference = playback.effectiveLyricsDisplayTimingPreference(),
                 lyricsSearchOrder = playback.lyricsSearchOrder,
+                includeLyrics = false,
+            )
+        },
+        preparePrefetchedLyrics = { sourceId, provider, track, quality, isCurrent ->
+            // Request-local mutexes and memoization cannot block or outlive foreground work.
+            val metadata = AudioMetadataSidecarService(audioAssets, audioTagReader)
+            val lyrics = LyricsSidecarService(lyricsRepository, audioAssets, metadata)
+            val preparation = PlaybackSidecarService(waveformService, lyrics, sidecarStatusRepository)
+            val playback = settings.current()
+            preparation.prepareAll(
+                sourceId = sourceId,
+                provider = provider,
+                track = track,
+                quality = quality,
+                audioCachingEnabled = cacheSettings().audioCachingEnabled,
+                onlineLyricsEnabled = playback.lrclibLyricsEnabled,
+                timingPreference = playback.effectiveLyricsTimingPreference(),
+                displayTimingPreference = playback.effectiveLyricsDisplayTimingPreference(),
+                lyricsSearchOrder = playback.lyricsSearchOrder,
                 includeLyrics = true,
+                includeWaveform = false,
+                isActive = isCurrent,
             )
         },
     )
@@ -126,6 +149,7 @@ fun naviampCorePlaybackServiceCatalog(
             audioMetadataSidecarService = metadataService,
             lyricsSidecarService = lyricsService,
             lyricsOffsetController = LyricsOffsetController(lyricsOffsetRepository),
+            beforeLyricsLoad = effects::cancelLyricsPrefetchFor,
         ),
         visualizerSettings = object : NaviampCoreVisualizerSettingsPort {
             override fun save(visualizer: NaviampVisualizer) {

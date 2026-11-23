@@ -30,6 +30,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Show a concise lyrics card with matching circular font-size (Lucide a-large-small) and refresh controls at the bottom right. Cycle through 14, 20, 24, 48, and 64 text sizes, saved with shared settings; refresh clears only the current track’s lyrics cache and reloads configured sources while preserving saved timing offsets and audio downloads.
 - Scroll untimed lyrics steadily from top to bottom over the song’s duration, following pauses, resumes, and seeks. Manual scrolling remains available, and lyrics stay manually scrollable when the duration is unknown.
 - Use LrcAPI as an additional fallback for plain and synchronized lyrics when Online Lyrics is enabled, with track matching and the same persistent lyrics cache as other online sources.
+- Prefetch lyrics for the next queued song without downloading its audio. Follow queue and repeat changes, reuse cached lyrics at the transition, and keep background requests from blocking current lyrics or gapless playback.
 - Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
 - Cycle the current theme through Light, Dark, and System using the mode button before More actions in Home’s top-right header, without changing the selected theme or other appearance preferences.
 - Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).

@@ -855,6 +855,294 @@ class NaviampCorePlaybackEngineAdapterTest {
     }
 
     @Test
+    fun lyricsPrefetchIsIndependentOfAudioCachingAndIgnoresUnrelatedMetadataEdits() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val requested = mutableListOf<String>()
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, RecordingPlaybackEngine(), NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
+            cacheSettings = { CacheSettings(audioCachingEnabled = false, audioPrefetchDepth = 0) },
+            cacheAudio = { _, _, _, _ -> error("Lyrics must not download audio") },
+            preparePrefetchedLyrics = { _, _, track, _, _ ->
+                requested += track.id.value
+                app.naviamp.domain.playback.PlaybackSidecarPrepResult()
+            },
+        )
+        val next = provider.track.copy(id = TrackId("next"))
+        val later = provider.track.copy(id = TrackId("later"))
+        val queue = PlaybackQueue(listOf(provider.track, next, later), 0)
+        adapter.playQueueSelection(queue, 0)
+        advanceUntilIdle()
+        assertEquals(listOf("next"), requested)
+        adapter.applyQueue(queue.copy(tracks = listOf(provider.track, next.copy(playCount = 3, userRating = 5), later)), false)
+        advanceUntilIdle()
+        assertEquals(listOf("next"), requested)
+        adapter.applyAutomaticNavigation(PlaybackQueueNavigationCommand.Next)
+        advanceUntilIdle()
+        assertEquals(listOf("next", "later"), requested)
+        adapter.stop()
+    }
+
+    @Test
+    fun queueReorderingCancelsObsoleteLyricsWithoutChangingCurrentPlayback() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        val requested = mutableListOf<String>()
+        val cancelled = mutableListOf<String>()
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, engine, NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
+            preparePrefetchedLyrics = { _, _, track, _, _ ->
+                requested += track.id.value
+                try { awaitCancellation() } finally { cancelled += track.id.value }
+            },
+        )
+        val next = provider.track.copy(id = TrackId("next"))
+        val replacement = provider.track.copy(id = TrackId("replacement"))
+        adapter.playQueueSelection(PlaybackQueue(listOf(provider.track, next, replacement), 0), 0)
+        runCurrent()
+        adapter.applyQueue(PlaybackQueue(listOf(provider.track, replacement, next), 0), false)
+        runCurrent()
+        assertEquals(listOf("next", "replacement"), requested)
+        assertEquals(listOf("next"), cancelled)
+        assertEquals(provider.track.id.value, engine.request?.mediaId)
+        assertEquals(1, engine.requests.size)
+        adapter.stop()
+        runCurrent()
+        assertEquals(listOf("next", "replacement"), cancelled)
+    }
+
+    @Test
+    fun repeatAndRestoreUseTheActualNextSongWithoutPrefetchingRepeatedCurrentTrack() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val requested = mutableListOf<String>()
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, RecordingPlaybackEngine(), NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
+            preparePrefetchedLyrics = { _, _, track, _, _ ->
+                requested += track.id.value
+                app.naviamp.domain.playback.PlaybackSidecarPrepResult()
+            },
+        )
+        val last = provider.track.copy(id = TrackId("last"))
+        val queue = PlaybackQueue(listOf(provider.track, last), 1)
+        adapter.restoreQueue(queue, 0.0)
+        adapter.applyRepeatMode(app.naviamp.domain.queue.RepeatMode.Queue)
+        advanceUntilIdle()
+        assertTrue(requested.isEmpty())
+        adapter.playQueueSelection(queue, 1)
+        advanceUntilIdle()
+        assertEquals(listOf(provider.track.id.value), requested)
+        adapter.applyRepeatMode(app.naviamp.domain.queue.RepeatMode.Track)
+        advanceUntilIdle()
+        assertEquals(listOf(provider.track.id.value), requested)
+        adapter.stop()
+        adapter.applyQueue(queue, false)
+        advanceUntilIdle()
+        assertEquals(listOf(provider.track.id.value), requested)
+    }
+
+    @Test
+    fun lyricsCleanupCannotDelayNativePreparedNextPlayback() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        val releaseCleanup = CompletableDeferred<Unit>()
+        var cancelled = false
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, engine, NaviampCoreMediaProviderSource { provider }, { PlaybackSettings(gaplessEnabled = true) },
+            preparePrefetchedLyrics = { _, _, _, _, _ ->
+                try { awaitCancellation() } finally {
+                    withContext(NonCancellable) { cancelled = true; releaseCleanup.await() }
+                }
+            },
+        )
+        val next = provider.track.copy(id = TrackId("next"))
+        adapter.playQueueSelection(PlaybackQueue(listOf(provider.track, next), 0), 0)
+        runCurrent()
+        engine.emitProgress(PlaybackProgress(173.0, 180.0))
+        runCurrent()
+        assertTrue(cancelled)
+        assertEquals("next", engine.preparedRequest?.mediaId)
+        releaseCleanup.complete(Unit)
+        advanceUntilIdle()
+        adapter.stop()
+    }
+
+    @Test
+    fun catalogPrefetchCachesNextLyricsWithoutWaveformWorkOrForegroundReplacement() = runTest {
+        val fixture = LyricsPrefetchCatalogFixture(this)
+        val current = fixture.provider.track
+        val next = current.copy(id = TrackId("next"))
+        fixture.services.sidecars.loadForTrack(current)
+        fixture.services.sidecars.loadLyrics(current)
+        val displayed = fixture.services.sidecars.snapshot().lyrics
+        fixture.services.effects.playQueueSelection(PlaybackQueue(listOf(current, next), 0), 0)
+        advanceUntilIdle()
+        assertEquals(listOf(current.id, next.id), fixture.lyricsRequests)
+        assertEquals(displayed, fixture.services.sidecars.snapshot().lyrics)
+        assertFalse(next.id in fixture.waveformReads)
+        assertEquals(0, fixture.audioDownloads)
+        fixture.services.effects.applyAutomaticNavigation(PlaybackQueueNavigationCommand.Next)
+        advanceUntilIdle()
+        fixture.services.sidecars.loadForTrack(next)
+        fixture.services.sidecars.loadLyrics(next)
+        assertEquals("next", fixture.services.sidecars.snapshot().lyrics?.lines?.single()?.text)
+        assertEquals(listOf(current.id, next.id), fixture.lyricsRequests)
+        fixture.services.effects.stop()
+    }
+
+    @Test
+    fun foregroundLyricsAndTagsDoNotWaitForNextTrackLookup() = runTest {
+        for (stallTags in listOf(false, true)) {
+            val fixture = LyricsPrefetchCatalogFixture(this)
+            val current = fixture.provider.track
+            val next = current.copy(id = TrackId("next"))
+            val started = CompletableDeferred<Unit>()
+            if (stallTags) {
+                fixture.localAudioEnabled = true
+                fixture.repository.load = { _, id -> if (id == next.id) null else fixture.lyrics(id) }
+                fixture.readTags = { audio ->
+                    if (audio.path == "next") { started.complete(Unit); awaitCancellation() }
+                    listOf(AudioTag("COMMENT", "Current tags"))
+                }
+            } else {
+                fixture.repository.load = { _, id ->
+                    if (id == next.id) { started.complete(Unit); awaitCancellation() }
+                    fixture.lyrics(id)
+                }
+            }
+            fixture.services.effects.playQueueSelection(PlaybackQueue(listOf(current, next), 0), 0)
+            runCurrent()
+            assertTrue(started.isCompleted)
+            val foreground = launch {
+                fixture.services.sidecars.loadForTrack(current)
+                fixture.services.sidecars.loadLyrics(current)
+            }
+            runCurrent()
+            assertTrue(foreground.isCompleted, "Foreground work must not share prefetch mutexes")
+            assertEquals(current.id.value, fixture.services.sidecars.snapshot().lyrics?.lines?.single()?.text)
+            fixture.services.effects.stop()
+            runCurrent()
+        }
+    }
+
+    @Test
+    fun settingsChangesReplacePrefetchOnlyWhenLyricsPolicyChanges() = runTest {
+        val fixture = LyricsPrefetchCatalogFixture(this)
+        val requested = mutableListOf<TrackId>()
+        var cancelled = 0
+        fixture.repository.load = { _, id ->
+            requested += id
+            try { awaitCancellation() } finally { cancelled++ }
+        }
+        val queue = PlaybackQueue(listOf(fixture.provider.track, fixture.provider.track.copy(id = TrackId("next"))), 0)
+        fixture.services.effects.playQueueSelection(queue, 0)
+        runCurrent()
+        val original = fixture.services.settings.apply(PlaybackSettings(volumePercent = 50), false)
+        runCurrent()
+        assertEquals(1, requested.size)
+        assertEquals(0, cancelled)
+        fixture.services.settings.apply(original.copy(lrclibLyricsEnabled = true), false)
+        runCurrent()
+        assertEquals(2, requested.size)
+        assertEquals(1, cancelled)
+        fixture.services.effects.applyRepeatMode(app.naviamp.domain.queue.RepeatMode.Track)
+        runCurrent()
+        assertEquals(2, requested.size)
+        assertEquals(2, cancelled)
+        fixture.services.effects.stop()
+    }
+
+    @Test
+    fun enablingOfflineThroughSettingsCancelsAnInFlightLyricsPrefetch() = runTest {
+        val fixture = LyricsPrefetchCatalogFixture(this)
+        var started = 0
+        var cancelled = 0
+        fixture.repository.load = { _, _ ->
+            started++
+            try { awaitCancellation() } finally { cancelled++ }
+        }
+        val controller = NaviampCoreSettingsController(
+            stateStore = NaviampCoreStateStore(),
+            interfaceStore = NaviampCoreInterfaceSettingsStore {},
+            playbackSettings = fixture.services.settings,
+            cacheSettings = NaviampCoreCacheSettingsPort { settings -> fixture.cache = settings; settings },
+            maintenancePort = NaviampCoreMaintenancePort { error("No maintenance expected") },
+        )
+        fixture.services.effects.playQueueSelection(
+            PlaybackQueue(listOf(fixture.provider.track, fixture.provider.track.copy(id = TrackId("next"))), 0), 0,
+        )
+        runCurrent()
+        assertEquals(1, started)
+        controller.dispatch(NaviampCoreCommand.Settings.ChangeCache(fixture.cache.copy(offlineModeEnabled = true)))
+        runCurrent()
+        assertEquals(1, cancelled)
+        assertEquals(1, started)
+        controller.dispatch(NaviampCoreCommand.Settings.ChangeCache(fixture.cache.copy(offlineModeEnabled = false)))
+        runCurrent()
+        assertEquals(2, started)
+        fixture.services.effects.stop()
+        runCurrent()
+    }
+
+    @Test
+    fun failedUnstreamableRecoveryCancelsLyricsPrefetch() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        var started = false
+        var cancelled = false
+        var recoveryAttempts = 0
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, engine, NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
+            activeSourceId = { "source" },
+            cacheAudio = { _, _, _, _ -> recoveryAttempts++; null },
+            preparePrefetchedLyrics = { _, _, _, _, _ ->
+                started = true
+                try { awaitCancellation() } finally { cancelled = true }
+            },
+        )
+        adapter.playQueueSelection(PlaybackQueue(listOf(provider.track, provider.track.copy(id = TrackId("next"))), 0), 0)
+        runCurrent()
+        assertTrue(started)
+        engine.emitState(PlaybackState.Error("Unstreamable", reason = app.naviamp.domain.playback.PlaybackFailureReason.UnstreamableNetworkSource))
+        runCurrent()
+        assertEquals(1, recoveryAttempts)
+        assertTrue(cancelled)
+        adapter.stop()
+    }
+
+    @Test
+    fun offlinePreviewAndPausedSeekStatesDoNotStartLyricsPrefetch() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val requested = mutableListOf<TrackId>()
+        var offline = true
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            this, RecordingPlaybackEngine(), NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
+            cacheSettings = { CacheSettings(audioCachingEnabled = false, offlineModeEnabled = offline) },
+            preparePrefetchedLyrics = { _, _, track, _, _ ->
+                requested += track.id
+                app.naviamp.domain.playback.PlaybackSidecarPrepResult()
+            },
+        )
+        val next = provider.track.copy(id = TrackId("next"))
+        val queue = PlaybackQueue(listOf(provider.track, next), 0)
+        adapter.playQueueSelection(queue, 0)
+        advanceUntilIdle()
+        assertTrue(requested.isEmpty())
+        offline = false
+        val preview = next.copy(id = TrackId(app.naviamp.domain.provider.DiscoveryPreviewTrackPrefix + "next"))
+        adapter.applyQueue(queue.copy(tracks = listOf(provider.track, preview)), false)
+        advanceUntilIdle()
+        assertTrue(requested.isEmpty())
+        adapter.applyQueue(queue, false)
+        advanceUntilIdle()
+        assertEquals(listOf(next.id), requested)
+        adapter.pause()
+        adapter.seek(40.0)
+        adapter.applyQueue(queue.copy(tracks = listOf(provider.track, next.copy(id = TrackId("different")))), false)
+        advanceUntilIdle()
+        assertEquals(listOf(next.id), requested)
+        adapter.stop()
+    }
+
+    @Test
     fun startingPlaybackPrefetchesTheConfiguredUpcomingQueueDepth() = runTest {
         val provider = FakeCoreMediaProvider()
         val engine = RecordingPlaybackEngine()
@@ -1873,6 +2161,60 @@ class NaviampCorePlaybackEngineAdapterTest {
         assertFalse(fixture.sidecars.snapshot().lyricsLoading)
         assertEquals(2, offsetReads)
     }
+}
+
+private class LyricsPrefetchCatalogFixture(scope: CoroutineScope) {
+    val provider = FakeCoreMediaProvider()
+    val engine = RecordingPlaybackEngine()
+    val lyricsRequests = mutableListOf<TrackId>()
+    val waveformReads = mutableListOf<TrackId>()
+    var audioDownloads = 0
+    var localAudioEnabled = false
+    var cache = CacheSettings(audioCachingEnabled = false, audioPrefetchDepth = 0, waveformsEnabled = true)
+    var readTags: suspend (PlaybackLocalAudio) -> List<AudioTag> = { emptyList() }
+    val repository = RefreshLyricsRepository { _, id -> lyricsRequests += id; lyrics(id) }
+    private val assets = object : PlaybackAudioAssetRepository {
+        override suspend fun downloadedAudio(sourceId: String, trackId: TrackId) =
+            if (localAudioEnabled) PlaybackLocalAudio(trackId.value, "file:///${trackId.value}") else null
+        override suspend fun downloadedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality) = downloadedAudio(sourceId, trackId)
+        override suspend fun cachedAudio(sourceId: String, trackId: TrackId, quality: StreamQuality): PlaybackLocalAudio? = null
+    }
+    val services = naviampCorePlaybackServiceCatalog(
+        scope = scope,
+        engine = engine,
+        providerSource = NaviampCoreMediaProviderSource { provider },
+        initialPlaybackSettings = PlaybackSettings(),
+        persistPlaybackSettings = {},
+        cacheSettings = { cache },
+        activeSourceId = { "source" },
+        audioAssets = assets,
+        cacheAudio = { _, _, _, _ -> audioDownloads++; error("Unexpected audio download") },
+        waveformRepository = object : AudioWaveformStorageRepository {
+            override suspend fun cachedAudioWaveform(sourceId: String, trackId: TrackId, quality: StreamQuality, bucketCount: Int): AudioWaveform {
+                waveformReads += trackId
+                return AudioWaveform(listOf(0.1f))
+            }
+            override suspend fun storeAudioWaveform(sourceId: String, trackId: TrackId, quality: StreamQuality, audioFilePath: String?, waveform: AudioWaveform) = waveform
+        },
+        waveformAnalyzer = object : AudioWaveformAnalyzer {
+            override suspend fun analyze(source: AudioWaveformAnalysisSource): AudioWaveform? = error("Unexpected waveform analysis")
+        },
+        audioTagReader = { readTags(it) },
+        lyricsRepository = repository,
+        lyricsOffsetRepository = object : LyricsOffsetRepository {
+            override fun lyricsOffsetMillis(sourceId: String, trackId: TrackId): Int? = null
+            override fun saveLyricsOffsetMillis(sourceId: String, trackId: TrackId, offsetMillis: Int) = Unit
+        },
+        sidecarStatusRepository = object : app.naviamp.domain.cache.SidecarStatusRepository {
+            override fun recordSidecarStatus(sourceId: String, trackId: TrackId, quality: StreamQuality, sidecarType: String, success: Boolean, errorMessage: String?) = Unit
+        },
+        playbackSessionRepository = object : app.naviamp.domain.cache.PlaybackSessionRepository {
+            override fun loadPlaybackSession(sourceId: String?): app.naviamp.domain.settings.PlaybackSessionSettings? = null
+            override fun savePlaybackSession(session: app.naviamp.domain.settings.PlaybackSessionSettings?, sourceId: String?) = Unit
+        },
+        saveVisualizerSettings = {},
+    )
+    fun lyrics(id: TrackId) = Lyrics(LyricsSource.Provider, false, listOf(LyricLine(null, id.value)))
 }
 
 private class LyricsRefreshFixture(offsets: LyricsOffsetRepository? = null) {

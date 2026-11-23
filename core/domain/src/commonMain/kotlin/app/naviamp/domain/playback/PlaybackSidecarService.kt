@@ -11,6 +11,8 @@ import app.naviamp.domain.settings.LyricsTimingPreference
 import app.naviamp.domain.waveform.AudioWaveform
 import app.naviamp.domain.waveform.AudioWaveformService
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 data class PlaybackSidecarPrepResult(
     val waveform: AudioWaveform? = null,
@@ -62,6 +64,7 @@ class PlaybackSidecarService(
         timingPreference: LyricsTimingPreference = LyricsTimingPreference.FirstAvailable,
         displayTimingPreference: LyricsTimingPreference = timingPreference,
         lyricsSearchOrder: List<LyricsSourcePreference> = emptyList(),
+        isActive: () -> Boolean = { true },
     ): Lyrics? {
         val lyrics = lyricsSidecarService.loadLyrics(
             sourceId = sourceId,
@@ -74,7 +77,8 @@ class PlaybackSidecarService(
             displayTimingPreference = displayTimingPreference,
             searchOrder = lyricsSearchOrder,
         ).lyrics
-        if (sourceId != null) {
+        currentCoroutineContext().ensureActive()
+        if (sourceId != null && isActive()) {
             sidecarStatusRepository.recordSidecarSuccess(
                 sourceId = sourceId,
                 trackId = track.id,
@@ -96,6 +100,8 @@ class PlaybackSidecarService(
         displayTimingPreference: LyricsTimingPreference = timingPreference,
         lyricsSearchOrder: List<LyricsSourcePreference> = emptyList(),
         includeLyrics: Boolean,
+        includeWaveform: Boolean = true,
+        isActive: () -> Boolean = { true },
     ): PlaybackSidecarPrepResult {
         var waveform: AudioWaveform? = null
         var lyrics: Lyrics? = null
@@ -107,9 +113,12 @@ class PlaybackSidecarService(
             failureLabel: (Throwable) -> String,
             block: suspend () -> Unit,
         ) {
+            if (!isActive()) return
             runCatching { block() }
                 .onFailure { error ->
                     if (error is CancellationException) throw error
+                    currentCoroutineContext().ensureActive()
+                    if (!isActive()) return@onFailure
                     val message = failureLabel(error)
                     recordFailure(
                         sourceId = sourceId,
@@ -123,8 +132,10 @@ class PlaybackSidecarService(
                 }
         }
 
-        runSidecar(SidecarTypeWaveform, ::waveformUnavailableStatus) {
-            waveform = prepareWaveform(sourceId, provider, track, quality, audioCachingEnabled)
+        if (includeWaveform) {
+            runSidecar(SidecarTypeWaveform, ::waveformUnavailableStatus) {
+                waveform = prepareWaveform(sourceId, provider, track, quality, audioCachingEnabled)
+            }
         }
         if (includeLyrics) {
             runSidecar(SidecarTypeLyrics, ::lyricsUnavailableStatus) {
@@ -138,6 +149,7 @@ class PlaybackSidecarService(
                     timingPreference = timingPreference,
                     displayTimingPreference = displayTimingPreference,
                     lyricsSearchOrder = lyricsSearchOrder,
+                    isActive = isActive,
                 )
             }
         }

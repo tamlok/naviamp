@@ -279,6 +279,7 @@ class NaviampCoreSettingsController(
         selectedAudioCacheLocationId: String? = null,
     ) {
         val settings = cacheSettings.apply(requested)
+        playbackSettings.cacheSettingsChanged()
         stateStore.updateShell { shell ->
             shell.copy(
                 cache = shell.cache.copy(

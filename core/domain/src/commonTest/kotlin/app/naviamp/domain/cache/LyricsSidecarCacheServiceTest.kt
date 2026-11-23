@@ -30,6 +30,11 @@ import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -49,7 +54,7 @@ class LyricsSidecarCacheServiceTest {
             ),
         )
         val provider = RecordingLyricsProvider(karaokeLyrics())
-        val service = LyricsSidecarCacheService(store = store, nowMillis = { 42L })
+        val service = LyricsSidecarCacheService(store = store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
 
         val first = service.providerLyrics("source", provider, TrackId("track"))
         val second = service.providerLyrics("source", provider, TrackId("track"))
@@ -74,7 +79,7 @@ class LyricsSidecarCacheServiceTest {
             ),
         )
         val provider = RecordingLyricsProvider(null)
-        val service = LyricsSidecarCacheService(store = store, nowMillis = { 42L })
+        val service = LyricsSidecarCacheService(store = store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
 
         val first = service.providerLyrics("source", provider, TrackId("track"))
         val second = service.providerLyrics("source", provider, TrackId("track"))
@@ -88,7 +93,7 @@ class LyricsSidecarCacheServiceTest {
     @Test
     fun targetedClearReloadsProviderAndOnlineLyricsWithoutDiscardingOtherKeys() = runTest {
         val store = InMemoryLyricsSidecarStore()
-        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L })
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
         val provider = RecordingLyricsProvider(karaokeLyrics())
         var onlineResult = karaokeLyrics().copy(source = LyricsSource.Lrclib)
         var onlineRequests = 0
@@ -130,7 +135,7 @@ class LyricsSidecarCacheServiceTest {
 
     @Test
     fun forcedResolverRefreshBypassesCompletedAndStoredLyricsAndDoesNotRestoreMisses() = runTest {
-        val cache = LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L })
+        val cache = LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
         val repository = CachedLyricsSidecarRepository(cache, emptyList())
         val provider = RecordingLyricsProvider(karaokeLyrics())
         val assets = object : PlaybackAudioAssetRepository {
@@ -164,7 +169,7 @@ class LyricsSidecarCacheServiceTest {
     fun sharedCatalogLoadsLrcApiAfterMissesAndPreservesItAcrossResolvers() = runTest {
         val http = CatalogLyricsHttpClient()
         val store = InMemoryLyricsSidecarStore()
-        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L })
+        val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
         val repository = CachedLyricsSidecarRepository(cache, naviampOnlineLyricsProviders(http))
         val assets = object : PlaybackAudioAssetRepository {
             override suspend fun downloadedAudio(sourceId: String, trackId: TrackId): PlaybackLocalAudio? = null
@@ -204,7 +209,7 @@ class LyricsSidecarCacheServiceTest {
             lrclibBody = """{"trackName":"Track","artistName":"Artist","syncedLyrics":"[00:01]LRCLIB line"}""",
         )
         val repository = CachedLyricsSidecarRepository(
-            LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }),
+            LyricsSidecarCacheService(InMemoryLyricsSidecarStore(), nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler)),
             naviampOnlineLyricsProviders(http),
         )
         val assets = object : PlaybackAudioAssetRepository {
@@ -222,6 +227,49 @@ class LyricsSidecarCacheServiceTest {
         assertEquals(listOf(LyricLine(1_000, "LRCLIB line")), result.lyrics?.lines)
         assertEquals(1, http.urls.size)
         assertTrue(http.urls.single().startsWith("https://lrclib.net/api/get?"))
+    }
+
+    @Test
+    fun cancelledProviderAndOnlineLoadsCannotResurrectLyricsAfterRefresh() = runTest {
+        for (useOnline in listOf(false, true)) {
+            val store = InMemoryLyricsSidecarStore()
+            val cache = LyricsSidecarCacheService(store, nowMillis = { 42L }, workContext = StandardTestDispatcher(testScheduler))
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val source = if (useOnline) LyricsSource.LrcApi else LyricsSource.Provider
+            val old = karaokeLyrics().copy(source = source)
+            val fresh = old.copy(lines = listOf(LyricLine(1_000, "Refreshed")))
+            var delayed = true
+            suspend fun fetched(): Lyrics = if (delayed) {
+                withContext(NonCancellable) { entered.complete(Unit); release.await(); old }
+            } else fresh
+            val provider = object : MediaProvider by RecordingLyricsProvider(null) {
+                override suspend fun lyrics(trackId: TrackId): Lyrics = fetched()
+            }
+            val online = object : LyricsProvider {
+                override val id = "online"
+                override val capabilities = LyricsTiming.entries.toSet()
+                override suspend fun lyrics(track: Track): Lyrics = fetched()
+            }
+            val track = Track(
+                id = TrackId("track"), title = "Track", artistName = "Artist", albumTitle = "Album",
+                durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null,
+            )
+            suspend fun load() = if (useOnline) cache.onlineLyrics("source", track, online)
+                else cache.providerLyrics("source", provider, track.id)
+            val prefetch = async { load() }
+            entered.await()
+            prefetch.cancel()
+            cache.clearCachedLyrics("source", track.id)
+            delayed = false
+            assertEquals(fresh, load())
+            release.complete(Unit)
+            prefetch.join()
+            assertTrue(prefetch.isCancelled)
+            val cached = if (useOnline) cache.cachedOnlineLyrics("source", track.id, online.id)
+                else cache.cachedLyrics("source", track.id)
+            assertEquals(fresh, cached)
+        }
     }
 
     private fun karaokeLyrics(): Lyrics = Lyrics(

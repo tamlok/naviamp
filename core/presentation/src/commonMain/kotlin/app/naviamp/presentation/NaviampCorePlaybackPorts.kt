@@ -111,6 +111,9 @@ interface NaviampCoreNowPlayingSidecarPort {
 
 fun interface NaviampCorePlaybackSettingsPort {
     fun apply(settings: PlaybackSettings, redownload: Boolean): PlaybackSettings
+
+    /** Refresh playback-owned background work after the shared cache policy changes. */
+    fun cacheSettingsChanged() = Unit
 }
 
 interface NaviampCoreVisualizerSettingsPort {

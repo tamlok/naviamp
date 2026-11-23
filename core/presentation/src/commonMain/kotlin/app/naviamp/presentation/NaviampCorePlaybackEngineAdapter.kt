@@ -62,6 +62,9 @@ import app.naviamp.domain.settings.AudioOutputDeviceMode
 import app.naviamp.domain.settings.CacheSettings
 import app.naviamp.domain.settings.PlaybackSettings
 import app.naviamp.domain.settings.effectiveForEngine
+import app.naviamp.domain.isInternetRadioTrack
+import app.naviamp.domain.settings.LyricsSourcePreference
+import app.naviamp.domain.settings.LyricsTimingPreference
 import app.naviamp.domain.settings.effectiveLyricsDisplayTimingPreference
 import app.naviamp.domain.settings.effectiveLyricsTimingPreference
 import app.naviamp.domain.settings.effectiveSonicSimilarityEnabled
@@ -122,6 +125,13 @@ class NaviampCorePlaybackEngineAdapter(
     ) -> PlaybackSidecarPrepResult = { _, _, _, _, _ -> PlaybackSidecarPrepResult() },
     private val visualizerFrameIntervalMillis: Long = DefaultVisualizerFrameIntervalMillis,
     private val visualizerWorkContext: CoroutineContext = Dispatchers.Default,
+    private val preparePrefetchedLyrics: (suspend (
+        sourceId: String,
+        provider: app.naviamp.domain.provider.MediaProvider,
+        track: app.naviamp.domain.Track,
+        quality: StreamQuality,
+        isCurrent: () -> Boolean,
+    ) -> PlaybackSidecarPrepResult)? = null,
 ) : NaviampCorePlaybackEffectPort, NaviampCoreInternetRadioPlaybackPort {
     // Native polling can deliver Playing after an explicit pause. Preserve the user's intent
     // independently of reported state, including when seeking restarts the native execution.
@@ -145,6 +155,8 @@ class NaviampCorePlaybackEngineAdapter(
     private var resolutionJob: Job? = null
     private var unstreamableRecoveryJob: Job? = null
     private var prefetchJob: Job? = null
+    private var lyricsPrefetchJob: Job? = null
+    private var lyricsPrefetchKey: LyricsPrefetchKey? = null
     private val completedAudioPrefetch = AudioPrefetchCompletionLedger()
     private val completedSidecarPrefetch = AudioPrefetchCompletionLedger()
     private val preparedNextBarrier = PreparedNextPlaybackBarrier(scope)
@@ -202,6 +214,7 @@ class NaviampCorePlaybackEngineAdapter(
         unstreamableRecoveryJob?.cancel()
         unstreamableRecoveryJob = null
         cancelAudioPrefetch()
+        cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
         deferredStart = true
         pauseRequested.store(true)
@@ -253,6 +266,7 @@ class NaviampCorePlaybackEngineAdapter(
             unstreamableRecoveryJob?.cancel()
             unstreamableRecoveryJob = null
             cancelAudioPrefetch()
+            cancelLyricsPrefetch()
             clearAudioPrefetchCompletions()
             clearPreparedTransition()
             authenticatedStreams?.clearCurrent()
@@ -282,6 +296,7 @@ class NaviampCorePlaybackEngineAdapter(
         unstreamableRecoveryJob?.cancel()
         unstreamableRecoveryJob = null
         cancelAudioPrefetch()
+        cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
         (engine as? QueueAwarePlaybackEngine)?.clearPreparedNext()
         (engine as? DownloadFallbackAwarePlaybackEngine)?.setDownloadFallbackListener(null)
@@ -320,10 +335,12 @@ class NaviampCorePlaybackEngineAdapter(
                 )
             }
         }
+        refreshLyricsPrefetch()
     }
 
     override fun restoreQueue(queue: PlaybackQueue, startPositionSeconds: Double?) {
         cancelAudioPrefetch()
+        cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
         this.queue = queue
         resumePositionSeconds = startPositionSeconds
@@ -336,6 +353,7 @@ class NaviampCorePlaybackEngineAdapter(
 
     override fun restoreInternetRadio(station: InternetRadioStation) {
         cancelAudioPrefetch()
+        cancelLyricsPrefetch()
         clearAudioPrefetchCompletions()
         val track = internetRadioTrack(station)
         externalStreamUrls[track.id] = station.streamUrl
@@ -373,6 +391,7 @@ class NaviampCorePlaybackEngineAdapter(
 
     override fun applyRepeatMode(mode: RepeatMode) {
         repeatMode = mode
+        refreshLyricsPrefetch()
     }
 
     override fun playQueueSelection(queue: PlaybackQueue, index: Int) {
@@ -415,6 +434,7 @@ class NaviampCorePlaybackEngineAdapter(
         stopCurrentPlayback: Boolean = false,
     ) {
         val track = queue.current ?: return
+        cancelLyricsPrefetch()
         pauseRequested.store(pauseWhenStarted)
         if (recoveryLocalAudio == null) {
             unstreamableRecoveryJob?.cancel()
@@ -606,6 +626,7 @@ class NaviampCorePlaybackEngineAdapter(
                                             recoveryLocalAudio = cachedAudio,
                                         )
                                     } else {
+                                        cancelLyricsPrefetch()
                                         playbackState = state
                                         observer?.onStateChanged(state)
                                     }
@@ -617,7 +638,13 @@ class NaviampCorePlaybackEngineAdapter(
                             engine.pause()
                             return@play
                         }
+                        val previousState = playbackState
                         playbackState = state
+                        if (state == PlaybackState.Playing || state == PlaybackState.Paused) {
+                            if (previousState != state || lyricsPrefetchKey == null) refreshLyricsPrefetch()
+                        } else if (state == PlaybackState.Finished || state == PlaybackState.Stopped || state is PlaybackState.Error) {
+                            cancelLyricsPrefetch()
+                        }
                         if (state == PlaybackState.Finished || state == PlaybackState.Stopped) resumePositionSeconds = null
                         observer?.onStateChanged(state)
                     }
@@ -648,6 +675,8 @@ class NaviampCorePlaybackEngineAdapter(
                         ) {
                             preparedForGeneration = requestGeneration
                             val cancelledPrefetch = cancelAudioPrefetch()
+                            // Lyrics must never hold up the native gapless/crossfade prepare window.
+                            cancelLyricsPrefetch()
                             preparedNextBarrier.launchPreparation {
                                 cancelledPrefetch?.join()
                                 prepareNext(provider, requestGeneration)
@@ -666,6 +695,57 @@ class NaviampCorePlaybackEngineAdapter(
         playbackSource = source
         playbackQuality = quality
         observer?.onSourceChanged(source, quality)
+    }
+
+    internal fun refreshLyricsPrefetch() {
+        val prepare = preparePrefetchedLyrics ?: return
+        val configured = cacheSettings()
+        val current = queue.current
+        val nextIndex = queue.nextIndex(repeatMode, repeatTrack = true)
+        val next = nextIndex?.let { queue.tracks.getOrNull(it) }
+        val provider = providerSource.current()
+        if (deferredStart || configured.offlineModeEnabled || preparedForGeneration == generation ||
+            (playbackState != PlaybackState.Playing && playbackState != PlaybackState.Paused) ||
+            current == null || nextIndex == null || next == null || provider == null || next.id == current.id ||
+            current.id.isDiscoveryPreview() || next.id.isDiscoveryPreview() ||
+            externalStreamUrls.containsKey(current.id) || externalStreamUrls.containsKey(next.id) ||
+            current.isInternetRadioTrack() || next.isInternetRadioTrack()
+        ) {
+            cancelLyricsPrefetch()
+            return
+        }
+        val playback = effectivePlaybackSettingsForTrack(nextIndex)
+        val quality = provider.capabilities.effectiveStreamingQuality(playback.streamQualityForNetwork(isMobileData()))
+        val sourceId = activeSourceId() ?: provider.cacheNamespace
+        val key = LyricsPrefetchKey(
+            provider, sourceId, next.id, next.title, next.artistName, next.albumTitle, next.durationSeconds,
+            quality, configured.audioCachingEnabled, playback.lrclibLyricsEnabled,
+            playback.effectiveLyricsTimingPreference(), playback.effectiveLyricsDisplayTimingPreference(),
+            playback.lyricsSearchOrder,
+        )
+        if (lyricsPrefetchKey?.provider === provider && lyricsPrefetchKey == key) return
+        val previous = cancelLyricsPrefetch()
+        lyricsPrefetchKey = key
+        fun isCurrent(): Boolean = lyricsPrefetchKey === key && providerSource.current() === provider &&
+            (activeSourceId() ?: provider.cacheNamespace) == sourceId && !cacheSettings().offlineModeEnabled
+        lyricsPrefetchJob = scope.launch {
+            previous?.join()
+            if (!isCurrent()) return@launch
+            prepare(sourceId, provider, next, quality, ::isCurrent)
+            if (isCurrent()) lyricsPrefetchJob = null
+        }
+    }
+
+    internal fun cancelLyricsPrefetchFor(track: app.naviamp.domain.Track) {
+        if (lyricsPrefetchKey?.trackId == track.id) cancelLyricsPrefetch()
+    }
+
+    private fun cancelLyricsPrefetch(): Job? {
+        val cancelled = lyricsPrefetchJob
+        lyricsPrefetchKey = null
+        lyricsPrefetchJob = null
+        cancelled?.cancel()
+        return cancelled
     }
 
     private fun startAudioPrefetch(
@@ -860,6 +940,22 @@ class NaviampCorePlaybackEngineAdapter(
 
 private const val CoreGaplessPrepareWindowSeconds = 8.0
 
+private data class LyricsPrefetchKey(
+    val provider: app.naviamp.domain.provider.MediaProvider,
+    val sourceId: String,
+    val trackId: TrackId,
+    val title: String,
+    val artist: String,
+    val album: String?,
+    val durationSeconds: Int?,
+    val quality: StreamQuality,
+    val audioCachingEnabled: Boolean,
+    val onlineLyricsEnabled: Boolean,
+    val timing: LyricsTimingPreference,
+    val displayTiming: LyricsTimingPreference,
+    val searchOrder: List<LyricsSourcePreference>,
+)
+
 private data class PlaybackTransitionSettings(
     val gaplessEnabled: Boolean,
     val crossfadeDurationSeconds: Int,
@@ -875,6 +971,7 @@ class NaviampCorePlaybackEngineSettings(
     private val engine: PlaybackEngine,
     initial: PlaybackSettings = PlaybackSettings(),
     private val persist: (PlaybackSettings) -> Unit = {},
+    private val onChanged: () -> Unit = {},
 ) : NaviampCorePlaybackSettingsPort {
     private var current = initial.effectiveForEngine(engine)
 
@@ -893,8 +990,11 @@ class NaviampCorePlaybackEngineSettings(
         }
         applyToEngine(current)
         persist(current)
+        onChanged()
         return current
     }
+
+    override fun cacheSettingsChanged() = onChanged()
 
     private fun applyToEngine(settings: PlaybackSettings) {
         engine.setVolume(settings.volumePercent)
@@ -1004,6 +1104,7 @@ class NaviampCoreProviderNowPlayingSidecars(
     private val lyricsSidecarService: LyricsSidecarService? = null,
     private val lyricsOffsetController: LyricsOffsetController? = null,
     private val delegate: NaviampCoreMutableNowPlayingSidecars = NaviampCoreMutableNowPlayingSidecars(),
+    private val beforeLyricsLoad: (app.naviamp.domain.Track) -> Unit = {},
 ) : NaviampCoreNowPlayingSidecarPort by delegate {
     private var loadGeneration = 0L
     private var lyricsGeneration = 0L
@@ -1068,6 +1169,7 @@ class NaviampCoreProviderNowPlayingSidecars(
 
     override suspend fun loadLyrics(track: app.naviamp.domain.Track, forceRefresh: Boolean) {
         if (delegate.snapshot().trackId != track.id) return
+        beforeLyricsLoad(track)
         val generation = ++lyricsGeneration
         delegate.updateLyrics(null, null, null)
         delegate.updateLyricsLoading(false)
