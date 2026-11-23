@@ -1,6 +1,15 @@
 package app.naviamp.presentation
 
 import app.naviamp.ui.toSharedRecommendationsSection
+import app.naviamp.domain.radio.recentRadioStreamsForSource
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import app.naviamp.domain.home.HomeSection
+import app.naviamp.domain.home.retainFailedSections
+import app.naviamp.domain.settings.HomeSectionIds
+import app.naviamp.domain.sonichome.SonicHomeDiscoveryRowId
+import app.naviamp.ui.SharedHomeCollectionItemAction
 
 import app.naviamp.domain.InternetRadioStation
 import app.naviamp.domain.Track
@@ -66,21 +75,21 @@ fun interface NaviampCoreSonicHomeDiscoverySource {
 fun naviampCoreSonicHomeDiscoverySource(
     libraryIndex: LocalLibraryIndexRepository,
 ): NaviampCoreSonicHomeDiscoverySource = NaviampCoreSonicHomeDiscoverySource { provider, sourceId ->
-    runCatching {
-        SonicHomeDiscoveryService(provider).loadRows(
-            libraryTracks = libraryIndex.librarySnapshot(
-                sourceId = sourceId,
-                limit = SonicHomeDiscoveryLibrarySampleLimit,
-            ).tracks,
-            recentTracks = libraryIndex.recentlyPlayedLibraryTracks(
-                sourceId = sourceId,
-                limit = SonicHomeDiscoveryRecentTrackLimit,
-            ),
-            starredTracks = runCatching {
-                provider.favoriteTracks(limit = SonicHomeDiscoveryFavoriteTrackLimit)
-            }.getOrDefault(emptyList()),
-        )
-    }.getOrDefault(SonicHomeDiscoveryRows())
+    if (!provider.capabilities.supportsSonicSimilarity) return@NaviampCoreSonicHomeDiscoverySource SonicHomeDiscoveryRows()
+    try {
+        val library = libraryIndex.librarySnapshot(sourceId, limit = SonicHomeDiscoveryLibrarySampleLimit).tracks
+        val recent = libraryIndex.recentlyPlayedLibraryTracks(sourceId, limit = SonicHomeDiscoveryRecentTrackLimit)
+        var favoritesFailed = false
+        val favorites = try {
+            provider.favoriteTracks(limit = SonicHomeDiscoveryFavoriteTrackLimit)
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { favoritesFailed = true; emptyList() }
+        val rows = SonicHomeDiscoveryService(provider).loadRows(library, recent, favorites)
+        if (favoritesFailed && rows.row(SonicHomeDiscoveryRowId.SimilarToStarredTracks)?.tracks.isNullOrEmpty()) {
+            rows.copy(failedRowIds = rows.failedRowIds + SonicHomeDiscoveryRowId.SimilarToStarredTracks)
+        } else rows
+    } catch (cancelled: CancellationException) { throw cancelled }
+    catch (_: Exception) { SonicHomeDiscoveryRows(failedRowIds = SonicHomeDiscoveryRowId.entries.toSet()) }
 }
 
 /** Adapts the portable library index to Home without host-owned repository mapping. */
@@ -187,6 +196,59 @@ class NaviampCoreHomeController(
 
     private var refreshGeneration = 0L
     private var discoveryFeedGeneration = 0L
+    private var sourceGeneration = 0L
+    private val scheduledRefreshes = ArrayDeque<Long>()
+    private var recoveryScheduled = false
+    private var refreshInFlight = false
+    private var refreshFailed = false
+    private var cachedHomeProvider: MediaProvider? = null
+    private var cachedHomeSourceId: String? = null
+    private var discoveryFeedAccount: String? = null
+    private var discoveryFeedSourceId: String? = null
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page is NaviampCoreDiscoveryPage) return discoveryController.recoverEmptyPage(page)
+        if (providerSource.current() == null) return emptyList()
+        val home = stateStore.state.value.shell.home
+        if (recoveryScheduled || refreshInFlight || scheduledRefreshes.any { it == sourceGeneration } || home.refreshing || home.providerDiscovery?.loading == true) return emptyList()
+        val sectionId = (page as? NaviampCoreHomeCollectionPage)?.sectionId
+        val eligible = when {
+            sectionId != null -> {
+                val section = home.collectionPage?.section?.takeIf { it.id == sectionId } ?: return emptyList()
+                section.items.none { it.action.isBrowsableHomeMedia() } &&
+                    (refreshFailed || failedHomeSection(sectionId))
+            }
+            page is NaviampRoutePage && page.route == NaviampRoute.Home -> {
+                val feed = home.providerDiscovery?.feed
+                home.content.collectionSections.none { section -> section.visible && section.items.any { it.action.isBrowsableHomeMedia() } } &&
+                    (feed == null || feed.recommendations.isEmpty() && feed.trending.isEmpty()) &&
+                    (refreshFailed || mediaRegistry.home.failedSections.isNotEmpty() || mediaRegistry.sonicRows.failedRowIds.isNotEmpty() || feed?.status.isHomeFetchFailure())
+            }
+            else -> false
+        }
+        if (!eligible || cachedHomeProvider?.let { !providerSource.isCurrent(it) || cachedHomeSourceId != currentHomeSourceId() } == true) return emptyList()
+        recoveryScheduled = true
+        return listOf(NaviampCoreCommand.Home.Refresh)
+    }
+
+    private fun currentHomeSourceId(): String? =
+        supplementSource.current().sourceId ?: stateStore.state.value.shell.connectionSettings.currentSourceId
+
+    private fun failedHomeSection(id: String): Boolean {
+        val failed = mediaRegistry.home.failedSections
+        return when (id) {
+            HomeSectionIds.FavoriteArtists -> HomeSection.FavoriteArtists in failed || HomeSection.FavoriteAlbums in failed
+            HomeSectionIds.MixesForYou, HomeSectionIds.RandomAlbums -> HomeSection.RandomAlbums in failed
+            HomeSectionIds.NavibeatMixes, HomeSectionIds.RecentPlaylists -> HomeSection.Playlists in failed
+            HomeSectionIds.RecentlyAdded -> HomeSection.RecentlyAdded in failed
+            HomeSectionIds.RecentlyPlayed -> HomeSection.RecentlyPlayed in failed
+            HomeSectionIds.RecentAlbums -> HomeSection.RecentAlbums in failed
+            HomeSectionIds.FrequentlyPlayedAlbums -> HomeSection.FrequentAlbums in failed
+            HomeSectionIds.GenreSpotlight -> HomeSection.GenreSpotlight in failed
+            HomeSectionIds.Decade -> HomeSection.Decade in failed
+            else -> mediaRegistry.sonicRows.failedRowIds.any { it.value == id }
+        }
+    }
     private val discoveryController = NaviampCoreDiscoveryController(
         stateStore, providerSource, { supplementSource.current().sourceId }, externalUri,
         playDiscoverySample, stopDiscoverySample, openLibraryArtist,
@@ -207,7 +269,10 @@ class NaviampCoreHomeController(
         val home = command as? NaviampCoreCommand.Home
             ?: return NaviampCoreImmediateCommandResult.Unhandled
         return when (home) {
-            NaviampCoreCommand.Home.Refresh -> NaviampCoreImmediateCommandResult.Deferred
+            NaviampCoreCommand.Home.Refresh -> {
+                scheduledRefreshes.addLast(sourceGeneration)
+                NaviampCoreImmediateCommandResult.Deferred
+            }
             is NaviampCoreCommand.Home.SelectMixBuilder -> {
                 selectMixBuilder(home.item.id)
                 NaviampCoreImmediateCommandResult.Handled()
@@ -233,7 +298,11 @@ class NaviampCoreHomeController(
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         discoveryController.execute(command)?.let { return it }
         when (command) {
-            NaviampCoreCommand.Home.Refresh -> refresh(forceRefreshRecentlyAdded = true)
+            NaviampCoreCommand.Home.Refresh -> {
+                val scheduledGeneration = scheduledRefreshes.removeFirstOrNull() ?: sourceGeneration
+                if (scheduledGeneration != sourceGeneration) return NaviampCoreCommandResult.Completed
+                refresh(forceRefreshRecentlyAdded = true)
+            }
             else -> return null
         }
         return NaviampCoreCommandResult.Completed
@@ -241,23 +310,29 @@ class NaviampCoreHomeController(
 
     private suspend fun refresh(forceRefreshRecentlyAdded: Boolean = false) = coroutineScope {
         val generation = ++refreshGeneration
+        recoveryScheduled = false
+        refreshInFlight = true
         val historyRevision = recentHistoryRevision
+        val radioSnapshot = mediaRegistry.home.recentRadioStreams
         val provider = providerSource.current()
         if (provider == null) {
+            refreshInFlight = false
             stateStore.updateShell { it.copy(home = it.home.copy(providerDiscovery = null)) }
             publish(refreshing = false, status = "Connect to Navidrome to load Home.")
             return@coroutineScope
         }
         val supplement = supplementSource.current()
+        val sourceId = supplement.sourceId ?: stateStore.state.value.shell.connectionSettings.currentSourceId
         publish(refreshing = true, status = "Loading home...")
         launch { refreshProviderDiscovery(provider, generation) }
+        try {
         runCatching {
             val content = loadHomeContent(
                 HomeContentLoadRequest(
                     provider = provider,
                     providerResponseService = providerResponseService,
                     libraryRepository = libraryRepository,
-                    sourceId = supplement.sourceId,
+                    sourceId = sourceId,
                     date = dateSource.current(),
                     recentRadioStreams = supplement.recentRadioStreams,
                     recentInternetRadioStations = supplement.recentInternetRadioStations,
@@ -268,17 +343,29 @@ class NaviampCoreHomeController(
             )
             val sonicEnabled = stateStore.state.value.shell.playback.settings.effectiveSonicSimilarityEnabled() &&
                 provider.capabilities.supportsSonicSimilarity
-            val sonicRows = if (sonicEnabled && supplement.sourceId != null) {
-                sonicDiscoverySource?.load(provider, supplement.sourceId) ?: SonicHomeDiscoveryRows()
+            val sonicRows = if (sonicEnabled && sourceId != null) {
+                try { sonicDiscoverySource?.load(provider, sourceId) ?: SonicHomeDiscoveryRows() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { SonicHomeDiscoveryRows(failedRowIds = SonicHomeDiscoveryRowId.entries.toSet()) }
             } else {
                 SonicHomeDiscoveryRows()
             }
             content to sonicRows
-        }.onSuccess { (loadedContent, sonicRows) ->
-            if (generation != refreshGeneration || !providerSource.isCurrent(provider)) return@onSuccess
+        }.onSuccess { (loadedContent, loadedSonicRows) ->
+            if (generation != refreshGeneration || !providerSource.isCurrent(provider) || sourceId != currentHomeSourceId()) return@onSuccess
+            val sameSource = cachedHomeSourceId == sourceId && cachedHomeProvider?.let(providerSource::isCurrent) == true
+            var content = if (sameSource) loadedContent.retainFailedSections(mediaRegistry.home) else loadedContent
+            val sonicRows = if (sameSource) loadedSonicRows.retainFailedRows(mediaRegistry.sonicRows) else loadedSonicRows
+            refreshFailed = false
+            cachedHomeProvider = provider
+            cachedHomeSourceId = sourceId
             // A network/sidecar refresh started before a play must not restore older history.
-            val content = if (recentHistoryRevision == historyRevision) loadedContent else
-                loadedContent.copy(recentlyPlayedTracks = mediaRegistry.home.recentlyPlayedTracks)
+            if (recentHistoryRevision != historyRevision) {
+                content = content.copy(recentlyPlayedTracks = mediaRegistry.home.recentlyPlayedTracks)
+            }
+            if (mediaRegistry.home.recentRadioStreams !== radioSnapshot) {
+                content = content.copy(recentRadioStreams = mediaRegistry.home.recentRadioStreams)
+            }
             mediaRegistry.updateHome(content, sonicRows)
             val sonicEnabled = stateStore.state.value.shell.playback.settings.effectiveSonicSimilarityEnabled() &&
                 provider.capabilities.supportsSonicSimilarity
@@ -311,8 +398,15 @@ class NaviampCoreHomeController(
             }
         }.onFailure { cause ->
             if (cause is CancellationException) throw cause
-            if (generation == refreshGeneration && providerSource.isCurrent(provider)) {
+            if (generation == refreshGeneration && providerSource.isCurrent(provider) && sourceId == currentHomeSourceId()) {
+                refreshFailed = true
                 publish(refreshing = false, status = homeLoadFailureStatus(cause))
+            }
+        }
+        } finally {
+            if (generation == refreshGeneration) {
+                refreshInFlight = false
+                stateStore.updateShell { it.copy(home = it.home.copy(refreshing = false)) }
             }
         }
     }
@@ -325,20 +419,33 @@ class NaviampCoreHomeController(
             stateStore.updateShell { it.copy(home = it.home.copy(providerDiscovery = null)) }
             return
         }
+        val sourceId = currentHomeSourceId()
+        val sameAccount = discoveryFeedAccount == provider.discoveryAccountScope && discoveryFeedSourceId == sourceId
+        discoveryFeedAccount = provider.discoveryAccountScope
+        discoveryFeedSourceId = sourceId
         stateStore.updateShell { shell -> shell.copy(home = shell.home.copy(
-            providerDiscovery = shell.home.providerDiscovery?.takeIf { it.providerId == provider.effectiveDiscoveryProviderId.value }?.copy(loading = true)
+            providerDiscovery = shell.home.providerDiscovery?.takeIf { sameAccount && it.providerId == provider.effectiveDiscoveryProviderId.value }?.copy(loading = true)
                 ?: SharedProviderDiscoveryUi(provider.effectiveDiscoveryProviderId.value, loading = true, isCompanion = provider.effectiveDiscoveryProviderId != provider.id),
         )) }
         val feed = try {
             discovery.load()
         } catch (error: Throwable) {
-            if (error is CancellationException) throw error
+            if (error is CancellationException) {
+                if (generation == refreshGeneration && feedGeneration == discoveryFeedGeneration && providerSource.isCurrentDiscovery(provider) && sourceId == currentHomeSourceId()) {
+                    stateStore.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery = shell.home.providerDiscovery?.copy(loading = false))) }
+                }
+                throw error
+            }
             ProviderDiscoveryFeed(ProviderDiscoveryStatus.Unavailable)
         }
-        if (generation != refreshGeneration || feedGeneration != discoveryFeedGeneration || !providerSource.isCurrentDiscovery(provider)) return
-        stateStore.updateShell { shell -> shell.copy(home = shell.home.copy(
-            providerDiscovery = (shell.home.providerDiscovery ?: SharedProviderDiscoveryUi(provider.effectiveDiscoveryProviderId.value, isCompanion = provider.effectiveDiscoveryProviderId != provider.id)).copy(feed = feed, loading = false),
-        )) }
+        if (generation != refreshGeneration || feedGeneration != discoveryFeedGeneration || !providerSource.isCurrentDiscovery(provider) || sourceId != currentHomeSourceId()) return
+        stateStore.updateShell { shell ->
+            val current = shell.home.providerDiscovery ?: SharedProviderDiscoveryUi(provider.effectiveDiscoveryProviderId.value, isCompanion = provider.effectiveDiscoveryProviderId != provider.id)
+            val merged = if (sameAccount && feed.status.isHomeFetchFailure() && feed.recommendations.isEmpty() && feed.trending.isEmpty()) {
+                current.feed.copy(status = feed.status)
+            } else feed
+            shell.copy(home = shell.home.copy(providerDiscovery = current.copy(feed = merged, loading = false)))
+        }
     }
 
 
@@ -352,8 +459,10 @@ class NaviampCoreHomeController(
 
     fun restoreRecentRadioStreams(streams: List<RecentRadioStream>) {
         val provider = providerSource.current()
+        val scoped = recentRadioStreamsForSource(streams, stateStore.state.value.shell.connectionSettings.currentSourceId)
+        mediaRegistry.updateHome(mediaRegistry.home.copy(recentRadioStreams = scoped), mediaRegistry.sonicRows)
         stateStore.updateShell { shell ->
-            val recentItems = streams.map { recent ->
+            val recentItems = scoped.map { recent ->
                 val coverArtUrls = recent.coverArtIds
                     .mapNotNull { id -> provider?.coverArtUrl(id) }
                     .distinct()
@@ -375,6 +484,7 @@ class NaviampCoreHomeController(
                 ),
             )
         }
+        if (provider != null) favoritesChanged(provider)
     }
 
     internal fun favoritesChanged(provider: MediaProvider) {
@@ -429,6 +539,14 @@ class NaviampCoreHomeController(
 
     fun resetForSourceChange() {
         discoveryController.resetForSourceChange()
+        sourceGeneration++
+        recoveryScheduled = false
+        refreshInFlight = false
+        refreshFailed = false
+        cachedHomeProvider = null
+        cachedHomeSourceId = null
+        discoveryFeedAccount = null
+        discoveryFeedSourceId = null
         refreshGeneration += 1
         discoveryFeedGeneration++
         mediaRegistry.updateHome(
@@ -462,6 +580,7 @@ class NaviampCoreHomeController(
         stateStore.updateShell { shell ->
             shell.copy(home = shell.home.copy(collectionPage = SharedHomeCollectionPageUi(section)))
         }
+        navigationController.recoverEnteredPage()
     }
 
     private fun closeCollection() = navigationController.back()
@@ -492,6 +611,18 @@ class NaviampCoreHomeController(
             )
         }
     }
+}
+
+private fun SharedHomeCollectionItemAction.isBrowsableHomeMedia(): Boolean = when (this) {
+    SharedHomeCollectionItemAction.SelectMixBuilder, SharedHomeCollectionItemAction.SelectStation,
+    SharedHomeCollectionItemAction.OpenFavoriteSongs -> false
+    else -> true
+}
+
+private fun ProviderDiscoveryStatus?.isHomeFetchFailure(): Boolean = when (this) {
+    ProviderDiscoveryStatus.PasswordRequired, ProviderDiscoveryStatus.SignInRequired,
+    ProviderDiscoveryStatus.Forbidden, ProviderDiscoveryStatus.Unavailable -> true
+    else -> false
 }
 
 private const val SonicHomeDiscoveryLibrarySampleLimit = 5_000L

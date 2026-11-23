@@ -87,6 +87,7 @@ internal fun NaviampPageHeaderAction(
     enabled: Boolean = true,
     selected: Boolean? = null,
     stateDescription: String? = null,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     NaviampTooltip(contentDescription, colors) {
@@ -98,7 +99,7 @@ internal fun NaviampPageHeaderAction(
                 contentColor = if (selected == true) colors.onAccent else colors.primaryText,
                 disabledContentColor = colors.primaryText.copy(alpha = 0.38f),
             ),
-            modifier = Modifier.size(48.dp).semantics {
+            modifier = modifier.size(48.dp).semantics {
                 if (selected != null) this.selected = selected
                 if (stateDescription != null) this.stateDescription = stateDescription
             },

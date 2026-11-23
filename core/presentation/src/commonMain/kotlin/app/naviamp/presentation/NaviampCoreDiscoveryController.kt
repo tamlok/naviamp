@@ -1,5 +1,6 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
 import app.naviamp.domain.Track
 import app.naviamp.domain.provider.*
 import app.naviamp.ui.SharedProviderDiscoveryUi
@@ -9,6 +10,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 /** Shared artist browsing, actions and preview lifecycle for every discovery entry point. */
 class NaviampCoreDiscoveryController(
@@ -29,7 +32,8 @@ class NaviampCoreDiscoveryController(
 ) : NaviampCoreCommandController {
     private val browser = NaviampDiscoveryBrowserController(
         { stateStore.state.value.shell.home.providerDiscovery }, ::updateDiscovery, providerSource::current, nowMillis, showPage, leaveSurface, currentNavigationEpoch,
-        stopDiscoverySample, ::openCatalogAlbum, externalUri::open, playDiscoverySample, refreshFeed, { providerSource.isCurrentDiscovery(it) })
+        stopDiscoverySample, ::openCatalogAlbum, externalUri::open, playDiscoverySample, refreshFeed,
+        { providerSource.isCurrentDiscovery(it) && boundSourceId == sourceId() })
     private val acquisitions = DiscoveryAcquisitionTracker(acquisitionRepository, nowMillis)
     private fun acquisitionScope(provider: MediaProvider) = DiscoveryAcquisitionScope(sourceId() ?: "__unbound__", provider.discoveryAccountScope)
     private var discoveryDetailGeneration = 0L
@@ -43,10 +47,108 @@ class NaviampCoreDiscoveryController(
     private val requestLedger = mutableMapOf<String, Map<ProviderDiscoveryAction, ProviderDiscoveryOperation>>()
     private val contextualSearches = mutableListOf<Pair<NaviampCoreCommand.Home.FindInAurral, DiscoveryBrowseAction>>()
     private var sourceGeneration = 0L
+    private var acquisitionsRefreshing = false
+    private class EmptyPageRecovery(
+        val command: NaviampCoreCommand.Home,
+        val provider: MediaProvider,
+        val sourceId: String?,
+        val sourceGeneration: Long,
+        val navigationEpoch: Long,
+        val detailGeneration: Long,
+        val releaseGeneration: Long,
+        val artistBefore: SharedProviderDiscoveryArtistUi?,
+        var dispatched: Boolean = false,
+        var running: Boolean = false,
+        var completed: Boolean = false,
+    )
+    private var emptyPageRecovery: EmptyPageRecovery? = null
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampCoreDiscoveryPage) return emptyList()
+        bindSource()
+        val provider = providerSource.current()?.takeIf { it.discovery != null } ?: return emptyList()
+        emptyPageRecovery?.let {
+            if (it.running || it.navigationEpoch == currentNavigationEpoch()) return emptyList()
+            finishRecovery(it)
+        }
+        val current = stateStore.state.value.shell.home.providerDiscovery ?: return emptyList()
+        if (page.sourceId != sourceId() || page.sourceId != current.sourceId ||
+            page.sourceGeneration != sourceGeneration || page.sourceGeneration != current.sourceGeneration) return emptyList()
+        val command = when {
+            current.requestsOpen -> {
+                if (current.requestsLoading || !current.requestsStatus.isDiscoveryReadFailure() ||
+                    current.acquisitions.isNotEmpty() || current.requestActivity.items.isNotEmpty()) return emptyList()
+                updateDiscovery { it.copy(requestsLoading = true) }
+                NaviampCoreCommand.Home.RefreshDiscoveryRequests
+            }
+            current.releasePage != null -> {
+                val release = current.releasePage ?: return emptyList()
+                if (release.loading || release.tracksLoading || release.ownershipLoading ||
+                    release.tracks?.tracks?.isNotEmpty() == true || release.result?.release != null ||
+                    release.ownership?.libraryAlbum != null ||
+                    !(release.result?.status.isDiscoveryReadFailure() || release.tracks?.status.isDiscoveryReadFailure() ||
+                        release.ownership?.status.isDiscoveryReadFailure())) return emptyList()
+                updateDiscovery { it.copy(releasePage = release.copy(loading = true, tracksLoading = true, ownershipLoading = true)) }
+                NaviampCoreCommand.Home.SelectDiscoveryRelease(release.release.id)
+            }
+            current.artistPage -> {
+                val artist = current.artistDetail?.takeIf(::failedEmptyArtist) ?: return emptyList()
+                updateDiscovery { it.copy(artistDetail = artist.copy(loading = true, samplesLoading = true, similarLoading = true)) }
+                NaviampCoreCommand.Home.SelectDiscoveryArtist(artist.artist.id)
+            }
+            else -> NaviampCoreCommand.Home.Browse(browser.recoverEmptyPage() ?: return emptyList())
+        }
+        emptyPageRecovery = EmptyPageRecovery(command, provider, sourceId(), sourceGeneration, currentNavigationEpoch(),
+            discoveryDetailGeneration, releaseGeneration, current.artistDetail)
+        return listOf(command)
+    }
+
+    private fun artistHasContent(artist: SharedProviderDiscoveryArtistUi): Boolean =
+        !artist.details?.releases.isNullOrEmpty() || !artist.details?.biography.isNullOrBlank() ||
+            artist.details?.libraryArtist != null || artist.samples.isNotEmpty() || !artist.similar?.artists.isNullOrEmpty()
+
+    private fun failedEmptyArtist(artist: SharedProviderDiscoveryArtistUi): Boolean =
+        !artist.loading && !artist.samplesLoading && !artist.similarLoading && !artist.actionBusy && !artist.savingFeedback &&
+            !artistHasContent(artist) && (artist.status.isDiscoveryReadFailure() ||
+                artist.samplesStatus.isDiscoveryReadFailure() || artist.similar?.status.isDiscoveryReadFailure())
+
+    private fun finishArtistRead(before: SharedProviderDiscoveryArtistUi?, current: SharedProviderDiscoveryArtistUi,
+        completed: Boolean): SharedProviderDiscoveryArtistUi {
+        val retainFailure = !completed && before != null && !artistHasContent(current)
+        return current.copy(loading = false, samplesLoading = false, similarLoading = false,
+            status = if (retainFailure) before!!.status else current.status,
+            samplesStatus = if (retainFailure) before?.samplesStatus else current.samplesStatus,
+            similar = if (retainFailure) before?.similar else current.similar)
+    }
+
+    private fun recoveryCurrent(recovery: EmptyPageRecovery): Boolean =
+        recovery.sourceId == sourceId() && recovery.sourceGeneration == sourceGeneration &&
+            recovery.detailGeneration == discoveryDetailGeneration && recovery.releaseGeneration == releaseGeneration &&
+            providerSource.isCurrentDiscovery(recovery.provider)
+
+    private fun finishRecovery(recovery: EmptyPageRecovery) {
+        if (recoveryCurrent(recovery)) when (val command = recovery.command) {
+            is NaviampCoreCommand.Home.Browse -> if (!recovery.running) browser.abandon(command.action)
+            is NaviampCoreCommand.Home.SelectDiscoveryArtist -> updateDiscovery { current -> current.copy(
+                artistDetail = current.artistDetail?.let { if (it.artist.id == command.id)
+                    finishArtistRead(recovery.artistBefore, it, recovery.completed) else it }) }
+            is NaviampCoreCommand.Home.SelectDiscoveryRelease -> updateDiscovery { current -> current.copy(
+                releasePage = current.releasePage?.let { if (it.release.id == command.id)
+                    it.copy(loading = false, tracksLoading = false, ownershipLoading = false) else it }) }
+            NaviampCoreCommand.Home.RefreshDiscoveryRequests -> updateDiscovery { it.copy(requestsLoading = false) }
+            else -> Unit
+        }
+        if (emptyPageRecovery === recovery) emptyPageRecovery = null
+    }
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult {
         val home = command as? NaviampCoreCommand.Home ?: return NaviampCoreImmediateCommandResult.Unhandled
         bindSource()
+        emptyPageRecovery?.takeIf { it.command === home }?.let { recovery ->
+            if (recovery.dispatched) return NaviampCoreImmediateCommandResult.Handled()
+            recovery.dispatched = true
+            return NaviampCoreImmediateCommandResult.Deferred
+        }
         val result = when (home) {
             is NaviampCoreCommand.Home.FindInAurral -> {
                 val provider = providerSource.current()
@@ -157,6 +259,12 @@ class NaviampCoreDiscoveryController(
                 if (current?.releasePage != null) {
                     releaseGeneration++
                     updateDiscovery { it.copy(releasePage = null) }
+                    val artist = current.artistDetail
+                    if (artist != null && failedEmptyArtist(artist)) {
+                        updateDiscovery { it.copy(artistDetail = artist.copy(loading = true, samplesLoading = true, similarLoading = true)) }
+                        scheduledNavigationEpochs += home to currentNavigationEpoch()
+                        return NaviampCoreImmediateCommandResult.Deferred
+                    }
                     return NaviampCoreImmediateCommandResult.Handled()
                 }
                 discoveryDetailGeneration++
@@ -164,7 +272,11 @@ class NaviampCoreDiscoveryController(
                 updateDiscovery { it.copy(artistDetail = previous, artistPage = previous != null,
                     artistBackStack = it.artistBackStack.dropLast(1)) }
                 if (previous == null && current?.artistDetail != null && current.browser == null) leaveSurface()
-                if (previous?.loading == true) NaviampCoreImmediateCommandResult.Deferred else NaviampCoreImmediateCommandResult.Handled()
+                if (previous?.let(::failedEmptyArtist) == true) updateDiscovery { it.copy(
+                    artistDetail = previous.copy(loading = true, samplesLoading = true, similarLoading = true)) }
+                if (stateStore.state.value.shell.home.providerDiscovery?.artistDetail?.loading == true ||
+                    previous == null && browser.recoverEmptyPage() != null) NaviampCoreImmediateCommandResult.Deferred
+                else NaviampCoreImmediateCommandResult.Handled()
             }
             is NaviampCoreCommand.Home.DiscoveryAction -> {
                 val current = stateStore.state.value.shell.home.providerDiscovery
@@ -204,14 +316,34 @@ class NaviampCoreDiscoveryController(
             is NaviampCoreCommand.Home.OpenDiscoveryLibraryArtist -> NaviampCoreImmediateCommandResult.Deferred
             else -> NaviampCoreImmediateCommandResult.Unhandled
         }
-        if (result == NaviampCoreImmediateCommandResult.Deferred && home != NaviampCoreCommand.Home.RefreshDiscoveryRequests)
+        if (result == NaviampCoreImmediateCommandResult.Deferred)
             scheduledNavigationEpochs += home to currentNavigationEpoch()
         return result
     }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         bindSource()
+        emptyPageRecovery?.takeIf { it.command === command }?.let { recovery ->
+            if (!recovery.dispatched || recovery.running) return NaviampCoreCommandResult.Completed
+            try {
+                if (!recoveryCurrent(recovery) || recovery.navigationEpoch != currentNavigationEpoch()) return NaviampCoreCommandResult.Completed
+                recovery.running = true
+                when (val home = recovery.command) {
+                    is NaviampCoreCommand.Home.Browse -> browser.execute(home.action)
+                    is NaviampCoreCommand.Home.SelectDiscoveryArtist -> loadDiscoveryArtist(home.id)
+                    is NaviampCoreCommand.Home.SelectDiscoveryRelease -> loadRelease(home.id)
+                    NaviampCoreCommand.Home.RefreshDiscoveryRequests -> refreshAcquisitions()
+                    else -> Unit
+                }
+                currentCoroutineContext().ensureActive()
+                recovery.completed = recoveryCurrent(recovery) && recovery.navigationEpoch == currentNavigationEpoch()
+            } finally {
+                finishRecovery(recovery)
+            }
+            return NaviampCoreCommandResult.Completed
+        }
         when (command) {
+            NaviampCoreCommand.Home.RefreshDiscoveryRequests,
             is NaviampCoreCommand.Home.FindInAurral,
             is NaviampCoreCommand.Home.Browse,
             is NaviampCoreCommand.Home.OpenDiscoveryRequest,
@@ -225,8 +357,11 @@ class NaviampCoreDiscoveryController(
             is NaviampCoreCommand.Home.DiscoveryFeedback,
             NaviampCoreCommand.Home.DismissDiscoveryArtist -> {
                 val index = scheduledNavigationEpochs.indexOfFirst { it.first === command }
-                if (index < 0 || scheduledNavigationEpochs.removeAt(index).second != currentNavigationEpoch())
+                if (index < 0) return NaviampCoreCommandResult.Completed
+                if (scheduledNavigationEpochs.removeAt(index).second != currentNavigationEpoch()) {
+                    if (command is NaviampCoreCommand.Home.Browse) scopedBrowseAction(command.action)?.let(browser::abandon)
                     return NaviampCoreCommandResult.Completed
+                }
             }
             else -> Unit
         }
@@ -301,7 +436,23 @@ class NaviampCoreDiscoveryController(
                 if (scheduled == discoveryDetailGeneration) loadRelease(command.id)
             }
             NaviampCoreCommand.Home.DismissDiscoveryArtist -> {
-                stateStore.state.value.shell.home.providerDiscovery?.artistDetail?.takeIf { it.loading }?.let { loadDiscoveryArtist(it.artist.id) }
+                val current = stateStore.state.value.shell.home.providerDiscovery
+                val artist = current?.artistDetail
+                if (artist?.loading == true) {
+                    val generation = discoveryDetailGeneration
+                    val provider = providerSource.current()
+                    val navigationEpoch = currentNavigationEpoch()
+                    var completed = false
+                    try {
+                        loadDiscoveryArtist(artist.artist.id)
+                        completed = navigationEpoch == currentNavigationEpoch()
+                    } finally {
+                        if (generation == discoveryDetailGeneration && provider != null && providerSource.isCurrentDiscovery(provider))
+                            updateDiscovery { it.copy(artistDetail = it.artistDetail?.let { latest ->
+                                finishArtistRead(artist, latest, completed) }) }
+                    }
+                }
+                else if (current?.artistDetail == null) browser.execute(DiscoveryBrowseAction.Refresh)
             }
             is NaviampCoreCommand.Home.SelectDiscoveryArtist -> {
                 val scheduled = takeDiscoveryGeneration(command)
@@ -423,19 +574,28 @@ class NaviampCoreDiscoveryController(
 
     suspend fun refreshAcquisitions(): DiscoveryAcquisitionSnapshot? {
         bindSource()
+        if (acquisitionsRefreshing || emptyPageRecovery?.let {
+            it.command === NaviampCoreCommand.Home.RefreshDiscoveryRequests && !it.running
+        } == true) return null
         val provider = providerSource.current() ?: return null
         val discovery = provider.discovery ?: return null
         val scope = acquisitionScope(provider)
         val generation = sourceGeneration
+        val navigationEpoch = currentNavigationEpoch()
+        acquisitionsRefreshing = true
         updateDiscovery { it.copy(requestsLoading = true) }
         val result = try { acquisitions.refresh(scope, discovery) } catch (error: Throwable) {
             if (error is CancellationException) throw error
             DiscoveryAcquisitionSnapshot(acquisitions.records(scope), status = ProviderDiscoveryStatus.Unavailable)
         } finally {
-            if (generation == sourceGeneration && providerSource.isCurrentDiscovery(provider))
-                updateDiscovery { it.copy(requestsLoading = false) }
+            if (generation == sourceGeneration) {
+                acquisitionsRefreshing = false
+                if (providerSource.isCurrentDiscovery(provider)) updateDiscovery { it.copy(requestsLoading = false) }
+            }
         }
-        if (generation != sourceGeneration || !providerSource.isCurrentDiscovery(provider) || scope != acquisitionScope(providerSource.current() ?: return null)) return null
+        currentCoroutineContext().ensureActive()
+        if (generation != sourceGeneration || navigationEpoch != currentNavigationEpoch() || !providerSource.isCurrentDiscovery(provider) ||
+            scope != acquisitionScope(providerSource.current() ?: return null)) return null
         result.records.forEach { recordRequest(it.artistId, it.action, it.operation) }
         updateDiscovery { current -> current.copy(acquisitions = result.records,
             requestActivity = if (result.activity.status == ProviderDiscoveryStatus.Ready) result.activity else current.requestActivity.copy(status = result.activity.status),
@@ -551,6 +711,8 @@ class NaviampCoreDiscoveryController(
         val provider = providerSource.current() ?: return
         val generation = discoveryDetailGeneration
         val releaseRevision = releaseGeneration
+        val navigationEpoch = currentNavigationEpoch()
+        val source = sourceId()
         val release = stateStore.state.value.shell.home.providerDiscovery?.releasePage?.release?.takeIf { it.id == id } ?: return
         val mbid = release.releaseGroupMbid ?: return
         val artist = stateStore.state.value.shell.home.providerDiscovery?.artistDetail?.artist ?: return
@@ -563,7 +725,9 @@ class NaviampCoreDiscoveryController(
                 }
                 val result = response.takeIf { it.status != ProviderDiscoveryStatus.Ready || it.release?.id.equals(id, ignoreCase = true) }
                     ?: ProviderDiscoveryReleaseDetails(ProviderDiscoveryStatus.Unavailable)
-                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || !providerSource.isCurrentDiscovery(provider)) return@launch
+                currentCoroutineContext().ensureActive()
+                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || navigationEpoch != currentNavigationEpoch() ||
+                    source != sourceId() || !providerSource.isCurrentDiscovery(provider)) return@launch
                 updateDiscovery { current -> current.copy(releasePage = current.releasePage?.takeIf { it.release.id == id }
                     ?.copy(loading = false, result = result, requestContext = result.release?.takeIf {
                         result.status == ProviderDiscoveryStatus.Ready &&
@@ -576,7 +740,9 @@ class NaviampCoreDiscoveryController(
                     if (error is CancellationException) throw error
                     ProviderDiscoveryReleaseTracks(ProviderDiscoveryStatus.Unavailable)
                 }
-                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || !providerSource.isCurrentDiscovery(provider)) return@launch
+                currentCoroutineContext().ensureActive()
+                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || navigationEpoch != currentNavigationEpoch() ||
+                    source != sourceId() || !providerSource.isCurrentDiscovery(provider)) return@launch
                 val ordered = tracks.copy(tracks = tracks.tracks.withIndex().sortedWith(
                     compareBy<IndexedValue<ProviderDiscoveryReleaseTrack>> { it.value.discNumber ?: Int.MAX_VALUE }
                         .thenBy { it.value.trackNumber ?: Int.MAX_VALUE }.thenBy { it.index }).map { it.value })
@@ -589,7 +755,9 @@ class NaviampCoreDiscoveryController(
                     if (error is CancellationException) throw error
                     ProviderDiscoveryReleaseOwnership(ProviderDiscoveryStatus.Unavailable)
                 }
-                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || !providerSource.isCurrentDiscovery(provider)) return@launch
+                currentCoroutineContext().ensureActive()
+                if (generation != discoveryDetailGeneration || releaseRevision != releaseGeneration || navigationEpoch != currentNavigationEpoch() ||
+                    source != sourceId() || !providerSource.isCurrentDiscovery(provider)) return@launch
                 updateDiscovery { current -> current.copy(releasePage = current.releasePage?.takeIf { it.release.id == id }
                     ?.copy(ownershipLoading = false, ownership = ownership)) }
             }
@@ -609,6 +777,8 @@ class NaviampCoreDiscoveryController(
         val artist = discoveryArtist(id) ?: return
         val provider = providerSource.current() ?: return
         val generation = discoveryDetailGeneration
+        val navigationEpoch = currentNavigationEpoch()
+        val source = sourceId()
         val result = try {
             provider.discovery?.artistDetails(artist)
                 ?: app.naviamp.domain.provider.ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unsupported)
@@ -616,8 +786,9 @@ class NaviampCoreDiscoveryController(
             if (error is CancellationException) throw error
             app.naviamp.domain.provider.ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unavailable)
         }
-        if (generation != discoveryDetailGeneration || !providerSource.isCurrentDiscovery(provider) ||
-            stateStore.state.value.shell.home.providerDiscovery?.artistDetail?.artist?.id != id) return
+        currentCoroutineContext().ensureActive()
+        if (generation != discoveryDetailGeneration || navigationEpoch != currentNavigationEpoch() || source != sourceId() ||
+            !providerSource.isCurrentDiscovery(provider) || stateStore.state.value.shell.home.providerDiscovery?.artistDetail?.artist?.id != id) return
         updateDiscovery { current -> current.copy(artistDetail = current.artistDetail?.let { latest -> latest.copy(
             artist = result.details?.artist ?: artist, loading = false, status = result.status,
             details = result.details ?: latest.details, samplesLoading = true, similarLoading = true) }) }
@@ -628,7 +799,8 @@ class NaviampCoreDiscoveryController(
                     if (error is CancellationException) throw error
                     ProviderDiscoverySamples(ProviderDiscoveryStatus.Unavailable)
                 }
-                if (generation == discoveryDetailGeneration && providerSource.isCurrentDiscovery(provider)) {
+                currentCoroutineContext().ensureActive()
+                if (generation == discoveryDetailGeneration && navigationEpoch == currentNavigationEpoch() && source == sourceId() && providerSource.isCurrentDiscovery(provider)) {
                     updateDiscovery { current -> current.copy(artistDetail = current.artistDetail?.takeIf { it.artist.id == id }
                         ?.copy(samplesLoading = false, samples = samples.tracks, samplesStatus = samples.status)) }
                 }
@@ -640,7 +812,8 @@ class NaviampCoreDiscoveryController(
                     if (error is CancellationException) throw error
                     ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Unavailable)
                 }
-                if (generation == discoveryDetailGeneration && providerSource.isCurrentDiscovery(provider)) {
+                currentCoroutineContext().ensureActive()
+                if (generation == discoveryDetailGeneration && navigationEpoch == currentNavigationEpoch() && source == sourceId() && providerSource.isCurrentDiscovery(provider)) {
                     updateDiscovery { current -> current.copy(artistDetail = current.artistDetail?.takeIf { it.artist.id == id }
                         ?.copy(similarLoading = false, similar = similar)) }
                 }
@@ -677,6 +850,7 @@ class NaviampCoreDiscoveryController(
 
     fun resetNavigation() {
         stopDiscoverySample()
+        emptyPageRecovery?.let(::finishRecovery)
         discoveryDetailGeneration++
         releaseGeneration++
         scheduledNavigationEpochs.clear()
@@ -694,6 +868,7 @@ class NaviampCoreDiscoveryController(
         boundSourceId = sourceId()
         resetNavigation()
         sourceGeneration++
+        acquisitionsRefreshing = false
         requestLedger.clear()
         updateDiscovery { it.copy(feed = ProviderDiscoveryFeed(), loading = false,
             sourceId = boundSourceId, sourceGeneration = sourceGeneration, acquisitions = emptyList(), requestActivity = ProviderDiscoveryActivities(),

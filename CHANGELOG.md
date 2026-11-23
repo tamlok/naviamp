@@ -43,6 +43,9 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Bug fixes
 
 - Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, accept duplicate lyrics that differ only in formatting, reject genuinely ambiguous matches, and avoid immediate search requests after rate-limit or server errors.
+- Apply Recommendations sorting to favorite albums as well as artists, using favorite dates and source-scoped album-radio history, and keep recent-radio ordering current across Home refreshes.
+- Automatically retry previously failed empty pages when revisiting them, without repeatedly refreshing successful empty results or dropping cached Home sections when another fetch fails.
+- Use standard back-arrow controls on mix-builder pages, retaining localized accessibility labels and existing Back navigation.
 - Improve text-action readability across dialogs with theme-specific action colors, including brighter blue in Naviamp dark, without changing filled-button accents or disabled behavior.
 - Let Playlist bulk tools scroll through every destination playlist and the final create action while keeping Close visible in short windows.
 - Return to the page that opened an album, artist, or playlist when pressing Back, including playlists opened from Home. Preserve nested media and Home collection navigation, add Back controls to Search and mix builders, and prevent delayed loads from reopening pages after leaving them.

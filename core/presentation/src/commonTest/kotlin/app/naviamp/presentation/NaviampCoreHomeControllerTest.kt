@@ -1,6 +1,11 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampNavigationController
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import app.naviamp.domain.settings.HomeSectionIds
+import app.naviamp.domain.home.HomeSection
 import app.naviamp.domain.Album
 import app.naviamp.domain.AlbumDetails
 import app.naviamp.domain.AlbumId
@@ -34,12 +39,299 @@ import app.naviamp.ui.SharedRoute
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.cancelChildren
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreHomeControllerTest {
+    @Test fun rootHomeRecoversFailedEmptyDiscoveryButNeverReadyEmptyOrCachedRails() = runTest {
+        var reads = 0
+        var response = ProviderDiscoveryFeed(ProviderDiscoveryStatus.Unavailable)
+        val provider = object : MediaProvider by RecoveryHomeProvider({ emptyList() }) {
+            override val discovery = ProviderDiscovery { reads++; response }
+        }
+        val store = NaviampCoreStateStore()
+        lateinit var router: NaviampCoreCommandRouter
+        val navigation = NaviampCoreNavigationController(NaviampNavigationController(), store, { router.dispatch(it) }, onPageEntered = { router.onPageEntered(it) })
+        val home = NaviampCoreHomeController(store, { provider }, navigation, NaviampCoreHomeDateSource { HomeDate(2026, 100) })
+        router = NaviampCoreCommandRouter(this, listOf(navigation, home))
+        router.execute(NaviampCoreCommand.Home.Refresh)
+        response = ProviderDiscoveryFeed(trending = listOf(ProviderDiscoveryArtist("loaded", "Loaded")))
+        router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+        router.dispatch(NaviampCoreCommand.Navigation.Back)
+        runCurrent()
+        assertEquals(2, reads)
+        response = ProviderDiscoveryFeed(ProviderDiscoveryStatus.Unavailable)
+        router.execute(NaviampCoreCommand.Home.Refresh)
+        repeat(3) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+        runCurrent()
+        assertEquals(3, reads)
+        assertEquals("loaded", store.state.value.shell.home.providerDiscovery!!.feed.trending.single().id)
+        response = ProviderDiscoveryFeed()
+        router.execute(NaviampCoreCommand.Home.Refresh)
+        repeat(3) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+        runCurrent()
+        assertEquals(4, reads)
+        assertTrue(store.state.value.shell.home.providerDiscovery!!.feed.trending.isEmpty())
+    }
+
+    @Test fun sonicPrerequisiteFailuresRemainTypedAndCancellationPropagates() = runTest {
+        var failure: Exception? = null
+        val index = SonicPrerequisiteIndex { failure?.let { throw it }; app.naviamp.domain.cache.LibrarySnapshot() }
+        var favoritesFailure: Exception? = IllegalStateException("favorites unavailable")
+        val provider = object : MediaProvider by HomeTestProvider(supportsSonicSimilarity = true) {
+            override suspend fun favoriteTracks(limit: Int): List<Track> {
+                favoritesFailure?.let { throw it }
+                return emptyList()
+            }
+        }
+        val source = naviampCoreSonicHomeDiscoverySource(index)
+        assertEquals(setOf(SonicHomeDiscoveryRowId.SimilarToStarredTracks), source.load(provider, "source").failedRowIds)
+        favoritesFailure = null
+        assertTrue(source.load(provider, "source").failedRowIds.isEmpty())
+        failure = IllegalStateException("index unavailable")
+        assertEquals(SonicHomeDiscoveryRowId.entries.toSet(), source.load(provider, "source").failedRowIds)
+        failure = kotlinx.coroutines.CancellationException("cancel index")
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> { source.load(provider, "source") }
+        failure = null
+        favoritesFailure = kotlinx.coroutines.CancellationException("cancel favorites")
+        kotlin.test.assertFailsWith<kotlinx.coroutines.CancellationException> { source.load(provider, "source") }
+    }
+
+    @Test fun radioReplayDuringHomeRefreshKeepsTheCurrentRegistryHistory() = runTest {
+        var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val provider = RecoveryHomeProvider { gate?.await(); emptyList() }
+        val store = NaviampCoreStateStore()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source")) }
+        val registry = NaviampCoreMediaRegistry()
+        val album = Album(AlbumId("album"), "Album", "Artist", null, null)
+        val old = app.naviamp.domain.radio.albumRecentRadioStream(album).copy(sourceId = "source", startedAtEpochMillis = 1)
+        val replayed = old.copy(startedAtEpochMillis = 2)
+        val home = NaviampCoreHomeController(store, { provider }, NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
+            NaviampCoreHomeDateSource { HomeDate(2026, 100) }, mediaRegistry = registry,
+            supplementSource = NaviampCoreHomeSupplementSource { NaviampCoreHomeSupplement(sourceId = "source", recentRadioStreams = listOf(old)) })
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        gate = kotlinx.coroutines.CompletableDeferred()
+        val refresh = launch { home.execute(NaviampCoreCommand.Home.Refresh) }
+        runCurrent()
+        home.restoreRecentRadioStreams(listOf(replayed))
+        gate!!.complete(Unit)
+        refresh.join()
+        assertEquals(listOf(replayed), registry.home.recentRadioStreams)
+    }
+
+    @Test fun emptyHomeReentryRetriesOnceAndCancellationKeepsFailureEligible() = runTest {
+        var reads = 0
+        var fail = true
+        var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+        val provider = RecoveryHomeProvider {
+            reads++
+            gate?.await()
+            if (fail) error("home unavailable")
+            emptyList()
+        }
+        val store = NaviampCoreStateStore()
+        val history = NaviampNavigationController()
+        val job = kotlinx.coroutines.SupervisorJob()
+        val scope = kotlinx.coroutines.CoroutineScope(coroutineContext + job)
+        lateinit var router: NaviampCoreCommandRouter
+        val navigation = NaviampCoreNavigationController(history, store, { router.dispatch(it) }, onPageEntered = { router.onPageEntered(it) })
+        val home = NaviampCoreHomeController(store, { provider }, navigation, NaviampCoreHomeDateSource { HomeDate(2026, 100) })
+        router = NaviampCoreCommandRouter(scope, listOf(navigation, home))
+        try {
+            router.execute(NaviampCoreCommand.Home.Refresh)
+            assertEquals(1, reads)
+            gate = kotlinx.coroutines.CompletableDeferred()
+            router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+            router.dispatch(NaviampCoreCommand.Navigation.Back)
+            repeat(4) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+            runCurrent()
+            assertEquals(2, reads)
+            repeat(4) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+            runCurrent()
+            assertEquals(2, reads)
+            job.cancelChildren()
+            runCurrent()
+            assertFalse(store.state.value.shell.home.refreshing)
+            gate = null
+            fail = false
+            router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+            router.dispatch(NaviampCoreCommand.Navigation.Back)
+            runCurrent()
+            assertEquals(3, reads)
+            repeat(4) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+            runCurrent()
+            assertEquals(3, reads)
+            fail = true
+            router.execute(NaviampCoreCommand.Home.Refresh)
+            router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home))
+            home.resetForSourceChange()
+            navigation.resetForSourceChange()
+            runCurrent()
+            assertEquals(4, reads)
+        } finally { job.cancel() }
+    }
+
+    @Test fun sourceAccountChangesAndDisabledRowsNeverKeepAnotherSourcesCachedHome() = runTest {
+        val album = Album(AlbumId("cached"), "Cached", "Artist", null, null)
+        val artist = ProviderDiscoveryArtist("cached", "Cached")
+        var source = "source-a"
+        var account = "account-a"
+        var fail = false
+        var enabled = true
+        val base = RecoveryHomeProvider { if (fail) error("offline") else listOf(album) }
+        fun provider(): MediaProvider = object : MediaProvider by base {
+            override val cacheNamespace = source
+            override val discoveryAccountScope = account
+            override val capabilities = base.capabilities.copy(supportsSonicSimilarity = true)
+            override val discovery = if (!enabled) null else ProviderDiscovery {
+                if (fail) ProviderDiscoveryFeed(ProviderDiscoveryStatus.Unavailable) else ProviderDiscoveryFeed(trending = listOf(artist))
+            }
+        }
+        var active = provider()
+        val store = NaviampCoreStateStore()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = source),
+            playback = it.playback.copy(settings = it.playback.settings.copy(sonicSimilarityEnabled = true))) }
+        val registry = NaviampCoreMediaRegistry()
+        val home = NaviampCoreHomeController(store, { active }, NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
+            NaviampCoreHomeDateSource { HomeDate(2026, 100) }, mediaRegistry = registry,
+            sonicDiscoverySource = NaviampCoreSonicHomeDiscoverySource { _, _ ->
+                if (fail) SonicHomeDiscoveryRows(failedRowIds = SonicHomeDiscoveryRowId.entries.toSet())
+                else SonicHomeDiscoveryRows(listOf(SonicHomeDiscoveryRow(SonicHomeDiscoveryRowId.SonicDeepCuts, "Cached", listOf(track("cached")))))
+            })
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        fail = true
+        account = "account-b"
+        active = provider()
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertEquals(listOf(album), registry.home.recentlyAddedAlbums)
+        assertTrue(registry.sonicRows.rows.isNotEmpty())
+        assertTrue(store.state.value.shell.home.providerDiscovery!!.feed.trending.isEmpty())
+        source = "source-b"
+        active = provider()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = source)) }
+        home.resetForSourceChange()
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertTrue(registry.home.recentlyAddedAlbums.isEmpty())
+        assertTrue(registry.sonicRows.rows.isEmpty())
+        assertTrue(store.state.value.shell.home.providerDiscovery!!.feed.trending.isEmpty())
+        fail = false
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertTrue(registry.sonicRows.rows.isNotEmpty())
+        enabled = false
+        active = provider()
+        store.updateShell { it.copy(playback = it.playback.copy(settings = it.playback.settings.copy(sonicSimilarityEnabled = false))) }
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertTrue(registry.sonicRows.rows.isEmpty())
+        assertEquals(null, store.state.value.shell.home.providerDiscovery)
+    }
+
+    @Test fun failedEmptyCollectionBackRecoversAfterOwnerPublicationAndRetainsFailedSiblings() = runTest {
+        var phase = 0
+        var favoritesReads = 0
+        val recommendation = Album(AlbumId("recovered"), "Recovered", "Artist", null, null)
+        val discoveryArtist = ProviderDiscoveryArtist("discovery", "Discovery")
+        val base = HomeTestProvider(supportsSonicSimilarity = true)
+        val provider = object : MediaProvider by base {
+            override val capabilities = base.capabilities.copy(supportsTrackFavorites = true)
+            override val discovery = ProviderDiscovery {
+                when (phase) {
+                    0 -> ProviderDiscoveryFeed(recommendations = listOf(discoveryArtist), trending = listOf(discoveryArtist), lastUpdated = "cached")
+                    1 -> throw IllegalStateException("feed unavailable")
+                    else -> ProviderDiscoveryFeed()
+                }
+            }
+            override suspend fun favoriteAlbumsPage(request: MediaPageRequest): MediaPage<Album> {
+                favoritesReads++
+                if (phase == 0) error("recommendations failed")
+                return MediaPage(if (phase == 1) listOf(recommendation) else emptyList(), request.offset, request.limit, false)
+            }
+            override suspend fun albumList(type: AlbumListType, limit: Int): List<Album> = when (phase) {
+                0 -> base.albumList(type, limit)
+                1 -> error("albums unavailable")
+                else -> emptyList()
+            }
+            override suspend fun genres(limit: Int): List<Genre> = when (phase) {
+                0 -> base.genres(limit)
+                1 -> error("genres unavailable")
+                else -> emptyList()
+            }
+            override suspend fun albumsByYear(fromYear: Int, toYear: Int, limit: Int): List<Album> = when (phase) {
+                0 -> base.albumsByYear(fromYear, toYear, limit)
+                1 -> error("decade unavailable")
+                else -> emptyList()
+            }
+            override suspend fun playlists(limit: Int): List<Playlist> = when (phase) {
+                0 -> base.playlists(limit)
+                1 -> error("playlists unavailable")
+                else -> emptyList()
+            }
+        }
+        val store = NaviampCoreStateStore()
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source"),
+            playback = it.playback.copy(settings = it.playback.settings.copy(sonicSimilarityEnabled = true))) }
+        val registry = NaviampCoreMediaRegistry()
+        val history = NaviampNavigationController()
+        val entered = mutableListOf<NaviampNavigationPage>()
+        lateinit var router: NaviampCoreCommandRouter
+        val navigation = NaviampCoreNavigationController(history, store, { router.dispatch(it) }, onPageEntered = { page ->
+            if (page is NaviampCoreHomeCollectionPage) assertEquals(page.sectionId, store.state.value.shell.home.collectionPage?.section?.id)
+            entered += page
+            router.onPageEntered(page)
+        })
+        val home = NaviampCoreHomeController(store, { provider }, navigation, NaviampCoreHomeDateSource { HomeDate(2026, 100) },
+            mediaRegistry = registry, sonicDiscoverySource = NaviampCoreSonicHomeDiscoverySource { _, _ ->
+                when (phase) {
+                    0 -> SonicHomeDiscoveryRows(SonicHomeDiscoveryRowId.entries.map { SonicHomeDiscoveryRow(it, "Cached ${it.value}", listOf(track(it.value))) })
+                    1 -> SonicHomeDiscoveryRows(failedRowIds = SonicHomeDiscoveryRowId.entries.toSet())
+                    else -> SonicHomeDiscoveryRows()
+                }
+            })
+        router = NaviampCoreCommandRouter(this, listOf(navigation, home))
+        router.execute(NaviampCoreCommand.Home.Refresh)
+        val cached = registry.home
+        val cachedSonic = registry.sonicRows
+        router.dispatch(NaviampCoreCommand.Home.OpenCollection(HomeSectionIds.FavoriteArtists))
+        runCurrent()
+        assertEquals(2, favoritesReads)
+        assertEquals(1, entered.size)
+        navigation.openMediaPage(NaviampRoute.AlbumDetail, app.naviamp.ui.SharedMediaItemUi("detail", "Detail", ""))
+        phase = 1
+        router.dispatch(NaviampCoreCommand.Navigation.Back)
+        assertEquals(2, entered.size)
+        repeat(3) { navigation.recoverEnteredPage() }
+        runCurrent()
+        assertEquals(3, favoritesReads)
+        assertEquals(listOf("favorite-songs", "recovered"), store.state.value.shell.home.collectionPage?.section?.items?.map { it.mediaItem.id })
+        assertEquals(cached.recentlyAddedAlbums, registry.home.recentlyAddedAlbums)
+        assertEquals(cached.playlists, registry.home.playlists)
+        assertEquals(cached.genreSpotlight, registry.home.genreSpotlight)
+        assertEquals(cached.genreSpotlightAlbums, registry.home.genreSpotlightAlbums)
+        assertEquals(cached.decadeAlbums, registry.home.decadeAlbums)
+        assertEquals(cached.decadeLabel, registry.home.decadeLabel)
+        assertEquals(cached.decadeFromYear, registry.home.decadeFromYear)
+        assertEquals(cachedSonic.rows.toSet(), registry.sonicRows.rows.toSet())
+        assertEquals(ProviderDiscoveryStatus.Unavailable, store.state.value.shell.home.providerDiscovery?.feed?.status)
+        assertEquals(listOf(discoveryArtist), store.state.value.shell.home.providerDiscovery?.feed?.recommendations)
+        assertEquals(listOf(discoveryArtist), store.state.value.shell.home.providerDiscovery?.feed?.trending)
+        navigation.recoverEnteredPage()
+        runCurrent()
+        assertEquals(3, favoritesReads)
+        phase = 2
+        router.execute(NaviampCoreCommand.Home.Refresh)
+        assertTrue(registry.home.recentlyAddedAlbums.isEmpty())
+        assertTrue(registry.home.playlists.isEmpty())
+        assertTrue(registry.home.genreSpotlightAlbums.isEmpty())
+        assertTrue(registry.home.decadeAlbums.isEmpty())
+        assertTrue(registry.sonicRows.rows.isEmpty())
+        assertTrue(store.state.value.shell.home.providerDiscovery!!.feed.recommendations.isEmpty())
+        repeat(3) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Home)) }
+        runCurrent()
+        assertEquals(4, favoritesReads)
+    }
+
     @Test fun collectionMediaBackRestoresTheSectionWithoutDuplicatingHistory() = runTest {
         for (route in listOf(app.naviamp.domain.app.NaviampRoute.AlbumDetail,
             app.naviamp.domain.app.NaviampRoute.ArtistDetail, app.naviamp.domain.app.NaviampRoute.PlaylistDetail)) {
@@ -756,3 +1048,42 @@ private fun track(id: String) = Track(
     audioInfo = null,
     replayGain = null,
 )
+
+private class RecoveryHomeProvider(
+    private val newest: suspend () -> List<Album>,
+) : MediaProvider by HomeTestProvider() {
+    override val capabilities = HomeTestProvider().capabilities.copy(supportsAlbumFavorites = false)
+    override suspend fun albumList(type: AlbumListType, limit: Int): List<Album> =
+        if (type == AlbumListType.Newest) newest() else emptyList()
+    override suspend fun artists(limit: Int): List<Artist> = emptyList()
+    override suspend fun playlists(limit: Int): List<Playlist> = emptyList()
+    override suspend fun genres(limit: Int): List<Genre> = emptyList()
+    override suspend fun albumsByYear(fromYear: Int, toYear: Int, limit: Int): List<Album> = emptyList()
+    override suspend fun internetRadioStations(): List<InternetRadioStation> = emptyList()
+}
+
+private class SonicPrerequisiteIndex(
+    private val snapshot: () -> app.naviamp.domain.cache.LibrarySnapshot,
+) : app.naviamp.domain.cache.LocalLibraryIndexRepository {
+    override fun librarySnapshot(sourceId: String, limit: Long, offset: Long) = snapshot()
+    override fun mediaSource(sourceId: String) = error("unused")
+    override fun markLibraryScanChecked(sourceId: String, signature: String) = error("unused")
+    override fun markLibrarySyncStarted(sourceId: String) = error("unused")
+    override fun markLibrarySyncCompleted(sourceId: String) = error("unused")
+    override fun upsertLibraryArtists(sourceId: String, artists: List<Artist>) = error("unused")
+    override fun upsertLibraryAlbums(sourceId: String, albums: List<Album>) = error("unused")
+    override fun upsertLibraryTracks(sourceId: String, tracks: List<Track>) = error("unused")
+    override fun searchLibrary(sourceId: String, query: String, limit: Long, offset: Long) = error("unused")
+    override fun randomLibraryTrackForAlbum(sourceId: String, albumId: AlbumId) = error("unused")
+    override fun libraryTracksForAlbum(sourceId: String, albumId: AlbumId, limit: Long) = error("unused")
+    override fun randomLibraryTrackForArtist(sourceId: String, artistId: ArtistId) = error("unused")
+    override fun libraryTracksForArtist(sourceId: String, artistId: ArtistId, limit: Long) = error("unused")
+    override fun libraryTracksForArtistName(sourceId: String, artistName: String, limit: Long) = error("unused")
+    override fun relatedLibraryTracks(sourceId: String, track: Track, limit: Long) = error("unused")
+    override fun libraryIndexStats(sourceId: String) = error("unused")
+    override fun libraryAlbumYears(sourceId: String) = error("unused")
+    override fun clearLibraryData(sourceId: String?) = error("unused")
+    override fun artistPopularTracks(sourceId: String, artistId: ArtistId, source: String) = error("unused")
+    override fun replaceArtistPopularTracks(sourceId: String, artistId: ArtistId, source: String,
+        candidates: List<app.naviamp.domain.popular.ArtistPopularTrackCandidate>, matchedTracksBySourceTrackId: Map<String, Track>, fetchedAtEpochMillis: Long) = error("unused")
+}

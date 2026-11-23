@@ -15,6 +15,13 @@ import app.naviamp.domain.navibeat.prioritizedForHour
 import app.naviamp.domain.provider.AlbumListType
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.settings.RecentRadioStream
+import app.naviamp.domain.radio.recentRadioStreamsForSource
+import kotlinx.coroutines.CancellationException
+
+enum class HomeSection {
+    RecentlyAdded, RandomAlbums, RecentAlbums, FrequentAlbums, Artists, FavoriteArtists,
+    FavoriteAlbums, Playlists, RecentlyPlayed, RadioStations, Genres, GenreSpotlight, Decade,
+}
 
 data class HomeContent(
     val date: HomeDate = HomeDate(year = 1970, dayOfYear = 1),
@@ -43,6 +50,7 @@ data class HomeContent(
     val decadeFromYear: Int = 0,
     val decadeToYear: Int = 0,
     val decadeAlbums: List<Album> = emptyList(),
+    val failedSections: Set<HomeSection> = emptySet(),
 ) {
     val isEmpty: Boolean
         get() = recentlyAddedAlbums.isEmpty() &&
@@ -157,59 +165,60 @@ class HomeService(
         artistLimit: Int = HomeDefaultArtistLimit,
         forceRefreshRecentlyAdded: Boolean = false,
     ): HomeContent {
-        val genres = runCatching { provider.genres(limit = 12) }
-            .getOrDefault(emptyList())
+        val failures = mutableSetOf<HomeSection>()
+        val genres = attempt(HomeSection.Genres, failures, emptyList()) { provider.genres(limit = 12) }
             .rotatedBy(date.dayOfYear)
         val genreSpotlight = genres.firstOrNull()
-        val decadePick = pickHomeDecade()
-        val playlistPartition = runCatching { playlists(limit = 50) }
-            .getOrDefault(emptyList())
+        val decadePick = pickHomeDecade(failures)
+        val playlistPartition = attempt(HomeSection.Playlists, failures, emptyList()) { playlists(limit = 50) }
             .partitionNavibeatMixes()
-
         val favoriteArtists = loadFavoriteArtists()
-        val favoriteAlbums = try { Result.success(loadFavoriteAlbums()) }
-        catch (cause: kotlinx.coroutines.CancellationException) { throw cause }
-        catch (cause: Exception) { Result.failure(cause) }
-        val randomPool = runCatching { albumList(AlbumListType.Random, limit = 14) }.getOrDefault(emptyList())
+        if (favoriteStatus == FavoriteArtistsStatus.Failed || favoriteStatus == FavoriteArtistsStatus.Cached) {
+            failures += HomeSection.FavoriteArtists
+        }
+        val favoriteAlbums = attempt(HomeSection.FavoriteAlbums, failures, emptyList()) { loadFavoriteAlbums() }
+        val randomPool = attempt(HomeSection.RandomAlbums, failures, emptyList()) { albumList(AlbumListType.Random, limit = 14) }
+        if (HomeSection.Genres in failures) failures += HomeSection.GenreSpotlight
         return HomeContent(
             date = date,
-            recentlyAddedAlbums = runCatching {
+            recentlyAddedAlbums = attempt(HomeSection.RecentlyAdded, failures, emptyList()) {
                 albumList(
                     AlbumListType.Newest,
                     limit = 8,
                     maxAgeMillis = if (forceRefreshRecentlyAdded) 0L else HomeRecentlyAddedMaximumAgeMillis,
                 )
-            }.getOrDefault(emptyList()),
+            },
             mixAlbums = randomPool.take(8),
-            recentAlbums = runCatching { albumList(AlbumListType.Recent, limit = 6) }.getOrDefault(emptyList()),
-            frequentAlbums = runCatching { albumList(AlbumListType.Frequent, limit = 6) }.getOrDefault(emptyList()),
+            recentAlbums = attempt(HomeSection.RecentAlbums, failures, emptyList()) { albumList(AlbumListType.Recent, limit = 6) },
+            frequentAlbums = attempt(HomeSection.FrequentAlbums, failures, emptyList()) { albumList(AlbumListType.Frequent, limit = 6) },
             randomAlbums = randomPool.drop(8).ifEmpty { randomPool }.take(6),
-            artists = runCatching { artists(limit = artistLimit) }.getOrDefault(emptyList()),
+            artists = attempt(HomeSection.Artists, failures, emptyList()) { artists(limit = artistLimit) },
             favoriteArtists = favoriteArtists,
             favoriteArtistsStatus = favoriteStatus,
             favoriteArtistLastPlayed = sourceId?.let { id ->
-                runCatching { libraryRepository?.favoriteArtistRadioLastPlayed(id) }.getOrNull()
+                homeAttempt { libraryRepository?.favoriteArtistRadioLastPlayed(id) }.getOrNull()
             }.orEmpty(),
             supportsFavoriteSongs = provider.capabilities.supportsTrackFavorites,
-            favoriteAlbums = favoriteAlbums.getOrDefault(emptyList()),
-            favoriteAlbumsFailed = favoriteAlbums.isFailure,
+            favoriteAlbums = favoriteAlbums,
+            favoriteAlbumsFailed = HomeSection.FavoriteAlbums in failures,
             playlists = playlistPartition.ordinary,
             navibeatMixes = playlistPartition.mixes.prioritizedForHour(date.hourOfDay),
-            recentRadioStreams = recentRadioStreams,
+            recentRadioStreams = recentRadioStreamsForSource(recentRadioStreams, sourceId),
             recentlyPlayedTracks = sourceId
-                ?.let { id -> runCatching { libraryRepository?.recentlyPlayedTracks(id, 12) }.getOrNull() }
+                ?.let { id -> attempt(HomeSection.RecentlyPlayed, failures, emptyList()) { libraryRepository?.recentlyPlayedTracks(id, 12).orEmpty() } }
                 .orEmpty(),
-            radioStations = runCatching { internetRadioStations() }.getOrDefault(emptyList()),
+            radioStations = attempt(HomeSection.RadioStations, failures, emptyList()) { internetRadioStations() },
             recentInternetRadioStations = recentInternetRadioStations,
             genres = genres,
             genreSpotlight = genreSpotlight,
             genreSpotlightAlbums = genreSpotlight?.let { genre ->
-                runCatching { albumsByGenre(genre.name, limit = 6) }.getOrDefault(emptyList())
+                attempt(HomeSection.GenreSpotlight, failures, emptyList()) { albumsByGenre(genre.name, limit = 6) }
             }.orEmpty(),
             decadeLabel = decadePick?.label ?: "Decade",
             decadeFromYear = decadePick?.fromYear ?: 0,
             decadeToYear = decadePick?.toYear ?: 0,
             decadeAlbums = decadePick?.albums.orEmpty(),
+            failedSections = failures.toSet(),
         )
     }
 
@@ -226,12 +235,12 @@ class HomeService(
         if (id == null || repository == null) return result.getOrDefault(emptyList())
         return result.fold(
             onSuccess = { artists ->
-                runCatching {
+                homeAttempt {
                     repository.reconcileFavoriteArtists(id, artists, observedAtIso8601(), complete = artists.size < 500)
                 }.getOrDefault(artists)
             },
             onFailure = {
-                runCatching { repository.locallyKnownFavoriteArtists(id, 500) }
+                homeAttempt { repository.locallyKnownFavoriteArtists(id, 500) }
                     .getOrDefault(emptyList()).also {
                         if (it.isNotEmpty()) favoriteStatus = FavoriteArtistsStatus.Cached
                     }
@@ -253,17 +262,17 @@ class HomeService(
             .sortedWith(compareBy<Album> { it.title.lowercase() }.thenBy { it.title }.thenBy { it.id.value })
     }
 
-    private suspend fun pickHomeDecade(): HomeDecadePick? {
+    private suspend fun pickHomeDecade(failures: MutableSet<HomeSection>): HomeDecadePick? {
         val candidates = sourceId
-            ?.let { libraryRepository?.albumYears(it) }
+            ?.let { attempt(HomeSection.Decade, failures, emptyList()) { libraryRepository?.albumYears(it).orEmpty() } }
             .orEmpty()
             .toHomeDecadeCandidates(date)
             .ifEmpty { fallbackHomeDecadeCandidates(date) }
 
         return candidates.firstNotNullOfOrNull { candidate ->
-            val albums = runCatching {
+            val albums = attempt(HomeSection.Decade, failures, emptyList()) {
                 albumsByYear(candidate.fromYear, candidate.toYear, limit = 6)
-            }.getOrDefault(emptyList())
+            }
             albums.takeIf { it.isNotEmpty() }?.let {
                 HomeDecadePick(
                     label = homeDecadeLabel(candidate.fromYear),
@@ -302,6 +311,54 @@ class HomeService(
     private suspend fun internetRadioStations(): List<InternetRadioStation> =
         providerResponseService?.internetRadioStations(provider)
             ?: provider.internetRadioStations()
+}
+
+private suspend inline fun <T> homeAttempt(block: () -> T): Result<T> = try {
+    Result.success(block())
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (cause: Exception) {
+    Result.failure(cause)
+}
+
+private suspend inline fun <T> attempt(
+    section: HomeSection,
+    failures: MutableSet<HomeSection>,
+    fallback: T,
+    block: () -> T,
+): T = homeAttempt(block).getOrElse { failures += section; fallback }
+
+/** Only a newly failed, empty section may retain its same-source cached payload. */
+fun HomeContent.retainFailedSections(previous: HomeContent): HomeContent {
+    if (failedSections.isEmpty()) return this
+    fun <T> retain(section: HomeSection, incoming: List<T>, cached: List<T>): List<T> =
+        if (section in failedSections && incoming.isEmpty()) cached else incoming
+    val retainPlaylists = HomeSection.Playlists in failedSections && playlists.isEmpty() && navibeatMixes.isEmpty()
+    val retainSpotlight = HomeSection.GenreSpotlight in failedSections && genreSpotlightAlbums.isEmpty() && previous.genreSpotlightAlbums.isNotEmpty()
+    val retainDecade = HomeSection.Decade in failedSections && decadeAlbums.isEmpty()
+    val retainedArtists = retain(HomeSection.FavoriteArtists, favoriteArtists, previous.favoriteArtists)
+    return copy(
+        recentlyAddedAlbums = retain(HomeSection.RecentlyAdded, recentlyAddedAlbums, previous.recentlyAddedAlbums),
+        mixAlbums = retain(HomeSection.RandomAlbums, mixAlbums, previous.mixAlbums),
+        randomAlbums = retain(HomeSection.RandomAlbums, randomAlbums, previous.randomAlbums),
+        recentAlbums = retain(HomeSection.RecentAlbums, recentAlbums, previous.recentAlbums),
+        frequentAlbums = retain(HomeSection.FrequentAlbums, frequentAlbums, previous.frequentAlbums),
+        artists = retain(HomeSection.Artists, artists, previous.artists),
+        favoriteArtists = retainedArtists,
+        favoriteArtistsStatus = if (HomeSection.FavoriteArtists in failedSections && retainedArtists.isNotEmpty()) FavoriteArtistsStatus.Cached else favoriteArtistsStatus,
+        favoriteAlbums = retain(HomeSection.FavoriteAlbums, favoriteAlbums, previous.favoriteAlbums),
+        playlists = if (retainPlaylists) previous.playlists else playlists,
+        navibeatMixes = if (retainPlaylists) previous.navibeatMixes else navibeatMixes,
+        recentlyPlayedTracks = retain(HomeSection.RecentlyPlayed, recentlyPlayedTracks, previous.recentlyPlayedTracks),
+        radioStations = retain(HomeSection.RadioStations, radioStations, previous.radioStations),
+        genres = if (retainSpotlight) previous.genres else retain(HomeSection.Genres, genres, previous.genres),
+        genreSpotlight = if (retainSpotlight) previous.genreSpotlight else genreSpotlight,
+        genreSpotlightAlbums = if (retainSpotlight) previous.genreSpotlightAlbums else genreSpotlightAlbums,
+        decadeAlbums = if (retainDecade) previous.decadeAlbums else decadeAlbums,
+        decadeLabel = if (retainDecade) previous.decadeLabel else decadeLabel,
+        decadeFromYear = if (retainDecade) previous.decadeFromYear else decadeFromYear,
+        decadeToYear = if (retainDecade) previous.decadeToYear else decadeToYear,
+    )
 }
 
 private const val HomeRecentlyAddedMaximumAgeMillis = 5 * 60 * 1000L

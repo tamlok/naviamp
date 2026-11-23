@@ -1,5 +1,15 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationController
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import app.naviamp.ui.toSharedRoute
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancelAndJoin
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import app.naviamp.domain.Album
 import app.naviamp.domain.AlbumId
 import app.naviamp.domain.Artist
@@ -29,6 +39,210 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class NaviampCoreStandardMixControllerTest {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun failedCandidateSearchesRecoverThroughNavigationOnce() = runTest {
+        for (route in listOf(NaviampRoute.ArtistMix, NaviampRoute.AlbumMix, NaviampRoute.GenreMix)) {
+            var failed = true
+            var calls = 0
+            suspend fun request() { calls++; check(!failed) { "Offline" } }
+            val fixture = fixture(
+                artistCandidates = { request(); listOf(Artist(ArtistId("artist"), "Artist")) },
+                albumCandidates = { request(); listOf(Album(AlbumId("album"), "Album", "Artist", null, null)) },
+                genreService = GenreMixBuilderService { request(); listOf(Genre("Ambient")) },
+            )
+            val router = fixture.router(this)
+            router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(route.toSharedRoute()))
+            assertEquals(0, calls, "Unattempted $route must not search")
+            router.execute(search(route))
+            assertEquals(1, calls)
+            val destination = route
+            assertTrue(fixture.controller.recoverEmptyPage(object : NaviampNavigationPage {
+                override val route = destination
+            }).isEmpty())
+            router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(NaviampRoute.Home.toSharedRoute()))
+            failed = false
+            repeat(3) { router.dispatch(NaviampCoreCommand.Navigation.SelectRoute(route.toSharedRoute())) }
+            assertEquals(1, calls, "Navigation only schedules the retry")
+            runCurrent()
+            assertEquals(2, calls, route.name)
+            assertTrue(fixture.controller.recoverEmptyPage(NaviampRoutePage(route)).isEmpty())
+            assertTrue(when (route) {
+                NaviampRoute.ArtistMix -> fixture.store.state.value.shell.artistMixBuilder.suggestedArtists.isNotEmpty()
+                NaviampRoute.AlbumMix -> fixture.store.state.value.shell.albumMixBuilder.suggestedAlbums.isNotEmpty()
+                else -> fixture.store.state.value.shell.genreMixBuilder.suggestedGenres.isNotEmpty()
+            })
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun successfulEmptyAndLoadedCandidatesNeverRecover() = runTest {
+        for (empty in listOf(true, false)) {
+            var calls = 0
+            var failed = false
+            suspend fun request() { calls++; check(!failed) }
+            val fixture = fixture(
+                artistCandidates = { request(); if (empty) emptyList() else listOf(Artist(ArtistId("a"), "A")) },
+                albumCandidates = { request(); if (empty) emptyList() else listOf(Album(AlbumId("a"), "A", "A", null, null)) },
+                genreService = GenreMixBuilderService { request(); if (empty) emptyList() else listOf(Genre("A")) },
+            )
+            val router = fixture.router(this)
+            for (route in listOf(NaviampRoute.ArtistMix, NaviampRoute.AlbumMix, NaviampRoute.GenreMix)) {
+                router.execute(search(route))
+                repeat(2) { router.onPageEntered(NaviampRoutePage(route)) }
+            }
+            runCurrent()
+            assertEquals(3, calls)
+            if (!empty) {
+                failed = true
+                for (route in listOf(NaviampRoute.ArtistMix, NaviampRoute.AlbumMix, NaviampRoute.GenreMix)) {
+                    router.execute(search(route))
+                    router.onPageEntered(NaviampRoutePage(route))
+                }
+                runCurrent()
+                assertEquals(6, calls, "A failed refresh must retain loaded candidates without retrying")
+            }
+        }
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun canceledRecoveryRemainsEligibleAndInFlightEntryIsSingleFlight() = runTest {
+        var calls = 0
+        val result = CompletableDeferred<List<Genre>>()
+        val fixture = fixture(genreService = GenreMixBuilderService {
+            calls++
+            if (calls == 1) error("Offline")
+            result.await()
+        })
+        val page = NaviampRoutePage(NaviampRoute.GenreMix)
+        fixture.controller.execute(search(page.route))
+        val retry = fixture.controller.recoverEmptyPage(page).single()
+        val job = launch { fixture.controller.execute(retry) }
+        runCurrent()
+        repeat(3) { assertTrue(fixture.controller.recoverEmptyPage(page).isEmpty()) }
+        fixture.controller.execute(search(page.route))
+        assertEquals(2, calls)
+        job.cancelAndJoin()
+        assertFalse(fixture.store.state.value.shell.genreMixBuilder.loading)
+        val next = fixture.controller.recoverEmptyPage(page).single()
+        result.complete(listOf(Genre("Recovered")))
+        fixture.controller.execute(next)
+        assertEquals(3, calls)
+        assertEquals("Recovered", fixture.store.state.value.shell.genreMixBuilder.suggestedGenres.single().title)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun queuedAndInFlightRecoveryCannotCrossQueryOrSourceReset() = runTest {
+        for (sourceReset in listOf(false, true)) {
+            var calls = 0
+            val result = CompletableDeferred<List<Genre>>()
+            val fixture = fixture(genreService = GenreMixBuilderService {
+                calls++
+                if (calls == 1) error("Offline")
+                result.await()
+            })
+            val page = NaviampRoutePage(NaviampRoute.GenreMix)
+            fixture.controller.execute(search(page.route))
+            val queued = fixture.controller.recoverEmptyPage(page).single()
+            if (sourceReset) fixture.controller.resetForSourceChange()
+            else fixture.controller.dispatch(NaviampCoreCommand.MixBuilder.Genre(NaviampCoreCommand.GenreAction.ChangeQuery("new")))
+            fixture.controller.execute(queued)
+            assertEquals(1, calls, "A queued old request must not become a new search")
+            assertTrue(fixture.controller.recoverEmptyPage(page).isEmpty())
+            val loading = launch { fixture.controller.execute(search(page.route)) }
+            runCurrent()
+            if (sourceReset) fixture.controller.resetForSourceChange()
+            else fixture.controller.dispatch(NaviampCoreCommand.MixBuilder.Genre(NaviampCoreCommand.GenreAction.ChangeQuery("other")))
+            result.complete(listOf(Genre("Old")))
+            loading.join()
+            assertTrue(fixture.store.state.value.shell.genreMixBuilder.suggestedGenres.isEmpty())
+            assertTrue(fixture.controller.recoverEmptyPage(page).isEmpty())
+        }
+    }
+
+    @Test
+    fun failedInitialArtistAcquisitionRetriesInitialRatherThanTypedQuery() = runTest {
+        val queries = mutableListOf<String>()
+        val fixture = fixture(artistCandidates = { query ->
+            queries += query
+            if (queries.size == 1) error("Offline")
+            listOf(Artist(ArtistId("a"), "A"))
+        })
+        fixture.controller.dispatch(NaviampCoreCommand.MixBuilder.Artist(NaviampCoreCommand.ArtistAction.ChangeQuery("unsubmitted")))
+        fixture.controller.initializeArtist()
+        fixture.controller.execute(fixture.controller.recoverEmptyPage(NaviampRoutePage(NaviampRoute.ArtistMix)).single())
+        assertEquals(listOf("", ""), queries)
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test
+    fun artistAndAlbumRecoveryPreserveCancellationAndRejectChangedContext() = runTest {
+        for (route in listOf(NaviampRoute.ArtistMix, NaviampRoute.AlbumMix)) {
+            for (sourceReset in listOf(false, true)) {
+                var calls = 0
+                val result = CompletableDeferred<Unit>()
+                suspend fun request() {
+                    calls++
+                    if (calls == 1) error("Offline")
+                    result.await()
+                }
+                val fixture = fixture(
+                    artistCandidates = { request(); listOf(Artist(ArtistId("old"), "Old")) },
+                    albumCandidates = { request(); listOf(Album(AlbumId("old"), "Old", "Old", null, null)) },
+                )
+                val page = NaviampRoutePage(route)
+                fixture.controller.execute(search(route))
+                val retry = fixture.controller.recoverEmptyPage(page).single()
+                val canceled = launch { fixture.controller.execute(retry) }
+                runCurrent()
+                assertTrue(fixture.controller.recoverEmptyPage(page).isEmpty())
+                fixture.controller.execute(search(route))
+                assertEquals(2, calls)
+                canceled.cancelAndJoin()
+                val queued = fixture.controller.recoverEmptyPage(page).single()
+                fun changeContext() {
+                    if (sourceReset) fixture.controller.resetForSourceChange()
+                    else fixture.controller.dispatch(when (route) {
+                        NaviampRoute.ArtistMix -> NaviampCoreCommand.MixBuilder.Artist(NaviampCoreCommand.ArtistAction.ChangeQuery("new-$calls"))
+                        else -> NaviampCoreCommand.MixBuilder.Album(NaviampCoreCommand.AlbumAction.ChangeQuery("new-$calls"))
+                    })
+                }
+                changeContext()
+                fixture.controller.execute(queued)
+                assertEquals(2, calls)
+                assertTrue(fixture.controller.recoverEmptyPage(page).isEmpty())
+                val loading = launch { fixture.controller.execute(search(route)) }
+                runCurrent()
+                changeContext()
+                result.complete(Unit)
+                loading.join()
+                assertTrue(fixture.store.state.value.shell.artistMixBuilder.suggestedArtists.isEmpty())
+                assertTrue(fixture.store.state.value.shell.albumMixBuilder.suggestedAlbums.isEmpty())
+            }
+        }
+    }
+
+    private fun search(route: NaviampRoute): NaviampCoreCommand = when (route) {
+        NaviampRoute.ArtistMix -> NaviampCoreCommand.MixBuilder.Artist(NaviampCoreCommand.ArtistAction.Search)
+        NaviampRoute.AlbumMix -> NaviampCoreCommand.MixBuilder.Album(NaviampCoreCommand.AlbumAction.Search)
+        NaviampRoute.GenreMix -> NaviampCoreCommand.MixBuilder.Genre(NaviampCoreCommand.GenreAction.Search)
+        else -> error("Not a standard builder")
+    }
+
+    private fun StandardMixFixture.router(scope: CoroutineScope): NaviampCoreCommandRouter {
+        lateinit var router: NaviampCoreCommandRouter
+        val navigation = NaviampCoreNavigationController(
+            NaviampNavigationController(), store,
+            restoreCommand = { router.dispatch(it) },
+            onPageEntered = { router.onPageEntered(it) },
+        )
+        router = NaviampCoreCommandRouter(scope, listOf(navigation, controller))
+        return router
+    }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     @Test
     fun sourceChangeDiscardsAnOldAccountsPendingSuggestions() = runTest {
@@ -246,6 +460,8 @@ class NaviampCoreStandardMixControllerTest {
             listOf(Genre("Ambient"), Genre("Rock"))
         },
         provider: app.naviamp.domain.provider.MediaProvider? = null,
+        artistCandidates: (suspend (String) -> List<Artist>)? = null,
+        albumCandidates: (suspend (String) -> List<Album>)? = null,
     ): StandardMixFixture {
         val artistA = Artist(ArtistId("artist-a"), "Artist A")
         val artistB = Artist(ArtistId("artist-b"), "Artist B")
@@ -274,14 +490,14 @@ class NaviampCoreStandardMixControllerTest {
         )
         val artistService = ArtistMixBuilderService(
             sourceId = { "source" },
-            artistSearch = { query, _ -> listOf(artistA, artistB).filter { it.name.contains(query, true) } },
-            randomArtists = { listOf(artistA, artistB) },
+            artistSearch = { query, _ -> artistCandidates?.invoke(query) ?: listOf(artistA, artistB).filter { it.name.contains(query, true) } },
+            randomArtists = { artistCandidates?.invoke("") ?: listOf(artistA, artistB) },
             popularTracksService = popular,
             similarArtistsService = similar,
         )
         val albumService = AlbumMixBuilderService(
-            albumSearch = { query, _ -> listOf(albumA, albumB).filter { it.title.contains(query, true) } },
-            randomAlbums = { listOf(albumA, albumB) },
+            albumSearch = { query, _ -> albumCandidates?.invoke(query) ?: listOf(albumA, albumB).filter { it.title.contains(query, true) } },
+            randomAlbums = { albumCandidates?.invoke("") ?: listOf(albumA, albumB) },
             albumsForArtist = { artist, _ -> listOf(albumB).filter { it.artistName == artist.name } },
             albumTracks = { album, _ -> listOf(track("track-${album.id.value}")) },
             similarArtistsService = similar,

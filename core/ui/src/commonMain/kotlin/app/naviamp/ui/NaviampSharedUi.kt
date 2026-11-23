@@ -909,10 +909,13 @@ internal fun NaviampPageBackHeader(canNavigateBack: Boolean, onBack: () -> Unit,
     if (canNavigateBack) {
         val backLabel = stringResource(Res.string.common_back)
         Row(Modifier.fillMaxWidth()) {
-            NaviampTextButton(onClick = onBack, modifier = Modifier.testTag("page-back")
-                .semantics { contentDescription = backLabel }) {
-                Text(backLabel, color = colors.primaryText)
-            }
+            NaviampPageHeaderAction(
+                icon = NaviampIcons.Back,
+                contentDescription = backLabel,
+                colors = colors,
+                modifier = Modifier.testTag("page-back"),
+                onClick = onBack,
+            )
         }
     }
 }

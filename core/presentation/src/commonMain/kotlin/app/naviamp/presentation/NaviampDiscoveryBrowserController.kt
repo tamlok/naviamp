@@ -29,6 +29,31 @@ internal class NaviampDiscoveryBrowserController(
     private var read: Job? = null
     private val scheduled = mutableListOf<Pair<DiscoveryBrowseAction, Long>>()
     fun reset() { revision++; read?.cancel(); scheduled.clear(); backStack.clear(); update { it.copy(browser = null) } }
+    fun recoverEmptyPage(): DiscoveryBrowseAction? {
+        if (!failedEmptyPage()) return null
+        dispatch(DiscoveryBrowseAction.Refresh)
+        return DiscoveryBrowseAction.Refresh
+    }
+
+    fun abandon(action: DiscoveryBrowseAction) {
+        val index = scheduled.indexOfFirst { it.first === action }
+        if (index >= 0 && scheduled.removeAt(index).second == revision) change { it.copy(loading = false) }
+    }
+
+    private fun failedEmptyPage(): Boolean {
+        val screen = state()?.browser ?: return false
+        if (screen.loading || !screen.status.isDiscoveryReadFailure()) return false
+        return when (screen.page) {
+            DiscoveryBrowsePage.Hub -> false
+            DiscoveryBrowsePage.Recommendations -> screen.recommendations.isEmpty()
+            DiscoveryBrowsePage.Search -> screen.query.isNotBlank() && screen.catalog.artists.isEmpty() && screen.catalog.albums.isEmpty()
+            DiscoveryBrowsePage.BlockedGenres -> screen.blockedGenres.tags.isEmpty() && screen.genres.isEmpty()
+            DiscoveryBrowsePage.Trending -> if (screen.chartGenreId != null) screen.genreChart?.songs.isNullOrEmpty()
+                else screen.charts.songs.isNullOrEmpty() && screen.charts.albums.isNullOrEmpty() &&
+                    screen.charts.artists.isNullOrEmpty() && screen.charts.genres.isEmpty()
+        }
+    }
+
     fun dispatch(action: DiscoveryBrowseAction): NaviampCoreImmediateCommandResult {
         when (action) {
             is DiscoveryBrowseAction.Scoped -> return NaviampCoreImmediateCommandResult.Handled()
@@ -75,12 +100,12 @@ internal class NaviampDiscoveryBrowserController(
             }
             is DiscoveryBrowseAction.Query -> {
                 revision++; read?.cancel()
-                change { it.copy(query = action.query.take(1000), loading = false, catalog = ProviderCatalogPage(), submittedQuery = "", firstVisibleItem = 0, firstVisibleOffset = 0) }
+                change { it.copy(query = action.query.take(1000), loading = false, status = ProviderDiscoveryStatus.Ready, catalog = ProviderCatalogPage(), submittedQuery = "", firstVisibleItem = 0, firstVisibleOffset = 0) }
                 return NaviampCoreImmediateCommandResult.Handled()
             }
             is DiscoveryBrowseAction.Scope -> {
                 revision++; read?.cancel()
-                change { it.copy(scope = action.scope, loading = false, catalog = ProviderCatalogPage(), submittedQuery = "", firstVisibleItem = 0, firstVisibleOffset = 0) }
+                change { it.copy(scope = action.scope, loading = false, status = ProviderDiscoveryStatus.Ready, catalog = ProviderCatalogPage(), submittedQuery = "", firstVisibleItem = 0, firstVisibleOffset = 0) }
                 return NaviampCoreImmediateCommandResult.Handled()
             }
             DiscoveryBrowseAction.External -> {
@@ -104,7 +129,7 @@ internal class NaviampDiscoveryBrowserController(
                             total = latest?.total, nextOffset = latest?.nextOffset, charts = latest?.charts ?: previous.charts)) } }
                     else -> { reset(); leaveSurface() }
                 }
-                return NaviampCoreImmediateCommandResult.Handled()
+                if (!failedEmptyPage()) return NaviampCoreImmediateCommandResult.Handled()
             }
             is DiscoveryBrowseAction.View -> { change { it.copy(view = action.view) }; return NaviampCoreImmediateCommandResult.Handled() }
             is DiscoveryBrowseAction.Sort -> { change { it.copy(sort = action.sort, firstVisibleItem = 0, firstVisibleOffset = 0) }; return NaviampCoreImmediateCommandResult.Handled() }
@@ -147,7 +172,7 @@ internal class NaviampDiscoveryBrowserController(
         if (owner == null || native == null) { change { it.copy(loading = false, status = ProviderDiscoveryStatus.Unsupported) }; return }
         val task = currentCoroutineContext()[Job]
         read = task
-        fun current() = token == revision && navigationEpoch == currentNavigationEpoch() && isCurrentProvider(owner)
+        fun current() = task?.isActive != false && token == revision && navigationEpoch == currentNavigationEpoch() && isCurrentProvider(owner)
         try {
             if (state()?.browser?.page == DiscoveryBrowsePage.Hub) return
             if (action is DiscoveryBrowseAction.BlockGenre) {
@@ -190,7 +215,7 @@ internal class NaviampDiscoveryBrowserController(
                     if (current()) change { it.copy(status = result.status, genreChart = if (result.status == ProviderDiscoveryStatus.Ready) result else it.genreChart?.takeIf { old -> old.id == genreId }) }
                 } else {
                     val result = native.charts()
-                    if (current()) change { it.copy(status = result.status, charts = if (result.status == ProviderDiscoveryStatus.Ready) result else it.charts) }
+                    if (current()) change { it.copy(status = result.status, charts = if (result.status == ProviderDiscoveryStatus.Ready) result else it.charts.copy(status = result.status)) }
                 }
                 return
             }
@@ -248,10 +273,18 @@ internal class NaviampDiscoveryBrowserController(
             }
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            if (current()) change { it.copy(status = ProviderDiscoveryStatus.Unavailable) }
+            if (current()) change { it.copy(status = ProviderDiscoveryStatus.Unavailable,
+                charts = if (it.page == DiscoveryBrowsePage.Trending && it.chartGenreId == null)
+                    it.charts.copy(status = ProviderDiscoveryStatus.Unavailable) else it.charts) }
         } finally {
             if (read === task) read = null
-            if (current()) change { it.copy(loading = false) }
+            if (token == revision && isCurrentProvider(owner)) change { it.copy(loading = false) }
         }
     }
+}
+
+internal fun ProviderDiscoveryStatus?.isDiscoveryReadFailure(): Boolean = when (this) {
+    ProviderDiscoveryStatus.PasswordRequired, ProviderDiscoveryStatus.SignInRequired,
+    ProviderDiscoveryStatus.Forbidden, ProviderDiscoveryStatus.Unavailable -> true
+    else -> false
 }

@@ -286,6 +286,7 @@ class NaviampCore private constructor(
                     samplePlayback.stop()
                 },
                 onResetDiscovery = { home.resetNavigation() },
+                onPageEntered = { page -> router.onPageEntered(page) },
                 persistNowPlayingOpen = { open ->
                     val sourceId = stateStore.state.value.shell.connectionSettings.currentSourceId
                     services.playback.sessions.updateNowPlayingOpen(open, sourceId)
@@ -522,6 +523,7 @@ class NaviampCore private constructor(
                 },
                 onTrackUpdated = onTrackUpdated,
                 playOnSelectedDevice = { tracks, index -> routeFavoriteSongs(tracks, index) },
+                onRadioHistoryChanged = home::favoritesChanged,
             )
             val playlistMembership = NaviampCorePlaylistMembershipCoordinator(
                 providerSource = providerSource,

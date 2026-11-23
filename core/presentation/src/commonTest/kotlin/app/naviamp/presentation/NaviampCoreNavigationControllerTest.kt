@@ -1,6 +1,8 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampNavigationController
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
 import app.naviamp.domain.app.NaviampNavigationState
 import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.ui.NaviampAlbumDetailScreenUi
@@ -17,6 +19,48 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NaviampCoreNavigationControllerTest {
+    @Test fun recoveryEntriesAreOnceOnlyAndNeverEmittedByStructuralOpenOrSourceReset() {
+        val store = NaviampCoreStateStore()
+        val routes = NaviampNavigationController()
+        val entries = mutableListOf<NaviampNavigationPage>()
+        val restores = mutableListOf<NaviampCoreCommand>()
+        val controller = NaviampCoreNavigationController(routes, store, restores::add,
+            onPageEntered = { page ->
+                assertEquals(page.route.toSharedRoute(), store.state.value.shell.shellChrome.selectedRoute)
+                entries += page
+            })
+        assertTrue(entries.isEmpty())
+        controller.openPage(NaviampRoutePage(NaviampRoute.Search))
+        assertTrue(entries.isEmpty())
+        controller.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+        assertEquals(listOf<NaviampNavigationPage>(NaviampRoutePage(NaviampRoute.Search)), entries)
+        controller.dispatch(NaviampCoreCommand.Navigation.ReplaceRoute(SharedRoute.AlbumMix))
+        assertEquals(2, entries.size)
+        controller.back()
+        assertEquals(NaviampRoutePage(NaviampRoute.Home), entries.last())
+        assertEquals(3, entries.size)
+        controller.resetForSourceChange()
+        controller.resetAfterDatabaseClear()
+        assertEquals(3, entries.size)
+        controller.openMediaPage(NaviampRoute.AlbumDetail, item("album"))
+        controller.openMediaPage(NaviampRoute.ArtistDetail, item("artist"))
+        controller.back()
+        assertEquals(1, restores.size)
+        assertEquals(3, entries.size)
+    }
+
+    @Test fun retainedDiscoveryBackEmitsItsTypedPageExactlyOnce() {
+        val store = NaviampCoreStateStore()
+        val routes = NaviampNavigationController()
+        val entries = mutableListOf<NaviampNavigationPage>()
+        val controller = NaviampCoreNavigationController(routes, store, { error("Unexpected restore") }, onPageEntered = entries::add)
+        store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("provider", sourceId = "source"))) }
+        controller.openDiscoveryPage()
+        controller.openMediaPage(NaviampRoute.AlbumDetail, item("album"))
+        controller.back()
+        assertEquals(listOf<NaviampNavigationPage>(NaviampCoreDiscoveryPage("source", 0)), entries)
+    }
+
     @Test fun everyRoutedChildReturnsToItsOpeningRoot() {
         for (root in roots) for (child in children) {
             val routes = NaviampNavigationController(NaviampNavigationState(root))

@@ -1,5 +1,9 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.provider.MediaProvider
+import kotlinx.coroutines.CancellationException
 import app.naviamp.domain.Playlist
 import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.domain.cache.KeepDownloadedCollectionKind
@@ -64,6 +68,23 @@ class NaviampCorePlaylistBrowseController(
         private set
     private var listGeneration = 0L
     private var detailGeneration = 0L
+    private var listLoadingGeneration: Long? = null
+    private var failedListProvider: MediaProvider? = null
+    private var failedListSourceId: String? = null
+    private var recoveryScheduled = false
+    private data class ListRequest(val generation: Long, val provider: MediaProvider?, val sourceId: String?)
+    private val pendingListRequests = ArrayDeque<ListRequest>()
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage || page.route != NaviampRoute.Playlists || recoveryScheduled ||
+            listLoadingGeneration != null || failedListProvider == null ||
+            failedListProvider?.let(providerSource::isCurrent) != true || failedListSourceId != currentSourceId() ||
+            stateStore.state.value.shell.playlists.playlists.isNotEmpty()) return emptyList()
+        recoveryScheduled = true
+        return listOf(NaviampCoreCommand.Playlists.Refresh)
+    }
+
+    private fun currentSourceId() = stateStore.state.value.shell.connectionSettings.currentSourceId
     private var playlistsById = emptyMap<String, Playlist>()
     private data class PreparedSelection(
         val command: NaviampCoreCommand?,
@@ -83,7 +104,10 @@ class NaviampCorePlaylistBrowseController(
         generation == detailGeneration && navigationEpoch == navigationController.epoch
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
-        NaviampCoreCommand.Playlists.Refresh -> NaviampCoreImmediateCommandResult.Deferred
+        NaviampCoreCommand.Playlists.Refresh -> {
+            pendingListRequests.addLast(ListRequest(listGeneration, providerSource.current(), currentSourceId()))
+            NaviampCoreImmediateCommandResult.Deferred
+        }
         is NaviampCoreCommand.Playlists.ChangeSort -> {
             stateStore.updateShell { shell ->
                 shell.copy(playlists = shell.playlists.copy(sortMode = command.sortMode))
@@ -104,7 +128,15 @@ class NaviampCorePlaylistBrowseController(
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         when (command) {
-            NaviampCoreCommand.Playlists.Refresh -> refresh()
+            NaviampCoreCommand.Playlists.Refresh -> {
+                val request = pendingListRequests.removeFirstOrNull()
+                if (request == null || request.generation == listGeneration &&
+                    (request.provider?.let(providerSource::isCurrent) ?: (providerSource.current() == null)) &&
+                    request.sourceId == currentSourceId()) {
+                    recoveryScheduled = false
+                    refresh()
+                }
+            }
             is NaviampCoreCommand.Media.ItemAction -> {
                 val playlistCommand = command.request.command as? NaviampMediaItemCommand.Playlist ?: return null
                 if (playlistCommand.command != NaviampPlaylistMediaCommand.Select) return null
@@ -116,55 +148,60 @@ class NaviampCorePlaylistBrowseController(
     }
 
     private suspend fun refresh(finalStatus: String? = null) {
-        val generation = ++listGeneration
-        val supplement = supplementSource.current()
-        stateStore.updateShell { shell ->
-            shell.copy(
-                playlists = shell.playlists.copy(
-                    refreshing = true,
-                    status = "Loading playlists...",
-                    genreCatalog = supplement.genreCatalog,
-                ),
-            )
-        }
+        recoveryScheduled = false
         val provider = providerSource.current()
         if (provider == null) {
             publishListFailure("Connect to Navidrome to load playlists.")
             return
         }
-        val coverArtUrl = { id: String? -> id?.let(provider::coverArtUrl) }
-        loadLibraries(provider)
-        runCatching { provider.playlists(playlistLimit) }
-            .onSuccess { playlists ->
-                if (generation != listGeneration || !providerSource.isCurrent(provider)) return@onSuccess
-                playlistsById = playlists.associateBy(Playlist::id)
-                mediaRegistry.updatePlaylists(playlists)
-                val visiblePlaylists = playlists.filter { it.navibeatMixOrNull() == null }
-                stateStore.updateShell { shell ->
-                    shell.copy(
-                        playlists = shell.playlists.copy(
-                            playlists = visiblePlaylists.map { playlist ->
-                                playlist.toSharedMediaItemUi(
-                                    coverArtUrl = coverArtUrl,
-                                    keepDownloadedActive = playlist.id in supplement.keepDownloadedPlaylistIds,
-                                )
-                            },
-                            recentPlaylistIds = supplement.recentPlaylistIds,
-                            status = finalStatus,
-                            refreshing = false,
-                        ),
-                        playlistChoices = visiblePlaylists
-                            .filterNot(Playlist::isSmart)
-                            .filter(Playlist::canEdit)
-                            .map(Playlist::toPlaylistChoiceUi),
-                    )
-                }
+        val generation = ++listGeneration
+        val sourceId = currentSourceId()
+        fun current() = generation == listGeneration && providerSource.isCurrent(provider) && sourceId == currentSourceId()
+        listLoadingGeneration = generation
+        try {
+            val supplement = supplementSource.current()
+            stateStore.updateShell { shell -> shell.copy(playlists = shell.playlists.copy(
+                refreshing = true, status = "Loading playlists...", genreCatalog = supplement.genreCatalog,
+            )) }
+            loadLibraries(provider)
+            if (!current()) return
+            val playlists = provider.playlists(playlistLimit)
+            if (!current()) return
+            failedListProvider = null
+            playlistsById = playlists.associateBy(Playlist::id)
+            mediaRegistry.updatePlaylists(playlists)
+            val visiblePlaylists = playlists.filter { it.navibeatMixOrNull() == null }
+            stateStore.updateShell { shell ->
+                shell.copy(
+                    playlists = shell.playlists.copy(
+                        playlists = visiblePlaylists.map { playlist ->
+                            playlist.toSharedMediaItemUi(
+                                coverArtUrl = { id -> id?.let(provider::coverArtUrl) },
+                                keepDownloadedActive = playlist.id in supplement.keepDownloadedPlaylistIds,
+                            )
+                        },
+                        recentPlaylistIds = supplement.recentPlaylistIds,
+                        status = finalStatus,
+                        refreshing = false,
+                    ),
+                    playlistChoices = visiblePlaylists.filterNot(Playlist::isSmart).filter(Playlist::canEdit)
+                        .map(Playlist::toPlaylistChoiceUi),
+                )
             }
-            .onFailure { cause ->
-                if (generation == listGeneration && providerSource.isCurrent(provider)) {
-                    publishListFailure(cause.message ?: "Could not load playlists.")
-                }
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (cause: Exception) {
+            if (current()) {
+                failedListProvider = provider
+                failedListSourceId = sourceId
+                publishListFailure(cause.message ?: "Could not load playlists.")
             }
+        } finally {
+            if (listLoadingGeneration == generation) listLoadingGeneration = null
+            if (current()) stateStore.updateShell { shell ->
+                shell.copy(playlists = shell.playlists.copy(refreshing = false))
+            }
+        }
     }
 
     fun invalidateNavigation() {
@@ -174,6 +211,10 @@ class NaviampCorePlaylistBrowseController(
     fun resetForSourceChange() {
         sourceGeneration++
         listGeneration++
+        listLoadingGeneration = null
+        failedListProvider = null
+        failedListSourceId = null
+        recoveryScheduled = false
         invalidateNavigation()
         playlistsById = emptyMap()
         mediaRegistry.updatePlaylists(emptyList())

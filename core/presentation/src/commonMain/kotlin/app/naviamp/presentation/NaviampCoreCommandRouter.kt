@@ -1,5 +1,7 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -18,6 +20,8 @@ interface NaviampCoreCommandController {
         NaviampCoreImmediateCommandResult.Unhandled
 
     suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? = null
+
+    fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> = emptyList()
 }
 
 /**
@@ -33,6 +37,10 @@ class NaviampCoreCommandRouter(
         throw IllegalStateException("Core command failed: $command", cause)
     },
 ) : NaviampCoreCommandHandler {
+    fun onPageEntered(page: NaviampNavigationPage) {
+        controllers.forEach { controller -> controller.recoverEmptyPage(page).forEach(::dispatch) }
+    }
+
     override fun dispatch(command: NaviampCoreCommand) {
         val owner = requireSingleOwner(command)
         when (owner.immediateResult) {
@@ -40,7 +48,10 @@ class NaviampCoreCommandRouter(
             NaviampCoreImmediateCommandResult.Deferred -> {
                 scope.launch {
                     runCatching { executeDeferred(owner.controller, command) }
-                        .onFailure { cause -> onAsyncFailure(command, cause) }
+                        .onFailure { cause ->
+                            if (cause is CancellationException) throw cause
+                            onAsyncFailure(command, cause)
+                        }
                 }
             }
             NaviampCoreImmediateCommandResult.Unhandled -> error("Unreachable command ownership state")

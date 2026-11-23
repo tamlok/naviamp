@@ -29,6 +29,57 @@ import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class HomeServiceTest {
+    @Test fun failedDependenciesAreTypedAndSuccessfulEmptyClearsCachedSections() = runTest {
+        val provider = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun genres(limit: Int): List<Genre> = error("genres unavailable")
+            override suspend fun albumsByYear(fromYear: Int, toYear: Int, limit: Int): List<Album> = error("years unavailable")
+        }
+        val failed = HomeService(provider, date = HomeDate(2026, 1)).load()
+        assertEquals(setOf(HomeSection.Genres, HomeSection.GenreSpotlight, HomeSection.Decade), failed.failedSections)
+        val genre = Genre("Rock")
+        val previous = HomeContent(genres = listOf(genre), genreSpotlight = genre,
+            genreSpotlightAlbums = listOf(album("genre")), decadeAlbums = listOf(album("decade")),
+            decadeLabel = "The 1980s", decadeFromYear = 1980, decadeToYear = 1989)
+        val merged = failed.retainFailedSections(previous)
+        assertEquals(previous.genres, merged.genres)
+        assertEquals(previous.genreSpotlight, merged.genreSpotlight)
+        assertEquals(previous.genreSpotlightAlbums, merged.genreSpotlightAlbums)
+        assertEquals(previous.decadeAlbums, merged.decadeAlbums)
+        assertEquals("The 1980s", merged.decadeLabel)
+        assertEquals(1980, merged.decadeFromYear)
+        assertEquals(1989, merged.decadeToYear)
+        val empty = HomeService(FakeHomeProvider(), date = HomeDate(2026, 1)).load().retainFailedSections(previous)
+        assertTrue(empty.failedSections.isEmpty())
+        assertTrue(empty.genres.isEmpty())
+        assertTrue(empty.genreSpotlightAlbums.isEmpty())
+        assertNull(empty.genreSpotlight)
+        assertTrue(empty.decadeAlbums.isEmpty())
+        assertEquals(0, empty.decadeFromYear)
+    }
+
+    @Test fun sectionFailuresDoNotDiscardPartialDataOrPlaylistPartitionMetadata() = runTest {
+        val previous = HomeService(FakeHomeProvider(playlists = listOf(Playlist("ordinary", "Ordinary", 0), navibeatPlaylist("morning"))), date = HomeDate(2026, 1)).load()
+        val failed = HomeContent(recentAlbums = listOf(album("new-partial")),
+            failedSections = setOf(HomeSection.Playlists, HomeSection.RecentAlbums, HomeSection.RecentlyAdded))
+            .retainFailedSections(previous)
+        assertEquals(previous.playlists, failed.playlists)
+        assertEquals(previous.navibeatMixes, failed.navibeatMixes)
+        assertEquals(previous.recentlyAddedAlbums, failed.recentlyAddedAlbums)
+        assertEquals(listOf(album("new-partial")), failed.recentAlbums)
+        assertTrue(HomeContent().retainFailedSections(previous).playlists.isEmpty())
+    }
+
+    @Test fun cancellationFromEveryCaughtHomeFetchPropagates() = runTest {
+        val provider = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun genres(limit: Int): List<Genre> = throw CancellationException("cancel genres")
+        }
+        assertFailsWith<CancellationException> { HomeService(provider, date = HomeDate(2026, 1)).load() }
+        val years = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun albumsByYear(fromYear: Int, toYear: Int, limit: Int): List<Album> = throw CancellationException("cancel years")
+        }
+        assertFailsWith<CancellationException> { HomeService(years, date = HomeDate(2026, 1)).load() }
+    }
+
     @Test
     fun favoriteArtistsUseStableLocalTimestampsAndFallbackAfterProviderFailure() = runTest {
         val stored = Artist(ArtistId("stored"), "Stored", "2026-01-01T00:00:00Z")

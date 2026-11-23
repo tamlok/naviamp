@@ -2,6 +2,7 @@ package app.naviamp.ui
 
 import app.naviamp.domain.media.albumDiscSections
 
+import app.naviamp.domain.home.sortedFavoriteAlbums
 import app.naviamp.domain.home.sortedFavoriteArtists
 import app.naviamp.domain.Album
 import app.naviamp.domain.AlbumDetails
@@ -248,7 +249,7 @@ fun HomeContent.toSharedRecommendationsSection(
                         ),
                     )
                 }
-            favoriteAlbums.sortedWith(compareBy<Album> { it.title.lowercase() }.thenBy { it.title }.thenBy { it.id.value })
+            favoriteAlbums.sortedFavoriteAlbums(interfaceSettings.favoriteArtistSort, recentRadioStreams)
                 .forEach { album ->
                     add(
                         SharedHomeCollectionItemUi(

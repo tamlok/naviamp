@@ -2,6 +2,7 @@ package app.naviamp.domain.provider
 
 import app.naviamp.domain.AlbumDetails
 import app.naviamp.domain.Track
+import kotlinx.coroutines.CancellationException
 
 const val SearchDebounceMillis: Long = 250
 const val SearchResultLimit: Int = 20
@@ -10,6 +11,7 @@ const val SearchDisconnectedStatus: String = "Connect to Navidrome to search."
 data class SearchResultsUpdate(
     val results: MediaSearchResults,
     val status: String?,
+    val failed: Boolean = false,
 )
 
 fun normalizedSearchQuery(query: String): String? =
@@ -38,23 +40,23 @@ suspend fun searchResultsUpdate(
     emptyStatus: String? = "No matches found.",
     matchedStatus: ((Int) -> String?)? = { count -> "Found $count matches." },
     search: suspend (query: String, limit: Int) -> MediaSearchResults,
-): SearchResultsUpdate =
-    runCatching {
-        val results = search(query, limit)
-        SearchResultsUpdate(
-            results = results,
-            status = searchResultsStatus(
-                results = results,
-                emptyStatus = emptyStatus,
-                matchedStatus = matchedStatus,
-            ),
-        )
-    }.getOrElse { error ->
-        SearchResultsUpdate(
+): SearchResultsUpdate {
+    val results = try {
+        search(query, limit)
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        return SearchResultsUpdate(
             results = MediaSearchResults(),
             status = searchErrorStatus(error),
+            failed = true,
         )
     }
+    return SearchResultsUpdate(
+        results = results,
+        status = searchResultsStatus(results, emptyStatus, matchedStatus),
+    )
+}
 
 class SearchSessionController<Provider : Any>(
     private val provider: () -> Provider?,

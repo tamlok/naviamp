@@ -14,11 +14,47 @@ import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
 import app.naviamp.domain.provider.SonicSimilarTrack
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class SonicHomeDiscoveryServiceTest {
+    @Test fun failedSeedsKeepSuccessfulMatchesAndMarkOnlyDependentRows() = runTest {
+        val recent = track("recent", lastPlayedAt = "2026-01-01")
+        val favorite = track("favorite", favorite = "2026-01-01")
+        val provider = object : MediaProvider by FakeSonicHomeProvider() {
+            override suspend fun sonicSimilarTrackMatches(trackId: TrackId, count: Int): List<SonicSimilarTrack> {
+                if (trackId == recent.id) error("similarity unavailable")
+                return listOf(SonicSimilarTrack(track("match"), 0.9))
+            }
+        }
+        val rows = SonicHomeDiscoveryService(provider).loadRows(listOf(recent, favorite))
+        assertEquals(setOf(SonicHomeDiscoveryRowId.MoreLikeRecentPlays, SonicHomeDiscoveryRowId.SonicDeepCuts), rows.failedRowIds)
+        assertEquals(listOf("match"), rows.row(SonicHomeDiscoveryRowId.SonicDeepCuts)?.tracks?.ids())
+        assertEquals(listOf("match"), rows.row(SonicHomeDiscoveryRowId.SimilarToStarredTracks)?.tracks?.ids())
+        val cached = SonicHomeDiscoveryRows(listOf(SonicHomeDiscoveryRow(SonicHomeDiscoveryRowId.MoreLikeRecentPlays, "Cached title", listOf(track("cached")))))
+        val merged = rows.retainFailedRows(cached)
+        assertEquals("Cached title", merged.row(SonicHomeDiscoveryRowId.MoreLikeRecentPlays)?.title)
+        assertEquals(listOf("cached"), merged.row(SonicHomeDiscoveryRowId.MoreLikeRecentPlays)?.tracks?.ids())
+        assertEquals(rows.failedRowIds, merged.failedRowIds)
+        assertTrue(SonicHomeDiscoveryRows().retainFailedRows(cached).rows.isEmpty())
+    }
+
+    @Test fun successfulEmptyAndMissingSeedsNeverBecomeFailuresAndCancellationPropagates() = runTest {
+        val provider = FakeSonicHomeProvider()
+        assertTrue(SonicHomeDiscoveryService(provider).loadRows(emptyList()).failedRowIds.isEmpty())
+        val seed = track("seed", lastPlayedAt = "2026-01-01")
+        val empty = SonicHomeDiscoveryService(provider).loadRows(listOf(seed))
+        assertTrue(empty.rows.isEmpty())
+        assertTrue(empty.failedRowIds.isEmpty())
+        val cancelled = object : MediaProvider by provider {
+            override suspend fun sonicSimilarTrackMatches(trackId: TrackId, count: Int): List<SonicSimilarTrack> = throw CancellationException("cancel")
+        }
+        assertFailsWith<CancellationException> { SonicHomeDiscoveryService(cancelled).loadRows(listOf(seed)) }
+    }
+
     @Test
     fun loadRowsUsesRecentStarredAndDeepCutSeeds() = runTest {
         val recent = track("recent", lastPlayedAt = "2026-06-10T00:00:00Z")

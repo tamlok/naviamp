@@ -41,6 +41,7 @@ class NaviampCoreNavigationController(
     private val persistNowPlayingOpen: (Boolean) -> Unit = {},
     private val onPageChanging: () -> Unit = {},
     private val onResetDiscovery: () -> Unit = {},
+    private val onPageEntered: (NaviampNavigationPage) -> Unit = {},
 ) : NaviampCoreCommandController {
     val epoch: Long get() = navigation.epoch
 
@@ -54,6 +55,7 @@ class NaviampCoreNavigationController(
                 onPageChanging()
                 navigation.replaceRoute(request.route.toNaviampRoute())
                 publishNavigation(clearDetails = false, nowPlayingOpen = stateStore.state.value.shell.shellChrome.nowPlayingOpen)
+                recoverEnteredPage()
             }
             NaviampCoreCommand.Navigation.OpenNowPlaying -> openNowPlaying()
             NaviampCoreCommand.Navigation.CloseNowPlaying -> setNowPlayingOpen(false)
@@ -69,6 +71,9 @@ class NaviampCoreNavigationController(
         publishNavigation(clearDetails = changing)
         persistNowPlayingOpen(false)
     }
+
+    /** Called by an owner only after its page-specific state has been installed. */
+    fun recoverEnteredPage() = onPageEntered(navigation.currentEntry.page)
 
     fun openMediaPage(route: NaviampRoute, item: SharedMediaItemUi) {
         require(route == NaviampRoute.AlbumDetail || route == NaviampRoute.ArtistDetail || route == NaviampRoute.PlaylistDetail)
@@ -109,7 +114,7 @@ class NaviampCoreNavigationController(
             }
             is NaviampCoreHomeCollectionPage -> restoreCommand(NaviampCoreCommand.Home.OpenCollection(page.sectionId))
             is NaviampCoreFavoriteSongsPage -> restoreCommand(NaviampCoreCommand.Home.OpenFavoriteSongs)
-            is NaviampCoreDiscoveryPage, is NaviampRoutePage -> Unit
+            is NaviampCoreDiscoveryPage, is NaviampRoutePage -> recoverEnteredPage()
             else -> error("Unknown navigation page: $page")
         }
         setNowPlayingOpen(entry.reopenNowPlaying)
@@ -129,6 +134,7 @@ class NaviampCoreNavigationController(
             NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings -> resetRoot(route)
             else -> openPage(NaviampRoutePage(route))
         }
+        recoverEnteredPage()
     }
 
     private fun resetRoot(route: NaviampRoute) {

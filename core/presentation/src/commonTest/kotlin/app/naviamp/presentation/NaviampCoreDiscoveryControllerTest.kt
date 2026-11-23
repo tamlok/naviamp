@@ -14,6 +14,402 @@ import kotlin.test.*
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampCoreDiscoveryControllerTest {
+    @Test fun retainedArtistBackClaimsOneRecoveryAndPreservesItsPage() = runTest {
+        var attempts = 0
+        var fail = true
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                attempts++
+                return if (fail) ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unavailable)
+                    else super.artistDetails(artist)
+            }
+            override suspend fun samples(artist: ProviderDiscoveryArtist) = ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+            override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+        })
+        h.open(First)
+        h.controller.dispatch(NaviampCoreCommand.Home.DiscoveryViewport(3, 27, null))
+        val page = h.history.currentEntry.page
+        fail = false
+        h.revisitDiscovery()
+        assertEquals(page, h.history.currentEntry.page)
+        assertEquals(1, h.recoveryCommands.size)
+        assertTrue(h.detail().loading)
+        assertTrue(h.controller.recoverEmptyPage(page).isEmpty())
+        assertIs<NaviampCoreImmediateCommandResult.Handled>(h.controller.dispatch(h.recoveryCommands.single()))
+        h.executeRecoveries()
+        assertEquals(2, attempts)
+        assertEquals(listOf(Release), h.detail().details?.releases)
+        assertEquals(3, h.detail().firstVisibleItem)
+        assertEquals(27, h.detail().firstVisibleOffset)
+        assertTrue(h.discovery().artistBackStack.isEmpty())
+        h.revisitDiscovery()
+        assertTrue(h.recoveryCommands.isEmpty())
+    }
+
+    @Test fun retainedReleaseAndRequestPagesRecoverTheirOwnFailedEmptyReads() = runTest {
+        var releaseReads = 0
+        var requestReads = 0
+        var fail = true
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun releaseDetails(release: DiscoveryReleaseGroupMbid): ProviderDiscoveryReleaseDetails {
+                releaseReads++
+                return if (fail) ProviderDiscoveryReleaseDetails(ProviderDiscoveryStatus.Unavailable)
+                    else super.releaseDetails(release)
+            }
+            override suspend fun releaseTracks(release: DiscoveryReleaseGroupMbid) =
+                if (fail) ProviderDiscoveryReleaseTracks(ProviderDiscoveryStatus.Unavailable) else super.releaseTracks(release)
+            override suspend fun requestActivity(): ProviderDiscoveryActivities {
+                requestReads++
+                return ProviderDiscoveryActivities(if (fail) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+            }
+        })
+        h.open(First); h.openRelease()
+        fail = false
+        h.revisitDiscovery()
+        assertIs<NaviampCoreCommand.Home.SelectDiscoveryRelease>(h.recoveryCommands.single())
+        assertTrue(h.discovery().releasePage!!.loading)
+        h.executeRecoveries()
+        assertEquals(2, releaseReads)
+        assertEquals(Release.id, h.discovery().releasePage?.release?.id)
+        assertTrue(h.discovery().releasePage!!.tracks!!.tracks.isNotEmpty())
+        fail = true
+        h.controller.dispatch(NaviampCoreCommand.Home.ShowDiscoveryRequests)
+        h.controller.refreshAcquisitions()
+        fail = false
+        h.revisitDiscovery()
+        assertEquals(NaviampCoreCommand.Home.RefreshDiscoveryRequests, h.recoveryCommands.single())
+        assertTrue(h.discovery().requestsLoading)
+        h.executeRecoveries()
+        assertEquals(2, requestReads)
+        assertEquals(ProviderDiscoveryStatus.Ready, h.discovery().requestsStatus)
+        assertTrue(h.discovery().requestsOpen)
+        h.revisitDiscovery()
+        assertTrue(h.recoveryCommands.isEmpty())
+    }
+
+    @Test fun cachedBrowserCloseAndArtistBackRetryOnlyTheFailedEmptyParent() = runTest {
+        var recommendationReads = 0
+        var firstArtistReads = 0
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun recommendations(offset: Int, limit: Int): ProviderRecommendationPage {
+                recommendationReads++
+                return ProviderRecommendationPage(ProviderDiscoveryStatus.Unavailable)
+            }
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                if (artist.id != First.id) return super.artistDetails(artist)
+                firstArtistReads++
+                return ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unavailable)
+            }
+            override suspend fun samples(artist: ProviderDiscoveryArtist) = ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+            override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+        })
+        h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Recommendations))
+        h.send(DiscoveryBrowseAction.Viewport(4, 31))
+        h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+        val close = NaviampCoreCommand.Home.Browse(DiscoveryBrowseAction.Close)
+        assertEquals(NaviampCoreImmediateCommandResult.Deferred, h.controller.dispatch(close))
+        assertTrue(h.discovery().browser!!.loading)
+        assertTrue(h.controller.recoverEmptyPage(h.history.currentEntry.page).isEmpty())
+        h.controller.execute(close)
+        assertEquals(2, recommendationReads)
+        assertEquals(4, h.discovery().browser!!.firstVisibleItem)
+        assertEquals(31, h.discovery().browser!!.firstVisibleOffset)
+        h.open(First); h.browse(Second); h.back()
+        assertEquals(2, firstArtistReads)
+        assertEquals(First.id, h.detail().artist.id)
+        h.back()
+        assertEquals(3, recommendationReads)
+        assertEquals(DiscoveryBrowsePage.Recommendations, h.discovery().browser?.page)
+        assertTrue(h.returned.isEmpty())
+    }
+
+    @Test fun retainedBrowserPagesRecoverWithoutReopeningOrChangingTheirQueries() = runTest {
+        for (page in listOf(DiscoveryBrowsePage.Recommendations, DiscoveryBrowsePage.Search,
+            DiscoveryBrowsePage.Trending, DiscoveryBrowsePage.BlockedGenres)) {
+            var fail = true
+            var reads = 0
+            val queries = mutableListOf<String>()
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun recommendations(offset: Int, limit: Int): ProviderRecommendationPage {
+                    if (page == DiscoveryBrowsePage.Recommendations) reads++
+                    return ProviderRecommendationPage(if (fail) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+                }
+                override suspend fun searchCatalog(query: String, scope: ProviderCatalogScope, offset: Int, limit: Int): ProviderCatalogPage {
+                    reads++; queries += query
+                    return ProviderCatalogPage(if (fail) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+                }
+                override suspend fun charts(): ProviderDiscoveryCharts {
+                    reads++
+                    return ProviderDiscoveryCharts(if (fail) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+                }
+                override suspend fun blockedGenres(): ProviderDiscoveryBlockedGenres {
+                    if (page == DiscoveryBrowsePage.BlockedGenres) reads++
+                    return ProviderDiscoveryBlockedGenres(if (fail) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+                }
+            })
+            h.send(DiscoveryBrowseAction.Open(page))
+            if (page == DiscoveryBrowsePage.Search) {
+                h.send(DiscoveryBrowseAction.Query("retained query"))
+                h.send(DiscoveryBrowseAction.Search)
+            }
+            h.send(DiscoveryBrowseAction.Viewport(5, 12))
+            fail = false
+            h.revisitDiscovery()
+            assertEquals(1, h.recoveryCommands.size, page.name)
+            assertTrue(h.controller.recoverEmptyPage(h.history.currentEntry.page).isEmpty())
+            h.executeRecoveries()
+            assertEquals(2, reads, page.name)
+            assertEquals(page, h.discovery().browser?.page)
+            assertEquals(5, h.discovery().browser?.firstVisibleItem)
+            assertEquals(12, h.discovery().browser?.firstVisibleOffset)
+            if (page == DiscoveryBrowsePage.Search) assertEquals(listOf("retained query", "retained query"), queries)
+            h.revisitDiscovery()
+            assertTrue(h.recoveryCommands.isEmpty(), page.name)
+            h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Hub))
+            h.send(DiscoveryBrowseAction.Close)
+            assertEquals(2, reads, "Successful empty cached Close must not retry $page")
+        }
+    }
+
+    @Test fun cachedSearchCloseRecoversTheFailedQueryButNeverAnUnsubmittedReplacement() = runTest {
+        val queries = mutableListOf<String>()
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun searchCatalog(query: String, scope: ProviderCatalogScope, offset: Int, limit: Int): ProviderCatalogPage {
+                queries += query
+                return ProviderCatalogPage(if (query == "failed") ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+            }
+        })
+        h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+        h.send(DiscoveryBrowseAction.Query("failed")); h.send(DiscoveryBrowseAction.Search)
+        h.send(DiscoveryBrowseAction.ChartSearch("other", ProviderCatalogScope.Album))
+        h.send(DiscoveryBrowseAction.Close)
+        assertEquals(listOf("failed", "other", "failed"), queries)
+        assertEquals("failed", h.discovery().browser?.query)
+        assertEquals(ProviderCatalogScope.Artist, h.discovery().browser?.scope)
+        h.send(DiscoveryBrowseAction.Query("not submitted"))
+        h.revisitDiscovery()
+        assertTrue(h.recoveryCommands.isEmpty())
+        assertEquals(3, queries.size)
+    }
+
+    @Test fun successfulEmptyAndMaterialArtistReleaseAndBrowserPagesDoNotRetry() = runTest {
+        for (material in listOf(false, true)) {
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun artistDetails(artist: ProviderDiscoveryArtist) = ProviderDiscoveryArtistResult(
+                    if (material) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready,
+                    ProviderDiscoveryArtistDetails(artist, releases = if (material) listOf(Release) else emptyList()))
+                override suspend fun samples(artist: ProviderDiscoveryArtist) = ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+                override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+                override suspend fun recommendations(offset: Int, limit: Int) = ProviderRecommendationPage(
+                    ProviderDiscoveryStatus.Ready, if (material) listOf(First) else emptyList(), offset,
+                    if (material && offset == 0) 100 else null)
+            })
+            h.open(First)
+            h.revisitDiscovery()
+            assertTrue(h.recoveryCommands.isEmpty())
+            if (material) h.openRelease()
+            else h.store.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery = h.discovery().copy(
+                releasePage = SharedDiscoveryReleaseUi(Release, loading = false,
+                    result = ProviderDiscoveryReleaseDetails(ProviderDiscoveryStatus.Ready), tracksLoading = false,
+                    tracks = ProviderDiscoveryReleaseTracks(ProviderDiscoveryStatus.Ready), ownershipLoading = false,
+                    ownership = ProviderDiscoveryReleaseOwnership(ProviderDiscoveryStatus.Ready))))) }
+            h.revisitDiscovery()
+            assertTrue(h.recoveryCommands.isEmpty())
+            h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Recommendations))
+            if (material) h.store.updateShell { shell -> shell.copy(home = shell.home.copy(providerDiscovery =
+                h.discovery().copy(browser = h.discovery().browser!!.copy(status = ProviderDiscoveryStatus.Unavailable)))) }
+            h.revisitDiscovery()
+            assertTrue(h.recoveryCommands.isEmpty())
+            h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+            val close = NaviampCoreCommand.Home.Browse(DiscoveryBrowseAction.Close)
+            assertIs<NaviampCoreImmediateCommandResult.Handled>(h.controller.dispatch(close))
+        }
+    }
+
+    @Test fun cancelledArtistRecoveryRetainsFailureEligibilityAndDoesNotDuplicateInFlight() = runTest {
+        var attempts = 0
+        var suspendRecovery = true
+        val gate = CompletableDeferred<Unit>()
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                attempts++
+                if (attempts > 1 && suspendRecovery) gate.await()
+                return ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unavailable)
+            }
+            override suspend fun samples(artist: ProviderDiscoveryArtist) = ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+            override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+        })
+        h.open(First); h.revisitDiscovery()
+        val running = launch { h.executeRecoveries() }
+        runCurrent()
+        assertEquals(2, attempts)
+        assertTrue(h.controller.recoverEmptyPage(h.history.currentEntry.page).isEmpty())
+        running.cancelAndJoin()
+        assertFalse(h.detail().loading)
+        assertFalse(h.detail().samplesLoading)
+        assertEquals(ProviderDiscoveryStatus.Unavailable, h.detail().status)
+        suspendRecovery = false
+        h.revisitDiscovery(); h.executeRecoveries()
+        assertEquals(3, attempts)
+    }
+
+    @Test fun queuedRecoveryIsAbandonedAcrossNavigationAndSourceChanges() = runTest {
+        for (sourceChange in listOf(false, true)) {
+            var reads = 0
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun searchCatalog(query: String, scope: ProviderCatalogScope, offset: Int, limit: Int): ProviderCatalogPage {
+                    reads++
+                    return ProviderCatalogPage(ProviderDiscoveryStatus.Unavailable)
+                }
+            })
+            h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+            h.send(DiscoveryBrowseAction.Query("failed")); h.send(DiscoveryBrowseAction.Search)
+            val retained = h.history.currentEntry.page
+            h.revisitDiscovery()
+            if (sourceChange) {
+                h.account = "other-source"
+                h.active = discoveryProvider(DiscoveryNative(), h.account)
+                h.controller.resetForSourceChange()
+            } else h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+            h.executeRecoveries()
+            assertEquals(1, reads)
+            if (sourceChange) {
+                assertNull(h.discovery().browser)
+                assertTrue(h.controller.recoverEmptyPage(retained).isEmpty())
+            } else {
+                assertFalse(h.discovery().browser!!.loading)
+                h.navigation.back(); h.executeRecoveries()
+                assertEquals(2, reads)
+            }
+        }
+    }
+
+    @Test fun nonCancellableRecoveryCannotPublishAfterAccountOrNavigationChanges() = runTest {
+        for (accountChange in listOf(false, true)) {
+            var reads = 0
+            val entered = CompletableDeferred<Unit>()
+            val gate = CompletableDeferred<Unit>()
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                    reads++
+                    if (reads == 1) return ProviderDiscoveryArtistResult(ProviderDiscoveryStatus.Unavailable)
+                    entered.complete(Unit)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { gate.await() }
+                    return super.artistDetails(artist)
+                }
+                override suspend fun samples(artist: ProviderDiscoveryArtist) = ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+                override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+            })
+            h.open(First); h.revisitDiscovery()
+            val reading = launch { h.executeRecoveries() }
+            entered.await()
+            if (accountChange) {
+                h.active = object : MediaProvider by h.active { override val discoveryAccountScope = "new-account" }
+                h.controller.resetForSourceChange()
+            } else h.navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+            gate.complete(Unit); reading.join()
+            if (accountChange) assertNull(h.discovery().artistDetail)
+            else {
+                assertNull(h.detail().details)
+                assertFalse(h.detail().loading)
+                assertEquals(ProviderDiscoveryStatus.Unavailable, h.detail().status)
+            }
+        }
+    }
+
+    @Test fun browserRecoveryCannotPublishAnOldQueryAndCancellationKeepsItRetryable() = runTest {
+        for (replaceQuery in listOf(false, true)) {
+            var reads = 0
+            val gate = CompletableDeferred<Unit>()
+            val h = DiscoveryHarness(object : DiscoveryNative() {
+                override suspend fun searchCatalog(query: String, scope: ProviderCatalogScope, offset: Int, limit: Int): ProviderCatalogPage {
+                    reads++
+                    if (reads == 1) return ProviderCatalogPage(ProviderDiscoveryStatus.Unavailable)
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) { gate.await() }
+                    return ProviderCatalogPage(ProviderDiscoveryStatus.Ready, artists = listOf(First))
+                }
+            })
+            h.send(DiscoveryBrowseAction.Open(DiscoveryBrowsePage.Search))
+            h.send(DiscoveryBrowseAction.Query("failed")); h.send(DiscoveryBrowseAction.Search)
+            h.revisitDiscovery()
+            val reading = launch { h.executeRecoveries() }
+            runCurrent()
+            assertTrue(h.controller.recoverEmptyPage(h.history.currentEntry.page).isEmpty())
+            if (replaceQuery) h.send(DiscoveryBrowseAction.Query("replacement")) else reading.cancel()
+            gate.complete(Unit); reading.join()
+            assertTrue(h.discovery().browser!!.catalog.artists.isEmpty())
+            assertFalse(h.discovery().browser!!.loading)
+            h.revisitDiscovery()
+            if (replaceQuery) {
+                assertEquals("replacement", h.discovery().browser?.query)
+                assertTrue(h.recoveryCommands.isEmpty())
+            } else {
+                assertEquals(1, h.recoveryCommands.size)
+                h.executeRecoveries()
+                assertEquals(3, reads)
+            }
+        }
+    }
+
+    @Test fun requestRecoverySharesTheQueuedAndInFlightReadWithAcquisitionPolling() = runTest {
+        var reads = 0
+        val gate = CompletableDeferred<Unit>()
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun requestActivity(): ProviderDiscoveryActivities {
+                reads++
+                if (reads > 1) gate.await()
+                return ProviderDiscoveryActivities(ProviderDiscoveryStatus.Unavailable)
+            }
+        })
+        h.open(First)
+        h.controller.dispatch(NaviampCoreCommand.Home.ShowDiscoveryRequests)
+        h.controller.refreshAcquisitions()
+        h.revisitDiscovery()
+        assertNull(h.controller.refreshAcquisitions())
+        assertEquals(1, reads)
+        val reading = launch { h.executeRecoveries() }
+        runCurrent()
+        assertNull(h.controller.refreshAcquisitions())
+        assertEquals(2, reads)
+        reading.cancelAndJoin()
+        assertFalse(h.discovery().requestsLoading)
+        assertEquals(ProviderDiscoveryStatus.Unavailable, h.discovery().requestsStatus)
+        h.revisitDiscovery()
+        assertEquals(1, h.recoveryCommands.size)
+        gate.complete(Unit); h.executeRecoveries()
+        assertEquals(3, reads)
+    }
+
+    @Test fun cancellationAfterAnEmptyArtistResultPreservesThePriorFailedPage() = runTest {
+        var reads = 0
+        val gate = CompletableDeferred<Unit>()
+        val h = DiscoveryHarness(object : DiscoveryNative() {
+            override suspend fun artistDetails(artist: ProviderDiscoveryArtist): ProviderDiscoveryArtistResult {
+                reads++
+                return ProviderDiscoveryArtistResult(if (reads == 1) ProviderDiscoveryStatus.Unavailable else ProviderDiscoveryStatus.Ready)
+            }
+            override suspend fun samples(artist: ProviderDiscoveryArtist): ProviderDiscoverySamples {
+                if (reads > 1) gate.await()
+                return ProviderDiscoverySamples(ProviderDiscoveryStatus.Ready)
+            }
+            override suspend fun similarArtists(artist: DiscoveryArtistMbid) = ProviderDiscoverySimilarArtists(ProviderDiscoveryStatus.Ready)
+        })
+        h.open(First); h.revisitDiscovery()
+        val reading = launch { h.executeRecoveries() }
+        runCurrent()
+        assertEquals(ProviderDiscoveryStatus.Ready, h.detail().status)
+        assertTrue(h.detail().samplesLoading)
+        reading.cancelAndJoin()
+        assertEquals(ProviderDiscoveryStatus.Unavailable, h.detail().status)
+        h.revisitDiscovery()
+        assertEquals(1, h.recoveryCommands.size)
+        gate.complete(Unit); h.executeRecoveries()
+        assertEquals(3, reads)
+        assertEquals(ProviderDiscoveryStatus.Ready, h.detail().status)
+        h.revisitDiscovery()
+        assertTrue(h.recoveryCommands.isEmpty())
+    }
+
     @Test fun browserArtistAndReleaseParentsExhaustBeforeExactlyOneBoundaryBack() = runTest {
         val h = DiscoveryHarness()
         val origin = h.history.currentEntry
@@ -1017,11 +1413,15 @@ private class DiscoveryHarness(native: ProviderDiscovery = DiscoveryNative(),
     val played = mutableListOf<app.naviamp.domain.Track>()
     val albumsOpened = mutableListOf<app.naviamp.domain.Album>()
     val returned = mutableListOf<SharedRoute>()
+    val recoveryCommands = mutableListOf<NaviampCoreCommand>()
     lateinit var controller: NaviampCoreDiscoveryController
         private set
     val history = app.naviamp.app.NaviampNavigationController()
     val navigation = NaviampCoreNavigationController(history, store, { error("Unexpected media restoration") },
-        onResetDiscovery = { controller.resetNavigation() })
+        onResetDiscovery = { controller.resetNavigation() },
+        onPageEntered = { page -> controller.recoverEmptyPage(page).forEach { command ->
+            if (controller.dispatch(command) == NaviampCoreImmediateCommandResult.Deferred) recoveryCommands += command
+        } })
     init {
         store.updateShell { it.copy(home = it.home.copy(providerDiscovery = SharedProviderDiscoveryUi("aurral",
             ProviderDiscoveryFeed(trending = listOf(First))))) }
@@ -1034,6 +1434,17 @@ private class DiscoveryHarness(native: ProviderDiscovery = DiscoveryNative(),
     fun discovery() = store.state.value.shell.home.providerDiscovery!!
     fun detail() = discovery().artistDetail!!
     fun releaseAction(action: ProviderDiscoveryAction) = NaviampCoreCommand.Home.DiscoveryReleaseAction(account, discovery().sourceGeneration, Release.id, action)
+    fun revisitDiscovery() {
+        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Search))
+        navigation.back()
+    }
+    suspend fun executeRecoveries() {
+        while (recoveryCommands.isNotEmpty()) controller.execute(recoveryCommands.removeAt(0))
+    }
+    suspend fun send(action: DiscoveryBrowseAction) {
+        val command = NaviampCoreCommand.Home.Browse(action)
+        if (controller.dispatch(command) == NaviampCoreImmediateCommandResult.Deferred) controller.execute(command)
+    }
     suspend fun openRelease() {
         val command = NaviampCoreCommand.Home.SelectDiscoveryRelease(Release.id)
         controller.dispatch(command); controller.execute(command)

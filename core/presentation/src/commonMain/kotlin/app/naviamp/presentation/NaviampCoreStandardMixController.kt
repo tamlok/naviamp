@@ -1,5 +1,8 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.domain.Album
 import app.naviamp.domain.Artist
 import app.naviamp.domain.Genre
@@ -56,11 +59,89 @@ class NaviampCoreStandardMixController(
     private var genreBrowser: GenreTrackBrowser? = null
     private var genreBrowserKey: Pair<String?, List<String>>? = null
 
+    private enum class CandidateKind { Artist, Album, Genre }
+    private enum class CandidatePhase { Loading, Failed, Scheduled, Complete }
+    private class CandidateLoad(
+        val kind: CandidateKind,
+        val query: String,
+        val source: String?,
+        val initial: Boolean,
+        val retry: Boolean,
+        var phase: CandidatePhase = CandidatePhase.Loading,
+    )
+    private val candidateLoads = mutableMapOf<CandidateKind, CandidateLoad>()
+    // Retain queued command identities until consumed, including across query/source resets.
+    private val queuedRecovery = mutableListOf<Pair<NaviampCoreCommand, CandidateLoad>>()
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage) return emptyList()
+        val kind = when (page.route) {
+            NaviampRoute.ArtistMix -> CandidateKind.Artist
+            NaviampRoute.AlbumMix -> CandidateKind.Album
+            NaviampRoute.GenreMix -> CandidateKind.Genre
+            else -> return emptyList()
+        }
+        val load = candidateLoads[kind] ?: return emptyList()
+        if (load.phase != CandidatePhase.Failed || !isCurrent(load) || !candidatesEmpty(kind)) return emptyList()
+        val command = when (kind) {
+            CandidateKind.Artist -> NaviampCoreCommand.MixBuilder.Artist(NaviampCoreCommand.ArtistAction.Search)
+            CandidateKind.Album -> NaviampCoreCommand.MixBuilder.Album(NaviampCoreCommand.AlbumAction.Search)
+            CandidateKind.Genre -> NaviampCoreCommand.MixBuilder.Genre(NaviampCoreCommand.GenreAction.Search)
+        }
+        load.phase = CandidatePhase.Scheduled
+        queuedRecovery += command to load
+        return listOf(command)
+    }
+
+    private fun candidateQuery(kind: CandidateKind): String = when (kind) {
+        CandidateKind.Artist -> currentArtistUi().query
+        CandidateKind.Album -> currentAlbumUi().query
+        CandidateKind.Genre -> currentGenreUi().query
+    }
+
+    private fun candidatesEmpty(kind: CandidateKind): Boolean = when (kind) {
+        CandidateKind.Artist -> artistSuggestions.isEmpty() && selectedArtists.isEmpty() && artistTracks.isEmpty()
+        CandidateKind.Album -> albumSuggestions.isEmpty() && selectedAlbums.isEmpty() && albumTracks.isEmpty()
+        CandidateKind.Genre -> genreSuggestions.isEmpty() && selectedGenres.isEmpty() &&
+            currentGenreUi().treeRows.isEmpty() && currentGenreUi().unmatchedGenres.isEmpty() && currentGenreUi().songs.isEmpty()
+    }
+
+    private fun isCurrent(load: CandidateLoad): Boolean = candidateLoads[load.kind] === load &&
+        load.source == providerSource.current()?.cacheNamespace && load.query == candidateQuery(load.kind)
+
+    private fun beginCandidates(kind: CandidateKind, initial: Boolean = false): CandidateLoad? {
+        val previous = candidateLoads[kind]
+        if (previous != null && isCurrent(previous) && previous.phase == CandidatePhase.Loading) return null
+        return CandidateLoad(kind, candidateQuery(kind), providerSource.current()?.cacheNamespace, initial,
+            previous != null && isCurrent(previous) &&
+                (previous.phase == CandidatePhase.Failed || previous.phase == CandidatePhase.Scheduled))
+            .also { candidateLoads[kind] = it }
+    }
+
+    private fun changeCandidateQuery(kind: CandidateKind, query: String) {
+        if (candidateQuery(kind) == query) return
+        candidateLoads.remove(kind)
+        when (kind) {
+            CandidateKind.Artist -> { artistGeneration++; updateArtistUi { it.copy(query = query, loading = false) } }
+            CandidateKind.Album -> { albumGeneration++; updateAlbumUi { it.copy(query = query, loading = false) } }
+            CandidateKind.Genre -> { genreGeneration++; updateGenreUi { it.copy(query = query, loading = false) } }
+        }
+    }
+
+    private fun candidateFailure(load: CandidateLoad, cause: Throwable, publish: (String?) -> Unit) {
+        if (isCurrent(load)) {
+            load.phase = if (cause is CancellationException && !load.retry) CandidatePhase.Complete else CandidatePhase.Failed
+            publish(if (cause is CancellationException) null else cause.message)
+        }
+        if (cause is CancellationException) throw cause
+    }
+
     fun resetForSourceChange() {
         sourceGeneration++
         artistGeneration++
         albumGeneration++
         genreGeneration++
+        candidateLoads.clear()
         selectedArtists = emptyList()
         artistSuggestions = emptyList()
         artistTracks = emptyMap()
@@ -81,21 +162,21 @@ class NaviampCoreStandardMixController(
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.MixBuilder.Artist -> when (val action = command.action) {
             is NaviampCoreCommand.ArtistAction.ChangeQuery -> {
-                updateArtistUi { it.copy(query = action.query) }
+                changeCandidateQuery(CandidateKind.Artist, action.query)
                 NaviampCoreImmediateCommandResult.Handled()
             }
             else -> NaviampCoreImmediateCommandResult.Deferred
         }
         is NaviampCoreCommand.MixBuilder.Album -> when (val action = command.action) {
             is NaviampCoreCommand.AlbumAction.ChangeQuery -> {
-                updateAlbumUi { it.copy(query = action.query) }
+                changeCandidateQuery(CandidateKind.Album, action.query)
                 NaviampCoreImmediateCommandResult.Handled()
             }
             else -> NaviampCoreImmediateCommandResult.Deferred
         }
         is NaviampCoreCommand.MixBuilder.Genre -> when (val action = command.action) {
             is NaviampCoreCommand.GenreAction.ChangeQuery -> {
-                updateGenreUi { it.copy(query = action.query) }
+                changeCandidateQuery(CandidateKind.Genre, action.query)
                 NaviampCoreImmediateCommandResult.Handled()
             }
             else -> NaviampCoreImmediateCommandResult.Deferred
@@ -104,6 +185,20 @@ class NaviampCoreStandardMixController(
     }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
+        val recoveryIndex = queuedRecovery.indexOfFirst { it.first === command }
+        if (recoveryIndex >= 0) {
+            val load = queuedRecovery.removeAt(recoveryIndex).second
+            if (isCurrent(load) && load.phase == CandidatePhase.Scheduled) {
+                if (candidatesEmpty(load.kind)) {
+                    when (load.kind) {
+                        CandidateKind.Artist -> loadArtistSuggestions(load.initial)
+                        CandidateKind.Album -> loadAlbumSuggestions(load.initial)
+                        CandidateKind.Genre -> loadGenreSuggestions()
+                    }
+                } else load.phase = CandidatePhase.Failed
+            }
+            return NaviampCoreCommandResult.Completed
+        }
         when (command) {
             is NaviampCoreCommand.MixBuilder.Artist -> executeArtist(command.action)
             is NaviampCoreCommand.MixBuilder.Album -> executeAlbum(command.action)
@@ -120,7 +215,7 @@ class NaviampCoreStandardMixController(
     private suspend fun executeArtist(action: NaviampCoreCommand.ArtistAction) {
         when (action) {
             is NaviampCoreCommand.ArtistAction.ChangeQuery ->
-                updateArtistUi { it.copy(query = action.query) }
+                changeCandidateQuery(CandidateKind.Artist, action.query)
             NaviampCoreCommand.ArtistAction.Search -> loadArtistSuggestions(initial = false)
             is NaviampCoreCommand.ArtistAction.Select -> selectArtist(action.artist.id)
             is NaviampCoreCommand.ArtistAction.Remove -> removeArtist(action.artist.id)
@@ -131,7 +226,7 @@ class NaviampCoreStandardMixController(
 
     private suspend fun executeAlbum(action: NaviampCoreCommand.AlbumAction) {
         when (action) {
-            is NaviampCoreCommand.AlbumAction.ChangeQuery -> updateAlbumUi { it.copy(query = action.query) }
+            is NaviampCoreCommand.AlbumAction.ChangeQuery -> changeCandidateQuery(CandidateKind.Album, action.query)
             NaviampCoreCommand.AlbumAction.Search -> loadAlbumSuggestions(initial = false)
             is NaviampCoreCommand.AlbumAction.Select -> selectAlbum(action.album.id)
             is NaviampCoreCommand.AlbumAction.Remove -> removeAlbum(action.album.id)
@@ -148,7 +243,7 @@ class NaviampCoreStandardMixController(
                 val index = tracks.indexOfFirst { it.id.value == action.id }
                 if (index >= 0) playback.playGenreSongs(tracks, index)
             }
-            is NaviampCoreCommand.GenreAction.ChangeQuery -> updateGenreUi { it.copy(query = action.query) }
+            is NaviampCoreCommand.GenreAction.ChangeQuery -> changeCandidateQuery(CandidateKind.Genre, action.query)
             NaviampCoreCommand.GenreAction.Search -> loadGenreSuggestions()
             is NaviampCoreCommand.GenreAction.Select -> selectGenre(action.genre.id)
             is NaviampCoreCommand.GenreAction.Remove -> removeGenre(action.genre.id)
@@ -160,13 +255,15 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun loadArtistSuggestions(initial: Boolean) {
+        val load = beginCandidates(CandidateKind.Artist, initial) ?: return
         val generation = ++artistGeneration
         updateArtistUi { it.copy(loading = true, status = null) }
         runCatching {
             if (initial) artistService().initialSuggestions(selectedArtists)
-            else artistService().searchSuggestions(currentArtistUi().query, selectedArtists)
+            else artistService().searchSuggestions(load.query, selectedArtists)
         }.onSuccess { suggestions ->
-            if (generation != artistGeneration) return@onSuccess
+            if (generation != artistGeneration || !isCurrent(load)) return@onSuccess
+            load.phase = CandidatePhase.Complete
             artistSuggestions = suggestions
             publishArtist(
                 loading = false,
@@ -175,7 +272,7 @@ class NaviampCoreStandardMixController(
                 } else null,
             )
         }.onFailure { cause ->
-            if (generation == artistGeneration) publishArtist(false, cause.message ?: "Could not load artists.")
+            candidateFailure(load, cause) { message -> publishArtist(false, message ?: if (cause is CancellationException) null else "Could not load artists.") }
         }
     }
 
@@ -206,6 +303,7 @@ class NaviampCoreStandardMixController(
 
     private suspend fun loadArtistRelatedSuggestions(seed: Artist) {
         val generation = ++artistGeneration
+        candidateLoads.remove(CandidateKind.Artist)
         updateArtistUi { it.copy(loading = true) }
         runCatching { artistService().relatedSuggestions(selectedArtists, seed) }
             .onSuccess { suggestions ->
@@ -221,6 +319,7 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun resetArtist() {
+        candidateLoads.remove(CandidateKind.Artist)
         selectedArtists = emptyList()
         artistSuggestions = emptyList()
         artistTracks = emptyMap()
@@ -240,19 +339,21 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun loadAlbumSuggestions(initial: Boolean) {
+        val load = beginCandidates(CandidateKind.Album, initial) ?: return
         val generation = ++albumGeneration
         updateAlbumUi { it.copy(loading = true, status = null) }
         runCatching {
             if (initial) albumService().initialSuggestions(selectedAlbums)
-            else albumService().searchSuggestions(currentAlbumUi().query, selectedAlbums)
+            else albumService().searchSuggestions(load.query, selectedAlbums)
         }.onSuccess { suggestions ->
-            if (generation != albumGeneration) return@onSuccess
+            if (generation != albumGeneration || !isCurrent(load)) return@onSuccess
+            load.phase = CandidatePhase.Complete
             albumSuggestions = suggestions
             publishAlbum(false, if (suggestions.isEmpty()) {
                 if (initial) "No album suggestions yet." else "No albums matched."
             } else null)
         }.onFailure { cause ->
-            if (generation == albumGeneration) publishAlbum(false, cause.message ?: "Could not load albums.")
+            candidateFailure(load, cause) { message -> publishAlbum(false, message ?: if (cause is CancellationException) null else "Could not load albums.") }
         }
     }
 
@@ -283,6 +384,7 @@ class NaviampCoreStandardMixController(
 
     private suspend fun loadAlbumRelatedSuggestions(seed: Album) {
         val generation = ++albumGeneration
+        candidateLoads.remove(CandidateKind.Album)
         updateAlbumUi { it.copy(loading = true) }
         runCatching { albumService().relatedSuggestions(selectedAlbums, seed) }
             .onSuccess { suggestions ->
@@ -298,6 +400,7 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun resetAlbum() {
+        candidateLoads.remove(CandidateKind.Album)
         selectedAlbums = emptyList()
         albumSuggestions = emptyList()
         albumTracks = emptyMap()
@@ -317,19 +420,21 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun loadGenreSuggestions() {
+        val load = beginCandidates(CandidateKind.Genre) ?: return
         val generation = ++genreGeneration
         publishGenre(loading = true, status = null)
         runCatching {
             val service = genreService()
-            service.browseProjection() to service.searchSuggestions(currentGenreUi().query, selectedGenres)
+            service.browseProjection() to service.searchSuggestions(load.query, selectedGenres)
         }.onSuccess { (projection, suggestions) ->
-            if (generation != genreGeneration) return@onSuccess
+            if (generation != genreGeneration || !isCurrent(load)) return@onSuccess
+            load.phase = CandidatePhase.Complete
             genreProjection = projection
             genreSuggestions = suggestions
                 publishGenre(false, if (suggestions.isEmpty()) "No genres matched." else null)
             }
             .onFailure { cause ->
-                if (generation == genreGeneration) publishGenre(false, cause.message ?: "Could not load genres.")
+                candidateFailure(load, cause) { message -> publishGenre(false, message ?: if (cause is CancellationException) null else "Could not load genres.") }
             }
     }
 
@@ -370,6 +475,7 @@ class NaviampCoreStandardMixController(
     }
 
     private suspend fun resetGenre() {
+        candidateLoads.remove(CandidateKind.Genre)
         selectedGenres = emptyList()
         genreSuggestions = emptyList()
         genreProjection = LibraryGenreOntologyProjection()

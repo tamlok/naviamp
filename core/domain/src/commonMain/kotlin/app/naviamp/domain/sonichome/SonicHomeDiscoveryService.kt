@@ -5,6 +5,7 @@ import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.SonicSimilarTrack
 import app.naviamp.domain.sonicmix.SonicMixBias
 import app.naviamp.domain.sonicmix.blendSonicMix
+import kotlinx.coroutines.CancellationException
 
 const val SonicHomeDiscoveryRowLimit = 12
 
@@ -22,9 +23,19 @@ data class SonicHomeDiscoveryRow(
 
 data class SonicHomeDiscoveryRows(
     val rows: List<SonicHomeDiscoveryRow> = emptyList(),
+    val failedRowIds: Set<SonicHomeDiscoveryRowId> = emptySet(),
 ) {
     fun row(id: SonicHomeDiscoveryRowId): SonicHomeDiscoveryRow? =
         rows.firstOrNull { row -> row.id == id }
+
+    fun retainFailedRows(previous: SonicHomeDiscoveryRows): SonicHomeDiscoveryRows {
+        if (failedRowIds.isEmpty()) return this
+        val retained = rows.map { incoming ->
+            if (incoming.id in failedRowIds && incoming.tracks.isEmpty()) previous.row(incoming.id) ?: incoming
+            else incoming
+        } + previous.rows.filter { cached -> cached.id in failedRowIds && rows.none { it.id == cached.id } }
+        return copy(rows = retained)
+    }
 }
 
 class SonicHomeDiscoveryService(
@@ -70,18 +81,21 @@ class SonicHomeDiscoveryService(
                     .take(SonicHomeDiscoverySeedLimit)
             }
 
+        val failedRows = mutableSetOf<SonicHomeDiscoveryRowId>()
         val rows = listOfNotNull(
             buildRow(
                 id = SonicHomeDiscoveryRowId.MoreLikeRecentPlays,
                 title = "More Like Recent Plays",
                 seeds = recentSeeds,
                 bias = SonicMixBias.Recent,
+                failedRows = failedRows,
             ),
             buildRow(
                 id = SonicHomeDiscoveryRowId.SonicDeepCuts,
                 title = "Sonic Deep Cuts",
                 seeds = deepCutSeeds,
                 bias = SonicMixBias.Unplayed,
+                failedRows = failedRows,
                 postProcess = { tracks -> tracks.deepCutSorted() },
             ),
             buildRow(
@@ -89,9 +103,10 @@ class SonicHomeDiscoveryService(
                 title = "Similar To Starred Tracks",
                 seeds = starredSeeds,
                 bias = SonicMixBias.Favorites,
+                failedRows = failedRows,
             ),
         )
-        return SonicHomeDiscoveryRows(rows)
+        return SonicHomeDiscoveryRows(rows, failedRows.toSet())
     }
 
     private suspend fun buildRow(
@@ -99,22 +114,29 @@ class SonicHomeDiscoveryService(
         title: String,
         seeds: List<Track>,
         bias: SonicMixBias,
+        failedRows: MutableSet<SonicHomeDiscoveryRowId>,
         postProcess: (List<Track>) -> List<Track> = { tracks -> tracks },
     ): SonicHomeDiscoveryRow? {
         if (seeds.isEmpty()) return null
-        val tracks = runCatching {
-            val matchesBySeed = seeds.map { seed ->
-                seed to provider.sonicSimilarTrackMatches(seed.id, count = SonicHomeDiscoveryMatchCount)
+        val matchesBySeed = seeds.map { seed ->
+            val matches = try {
+                provider.sonicSimilarTrackMatches(seed.id, count = SonicHomeDiscoveryMatchCount)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                failedRows += id
+                emptyList()
             }
-            postProcess(
-                blendSonicMix(
-                    seeds = seeds,
-                    matchesBySeed = matchesBySeed,
-                    targetLength = SonicHomeDiscoveryRowLimit * 2,
-                    bias = bias,
-                ),
-            ).take(SonicHomeDiscoveryRowLimit)
-        }.getOrDefault(emptyList())
+            seed to matches
+        }
+        val tracks = postProcess(
+            blendSonicMix(
+                seeds = seeds,
+                matchesBySeed = matchesBySeed,
+                targetLength = SonicHomeDiscoveryRowLimit * 2,
+                bias = bias,
+            ),
+        ).take(SonicHomeDiscoveryRowLimit)
         return tracks.takeIf { it.isNotEmpty() }?.let { SonicHomeDiscoveryRow(id, title, it) }
     }
 }

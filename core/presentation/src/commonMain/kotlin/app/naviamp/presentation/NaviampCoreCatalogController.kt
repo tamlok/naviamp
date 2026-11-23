@@ -1,5 +1,8 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
 import app.naviamp.domain.Album
 import app.naviamp.domain.library.AlbumLibraryIndex
 import app.naviamp.domain.library.orderAlbumCatalog
@@ -51,12 +54,30 @@ class NaviampCoreCatalogController(
 
     private val fullIndexRefreshMutex = Mutex()
     private var searchGeneration = 0L
+    private var searchLoadingGeneration: Long? = null
+    private var searchFailure: FailedCatalogRequest? = null
+    private var searchRecovery: RecoveryRequest? = null
+    private data class FailedCatalogRequest(
+        val provider: MediaProvider,
+        val scope: FavoritesScope,
+        val query: String,
+        val favoritesOnly: Boolean,
+    )
+    private data class RecoveryRequest(
+        val command: NaviampCoreCommand,
+        val failure: FailedCatalogRequest,
+        val view: NaviampLibraryView?,
+        val generation: Long,
+    )
+    // Retain invalidated commands until execution so an old queued retry cannot load a new scope.
+    private val pendingRecoveries = mutableListOf<RecoveryRequest>()
     private data class LibraryBrowseSnapshot(
         val catalog: NaviampLibraryCatalogUi,
         val nextRequest: MediaPageRequest?,
         val sourceKey: Pair<String, String>?,
         val loadedSource: Pair<String, String>?,
         val media: MediaSearchResults,
+        val failure: FailedCatalogRequest? = null,
     )
     private data class LibraryLoadState(
         var generation: Long = 0L,
@@ -67,6 +88,8 @@ class NaviampCoreCatalogController(
         var browseSnapshot: LibraryBrowseSnapshot? = null,
         var ordinarySnapshot: LibraryBrowseSnapshot? = null,
         var scope: FavoritesScope? = null,
+        var failure: FailedCatalogRequest? = null,
+        var recovery: RecoveryRequest? = null,
     )
 
     private val libraryLoads = NaviampLibraryView.entries.associateWith {
@@ -109,6 +132,7 @@ class NaviampCoreCatalogController(
         var searchItems: List<T> = emptyList()
         var searchComplete = false
         var browseItems: List<T> = emptyList()
+        var failure: FailedCatalogRequest? = null
 
         fun cancel() {
             generation++
@@ -124,6 +148,7 @@ class NaviampCoreCatalogController(
             searchComplete = false
             browseItems = emptyList()
             invalidated = false
+            failure = null
         }
     }
 
@@ -169,7 +194,67 @@ class NaviampCoreCatalogController(
         NaviampLibraryView.Songs -> provider?.capabilities?.supportsTrackFavorites == true
     }
 
-    override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage) return emptyList()
+        val shell = stateStore.state.value.shell
+        val request = when (page.route) {
+            NaviampRoute.Search -> {
+                val failure = searchFailure ?: return emptyList()
+                val results = shell.search.results
+                if (searchRecovery != null || searchLoadingGeneration != null ||
+                    !failure.isCurrent(shell.search.query, false) ||
+                    !results.isEmpty) return emptyList()
+                RecoveryRequest(NaviampCoreCommand.Search.ChangeQuery(failure.query), failure, null, searchGeneration)
+                    .also { searchRecovery = it }
+            }
+            NaviampRoute.Library -> {
+                val library = shell.library
+                val view = library.selectedView
+                val load = libraryLoads.getValue(view)
+                val catalog = library.catalog(view)
+                val favorites = favorites(view)
+                val failure = (if (library.favoritesOnly) favorites.failure else load.failure) ?: return emptyList()
+                if (load.recovery != null || load.loadingGeneration != null || favorites.loadingGeneration != null ||
+                    !failure.isCurrent(catalog.query, library.favoritesOnly) ||
+                    hasVisibleLibraryContent(view, catalog, library.favoritesOnly)) return emptyList()
+                RecoveryRequest(NaviampCoreCommand.Library.ChangeView(view), failure, view, load.generation)
+                    .also { load.recovery = it }
+            }
+            else -> return emptyList()
+        }
+        pendingRecoveries += request
+        return listOf(request.command)
+    }
+
+    private fun FailedCatalogRequest.isCurrent(query: String, favoritesOnly: Boolean): Boolean =
+        providerSource.isCurrent(provider) && scope == favoritesScope(provider) &&
+            this.query == query && this.favoritesOnly == favoritesOnly
+
+    private fun libraryFailure(view: NaviampLibraryView, provider: MediaProvider) = FailedCatalogRequest(
+        provider, favoritesScope(provider), stateStore.state.value.shell.library.catalog(view).query,
+        stateStore.state.value.shell.library.favoritesOnly,
+    )
+    // Match the shared Library projection, including local filtering of retained browse rows.
+    private fun hasVisibleLibraryContent(
+        view: NaviampLibraryView,
+        catalog: NaviampLibraryCatalogUi,
+        favoritesOnly: Boolean,
+    ): Boolean {
+        if (favoritesOnly && (!catalog.supportsFavorites || catalog.favoritesLoading || catalog.favoritesFailed)) return false
+        val query = catalog.query.trim()
+        val serverMatches = catalog.query.isNotBlank() && catalog.resultsQuery == catalog.query
+        return if (view == NaviampLibraryView.Songs) catalog.tracks.any { track ->
+            (!favoritesOnly || track.favoriteActive) && (query.isEmpty() || serverMatches ||
+                track.title.contains(query, ignoreCase = true) || track.subtitle.contains(query, ignoreCase = true))
+        } else catalog.items.any { item ->
+            (!favoritesOnly || item.favoriteActive) && (query.isEmpty() || serverMatches ||
+                item.title.contains(query, ignoreCase = true) || item.subtitle.contains(query, ignoreCase = true) ||
+                item.meta.contains(query, ignoreCase = true))
+        }
+    }
+
+    override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult =
+        if (pendingRecoveries.any { it.command === command }) NaviampCoreImmediateCommandResult.Deferred else when (command) {
         is NaviampCoreCommand.Search.ChangeQuery -> {
             updateSearchQuery(command.query)
             NaviampCoreImmediateCommandResult.Deferred
@@ -199,6 +284,33 @@ class NaviampCoreCatalogController(
     }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
+        val recoveryIndex = pendingRecoveries.indexOfFirst { it.command === command }
+        if (recoveryIndex >= 0) {
+            val recovery = pendingRecoveries.removeAt(recoveryIndex)
+            val view = recovery.view
+            if (view == null) {
+                if (searchRecovery === recovery) {
+                    searchRecovery = null
+                    if (recovery.generation == searchGeneration &&
+                        recovery.failure.isCurrent(stateStore.state.value.shell.search.query, false)) search()
+                }
+            } else {
+                val load = libraryLoads.getValue(view)
+                if (load.recovery === recovery) {
+                    load.recovery = null
+                    val library = stateStore.state.value.shell.library
+                    if (recovery.generation == load.generation && library.selectedView == view &&
+                        recovery.failure.isCurrent(library.catalog(view).query, library.favoritesOnly)) {
+                        when {
+                            library.favoritesOnly -> completeFavorites(view)
+                            library.catalog(view).query.isNotBlank() -> searchLibrary(library.catalog(view).query)
+                            else -> refreshLibrary(view, forceRefresh = true)
+                        }
+                    }
+                }
+            }
+            return NaviampCoreCommandResult.Completed
+        }
         if (command is NaviampCoreCommand.Library) useFavoritesScope(providerSource.current())
         when (command) {
             NaviampCoreCommand.Search.Submit,
@@ -248,24 +360,34 @@ class NaviampCoreCatalogController(
     }
 
     private suspend fun search() {
+        if (searchLoadingGeneration == searchGeneration) return
         val generation = ++searchGeneration
         val query = stateStore.state.value.shell.search.query
         val normalized = normalizedSearchQuery(query)
         val provider = providerSource.current()
         if (normalized == null) {
+            searchFailure = null
             publishSearch(MediaSearchResults(), status = null, searching = false, provider = provider)
             return
         }
         if (provider == null) {
+            searchFailure = null
             publishSearch(MediaSearchResults(), SearchDisconnectedStatus, searching = false, provider = null)
             return
         }
+        val request = FailedCatalogRequest(provider, favoritesScope(provider), query, false)
+        fun current() = generation == searchGeneration && request.isCurrent(stateStore.state.value.shell.search.query, false)
+        searchLoadingGeneration = generation
         updateSearchState { it.copy(searching = true, status = "Searching...") }
-        val update = searchResultsUpdate(normalized) { searchQuery, limit ->
-            provider.search(searchQuery, limit)
+        try {
+            val update = searchResultsUpdate(normalized) { searchQuery, limit -> provider.search(searchQuery, limit) }
+            if (!current()) return
+            searchFailure = request.takeIf { update.failed }
+            publishSearch(update.results, update.status, searching = false, provider = provider)
+        } finally {
+            if (searchLoadingGeneration == generation) searchLoadingGeneration = null
+            if (current()) updateSearchState { it.copy(searching = false) }
         }
-        if (generation != searchGeneration || !providerSource.isCurrent(provider)) return
-        publishSearch(update.results, update.status, searching = false, provider = provider)
     }
 
     private suspend fun refreshLibraryExplicitly() {
@@ -370,18 +492,19 @@ class NaviampCoreCatalogController(
             updateLibraryCatalog(view) { it.copy(items = items, resultsQuery = null, searching = false,
                 albumSortOrder = currentAlbumSortOrder()) }
         }
-        val cached = index.snapshot(scope)
-        load.completeAlbumCatalog = cached != null
-        if (cached != null) publish(cached.albums)
-        load.nextRequest = null
-        load.loadedSource = sourceKey.takeIf { cached != null }
-        if (!force && cached != null && index.isFresh(cached)) {
-            updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi()) }
-            return
-        }
         load.loadingGeneration = generation
-        updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi(isSyncing = true, albumIndexCount = 0)) }
         try {
+            val cached = index.snapshot(scope)
+            load.completeAlbumCatalog = cached != null
+            if (cached != null) publish(cached.albums)
+            load.nextRequest = null
+            load.loadedSource = sourceKey.takeIf { cached != null }
+            if (!force && cached != null && index.isFresh(cached)) {
+                load.failure = null
+                updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi()) }
+                return
+            }
+            updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi(isSyncing = true, albumIndexCount = 0)) }
             val refreshed = index.refresh(scope, provider, ::current) { partial ->
                 if (cached == null) publish(partial)
                 updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi(
@@ -392,6 +515,7 @@ class NaviampCoreCatalogController(
             publish(refreshed.albums)
             load.completeAlbumCatalog = true
             load.loadedSource = sourceKey
+            load.failure = null
             updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi()) }
             stateStore.state.value.shell.library.albums.pendingJump?.let { letter ->
                 if (stateStore.state.value.shell.library.selectedView == view) publishLibraryJump(letter)
@@ -399,9 +523,10 @@ class NaviampCoreCatalogController(
         } catch (cause: CancellationException) {
             throw cause
         } catch (_: Exception) {
-            if (current()) updateLibraryCatalog(view) { it.copy(
-                syncStatus = NaviampLibrarySyncStatusUi(albumIndexFailed = true),
-            ) }
+            if (current()) {
+                load.failure = libraryFailure(view, provider)
+                updateLibraryCatalog(view) { it.copy(syncStatus = NaviampLibrarySyncStatusUi(albumIndexFailed = true)) }
+            }
         } finally {
             if (current()) {
                 load.loadingGeneration = null
@@ -421,6 +546,9 @@ class NaviampCoreCatalogController(
             it.loadedSource = null
             it.loadingGeneration = null
             it.completeAlbumCatalog = false
+            it.failure = null
+            it.recovery = null
+            it.scope = null
             it.browseSnapshot = null
             it.ordinarySnapshot = null
             it.nextRequest = MediaPageRequest(limit = libraryPageSize)
@@ -550,6 +678,7 @@ class NaviampCoreCatalogController(
         fun current() = isCurrentLibraryLoad(load, generation, sourceKey) && sourceId == activeLibrarySourceId()
         load.loadingGeneration = generation
         publishLibraryStatus(view, "Refreshing libraryâ€¦", loading = true)
+        var catalogLoaded = false
         try {
             val artists = provider.loadCompleteArtistLibrary()
             if (!current()) return
@@ -557,6 +686,8 @@ class NaviampCoreCatalogController(
             publishLibraryArtists(artists, provider)
             load.nextRequest = null
             load.loadedSource = sourceKey
+            load.failure = null
+            catalogLoaded = true
             provider.libraryScanStatus()?.signature?.let { signature ->
                 if (current()) repository.markLibraryScanChecked(sourceId, signature)
             }
@@ -564,7 +695,10 @@ class NaviampCoreCatalogController(
         } catch (cause: CancellationException) {
             throw cause
         } catch (cause: Exception) {
-            if (current()) publishLibraryStatus(view, cause.message ?: "Could not load library.", loading = false)
+            if (current()) {
+                if (!catalogLoaded) load.failure = libraryFailure(view, provider)
+                publishLibraryStatus(view, cause.message ?: "Could not load library.", loading = false)
+            }
         } finally {
             if (current()) {
                 load.loadingGeneration = null
@@ -589,6 +723,8 @@ class NaviampCoreCatalogController(
                 val load = libraryLoads.getValue(view)
                 load.generation++
                 load.loadingGeneration = null
+                load.failure = null
+                load.recovery = null
                 load.loadedSource = null
                 load.browseSnapshot = null
                 load.ordinarySnapshot = null
@@ -619,6 +755,7 @@ class NaviampCoreCatalogController(
             favorites(view).cancel()
             val load = libraryLoads.getValue(view)
             if (enabled) load.ordinarySnapshot = captureSnapshot(view)
+            load.recovery = null
             load.generation++
             load.loadingGeneration = null
         }
@@ -823,11 +960,13 @@ class NaviampCoreCatalogController(
             }
             if (!current()) return
             reprojectFavorites(favorites, provider)
+            favorites.failure = null
             stateStore.state.value.shell.library.catalog(view).pendingJump?.let(::publishLibraryJump)
         } catch (cause: CancellationException) {
             throw cause
         } catch (_: Exception) {
             if (current()) {
+                favorites.failure = libraryFailure(view, provider)
                 if (favorites.members == null) {
                     // This tombstone survives later snapshot restoration and ordinary provider pages.
                     favorites.invalidated = true
@@ -1025,6 +1164,7 @@ class NaviampCoreCatalogController(
             if (accepted && isCurrentLibraryLoad(load, generation, sourceKey)) {
                 load.nextRequest = nextRequest
                 load.loadedSource = sourceKey
+                load.failure = null
             }
         }.onFailure { cause ->
             if (cause is CancellationException) {
@@ -1035,6 +1175,7 @@ class NaviampCoreCatalogController(
                 throw cause
             }
             if (isCurrentLibraryLoad(load, generation, sourceKey)) {
+                load.failure = libraryFailure(view, provider)
                 publishLibraryStatus(view, cause.message ?: "Could not load library.", loading = false)
             }
         }
@@ -1047,11 +1188,19 @@ class NaviampCoreCatalogController(
     }
 
     private fun updateSearchQuery(query: String) {
-        updateSearchState { it.copy(query = query) }
+        if (stateStore.state.value.shell.search.query == query) return
+        searchGeneration++
+        searchLoadingGeneration = null
+        searchFailure = null
+        searchRecovery = null
+        updateSearchState { it.copy(query = query, searching = false) }
     }
 
     private fun clearSearch() {
         searchGeneration += 1
+        searchLoadingGeneration = null
+        searchFailure = null
+        searchRecovery = null
         mediaRegistry.updateSearch(MediaSearchResults())
         updateSearchState { NaviampSearchScreenUi() }
     }
@@ -1098,6 +1247,8 @@ class NaviampCoreCatalogController(
         }
         load.generation++
         load.loadingGeneration = null
+        load.recovery = null
+        load.failure = null
         val snapshot = if (query.isBlank()) load.browseSnapshot?.takeIf { it.sourceKey == sourceKey } else null
         if (query.isBlank()) load.browseSnapshot = null
         if (library.favoritesOnly) {
@@ -1134,6 +1285,7 @@ class NaviampCoreCatalogController(
             nextRequest = load.nextRequest,
             sourceKey = providerSource.current()?.let { it.id.value to it.cacheNamespace },
             loadedSource = load.loadedSource,
+            failure = load.failure,
             media = when (view) {
                 NaviampLibraryView.Artists -> MediaSearchResults(artists = mediaRegistry.libraryArtists)
                 NaviampLibraryView.Albums -> MediaSearchResults(albums = mediaRegistry.libraryAlbums)
@@ -1158,6 +1310,7 @@ class NaviampCoreCatalogController(
         val load = libraryLoads.getValue(view)
         load.nextRequest = snapshot.nextRequest
         load.loadedSource = snapshot.loadedSource
+        load.failure = snapshot.failure
         when (view) {
             NaviampLibraryView.Artists -> mediaRegistry.updateLibraryArtists(snapshot.media.artists, true)
             NaviampLibraryView.Albums -> mediaRegistry.updateLibraryAlbums(snapshot.media.albums, true)
@@ -1178,6 +1331,7 @@ class NaviampCoreCatalogController(
         if (stateStore.state.value.shell.library.catalog(previous).searching) load.loadedSource = null
         load.generation++
         load.loadingGeneration = null
+        load.recovery = null
         stateStore.updateShell { shell ->
             fun catalog(kind: NaviampLibraryView): NaviampLibraryCatalogUi {
                 val current = shell.library.catalog(kind)

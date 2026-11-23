@@ -1,5 +1,10 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import app.naviamp.domain.provider.MediaProvider
+import kotlinx.coroutines.CancellationException
 import app.naviamp.domain.InternetRadioStation
 import app.naviamp.domain.radio.recentSavedInternetRadioStationsWith
 import app.naviamp.domain.settings.SavedInternetRadioStation
@@ -59,12 +64,31 @@ class NaviampCoreInternetRadioController(
     private var generation = 0L
     private var stations = emptyList<InternetRadioStation>()
     private var stationsById = emptyMap<String, InternetRadioStation>()
+    private var loadingGeneration: Long? = null
+    private var failedProvider: MediaProvider? = null
+    private var failedSourceId: String? = null
+    private var recoveryScheduled = false
+    private data class RefreshRequest(val generation: Long, val provider: MediaProvider?, val sourceId: String?)
+    private val pendingRefreshes = ArrayDeque<RefreshRequest>()
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage || page.route != NaviampRoute.Radio || recoveryScheduled ||
+            loadingGeneration != null || failedProvider?.let(providerSource::isCurrent) != true ||
+            failedSourceId != currentSourceId() || stateStore.state.value.shell.radio.stations.isNotEmpty()) return emptyList()
+        recoveryScheduled = true
+        return listOf(NaviampCoreCommand.Radio.Refresh)
+    }
+
+    private fun currentSourceId() = stateStore.state.value.shell.connectionSettings.currentSourceId
 
     /** The provider-ordered station catalog shared by Radio and Now Playing. */
     fun stations(): List<InternetRadioStation> = stations
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
-        NaviampCoreCommand.Radio.Refresh,
+        NaviampCoreCommand.Radio.Refresh -> {
+            pendingRefreshes.addLast(RefreshRequest(generation, providerSource.current(), currentSourceId()))
+            NaviampCoreImmediateCommandResult.Deferred
+        }
         is NaviampCoreCommand.Radio.StationAction,
         is NaviampCoreCommand.Radio.SaveStation,
         is NaviampCoreCommand.Home.SelectInternetRadio,
@@ -74,7 +98,15 @@ class NaviampCoreInternetRadioController(
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         when (command) {
-            NaviampCoreCommand.Radio.Refresh -> refresh()
+            NaviampCoreCommand.Radio.Refresh -> {
+                val request = pendingRefreshes.removeFirstOrNull()
+                if (request == null || request.generation == generation &&
+                    (request.provider?.let(providerSource::isCurrent) ?: (providerSource.current() == null)) &&
+                    request.sourceId == currentSourceId()) {
+                    recoveryScheduled = false
+                    refresh()
+                }
+            }
             is NaviampCoreCommand.Radio.SaveStation -> save(command.station)
             is NaviampCoreCommand.Radio.StationAction -> when (command.request.action) {
                 StationRowAction.Select -> playResolved {
@@ -93,35 +125,44 @@ class NaviampCoreInternetRadioController(
     }
 
     private suspend fun refresh(finalStatus: String? = null) {
-        val requestGeneration = ++generation
-        stateStore.updateShell { shell ->
-            shell.copy(radio = shell.radio.copy(refreshing = true, status = "Loading internet radio..."))
-        }
+        recoveryScheduled = false
         val provider = providerSource.current()
         if (provider == null) {
             publishFailure("Connect to Navidrome to load internet radio.")
             return
         }
-        runCatching { provider.internetRadioStations() }
-            .onSuccess { stations ->
-                if (requestGeneration != generation) return@onSuccess
-                this.stations = stations
-                stationsById = stations.associateBy(InternetRadioStation::id)
-                stateStore.updateShell { shell ->
-                    shell.copy(
-                        radio = shell.radio.copy(
-                            stations = stations.map(InternetRadioStation::toInternetRadioStationUi),
-                            refreshing = false,
-                            status = finalStatus,
-                        ),
-                    )
-                }
+        val requestGeneration = ++generation
+        val sourceId = currentSourceId()
+        fun current() = requestGeneration == generation && providerSource.isCurrent(provider) && sourceId == currentSourceId()
+        loadingGeneration = requestGeneration
+        stateStore.updateShell { shell ->
+            shell.copy(radio = shell.radio.copy(refreshing = true, status = "Loading internet radio..."))
+        }
+        try {
+            val stations = provider.internetRadioStations()
+            if (!current()) return
+            failedProvider = null
+            this.stations = stations
+            stationsById = stations.associateBy(InternetRadioStation::id)
+            stateStore.updateShell { shell ->
+                shell.copy(radio = shell.radio.copy(
+                    stations = stations.map(InternetRadioStation::toInternetRadioStationUi),
+                    refreshing = false,
+                    status = finalStatus,
+                ))
             }
-            .onFailure { cause ->
-                if (requestGeneration == generation) {
-                    publishFailure(cause.message ?: "Could not load internet radio stations.")
-                }
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (cause: Exception) {
+            if (current()) {
+                failedProvider = provider
+                failedSourceId = sourceId
+                publishFailure(cause.message ?: "Could not load internet radio stations.")
             }
+        } finally {
+            if (loadingGeneration == requestGeneration) loadingGeneration = null
+            if (current()) stateStore.updateShell { shell -> shell.copy(radio = shell.radio.copy(refreshing = false)) }
+        }
     }
 
     suspend fun refreshAfterConnection() = refresh()
@@ -137,6 +178,10 @@ class NaviampCoreInternetRadioController(
 
     fun resetForSourceChange() {
         generation += 1
+        loadingGeneration = null
+        failedProvider = null
+        failedSourceId = null
+        recoveryScheduled = false
         stations = emptyList()
         stationsById = emptyMap()
         recents.clear()

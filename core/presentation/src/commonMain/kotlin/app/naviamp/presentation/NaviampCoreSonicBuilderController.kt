@@ -1,5 +1,9 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import kotlinx.coroutines.CancellationException
 import app.naviamp.domain.Track
 import app.naviamp.domain.sonicmix.SonicMixBias
 import app.naviamp.domain.sonicmix.SonicMixDefaultTargetLength
@@ -48,6 +52,91 @@ class NaviampCoreSonicBuilderController(
     private var pathBuildGeneration = 0L
     private var mixBuildGeneration = 0L
 
+    private enum class CandidateKind { Start, End, Mix }
+    private enum class CandidatePhase { Loading, Failed, Scheduled, Complete }
+    private class CandidateLoad(
+        val kind: CandidateKind,
+        val query: String,
+        val source: String?,
+        val retry: Boolean,
+        var phase: CandidatePhase = CandidatePhase.Loading,
+    )
+    private val candidateLoads = mutableMapOf<CandidateKind, CandidateLoad>()
+    // Keep identity guards until queued commands are consumed, even after a reset.
+    private val queuedRecovery = mutableListOf<Pair<NaviampCoreCommand, CandidateLoad>>()
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage) return emptyList()
+        return when (page.route) {
+            NaviampRoute.SonicPath -> {
+                if (pathSearchLoading() || startSuggestions.isNotEmpty() || endSuggestions.isNotEmpty() ||
+                    startTrack != null || endTrack != null || pathTracks.isNotEmpty()) return emptyList()
+                buildList {
+                    claimRecovery(CandidateKind.Start)?.let(::add)
+                    claimRecovery(CandidateKind.End)?.let(::add)
+                }
+            }
+            NaviampRoute.SonicMix -> {
+                if (mixSuggestions.isNotEmpty() || selectedMixTracks.isNotEmpty() || mixTracks.isNotEmpty()) return emptyList()
+                listOfNotNull(claimRecovery(CandidateKind.Mix))
+            }
+            else -> emptyList()
+        }
+    }
+
+    private fun claimRecovery(kind: CandidateKind): NaviampCoreCommand? {
+        val load = candidateLoads[kind] ?: return null
+        if (load.phase != CandidatePhase.Failed || !isCurrent(load)) return null
+        val command = when (kind) {
+            CandidateKind.Start -> NaviampCoreCommand.MixBuilder.SonicPath(NaviampCoreCommand.SonicPathAction.SearchStart)
+            CandidateKind.End -> NaviampCoreCommand.MixBuilder.SonicPath(NaviampCoreCommand.SonicPathAction.SearchEnd)
+            CandidateKind.Mix -> NaviampCoreCommand.MixBuilder.SonicMix(NaviampCoreCommand.SonicMixAction.Search)
+        }
+        load.phase = CandidatePhase.Scheduled
+        queuedRecovery += command to load
+        return command
+    }
+
+    private fun candidateQuery(kind: CandidateKind): String = when (kind) {
+        CandidateKind.Start -> currentPathUi().startQuery
+        CandidateKind.End -> currentPathUi().endQuery
+        CandidateKind.Mix -> currentMixUi().query
+    }
+
+    private fun isCurrent(load: CandidateLoad): Boolean = candidateLoads[load.kind] === load &&
+        load.source == providerSource.current()?.cacheNamespace && load.query == candidateQuery(load.kind)
+
+    private fun beginCandidates(kind: CandidateKind): CandidateLoad? {
+        val previous = candidateLoads[kind]
+        if (previous != null && isCurrent(previous) && previous.phase == CandidatePhase.Loading) return null
+        return CandidateLoad(kind, candidateQuery(kind), providerSource.current()?.cacheNamespace,
+            previous != null && isCurrent(previous) &&
+                (previous.phase == CandidatePhase.Failed || previous.phase == CandidatePhase.Scheduled))
+            .also { candidateLoads[kind] = it }
+    }
+
+    private fun changeCandidateQuery(kind: CandidateKind, query: String) {
+        if (candidateQuery(kind) == query) return
+        candidateLoads.remove(kind)
+        when (kind) {
+            CandidateKind.Start -> updatePathUi { it.copy(startQuery = query, loading = pathSearchLoading()) }
+            CandidateKind.End -> updatePathUi { it.copy(endQuery = query, loading = pathSearchLoading()) }
+            CandidateKind.Mix -> updateMixUi { it.copy(query = query, loading = false) }
+        }
+    }
+
+    private fun pathSearchLoading(): Boolean = candidateLoads[CandidateKind.Start]?.phase == CandidatePhase.Loading ||
+        candidateLoads[CandidateKind.End]?.phase == CandidatePhase.Loading
+
+    private fun candidateFailure(load: CandidateLoad, cause: Throwable) {
+        if (isCurrent(load)) {
+            load.phase = if (cause is CancellationException && !load.retry) CandidatePhase.Complete else CandidatePhase.Failed
+            val status = if (cause is CancellationException) null else cause.message ?: "Could not search tracks."
+            if (load.kind == CandidateKind.Mix) publishMix(false, status) else publishPath(pathSearchLoading(), status)
+        }
+        if (cause is CancellationException) throw cause
+    }
+
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         is NaviampCoreCommand.MixBuilder.SonicPath -> if (applyImmediatePath(command.action)) {
             NaviampCoreImmediateCommandResult.Handled()
@@ -63,6 +152,20 @@ class NaviampCoreSonicBuilderController(
     }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
+        val recoveryIndex = queuedRecovery.indexOfFirst { it.first === command }
+        if (recoveryIndex >= 0) {
+            val load = queuedRecovery.removeAt(recoveryIndex).second
+            if (!isCurrent(load) || load.phase != CandidatePhase.Scheduled) return NaviampCoreCommandResult.Completed
+            val empty = when (load.kind) {
+                CandidateKind.Start -> startSuggestions.isEmpty() && startTrack == null && endTrack == null && pathTracks.isEmpty()
+                CandidateKind.End -> endSuggestions.isEmpty() && startTrack == null && endTrack == null && pathTracks.isEmpty()
+                CandidateKind.Mix -> mixSuggestions.isEmpty() && selectedMixTracks.isEmpty() && mixTracks.isEmpty()
+            }
+            if (!empty) {
+                load.phase = CandidatePhase.Failed
+                return NaviampCoreCommandResult.Completed
+            }
+        }
         when (command) {
             is NaviampCoreCommand.MixBuilder.SonicPath ->
                 if (!applyImmediatePath(command.action)) executePath(command.action)
@@ -76,9 +179,9 @@ class NaviampCoreSonicBuilderController(
     private fun applyImmediatePath(action: NaviampCoreCommand.SonicPathAction): Boolean {
         when (action) {
             is NaviampCoreCommand.SonicPathAction.ChangeStartQuery ->
-                updatePathUi { it.copy(startQuery = action.query) }
+                changeCandidateQuery(CandidateKind.Start, action.query)
             is NaviampCoreCommand.SonicPathAction.ChangeEndQuery ->
-                updatePathUi { it.copy(endQuery = action.query) }
+                changeCandidateQuery(CandidateKind.End, action.query)
             is NaviampCoreCommand.SonicPathAction.ChangeCount ->
                 updatePathUi { it.copy(count = action.count.coerceIn(SonicPathMinCount, SonicPathMaxCount)) }
             is NaviampCoreCommand.SonicPathAction.SelectStart -> {
@@ -127,7 +230,7 @@ class NaviampCoreSonicBuilderController(
 
     private fun applyImmediateMix(action: NaviampCoreCommand.SonicMixAction): Boolean {
         when (action) {
-            is NaviampCoreCommand.SonicMixAction.ChangeQuery -> updateMixUi { it.copy(query = action.query) }
+            is NaviampCoreCommand.SonicMixAction.ChangeQuery -> changeCandidateQuery(CandidateKind.Mix, action.query)
             is NaviampCoreCommand.SonicMixAction.ChangeLength -> updateMixUi {
                 it.copy(targetLength = action.length.coerceIn(SonicMixMinTargetLength, SonicMixMaxTargetLength))
             }
@@ -197,18 +300,19 @@ class NaviampCoreSonicBuilderController(
             return
         }
         val provider = sonicProvider(::updatePathStatus) ?: return
+        val load = beginCandidates(if (start) CandidateKind.Start else CandidateKind.End) ?: return
         val generation = if (start) ++startSearchGeneration else ++endSearchGeneration
         updatePathUi { it.copy(loading = true, status = "Searching tracks...") }
         runCatching { provider.search(trimmed, 12).tracks }
             .onSuccess { tracks ->
                 val current = if (start) startSearchGeneration else endSearchGeneration
-                if (generation != current) return@onSuccess
+                if (generation != current || !isCurrent(load)) return@onSuccess
+                load.phase = CandidatePhase.Complete
                 if (start) startSuggestions = tracks else endSuggestions = tracks
-                publishPath(false, if (tracks.isEmpty()) "No matching tracks." else null)
+                publishPath(pathSearchLoading(), if (tracks.isEmpty()) "No matching tracks." else null)
             }
             .onFailure { cause ->
-                val current = if (start) startSearchGeneration else endSearchGeneration
-                if (generation == current) publishPath(false, cause.message ?: "Could not search tracks.")
+                candidateFailure(load, cause)
             }
     }
 
@@ -242,19 +346,19 @@ class NaviampCoreSonicBuilderController(
             return
         }
         val provider = sonicProvider(::updateMixStatus) ?: return
+        val load = beginCandidates(CandidateKind.Mix) ?: return
         val generation = ++mixSearchGeneration
         updateMixUi { it.copy(loading = true, status = "Searching tracks...") }
         runCatching { provider.search(query, 12).tracks }
             .onSuccess { tracks ->
-                if (generation != mixSearchGeneration) return@onSuccess
+                if (generation != mixSearchGeneration || !isCurrent(load)) return@onSuccess
+                load.phase = CandidatePhase.Complete
                 val selectedIds = selectedMixTracks.map(Track::id).toSet()
                 mixSuggestions = tracks.filterNot { it.id in selectedIds }
                 publishMix(false, if (mixSuggestions.isEmpty()) "No matching tracks." else null)
             }
             .onFailure { cause ->
-                if (generation == mixSearchGeneration) {
-                    publishMix(false, cause.message ?: "Could not search tracks.")
-                }
+                candidateFailure(load, cause)
             }
     }
 
@@ -344,6 +448,8 @@ class NaviampCoreSonicBuilderController(
     }
 
     private fun resetPath() {
+        candidateLoads.remove(CandidateKind.Start)
+        candidateLoads.remove(CandidateKind.End)
         startTrack = null
         endTrack = null
         startSuggestions = emptyList()
@@ -353,6 +459,7 @@ class NaviampCoreSonicBuilderController(
     }
 
     private fun resetMix() {
+        candidateLoads.remove(CandidateKind.Mix)
         selectedMixTracks = emptyList()
         mixSuggestions = emptyList()
         mixTracks = emptyList()

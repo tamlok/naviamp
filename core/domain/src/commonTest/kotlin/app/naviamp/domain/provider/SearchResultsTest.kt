@@ -10,6 +10,9 @@ import app.naviamp.domain.TrackId
 import app.naviamp.domain.search.offlineTrackSearchResults
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
+import kotlinx.coroutines.CancellationException
 
 class SearchResultsTest {
     @Test
@@ -63,9 +66,27 @@ class SearchResultsTest {
             SearchResultsUpdate(
                 results = MediaSearchResults(),
                 status = "Boom",
+                failed = true,
             ),
             searchResultsUpdate("query") { _, _ -> error("Boom") },
         )
+    }
+
+    @Test
+    fun successfulEmptySearchIsNotFailureAndCancellationPropagates() = kotlinx.coroutines.test.runTest {
+        assertFalse(searchResultsUpdate("query") { _, _ -> MediaSearchResults() }.failed)
+        assertFailsWith<CancellationException> {
+            searchResultsUpdate("query") { _, _ -> throw CancellationException("Cancelled") }
+        }
+    }
+
+    @Test
+    fun statusProjectionExceptionsAreNotFetchFailures() = kotlinx.coroutines.test.runTest {
+        assertFailsWith<IllegalStateException> {
+            searchResultsUpdate("query", matchedStatus = { error("projection") }) { _, _ ->
+                MediaSearchResults(tracks = listOf(track("one")))
+            }
+        }
     }
 
     @Test

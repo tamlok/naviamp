@@ -11,6 +11,8 @@ import app.naviamp.domain.home.HomeDate
 import app.naviamp.domain.navibeat.NavibeatMix
 import app.naviamp.domain.navibeat.NavibeatMixDate
 import app.naviamp.domain.navibeat.NavibeatMixMetadata
+import app.naviamp.domain.radio.albumRecentRadioStream
+import app.naviamp.domain.radio.randomAlbumRecentRadioStream
 import app.naviamp.domain.settings.FavoriteArtistSort
 import app.naviamp.domain.settings.HomeSectionIds
 import app.naviamp.domain.settings.HomeSectionLayout
@@ -52,7 +54,7 @@ class NavibeatHomeCardMapperTest {
     }
 
     @Test
-    fun recommendationsKeepSongsFirstArtistsNextAndTitleSortedAlbumsLastForEveryArtistSort() {
+    fun recommendationsKeepSongsFirstAndSortArtistsAndAlbumsWithinTheirGroups() {
         val home = HomeContent(
             supportsFavoriteSongs = true,
             favoriteArtists = listOf(
@@ -62,10 +64,14 @@ class NavibeatHomeCardMapperTest {
             favoriteArtistLastPlayed = mapOf(ArtistId("z") to "2026-01-03T00:00:00Z"),
             favoriteArtistsStatus = FavoriteArtistsStatus.Cached,
             favoriteAlbums = listOf(
-                favoriteAlbum("album-z", "Zulu"),
+                favoriteAlbum("album-z", "Zulu").copy(favoritedAtIso8601 = "2026-03-01T00:00:00Z"),
                 favoriteAlbum("album-b", "alpha"),
-                favoriteAlbum("album-a", "alpha"),
+                favoriteAlbum("album-a", "alpha").copy(favoritedAtIso8601 = "2026-02-01T00:00:00Z"),
                 favoriteAlbum("album-upper", "Alpha"),
+            ),
+            recentRadioStreams = listOf(
+                randomAlbumRecentRadioStream(favoriteAlbum("album-b", "alpha")),
+                albumRecentRadioStream(favoriteAlbum("album-z", "Zulu")),
             ),
             favoriteAlbumsFailed = true,
         )
@@ -77,7 +83,12 @@ class NavibeatHomeCardMapperTest {
                 interfaceSettings = settings,
             ))
             val artistIds = if (sort == FavoriteArtistSort.Name) listOf("a", "z") else listOf("z", "a")
-            assertEquals(listOf("favorite-songs") + artistIds + listOf("album-upper", "album-a", "album-b", "album-z"), section.items.map { it.mediaItem.id })
+            val albumIds = when (sort) {
+                FavoriteArtistSort.Name -> listOf("album-upper", "album-a", "album-b", "album-z")
+                FavoriteArtistSort.DateFavorited -> listOf("album-z", "album-a", "album-upper", "album-b")
+                FavoriteArtistSort.LastRadioPlayed -> listOf("album-b", "album-z", "album-upper", "album-a")
+            }
+            assertEquals(listOf("favorite-songs") + artistIds + albumIds, section.items.map { it.mediaItem.id })
             assertEquals(
                 listOf(SharedMediaItemKind.Playlist, SharedMediaItemKind.Artist, SharedMediaItemKind.Artist) + List(4) { SharedMediaItemKind.Album },
                 section.items.map { it.mediaKind },
@@ -96,7 +107,7 @@ class NavibeatHomeCardMapperTest {
             assertNull(songs.mediaItem.coverArtUrl)
             assertTrue(section.items.drop(1).all { it.artwork == SharedHomeCollectionArtwork.CoverArt })
             assertTrue(section.items.drop(1).all { it.mediaItem.canFavorite && it.mediaItem.favoriteActive })
-            assertEquals("cover:album-upper", section.items[3].mediaItem.coverArtUrl)
+            assertEquals("cover:${albumIds.first()}", section.items[3].mediaItem.coverArtUrl)
             assertEquals(sort, section.favoriteArtistSort)
             assertEquals(FavoriteArtistsStatus.Cached, section.favoriteArtistsStatus)
             assertTrue(section.favoriteAlbumsFailed)

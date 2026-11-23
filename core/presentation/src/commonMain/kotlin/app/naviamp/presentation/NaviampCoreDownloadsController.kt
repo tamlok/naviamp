@@ -1,5 +1,9 @@
 package app.naviamp.presentation
 
+import app.naviamp.app.NaviampNavigationPage
+import app.naviamp.app.NaviampRoutePage
+import app.naviamp.domain.app.NaviampRoute
+import kotlinx.coroutines.CancellationException
 import app.naviamp.app.NaviampDownloadJobController
 import app.naviamp.app.NaviampKeepDownloadedToggleResult
 import app.naviamp.app.downloadsDeletedStatus
@@ -71,6 +75,27 @@ class NaviampCoreDownloadsController(
     private var pendingArtistRequest: PendingArtistRequest? = null
     private var jobs = emptyList<app.naviamp.domain.cache.DownloadJob>()
     private var snapshotGeneration = 0L
+    private var snapshotLoadingGeneration: Long? = null
+    private var refreshGeneration = 0L
+    private var refreshLoadingGeneration: Long? = null
+    private var failedSnapshotSourceId: String? = null
+    private var recoveryScheduled = false
+    private data class RefreshRequest(val generation: Long, val sourceId: String?)
+    private val pendingRefreshes = ArrayDeque<RefreshRequest>()
+
+    override fun recoverEmptyPage(page: NaviampNavigationPage): List<NaviampCoreCommand> {
+        if (page !is NaviampRoutePage || page.route != NaviampRoute.Downloads || recoveryScheduled ||
+            refreshLoadingGeneration != null || snapshotLoadingGeneration != null ||
+            failedSnapshotSourceId == null || failedSnapshotSourceId != currentSourceId()) return emptyList()
+        val downloads = stateStore.state.value.shell.downloads
+        val dashboard = downloads.offlineDashboard
+        if (downloads.downloads.isNotEmpty() || downloads.jobs.isNotEmpty() ||
+            downloads.keepFavoritesDownloaded || downloads.keptAlbumIds.isNotEmpty() || downloads.keptArtistIds.isNotEmpty() ||
+            dashboard.audioCacheCount != 0L || dashboard.audioCacheBytes != 0L ||
+            dashboard.pendingProviderActionCount != 0L) return emptyList()
+        recoveryScheduled = true
+        return listOf(NaviampCoreCommand.Downloads.Refresh)
+    }
     private val jobSources = mutableMapOf<String, String>()
     private val persistedJobs = mutableMapOf<String, PersistedDownloadJob>()
     private val runningJobs = mutableMapOf<String, Job>()
@@ -99,6 +124,11 @@ class NaviampCoreDownloadsController(
 
     fun resetForSourceChange() {
         snapshotGeneration++
+        snapshotLoadingGeneration = null
+        refreshGeneration++
+        refreshLoadingGeneration = null
+        failedSnapshotSourceId = null
+        recoveryScheduled = false
         downloadedTracks = emptyList()
         policies = emptyList()
         pendingCollection = null
@@ -107,9 +137,13 @@ class NaviampCoreDownloadsController(
         stateStore.updateShell { shell -> shell.copy(downloads = app.naviamp.ui.NaviampDownloadsScreenUi()) }
     }
 
-    override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult =
-        if (command is NaviampCoreCommand.Downloads) NaviampCoreImmediateCommandResult.Deferred
-        else NaviampCoreImmediateCommandResult.Unhandled
+    override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult {
+        if (command !is NaviampCoreCommand.Downloads) return NaviampCoreImmediateCommandResult.Unhandled
+        if (command == NaviampCoreCommand.Downloads.Refresh) {
+            pendingRefreshes.addLast(RefreshRequest(refreshGeneration, currentSourceId()))
+        }
+        return NaviampCoreImmediateCommandResult.Deferred
+    }
 
     override suspend fun execute(command: NaviampCoreCommand): NaviampCoreCommandResult? {
         when (command) {
@@ -124,7 +158,13 @@ class NaviampCoreDownloadsController(
             is NaviampCoreCommand.Downloads.TrackAction -> executeTrackAction(command.request)
             is NaviampCoreCommand.Downloads.CancelJob -> cancel(command.id)
             is NaviampCoreCommand.Downloads.RetryJob -> retry(command.id)
-            NaviampCoreCommand.Downloads.Refresh -> refresh()
+            NaviampCoreCommand.Downloads.Refresh -> {
+                val request = pendingRefreshes.removeFirstOrNull()
+                if (request == null || request.generation == refreshGeneration && request.sourceId == currentSourceId()) {
+                    recoveryScheduled = false
+                    refresh()
+                }
+            }
             NaviampCoreCommand.Downloads.ToggleKeepFavorites -> toggleKeepFavorites()
             NaviampCoreCommand.Downloads.DeleteAll -> deleteAll()
             else -> return null
@@ -256,14 +296,28 @@ class NaviampCoreDownloadsController(
     private data class PendingArtistRequest(val sourceId: String, val id: String, val title: String)
 
     suspend fun refresh(status: String? = null, reconcile: Boolean = true) {
+        recoveryScheduled = false
         val sourceId = sourceIdOrPublish() ?: return
-        runCatching {
+        val generation = ++refreshGeneration
+        fun current() = generation == refreshGeneration && sourceId == currentSourceId()
+        refreshLoadingGeneration = generation
+        try {
             val removed = storage.pruneMissing(sourceId)
-            if (!loadSnapshot(sourceId)) return
+            if (!current() || !loadSnapshot(sourceId) || !current()) return
             restoreSavedJobs(sourceId)
             publishStatus(status ?: downloadsRefreshStatus(removed))
-            if (reconcile) reconcilePolicies(sourceId)
-        }.onFailure { cause -> publishStatus(cause.message ?: "Could not refresh downloads.") }
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (cause: Exception) {
+            if (current()) {
+                failedSnapshotSourceId = sourceId
+                publishStatus(cause.message ?: "Could not refresh downloads.")
+            }
+            return
+        } finally {
+            if (refreshLoadingGeneration == generation) refreshLoadingGeneration = null
+        }
+        if (reconcile && current()) reconcilePolicies(sourceId)
     }
 
     fun downloadTracks(
@@ -556,33 +610,50 @@ class NaviampCoreDownloadsController(
     }
 
     private suspend fun loadSnapshot(sourceId: String): Boolean {
+        if (sourceId != currentSourceId()) return false
         val generation = ++snapshotGeneration
-        val snapshot = storage.snapshot(sourceId)
-        if (generation != snapshotGeneration || currentSourceId() != sourceId) return false
-        downloadedTracks = snapshot.downloads
-        publishJobs()
-        reloadPolicies(sourceId)
-        val coverArt = providerSource.current()?.let { provider -> { id: String? -> id?.let(provider::coverArtUrl) } }
-            ?: { _: String? -> null }
-        stateStore.updateShell { shell ->
-            shell.copy(
-                downloads = shell.downloads.copy(
-                    downloads = downloadedTracks.map { download -> download.toUi(coverArt) },
-                    downloadBytes = downloadedTracks.sumOf(NaviampCoreDownloadedTrack::sizeBytes),
-                    maxDownloadBytes = shell.cache.settings.maxDownloadBytes,
-                    offlineDashboard = NaviampOfflineDashboardUi(
-                        audioCacheCount = snapshot.audioCacheCount,
-                        audioCacheBytes = snapshot.audioCacheBytes,
-                        maxAudioCacheBytes = shell.cache.settings.maxAudioCacheBytes,
-                        pendingProviderActionCount = snapshot.pendingProviderActionCount,
+        fun current() = generation == snapshotGeneration && sourceId == currentSourceId()
+        snapshotLoadingGeneration = generation
+        try {
+            val snapshot = storage.snapshot(sourceId)
+            if (!current()) return false
+            val currentPolicies = keepDownloaded.policies(sourceId)
+            downloadedTracks = snapshot.downloads
+            policies = currentPolicies
+            publishJobs()
+            val coverArt = providerSource.current()?.let { provider -> { id: String? -> id?.let(provider::coverArtUrl) } }
+                ?: { _: String? -> null }
+            stateStore.updateShell { shell ->
+                shell.copy(
+                    downloads = shell.downloads.copy(
+                        downloads = downloadedTracks.map { download -> download.toUi(coverArt) },
+                        downloadBytes = downloadedTracks.sumOf(NaviampCoreDownloadedTrack::sizeBytes),
+                        maxDownloadBytes = shell.cache.settings.maxDownloadBytes,
+                        offlineDashboard = NaviampOfflineDashboardUi(
+                            audioCacheCount = snapshot.audioCacheCount,
+                            audioCacheBytes = snapshot.audioCacheBytes,
+                            maxAudioCacheBytes = shell.cache.settings.maxAudioCacheBytes,
+                            pendingProviderActionCount = snapshot.pendingProviderActionCount,
+                        ),
+                        keepFavoritesDownloaded = policies.any { it.kind == KeepDownloadedCollectionKind.Favorites },
+                        keptAlbumIds = policies.filter { it.kind == KeepDownloadedCollectionKind.Album }.mapTo(mutableSetOf()) { it.collectionId },
+                        keptArtistIds = policies.filter { it.kind == KeepDownloadedCollectionKind.Artist }.mapTo(mutableSetOf()) { it.collectionId },
                     ),
-                    keepFavoritesDownloaded = policies.any { it.kind == KeepDownloadedCollectionKind.Favorites },
-                    keptAlbumIds = policies.filter { it.kind == KeepDownloadedCollectionKind.Album }.mapTo(mutableSetOf()) { it.collectionId },
-                    keptArtistIds = policies.filter { it.kind == KeepDownloadedCollectionKind.Artist }.mapTo(mutableSetOf()) { it.collectionId },
-                ),
-            )
+                )
+            }
+            failedSnapshotSourceId = null
+            return true
+        } catch (cause: CancellationException) {
+            throw cause
+        } catch (cause: Exception) {
+            if (current()) {
+                failedSnapshotSourceId = sourceId
+                publishStatus(cause.message ?: "Could not refresh downloads.")
+            }
+            return false
+        } finally {
+            if (snapshotLoadingGeneration == generation) snapshotLoadingGeneration = null
         }
-        return true
     }
 
     private fun reloadPolicies(sourceId: String) {

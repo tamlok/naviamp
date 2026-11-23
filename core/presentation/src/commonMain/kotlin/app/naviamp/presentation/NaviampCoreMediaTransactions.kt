@@ -164,6 +164,7 @@ class NaviampCoreMediaTransactions(
     private val onArtistUpdated: (app.naviamp.domain.provider.MediaProvider, Artist) -> Unit = { _, _ -> },
     private val onTrackUpdated: (app.naviamp.domain.provider.MediaProvider, Track) -> Unit = { _, _ -> },
     private val playOnSelectedDevice: (List<Track>, Int) -> Boolean = { _, _ -> false },
+    private val onRadioHistoryChanged: (app.naviamp.domain.provider.MediaProvider) -> Unit = {},
 ) : NaviampCoreTrackRadioTransactions {
     private val trackRadioBuild = Mutex()
 
@@ -622,6 +623,8 @@ class NaviampCoreMediaTransactions(
 
     private fun publishRecentRadio(updated: List<RecentRadioStream>) {
         val provider = providerSource.current()
+        // The recents owner returns the active source's immutable, newest-played-first history.
+        registry.updateHome(registry.home.copy(recentRadioStreams = updated), registry.sonicRows)
         stateStore.updateShell { shell ->
             val recentItems = updated.map { recent ->
                 val coverArtUrls = recent.coverArtIds
@@ -652,6 +655,7 @@ class NaviampCoreMediaTransactions(
                 ),
             )
         }
+        if (provider != null) onRadioHistoryChanged(provider)
     }
 
     private suspend fun <T> mutate(unsupported: String, mutation: suspend () -> T?, apply: (T) -> Unit) {
