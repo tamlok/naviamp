@@ -656,8 +656,7 @@ class NaviampCoreMediaTransactions(
                 interfaceSettings = shell.general.interfaceSettings,
             )
             val collectionPage = shell.home.collectionPage?.let { page ->
-                content.collectionSections
-                    .firstOrNull { it.id == page.section.id }
+                content.collectionSection(page.section.id)
                     ?.let { section -> page.copy(section = section) }
             }
             shell.copy(

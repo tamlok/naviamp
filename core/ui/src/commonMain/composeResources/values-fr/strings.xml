@@ -581,6 +581,8 @@
     <string name="storage_location_app">Stockage de l’app</string>
     <string name="storage_location_custom">Personnalisé</string>
     <string name="connect_recovery_secure_storage">Naviamp n&apos;a pas pu ouvrir le stockage sécurisé des identifiants de cet appareil. Déverrouillez le trousseau du système, puis réessayez.</string>
+    <string name="radio_server_title">Radio du serveur</string>
+    <string name="radio_server_empty">Aucune radio du serveur n’est disponible</string>
     <string name="generated_radio_saved">Stations enregistrées</string>
     <string name="generated_radio_revision">Révision de la recette %1$d</string>
     <string name="generated_radio_seeds">Sources initiales</string>

@@ -178,7 +178,7 @@ class NaviampMainNavigationUiTest {
         runOnIdle { selected = SharedRoute.Downloads }
         onNodeWithTag("main-destination-My").assertIsSelected()
         runOnIdle { selected = SharedRoute.ArtistMix }
-        onNodeWithTag("main-destination-Home").assertIsSelected()
+        onNodeWithTag("main-destination-Radio").assertIsSelected()
         runOnIdle { selected = SharedRoute.Search }
         onAllNodes(isSelected()).assertCountEquals(0)
         onNodeWithTag("route-Search").assertIsDisplayed()

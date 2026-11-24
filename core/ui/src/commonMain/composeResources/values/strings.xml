@@ -1328,6 +1328,8 @@
     <string name="tv_search_system_keyboard">System keyboard</string>
     <string name="storage_location_app">App storage</string>
     <string name="storage_location_custom">Custom</string>
+    <string name="radio_server_title">Server Radio</string>
+    <string name="radio_server_empty">No server radio is available</string>
     <string name="generated_radio_saved">Saved stations</string>
     <string name="generated_radio_revision">Recipe revision %1$d</string>
     <string name="generated_radio_seeds">Original seeds</string>

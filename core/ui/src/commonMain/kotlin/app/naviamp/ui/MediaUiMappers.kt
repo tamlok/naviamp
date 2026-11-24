@@ -294,22 +294,23 @@ fun HomeContent.toSharedHomeUi(
     val stationsUi = homeStations(this).map {
         SharedHomeStationUi(id = it.id, title = it.title, subtitle = it.subtitle)
     }
+    val serverRadioSections = mutableListOf<SharedHomeCollectionSectionUi>()
     val sections = buildList {
         fun addSection(id: String, title: String, items: List<SharedHomeCollectionItemUi>, titleArgument: String? = null) {
             if (items.isEmpty()) return
             val presentation = interfaceSettings.homeSectionPresentation(id)
-            add(
-                SharedHomeCollectionSectionUi(
-                    id = id,
-                    title = title,
-                    titleArgument = titleArgument,
-                    items = items,
-                    visible = presentation.visible,
-                    homeLayout = presentation.homeLayout,
-                    homeItemLimit = presentation.homeItemLimit,
-                    defaultPageLayout = presentation.pageLayout,
-                ),
+            val serverRadio = id in SharedServerRadioSectionIds
+            val section = SharedHomeCollectionSectionUi(
+                id = id,
+                title = title,
+                titleArgument = titleArgument,
+                items = items,
+                visible = serverRadio || presentation.visible,
+                homeLayout = presentation.homeLayout,
+                homeItemLimit = presentation.homeItemLimit,
+                defaultPageLayout = presentation.pageLayout,
             )
+            if (serverRadio) serverRadioSections.add(section) else add(section)
         }
 
         toSharedRecommendationsSection(coverArtUrl, canFavoriteAlbums, interfaceSettings)?.let { add(it) }
@@ -317,7 +318,7 @@ fun HomeContent.toSharedHomeUi(
         addSection(HomeSectionIds.MixesForYou, "MIXES FOR YOU", generatedMixes.map { station ->
             station.toSharedGeneratedRadioItem(coverArtUrl, artistArtworkUrl)
         })
-        if (savedGeneratedStations.isNotEmpty()) add(SharedHomeCollectionSectionUi(
+        if (savedGeneratedStations.isNotEmpty()) serverRadioSections.add(SharedHomeCollectionSectionUi(
             id = SharedHomeCollectionSectionIds.SavedGeneratedStations,
             title = "",
             titleResource = SharedHomeCollectionTitleResource.SavedGeneratedStations,
@@ -325,6 +326,7 @@ fun HomeContent.toSharedHomeUi(
                 station.toSharedGeneratedRadioItem(coverArtUrl, artistArtworkUrl)
             },
             homeItemLimit = 10,
+            defaultPageLayout = interfaceSettings.homeSectionPresentation(SharedHomeCollectionSectionIds.SavedGeneratedStations).pageLayout,
         ))
         addSection(HomeSectionIds.NavibeatMixes, "NAVIBEAT MIXES", navibeatMixes.map { mix ->
             SharedHomeCollectionItemUi(
@@ -416,12 +418,14 @@ fun HomeContent.toSharedHomeUi(
         addAlbums(HomeSectionIds.GenreSpotlight, "MORE IN ${genreSpotlight?.name.orEmpty()}", genreSpotlightAlbums, titleArgument = genreSpotlight?.name.orEmpty())
         addAlbums(HomeSectionIds.Decade, "FROM THE ${decadeLabel.uppercase()}", decadeAlbums, titleArgument = decadeLabel)
     }
+    serverRadioSections.sortBy { SharedServerRadioSectionIds.indexOf(it.id) }
     val order = interfaceSettings.resolvedHomeSectionOrder(sections.map { it.id })
     val orderIndex = order.withIndex().associate { it.value to it.index }
     val orderedSections = sections.sortedBy { orderIndex[it.id] ?: Int.MAX_VALUE }
     return SharedHomeUi(
         mixBuilders = builders,
         collectionSections = orderedSections,
+        serverRadioSections = serverRadioSections,
         homeSectionOrder = interfaceSettings.resolvedHomeSectionOrder(),
         aurralHomeVisible = interfaceSettings.homeSectionPresentation(HomeSectionIds.Aurral).visible,
         navibeatMixes = navibeatMixes.map { mix ->

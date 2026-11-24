@@ -22,16 +22,18 @@ data class NaviampCoreMediaPage(override val route: NaviampRoute, val item: Shar
 }
 
 data class NaviampCoreHomeCollectionPage(val sectionId: String) : NaviampNavigationPage {
-    override val route: NaviampRoute get() = NaviampRoute.Home
+    override val route: NaviampRoute get() = if (sectionId in app.naviamp.ui.SharedServerRadioSectionIds) NaviampRoute.Radio else NaviampRoute.Home
 }
 
 data class NaviampCoreFavoriteSongsPage(val sourceId: String?) : NaviampNavigationPage {
     override val route: NaviampRoute get() = NaviampRoute.Home
 }
 
-data class NaviampCoreGeneratedRadioPage(val stationId: String, val sourceId: String?) : NaviampNavigationPage {
-    override val route: NaviampRoute get() = NaviampRoute.Home
-}
+data class NaviampCoreGeneratedRadioPage(
+    val stationId: String,
+    val sourceId: String?,
+    override val route: NaviampRoute = NaviampRoute.Home,
+) : NaviampNavigationPage
 
 data class NaviampCoreDiscoveryPage(val sourceId: String?, val sourceGeneration: Long) : NaviampNavigationPage {
     override val route: NaviampRoute get() = NaviampRoute.Home
@@ -69,9 +71,10 @@ class NaviampCoreNavigationController(
     }
 
     fun openPage(page: NaviampNavigationPage) {
-        val changing = !navigation.currentEntry.page.sameDestination(page)
+        val destination = if (page is NaviampCoreGeneratedRadioPage) page.copy(route = navigation.currentEntry.contentRoute) else page
+        val changing = !navigation.currentEntry.page.sameDestination(destination)
         if (changing) onPageChanging()
-        navigation.openPage(page, stateStore.state.value.shell.shellChrome.nowPlayingOpen)
+        navigation.openPage(destination, stateStore.state.value.shell.shellChrome.nowPlayingOpen)
         publishNavigation(clearDetails = changing)
         persistNowPlayingOpen(false)
     }
@@ -161,9 +164,7 @@ class NaviampCoreNavigationController(
         is NaviampCoreDiscoveryPage -> stateStore.state.value.shell.home.providerDiscovery?.let {
             it.sourceId == page.sourceId && it.sourceGeneration == page.sourceGeneration
         } == true
-        is NaviampCoreHomeCollectionPage -> stateStore.state.value.shell.home.content.collectionSections.any {
-            it.id == page.sectionId && it.visible
-        }
+        is NaviampCoreHomeCollectionPage -> stateStore.state.value.shell.home.content.collectionSection(page.sectionId)?.visible == true
         else -> true
     }
 

@@ -92,7 +92,7 @@ fun SharedHome(
                 discoveryContent?.invoke()
                 return@forEach
             }
-            HomeCollectionSection(
+            NaviampCollectionSection(
                 section = section,
                 colors = colors,
                 actions = actions,
@@ -106,7 +106,7 @@ fun SharedHome(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HomeCollectionSection(
+internal fun NaviampCollectionSection(
     section: SharedHomeCollectionSectionUi,
     colors: NaviampColors,
     actions: NaviampHomeActions,
@@ -762,7 +762,7 @@ private fun HomeCollectionTitleRow(
         IconButton(onClick = onBack) {
             Icon(
                 imageVector = NaviampIcons.ChevronRight,
-                contentDescription = "Back to Home",
+                contentDescription = stringResource(Res.string.common_back),
                 tint = colors.primaryText,
                 modifier = Modifier.size(22.dp).graphicsLayer { rotationZ = 180f },
             )
@@ -999,23 +999,8 @@ fun SharedHomeRoute(
         NaviampDiscoveryBrowserUi(it, colors, actions, discoveryPlayback)
         return
     }
-    home.collectionPage?.let { page ->
-        Column(modifier = Modifier.fillMaxSize()) {
-            HomeCollectionPageHeader(page, colors, actions)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(collectionScrollState),
-            ) {
-                SharedHomeCollectionPage(
-                    page = page,
-                    colors = colors,
-                    actions = actions,
-                    mediaActions = mediaActions,
-                )
-            }
-        }
+    home.collectionPage?.takeUnless { it.section.id in SharedServerRadioSectionIds }?.let { page ->
+        NaviampCollectionPage(page, colors, actions, mediaActions, collectionScrollState)
         return
     }
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1054,6 +1039,22 @@ fun SharedHomeRoute(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun NaviampCollectionPage(
+    page: SharedHomeCollectionPageUi,
+    colors: NaviampColors,
+    actions: NaviampHomeActions,
+    mediaActions: NaviampMediaActions,
+    scrollState: ScrollState = rememberScrollState(),
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        HomeCollectionPageHeader(page, colors, actions)
+        Box(Modifier.weight(1f).fillMaxWidth().verticalScroll(scrollState)) {
+            SharedHomeCollectionPage(page = page, colors = colors, actions = actions, mediaActions = mediaActions)
         }
     }
 }

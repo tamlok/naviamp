@@ -1305,6 +1305,8 @@
     <string name="tv_search_system_keyboard">Teclado do sistema</string>
     <string name="storage_location_app">Armazenamento do app</string>
     <string name="storage_location_custom">Personalizado</string>
+    <string name="radio_server_title">Rádio do servidor</string>
+    <string name="radio_server_empty">Nenhuma rádio do servidor disponível</string>
     <string name="generated_radio_saved">Estações salvas</string>
     <string name="generated_radio_revision">Revisão da receita %1$d</string>
     <string name="generated_radio_seeds">Sementes originais</string>

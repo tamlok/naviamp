@@ -56,6 +56,12 @@ class NaviampApplicationSurfaceTest {
             NaviampTelevisionDestination.Radio,
             naviampSelectedTelevisionDestination(SharedRoute.Radio, nowPlayingOpen = false),
         )
+        listOf(SharedRoute.ArtistMix, SharedRoute.AlbumMix, SharedRoute.GenreMix, SharedRoute.SonicMix, SharedRoute.SonicPath).forEach { route ->
+            val selected = naviampSelectedTelevisionDestination(route, nowPlayingOpen = false)
+            assertEquals(NaviampTelevisionDestination.Radio, selected)
+            assertEquals(NaviampTelevisionDestination.Radio,
+                naviampTelevisionNavigationFocusDestination(selected, false, naviampTelevisionDestinations()))
+        }
     }
 
     @Test

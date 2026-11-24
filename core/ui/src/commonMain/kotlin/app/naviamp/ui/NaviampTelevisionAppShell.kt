@@ -8,6 +8,7 @@ import app.naviamp.ui.generated.resources.connect_setup_code_consent
 import org.jetbrains.compose.resources.stringResource
 import app.naviamp.ui.generated.resources.*
 
+import androidx.compose.foundation.focusGroup
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -540,7 +541,7 @@ internal fun televisionSettingsBackgroundRoute(
 internal fun televisionNavigationFocusChangesRoute(
     focusedRoute: SharedRoute,
     selectedRoute: SharedRoute,
-): Boolean = focusedRoute != selectedRoute
+): Boolean = focusedRoute != (naviampSelectedTelevisionDestination(selectedRoute, nowPlayingOpen = false)?.route ?: selectedRoute)
 
 internal fun televisionSettingsShouldDismissForControllerActivity(
     previousControllerDeviceId: String?,
@@ -698,6 +699,8 @@ private fun TelevisionConnectedContent(
     )
     val artistId = uiState.artistDetail.selectedArtist?.id
     val artistViewport = key(artistId) { rememberSaveableStateHolder() }
+    val radioViewport = rememberSaveableStateHolder()
+    val builderFocus = remember { FocusRequester() }
     val playlistId = uiState.playlistDetail.selectedPlaylist?.id
     var playlistReturnFocusId by remember(uiState.connectionSettings.currentSourceId) { mutableStateOf<String?>(null) }
     LaunchedEffect(selectedContentDestination, playlistId, uiState.connectionSettings.currentSourceId) {
@@ -705,6 +708,16 @@ private fun TelevisionConnectedContent(
             playlistReturnFocusId = null
         } else if (playlistId != null) {
             playlistReturnFocusId = playlistId
+        }
+    }
+    val builderPage = selectedContentDestination == NaviampTelevisionDestination.Radio &&
+        uiState.shellChrome.selectedRoute != SharedRoute.Radio && !uiState.generatedRadio.open &&
+        uiState.albumDetail.selectedAlbum == null && artistId == null && playlistId == null && uiState.home.collectionPage == null
+    LaunchedEffect(builderPage, uiState.shellChrome.selectedRoute, contentEntryGeneration) {
+        if (builderPage) {
+            withFrameNanos { }
+            builderFocus.requestFocus()
+            contentEntryGeneration.takeIf { contentEntryDestination == NaviampTelevisionDestination.Radio }?.let(onContentEntryHandled)
         }
     }
     when {
@@ -792,27 +805,26 @@ private fun TelevisionConnectedContent(
             },
             onEntryFocusHandled = onContentEntryHandled,
         )
-        uiState.shellChrome.selectedRoute == SharedRoute.Radio -> TelevisionInternetRadio(
-            screen = uiState.radio,
-            colors = colors,
-            actions = actions.radioActions,
-            topNavigationFocusRequester = topNavigationFocusRequester,
-            entryFocusGeneration = contentEntryGeneration.takeIf {
-                contentEntryDestination == NaviampTelevisionDestination.Radio
-            },
-            onEntryFocusHandled = onContentEntryHandled,
-        )
-        else -> ConnectedContent(
-            colors = colors,
-            uiState = uiState,
-            showFullNowPlaying = false,
-            playerBackground = playerBackground,
-            playbackProgress = playbackProgress,
-            visualizerBandsProvider = visualizerBandsProvider,
-            settingsSync = settingsSync,
-            actions = actions,
-            syncActions = syncActions,
-        )
+        uiState.shellChrome.selectedRoute == SharedRoute.Radio -> radioViewport.SaveableStateProvider("radio:${uiState.connectionSettings.currentSourceId}") {
+            NaviampRadioContent(colors, uiState.home, uiState.radio, actions.homeActions, actions.radioActions,
+                televisionMediaActions, sourceId = uiState.connectionSettings.currentSourceId, television = true,
+                topNavigationFocusRequester = topNavigationFocusRequester,
+                entryFocusGeneration = contentEntryGeneration.takeIf { contentEntryDestination == NaviampTelevisionDestination.Radio },
+                onEntryFocusHandled = onContentEntryHandled)
+        }
+        else -> Box(Modifier.fillMaxSize().then(if (builderPage) Modifier.focusRequester(builderFocus).focusGroup() else Modifier)) {
+            ConnectedContent(
+                colors = colors,
+                uiState = uiState,
+                showFullNowPlaying = false,
+                playerBackground = playerBackground,
+                playbackProgress = playbackProgress,
+                visualizerBandsProvider = visualizerBandsProvider,
+                settingsSync = settingsSync,
+                actions = actions,
+                syncActions = syncActions,
+            )
+        }
     }
 }
 

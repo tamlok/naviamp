@@ -236,6 +236,8 @@ class NaviampCoreHomeController(
                     (feed == null || feed.recommendations.isEmpty() && feed.trending.isEmpty()) &&
                     (refreshFailed || mediaRegistry.home.failedSections.isNotEmpty() || mediaRegistry.sonicRows.failedRowIds.isNotEmpty() || feed?.status.isHomeFetchFailure())
             }
+            page is NaviampRoutePage && page.route == NaviampRoute.Radio ->
+                home.content.serverRadioSections.isEmpty() && refreshFailed
             else -> false
         }
         if (!eligible || cachedHomeProvider?.let { !providerSource.isCurrent(it) || cachedHomeSourceId != currentHomeSourceId() } == true) return emptyList()
@@ -416,8 +418,7 @@ class NaviampCoreHomeController(
                     savedGeneratedStations = scopedSavedStations(provider, sourceId, sourceIdentity),
                 )
                 val refreshedPage = state.shell.home.collectionPage?.let { currentPage ->
-                    mappedContent.collectionSections
-                        .firstOrNull { it.id == currentPage.section.id }
+                    mappedContent.collectionSection(currentPage.section.id)
                         ?.let { section -> currentPage.copy(section = section) }
                 }
                 state.copy(
@@ -519,7 +520,7 @@ class NaviampCoreHomeController(
                 savedGeneratedStations = stations,
             )
             val page = shell.home.collectionPage?.let { page ->
-                content.collectionSections.firstOrNull { it.id == page.section.id }?.let { page.copy(section = it) }
+                content.collectionSection(page.section.id)?.let { page.copy(section = it) }
             }
             shell.copy(home = shell.home.copy(content = content, collectionPage = page))
         }
@@ -595,24 +596,27 @@ class NaviampCoreHomeController(
                 .withIndex()
                 .associate { it.value to it.index }
             val sections = updatedSections.sortedBy { orderIndex[it.id] ?: Int.MAX_VALUE }
-            val currentPage = shell.home.collectionPage?.let { page ->
-                val section = sections.firstOrNull { it.id == page.section.id && it.visible }
-                    ?: return@let null
-                page.copy(
-                    section = section,
-                    layout = settings.homeSectionPresentation(section.id).pageLayout,
+            val serverSections = shell.home.content.serverRadioSections.map { section ->
+                val presentation = settings.homeSectionPresentation(section.id)
+                val savedStations = section.id == app.naviamp.ui.SharedHomeCollectionSectionIds.SavedGeneratedStations
+                section.copy(
+                    visible = true,
+                    homeLayout = if (savedStations) section.homeLayout else presentation.homeLayout,
+                    homeItemLimit = if (savedStations) section.homeItemLimit else presentation.homeItemLimit,
+                    defaultPageLayout = presentation.pageLayout,
                 )
             }
-            shell.copy(
-                home = shell.home.copy(
-                    content = shell.home.content.copy(
-                        collectionSections = sections,
-                        homeSectionOrder = settings.resolvedHomeSectionOrder(),
-                        aurralHomeVisible = settings.homeSectionPresentation(app.naviamp.domain.settings.HomeSectionIds.Aurral).visible,
-                    ),
-                    collectionPage = currentPage,
-                ),
+            val content = shell.home.content.copy(
+                collectionSections = sections,
+                serverRadioSections = serverSections,
+                homeSectionOrder = settings.resolvedHomeSectionOrder(),
+                aurralHomeVisible = settings.homeSectionPresentation(app.naviamp.domain.settings.HomeSectionIds.Aurral).visible,
             )
+            val currentPage = shell.home.collectionPage?.let { page ->
+                val section = content.collectionSection(page.section.id)?.takeIf { it.visible } ?: return@let null
+                page.copy(section = section, layout = section.defaultPageLayout)
+            }
+            shell.copy(home = shell.home.copy(content = content, collectionPage = currentPage))
         }
     }
 
@@ -650,8 +654,7 @@ class NaviampCoreHomeController(
     }
 
     private fun openCollection(sectionId: String) {
-        val section = stateStore.state.value.shell.home.content.collectionSections
-            .firstOrNull { it.id == sectionId && it.visible }
+        val section = stateStore.state.value.shell.home.content.collectionSection(sectionId)?.takeIf { it.visible }
         if (section == null) {
             publish(
                 refreshing = stateStore.state.value.shell.home.refreshing,

@@ -13,6 +13,7 @@ class NaviampTelevisionHomePolicyTest {
     fun focusingTheAlreadySelectedHomeTabDoesNotCloseTransientHomeContent() {
         assertFalse(televisionNavigationFocusChangesRoute(SharedRoute.Home, SharedRoute.Home))
         assertTrue(televisionNavigationFocusChangesRoute(SharedRoute.Library, SharedRoute.Home))
+        assertFalse(televisionNavigationFocusChangesRoute(SharedRoute.Radio, SharedRoute.ArtistMix))
     }
 
     @Test
@@ -54,13 +55,13 @@ class NaviampTelevisionHomePolicyTest {
         )
 
         assertEquals(
-            listOf(HomeSectionIds.Stations, HomeSectionIds.RecentlyAdded),
+            listOf(HomeSectionIds.MixBuilders, HomeSectionIds.Stations, HomeSectionIds.RecentlyAdded),
             televisionHomeSections(sections).map { it.id },
         )
     }
 
     @Test
-    fun televisionSettingsOmitMixBuildersWithoutRemovingTheirStandardAppOrder() {
+    fun movingHomeOptionsKeepsLegacyRadioPreferencesWithoutShowingThemOnHome() {
         val settings = InterfaceSettings(
             homeSectionOrder = listOf(
                 HomeSectionIds.RecentlyPlayed,
@@ -68,13 +69,12 @@ class NaviampTelevisionHomePolicyTest {
                 HomeSectionIds.RecentAlbums,
             ),
         )
-        val televisionSections = settings.televisionHomeSectionOptions()
-
-        assertEquals(false, televisionSections.any { it.id == HomeSectionIds.MixBuilders })
-
-        val reordered = televisionSections.moveHomeSectionItem(0, 1)
-        val updated = settings.withOrderedTelevisionHomeSections(reordered)
-        assertEquals(HomeSectionIds.MixBuilders, updated.homeSectionOrder[settings.resolvedHomeSectionOrder().indexOf(HomeSectionIds.MixBuilders)])
+        val sections = settings.orderedHomeScreenSectionOptions()
+        assertFalse(sections.any { it.id in SharedServerRadioSectionIds })
+        val reordered = sections.moveHomeSectionItem(0, 1)
+        val updated = settings.withOrderedHomeScreenSections(reordered)
+        assertTrue(HomeSectionIds.MixBuilders in updated.homeSectionOrder)
+        assertEquals(reordered.map { it.id }, updated.orderedHomeScreenSectionOptions().map { it.id })
     }
 
     @Test

@@ -52,6 +52,45 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreHomeControllerTest {
+    @Test fun serverCollectionsStayVisibleAndOpenAcrossSettingsAndCatalogUpdates() = runTest {
+        val provider = HomeTestProvider(supportsTrackRadio = true)
+        val store = NaviampCoreStateStore()
+        val hidden = InterfaceSettings(homeSectionPresentations = app.naviamp.ui.SharedServerRadioSectionIds.associateWith {
+            HomeSectionPresentationSettings(visible = false, homeLayout = HomeSectionLayout.List, homeItemLimit = 1,
+                pageLayout = HomeSectionPageLayout.List)
+        })
+        store.updateShell { it.copy(connectionSettings = it.connectionSettings.copy(currentSourceId = "source"),
+            general = it.general.copy(interfaceSettings = hidden)) }
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("saved", "Saved artist", app.naviamp.domain.radio.GeneratedRadioKind.Artist,
+            sourceId = "source", libraryScope = provider.cacheNamespace, saved = true,
+            artists = listOf(app.naviamp.domain.settings.SavedArtist("artist", "Artist")))
+        val repository = app.naviamp.domain.radio.MemoryGeneratedRadioRepository(
+            app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station)))
+        val history = NaviampNavigationController()
+        lateinit var home: NaviampCoreHomeController
+        val navigation = NaviampCoreNavigationController(history, store, { home.dispatch(it) })
+        home = NaviampCoreHomeController(store, { provider }, navigation, NaviampCoreHomeDateSource { HomeDate(2026, 100) }, generatedRadio = repository)
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Radio))
+        val content = store.state.value.shell.home.content
+        assertEquals(app.naviamp.ui.SharedServerRadioSectionIds, content.serverRadioSections.map { it.id })
+        assertTrue(content.collectionSections.none { it.id in app.naviamp.ui.SharedServerRadioSectionIds })
+        assertTrue(content.serverRadioSections.all { it.visible })
+        home.dispatch(NaviampCoreCommand.Home.OpenCollection(SharedHomeCollectionSectionIds.SavedGeneratedStations))
+        home.interfaceSettingsChanged(hidden)
+        home.generatedStationsChanged()
+        home.restoreRecentRadioStreams(emptyList())
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        val page = store.state.value.shell.home.collectionPage!!
+        assertEquals(SharedHomeCollectionSectionIds.SavedGeneratedStations, page.section.id)
+        assertEquals(HomeSectionPageLayout.List, page.layout)
+        assertTrue(page.section.visible)
+        assertEquals(HomeSectionLayout.Carousel, page.section.homeLayout)
+        assertEquals(10, page.section.homeItemLimit)
+        assertEquals(station.id, page.section.items.single().mediaItem.id)
+        assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
+    }
+
     @Test fun homeConnectionLoadsKeepPersistedMixesAndExplicitRefreshRotatesThemLazily() = runTest {
         var calls = 0
         val provider = object : MediaProvider by HomeTestProvider(supportsTrackRadio = true) {
@@ -82,14 +121,14 @@ class NaviampCoreHomeControllerTest {
         home.generatedStationsChanged()
         assertEquals(previousCalls, calls)
         assertFalse(registry.home.generatedMixes.any { it.id == savedStation.id })
-        val savedSection = store.state.value.shell.home.content.collectionSections.single {
+        val savedSection = store.state.value.shell.home.content.serverRadioSections.single {
             it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations
         }
         assertEquals(savedStation.id, savedSection.items.single().mediaItem.id)
         assertEquals("My station", savedSection.items.single().mediaItem.title)
         repository.save(repository.load().copy(stations = repository.load().stations.filterNot { it.id == savedStation.id }))
         home.generatedStationsChanged()
-        assertTrue(store.state.value.shell.home.content.collectionSections
+        assertTrue(store.state.value.shell.home.content.serverRadioSections
             .firstOrNull { it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations }?.items.isNullOrEmpty())
     }
 
@@ -516,14 +555,17 @@ class NaviampCoreHomeControllerTest {
         home = NaviampCoreHomeController(store, { HomeTestProvider(supportsTrackRadio = true) }, navigation,
             NaviampCoreHomeDateSource { HomeDate(2026, 100) })
         home.execute(NaviampCoreCommand.Home.Refresh)
+        navigation.dispatch(NaviampCoreCommand.Navigation.SelectRoute(SharedRoute.Radio))
         home.dispatch(NaviampCoreCommand.Home.OpenCollection("missing"))
         assertFalse(history.canGoBack)
-        home.dispatch(NaviampCoreCommand.Home.OpenCollection(SharedHomeCollectionSectionIds.MixesForYou))
+        home.dispatch(NaviampCoreCommand.Home.OpenCollection(app.naviamp.domain.settings.HomeSectionIds.MixBuilders))
         home.dispatch(NaviampCoreCommand.Home.SelectMixBuilder(SharedMixBuilderUi("artist", "Artist Mix", "")))
         assertEquals(SharedRoute.ArtistMix, store.state.value.shell.shellChrome.selectedRoute)
         navigation.back()
-        assertEquals(SharedHomeCollectionSectionIds.MixesForYou, store.state.value.shell.home.collectionPage?.section?.id)
+        assertEquals(app.naviamp.domain.settings.HomeSectionIds.MixBuilders, store.state.value.shell.home.collectionPage?.section?.id)
+        assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
         home.dispatch(NaviampCoreCommand.Home.CloseCollection)
+        assertEquals(SharedRoute.Radio, store.state.value.shell.shellChrome.selectedRoute)
         assertFalse(history.canGoBack)
     }
 

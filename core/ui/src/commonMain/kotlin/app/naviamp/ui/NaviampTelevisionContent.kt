@@ -111,7 +111,6 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
-@OptIn(ExperimentalFoundationApi::class)
 internal fun TelevisionHome(
     home: NaviampHomeScreenUi,
     colors: NaviampColors,
@@ -141,8 +140,26 @@ internal fun TelevisionHome(
             entryFocusGeneration = entryFocusGeneration, onEntryFocusHandled = onEntryFocusHandled)
         return
     }
-    val sections = home.content.homeScreenSlots(home.providerDiscovery != null,
-        televisionHomeSections(home.content.collectionSections))
+    TelevisionCollectionSections(
+        sections = home.content.homeScreenSlots(home.providerDiscovery != null, televisionHomeSections(home.content.collectionSections)),
+        home = home, colors = colors, actions = actions, mediaActions = mediaActions,
+        discoveryPlayback = discoveryPlayback, entryFocusGeneration = entryFocusGeneration, onEntryFocusHandled = onEntryFocusHandled,
+    )
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+internal fun TelevisionCollectionSections(
+    sections: List<HomeScreenSlot>,
+    home: NaviampHomeScreenUi,
+    colors: NaviampColors,
+    actions: NaviampHomeActions,
+    mediaActions: NaviampMediaActions,
+    discoveryPlayback: DiscoverySamplePlaybackUi,
+    entryFocusGeneration: Int? = null,
+    onEntryFocusHandled: (Int) -> Unit = {},
+    topNavigationFocusRequester: FocusRequester? = null,
+) {
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     val contextInsetPx = with(density) { TelevisionHomeFocusedSectionTopInset.roundToPx() }
@@ -235,7 +252,7 @@ internal fun TelevisionHome(
                                 itemCount = itemFocusRequesters[targetSectionIndex].size,
                             ),
                         )
-                    },
+                    } ?: topNavigationFocusRequester,
                     nextSectionFocusRequester = nextSectionIndex?.let { targetSectionIndex ->
                         itemFocusRequesters[targetSectionIndex].getOrNull(
                             televisionHomeRememberedItemIndex(
@@ -586,6 +603,7 @@ internal fun TelevisionInternetRadio(
     topNavigationFocusRequester: FocusRequester,
     entryFocusGeneration: Int? = null,
     onEntryFocusHandled: (Int) -> Unit = {},
+    showTitle: Boolean = true,
 ) {
     val stations = screen.stations.sortedBy { it.item.title.lowercase() }
     val newFocusRequester = remember { FocusRequester() }
@@ -607,10 +625,10 @@ internal fun TelevisionInternetRadio(
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = if (showTitle) 30.dp else 0.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(Res.string.tv_library_internet_radio), color = colors.primaryText, fontSize = 30.sp, fontWeight = FontWeight.Black)
+            if (showTitle) Text(stringResource(Res.string.tv_library_internet_radio), color = colors.primaryText, fontSize = 30.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
             TelevisionTextButton(
                 stringResource(Res.string.tv_new_station),

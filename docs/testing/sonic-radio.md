@@ -49,8 +49,9 @@ Short/empty results remain valid; no selected-method substitution is permitted.
 
 Home recommendations use listening activity, favorites and an exploration allocation. The daily
 selection persists across navigation/restarts; explicit refresh rotates eligible seeds. Saved
-stations live in their own Home collection and are not replaced by rotation. Preview and
-station actions are shared with keyboard/TV surfaces. Cached metadata is not downloaded audio.
+stations live in Radio's Server Radio tab and are not replaced by rotation. Mix Builders and
+Stations share that tab; Internet Radio has a separate tab. Tab changes never start playback.
+Section actions and Back navigation are shared with keyboard/TV surfaces. Cached metadata is not downloaded audio.
 
 Station recipes and preferences use settings-sync schema 2. Upgrade devices sharing the settings
 file; older builds cannot preserve these fields when forcibly exporting. Importing a version-1

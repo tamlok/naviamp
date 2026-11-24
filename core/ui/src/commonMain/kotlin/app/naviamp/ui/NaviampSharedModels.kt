@@ -627,10 +627,13 @@ data class SharedHomeUi(
     val decadeAlbums: List<SharedMediaItemUi> = emptyList(),
     val homeSectionOrder: List<String> = app.naviamp.domain.settings.DefaultHomeSectionOrder,
     val aurralHomeVisible: Boolean = true,
+    val serverRadioSections: List<SharedHomeCollectionSectionUi> = emptyList(),
 ) {
+    fun collectionSection(id: String): SharedHomeCollectionSectionUi? =
+        collectionSections.firstOrNull { it.id == id } ?: serverRadioSections.firstOrNull { it.id == id }
+
     val isEmpty: Boolean
-        get() = mixBuilders.isEmpty() &&
-            collectionSections.isEmpty() &&
+        get() = collectionSections.isEmpty() &&
             navibeatMixes.isEmpty() &&
             sonicDiscoveryRows.isEmpty() &&
             recentlyAddedAlbums.isEmpty() &&
@@ -642,7 +645,6 @@ data class SharedHomeUi(
             recentRadioStreams.isEmpty() &&
             recentlyPlayedTracks.isEmpty() &&
             radioStations.isEmpty() &&
-            stations.isEmpty() &&
             genreSpotlightAlbums.isEmpty() &&
             decadeAlbums.isEmpty()
 }
@@ -725,6 +727,12 @@ object SharedHomeCollectionSectionIds {
     const val NavibeatMixes = app.naviamp.domain.settings.HomeSectionIds.NavibeatMixes
     const val SavedGeneratedStations = "saved-generated-stations"
 }
+
+val SharedServerRadioSectionIds: List<String> = listOf(
+    app.naviamp.domain.settings.HomeSectionIds.MixBuilders,
+    app.naviamp.domain.settings.HomeSectionIds.Stations,
+    SharedHomeCollectionSectionIds.SavedGeneratedStations,
+)
 
 data class SharedHomeDiscoveryTrackRowUi(
     val id: String,

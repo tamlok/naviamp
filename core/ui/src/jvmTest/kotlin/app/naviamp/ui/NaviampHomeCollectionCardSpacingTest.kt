@@ -17,7 +17,7 @@ import kotlin.test.*
 @OptIn(ExperimentalTestApi::class)
 class NaviampHomeCollectionCardSpacingTest {
     @Test fun everyMixBuilderGridCardRendersItsIconInsteadOfABlankCover() = runDesktopComposeUiTest(480, 180) {
-        val items = HomeContent().toSharedHomeUi(coverArtUrl = { null }).collectionSections
+        val items = HomeContent().toSharedHomeUi(coverArtUrl = { null }).serverRadioSections
             .single { it.id == app.naviamp.domain.settings.HomeSectionIds.MixBuilders }.items
         setContent { MaterialTheme { Row {
             items.forEach { HomeCollectionArtwork(it, NaviampColors.Dark, 128.dp, Modifier.testTag(it.mediaItem.id)) }

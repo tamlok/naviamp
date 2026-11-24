@@ -2074,6 +2074,7 @@ fun NaviampInternetRadioContent(
     colors: NaviampColors,
     screen: NaviampInternetRadioScreenUi,
     actions: NaviampInternetRadioActions,
+    showTitle: Boolean = true,
 ) {
     InternetRadioContent(
         colors = colors,
@@ -2081,6 +2082,7 @@ fun NaviampInternetRadioContent(
         onRefresh = actions.onRefresh,
         onStationAction = actions.onStationAction,
         onSaveStation = actions.onSaveStation,
+        showTitle = showTitle,
         headerActions = {
             NaviampPageHeaderOverflow(
                 colors = colors,
@@ -2099,6 +2101,7 @@ fun InternetRadioContent(
     onRefresh: () -> Unit,
     onStationAction: (StationRowActionRequest) -> Unit,
     onSaveStation: ((NaviampInternetRadioStationEditUi) -> Unit)? = null,
+    showTitle: Boolean = true,
     headerActions: @Composable RowScope.() -> Unit = {},
 ) {
     val stations = screen.stations
@@ -2117,21 +2120,27 @@ fun InternetRadioContent(
             ),
         )
     }
+    val headerControls: @Composable RowScope.() -> Unit = {
+        if (onSaveStation != null) {
+            NaviampPageHeaderAction(
+                icon = NaviampIcons.Plus,
+                contentDescription = stringResource(Res.string.tv_new_station),
+                colors = colors,
+                onClick = { creatingStation = true },
+            )
+        }
+        headerActions()
+    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        NaviampPageHeader(stringResource(Res.string.tv_library_internet_radio), colors) {
-            if (onSaveStation != null) {
-                NaviampPageHeaderAction(
-                    icon = NaviampIcons.Plus,
-                    contentDescription = stringResource(Res.string.tv_new_station),
-                    colors = colors,
-                    onClick = { creatingStation = true },
-                )
-            }
-            headerActions()
+        if (showTitle) {
+            NaviampPageHeader(stringResource(Res.string.tv_library_internet_radio), colors, actions = headerControls)
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically, content = headerControls)
         }
         NaviampPullToRefreshBox(
             isRefreshing = screen.refreshing,

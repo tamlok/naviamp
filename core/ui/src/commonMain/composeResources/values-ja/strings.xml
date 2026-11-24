@@ -581,6 +581,8 @@
     <string name="storage_location_app">アプリのストレージ</string>
     <string name="storage_location_custom">カスタム</string>
     <string name="connect_recovery_secure_storage">Naviamp はこのデバイスの安全な資格情報ストレージを開けませんでした。システムのキーリングのロックを解除してから、もう一度お試しください。</string>
+    <string name="radio_server_title">サーバーラジオ</string>
+    <string name="radio_server_empty">利用できるサーバーラジオはありません</string>
     <string name="generated_radio_saved">保存したステーション</string>
     <string name="generated_radio_revision">レシピのリビジョン %1$d</string>
     <string name="generated_radio_seeds">元のシード</string>

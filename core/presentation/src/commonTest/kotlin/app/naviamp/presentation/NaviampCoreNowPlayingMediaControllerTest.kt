@@ -951,10 +951,16 @@ class NaviampCoreNowPlayingMediaControllerTest {
     @Test
     fun relatedQueueAndRadioSelectionsUseOneCoreQueuePolicy() = runTest {
         val fixture = mediaFixture(this)
+        val serverSection = app.naviamp.ui.SharedHomeCollectionSectionUi(
+            app.naviamp.ui.SharedHomeCollectionSectionIds.SavedGeneratedStations, "Saved stations", emptyList())
+        val serverPage = app.naviamp.ui.SharedHomeCollectionPageUi(serverSection)
+        fixture.store.updateShell { shell -> shell.copy(home = shell.home.copy(
+            content = shell.home.content.copy(serverRadioSections = listOf(serverSection)), collectionPage = serverPage)) }
         fixture.controller.execute(currentCommand(NowPlayingCurrentTrackAction.StartRadio))
         assertEquals("current", fixture.live.state.value.queue.current?.id?.value)
         assertTrue(fixture.live.state.value.queue.tracks.any { it.id.value == "radio" })
         assertTrue(fixture.effects.selections.isEmpty())
+        assertEquals(serverPage, fixture.store.state.value.shell.home.collectionPage)
         val recentSection = fixture.store.state.value.shell.home.content.collectionSections
             .single { it.id == app.naviamp.domain.settings.HomeSectionIds.RecentRadio }
         assertEquals("track:current", recentSection.items.single().mediaItem.id)

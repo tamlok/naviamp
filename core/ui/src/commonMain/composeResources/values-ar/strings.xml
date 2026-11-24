@@ -581,6 +581,8 @@
     <string name="storage_location_app">تخزين التطبيق</string>
     <string name="storage_location_custom">مخصص</string>
     <string name="connect_recovery_secure_storage">تعذّر على Naviamp فتح مخزن بيانات الاعتماد الآمن على هذا الجهاز. افتح قفل سلسلة مفاتيح النظام، ثم أعد المحاولة.</string>
+    <string name="radio_server_title">راديو الخادم</string>
+    <string name="radio_server_empty">لا توجد إذاعة متاحة على الخادم</string>
     <string name="generated_radio_saved">المحطات المحفوظة</string>
     <string name="generated_radio_revision">إصدار الوصفة %1$d</string>
     <string name="generated_radio_seeds">العناصر الأصلية</string>

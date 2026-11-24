@@ -10,12 +10,40 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class NavibeatHomeCardMapperTest {
-    @Test fun mixBuildersCarryTheirGeneratedArtworkInHomeAndCollectionGrids() {
-        val section = HomeContent().toSharedHomeUi(coverArtUrl = { null }).collectionSections
+    @Test fun mixBuildersCarryTheirGeneratedArtworkInServerRadioAndCollectionGrids() {
+        val section = HomeContent().toSharedHomeUi(coverArtUrl = { null }).serverRadioSections
             .single { it.id == app.naviamp.domain.settings.HomeSectionIds.MixBuilders }
         assertEquals(listOf("artist", "album", "genre"), section.items.map { it.artworkKey })
         section.items.forEach { assertEquals(SharedHomeCollectionArtwork.MixBuilderGenerated, it.artwork) }
     }
+
+    @Test
+    fun serverSectionsLeaveHomeButKeepLayoutsCapabilitiesAndSavedArtistShapes() {
+        val settings = app.naviamp.domain.settings.InterfaceSettings(
+            homeSectionOrder = SharedServerRadioSectionIds.reversed(),
+            homeSectionPresentations = SharedServerRadioSectionIds.associateWith {
+                app.naviamp.domain.settings.HomeSectionPresentationSettings(visible = false,
+                    homeLayout = app.naviamp.domain.settings.HomeSectionLayout.List)
+            },
+        )
+        val station = app.naviamp.domain.radio.GeneratedRadioStation("saved", "Saved artist", app.naviamp.domain.radio.GeneratedRadioKind.Artist,
+            saved = true, artists = listOf(app.naviamp.domain.settings.SavedArtist("artist", "Artist")))
+        val mapped = HomeContent().toSharedHomeUi(coverArtUrl = { null }, interfaceSettings = settings,
+            showSonicPathBuilder = true, showSonicMixBuilder = true, savedGeneratedStations = listOf(station))
+        assertEquals(SharedServerRadioSectionIds, mapped.serverRadioSections.map { it.id })
+        kotlin.test.assertTrue(mapped.serverRadioSections.all { it.visible })
+        kotlin.test.assertTrue(mapped.isEmpty)
+        kotlin.test.assertTrue(mapped.collectionSections.none { it.id in SharedServerRadioSectionIds })
+        assertEquals(listOf("artist", "album", "genre", "sonic-path", "sonic-mix"),
+            mapped.serverRadioSections.first().items.map { it.mediaItem.id })
+        assertEquals(app.naviamp.domain.settings.HomeSectionLayout.List, mapped.serverRadioSections.first().homeLayout)
+        val saved = mapped.collectionSection(SharedHomeCollectionSectionIds.SavedGeneratedStations)!!
+        assertEquals(SharedMediaItemKind.Artist, saved.items.single().mediaKind)
+        assertEquals(SharedHomeCollectionItemAction.StartGeneratedStation, saved.items.single().action)
+        assertEquals(app.naviamp.domain.settings.HomeSectionLayout.Carousel, saved.homeLayout)
+        assertEquals(10, saved.homeItemLimit)
+    }
+
 
     @Test
     fun mixesForYouTilesStartAnAlbumSeededMixInsteadOfPlayingTheAlbum() {

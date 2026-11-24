@@ -237,7 +237,7 @@ internal fun TelevisionSettingsSheet(
                         onHomeMoveCommitted = {
                             homeSectionOrderDraft?.let { sections ->
                                 actions.valueActions.onInterfaceSettingsChanged(
-                                    uiState.general.interfaceSettings.withOrderedTelevisionHomeSections(sections),
+                                    uiState.general.interfaceSettings.withOrderedHomeScreenSections(sections),
                                 )
                             }
                             movingHomeSectionId = null
@@ -580,7 +580,7 @@ private fun TelevisionHomeSettings(
     onMoveCommitted: () -> Unit,
 ) {
     val settings = uiState.general.interfaceSettings
-    val sections = orderDraft ?: settings.televisionHomeSectionOptions()
+    val sections = orderDraft ?: settings.orderedHomeScreenSectionOptions()
     val listState = rememberLazyListState()
     LaunchedEffect(movingSectionId, sections.map { it.id }) {
         val movingIndex = sections.indexOfFirst { it.id == movingSectionId }
@@ -1527,7 +1527,7 @@ private fun televisionSettingsCategoryValue(
     TelevisionSettingsCategory.Sources -> uiState.connectionSettings.connection.savedConnections
         .firstOrNull { it.current }?.displayName
     TelevisionSettingsCategory.Home -> uiState.general.interfaceSettings.let { settings ->
-        val sections = settings.televisionHomeSectionOptions()
+        val sections = settings.orderedHomeScreenSectionOptions()
         val visible = sections.count { settings.homeSectionPresentation(it.id).visible }
         stringResource(Res.string.tv_sections_visible, visible, sections.size)
     }

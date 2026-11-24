@@ -830,11 +830,10 @@ internal fun ConnectedContent(
                 NaviampGeneratedRadioBuilderActions("SonicMix", sonicMixBuilder.selectedTracks.isNotEmpty() && !sonicMixBuilder.loading,
                     actions.generatedRadioActions, sonic = true)
             }
-            SharedRoute.Radio -> NaviampInternetRadioContent(
-                colors = colors,
-                screen = radio,
-                actions = radioActions,
-            )
+            SharedRoute.Radio -> routeStateHolder.SaveableStateProvider("radio:${connectionSettings.currentSourceId}") {
+                NaviampRadioContent(colors, home, radio, homeActions, radioActions, mediaActions,
+                    sourceId = connectionSettings.currentSourceId)
+            }
             SharedRoute.My, SharedRoute.Downloads, SharedRoute.Settings -> NaviampMyContent(
                 uiState = uiState,
                 actions = actions,

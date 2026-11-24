@@ -10,12 +10,10 @@ import kotlin.test.assertTrue
 
 class NaviampHomeSectionSettingsTest {
     @Test
-    fun sharedCatalogContainsEveryHomeSectionInDefaultOrder() {
-        val options = InterfaceSettings().orderedHomeScreenSectionOptions()
-
-        assertEquals(19, options.size)
-        assertEquals(HomeSectionIds.Aurral, options.first().id)
-        assertEquals(HomeSectionIds.Decade, options.last().id)
+    fun serverRadioSectionsAreNotHomeCustomizationOptions() {
+        val options = InterfaceSettings(homeSectionOrder = SharedServerRadioSectionIds).orderedHomeScreenSectionOptions()
+        assertTrue(options.isNotEmpty())
+        assertFalse(options.any { it.id in SharedServerRadioSectionIds })
     }
 
     @Test

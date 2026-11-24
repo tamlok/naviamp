@@ -22,14 +22,12 @@ internal val HomeScreenSectionOptions = listOf(
     HomeScreenSectionOption(HomeSectionIds.NavibeatMixes, "NaviBeat Mixes", Res.string.tv_home_navibeat_mixes),
     HomeScreenSectionOption(HomeSectionIds.RecentRadio, "Recently Played Radio", Res.string.home_recently_played_radio),
     HomeScreenSectionOption(HomeSectionIds.RecentlyPlayed, "Recently Played", Res.string.tv_home_recently_played),
-    HomeScreenSectionOption(HomeSectionIds.MixBuilders, "Mix Builders", Res.string.tv_home_mix_builders),
     HomeScreenSectionOption(HomeSectionIds.MoreLikeRecentPlays, "More Like Recent Plays", Res.string.tv_home_more_like_recent_plays),
     HomeScreenSectionOption(HomeSectionIds.SonicDeepCuts, "Sonic Deep Cuts", Res.string.tv_home_sonic_deep_cuts),
     HomeScreenSectionOption(HomeSectionIds.SimilarToStarredTracks, "Similar To Starred Tracks", Res.string.tv_home_similar_to_starred_tracks),
     HomeScreenSectionOption(HomeSectionIds.RecentlyAdded, "Recently Added Music", Res.string.tv_home_recently_added_music),
     HomeScreenSectionOption(HomeSectionIds.RecentPlaylists, "Recent Playlists", Res.string.home_recent_playlists),
     HomeScreenSectionOption(HomeSectionIds.RecentInternetRadio, "Recent Internet Radio", Res.string.home_recent_internet_radio),
-    HomeScreenSectionOption(HomeSectionIds.Stations, "Stations", Res.string.tv_home_stations),
     HomeScreenSectionOption(HomeSectionIds.RecentAlbums, "Recent Albums", Res.string.home_recent_albums),
     HomeScreenSectionOption(HomeSectionIds.FrequentlyPlayedAlbums, "Frequently Played Albums", Res.string.home_frequently_played_albums),
     HomeScreenSectionOption(HomeSectionIds.RandomAlbums, "Random Albums", Res.string.home_random_albums),
@@ -69,7 +67,7 @@ internal fun SharedHomeUi.homeScreenSlots(
     discoveryAvailable: Boolean,
     sections: List<SharedHomeCollectionSectionUi> = collectionSections,
 ): List<HomeScreenSlot> {
-    val slots = sections.filter { it.visible }.map { HomeScreenSlot(it.id, it) }.toMutableList()
+    val slots = sections.filter { it.visible && it.id !in SharedServerRadioSectionIds }.map { HomeScreenSlot(it.id, it) }.toMutableList()
     if (discoveryAvailable && aurralHomeVisible) slots.add(HomeScreenSlot(HomeSectionIds.Aurral))
     val order = homeSectionOrder.withIndex().associate { it.value to it.index }
     return slots.sortedBy { order[it.id] ?: Int.MAX_VALUE }

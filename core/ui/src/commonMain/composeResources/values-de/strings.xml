@@ -1299,6 +1299,8 @@
     <string name="tv_search_system_keyboard">Systemtastatur</string>
     <string name="storage_location_app">App-Speicher</string>
     <string name="storage_location_custom">Benutzerdefiniert</string>
+    <string name="radio_server_title">Server-Radio</string>
+    <string name="radio_server_empty">Kein Server-Radio verfügbar</string>
     <string name="generated_radio_saved">Gespeicherte Stationen</string>
     <string name="generated_radio_revision">Rezeptversion %1$d</string>
     <string name="generated_radio_seeds">Ursprüngliche Ausgangstitel</string>

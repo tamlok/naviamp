@@ -19,6 +19,36 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NaviampCoreNavigationControllerTest {
+    @Test fun generatedStationAndSeedBackKeepTheirActualHomeOrRadioOrigin() {
+        for (root in listOf(NaviampRoute.Home, NaviampRoute.Radio)) {
+            val sectionId = if (root == NaviampRoute.Radio) app.naviamp.ui.SharedHomeCollectionSectionIds.SavedGeneratedStations
+                else app.naviamp.domain.settings.HomeSectionIds.RecentRadio
+            val section = app.naviamp.ui.SharedHomeCollectionSectionUi(sectionId, "Stations", emptyList())
+            val store = NaviampCoreStateStore()
+            store.updateShell { shell -> shell.copy(home = shell.home.copy(content = shell.home.content.copy(
+                collectionSections = if (root == NaviampRoute.Home) listOf(section) else emptyList(),
+                serverRadioSections = if (root == NaviampRoute.Radio) listOf(section) else emptyList()))) }
+            val history = NaviampNavigationController(NaviampNavigationState(root))
+            val restores = mutableListOf<NaviampCoreCommand>()
+            val navigation = NaviampCoreNavigationController(history, store, restores::add)
+            navigation.openHomeCollection(sectionId)
+            navigation.openPage(NaviampCoreGeneratedRadioPage("station", null))
+            assertEquals(root.toSharedRoute(), store.state.value.shell.shellChrome.selectedRoute)
+            navigation.openMediaPage(NaviampRoute.ArtistDetail, item("seed-artist"))
+            assertEquals(root.toSharedRoute(), store.state.value.shell.shellChrome.selectedRoute)
+            navigation.back()
+            assertTrue(history.currentEntry.page is NaviampCoreGeneratedRadioPage)
+            assertEquals(root.toSharedRoute(), store.state.value.shell.shellChrome.selectedRoute)
+            navigation.back()
+            assertEquals(NaviampCoreHomeCollectionPage(sectionId), history.currentEntry.page)
+            assertEquals(NaviampCoreCommand.Home.OpenCollection(sectionId), restores.last())
+            assertEquals(root.toSharedRoute(), store.state.value.shell.shellChrome.selectedRoute)
+            navigation.back()
+            assertEquals(root, history.currentEntry.page.route)
+            assertFalse(history.canGoBack)
+        }
+    }
+
     @Test fun recoveryEntriesAreOnceOnlyAndNeverEmittedByStructuralOpenOrSourceReset() {
         val store = NaviampCoreStateStore()
         val routes = NaviampNavigationController()

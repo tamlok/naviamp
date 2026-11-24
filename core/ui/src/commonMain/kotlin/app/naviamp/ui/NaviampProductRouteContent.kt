@@ -323,11 +323,10 @@ fun ColumnScope.NaviampProductRouteContent(
                     NaviampGeneratedRadioBuilderActions("SonicMix", shellState.sonicMixBuilder.selectedTracks.isNotEmpty() && !shellState.sonicMixBuilder.loading,
                         shellActions.generatedRadioActions, sonic = true)
                 }
-                NaviampRoute.Radio -> NaviampInternetRadioContent(
-                    colors = colors,
-                    screen = shellState.radio,
-                    actions = shellActions.radioActions,
-                )
+                NaviampRoute.Radio -> routeStateHolder.SaveableStateProvider("radio:${shellState.connectionSettings.currentSourceId}") {
+                    NaviampRadioContent(colors, shellState.home, shellState.radio, shellActions.homeActions,
+                        shellActions.radioActions, shellActions.mediaActions, sourceId = shellState.connectionSettings.currentSourceId)
+                }
                 NaviampRoute.My, NaviampRoute.Downloads, NaviampRoute.Settings -> NaviampMyContent(
                     uiState = shellState,
                     actions = shellActions,

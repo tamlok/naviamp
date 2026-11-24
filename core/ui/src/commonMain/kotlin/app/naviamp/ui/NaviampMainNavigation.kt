@@ -68,7 +68,7 @@ internal val NaviampMainRoutes: List<SharedRoute> = listOf(
 internal fun naviampMainNavigationSelection(route: SharedRoute): SharedRoute? = when (route) {
     SharedRoute.Home, SharedRoute.Playlists, SharedRoute.Library, SharedRoute.Radio, SharedRoute.My -> route
     SharedRoute.Settings, SharedRoute.Downloads -> SharedRoute.My
-    SharedRoute.ArtistMix, SharedRoute.AlbumMix, SharedRoute.GenreMix, SharedRoute.SonicPath, SharedRoute.SonicMix -> SharedRoute.Home
+    SharedRoute.ArtistMix, SharedRoute.AlbumMix, SharedRoute.GenreMix, SharedRoute.SonicPath, SharedRoute.SonicMix -> SharedRoute.Radio
     SharedRoute.Search -> null
 }
 

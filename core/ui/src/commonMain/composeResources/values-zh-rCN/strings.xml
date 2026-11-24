@@ -1294,6 +1294,8 @@
     <plurals name="tv_item_count">
         <item quantity="other">%1$d 项</item>
     </plurals>
+    <string name="radio_server_title">服务器电台</string>
+    <string name="radio_server_empty">暂无可用的服务器电台</string>
     <string name="generated_radio_saved">已保存的电台</string>
     <string name="generated_radio_revision">配方版本 %1$d</string>
     <string name="generated_radio_seeds">原始种子</string>

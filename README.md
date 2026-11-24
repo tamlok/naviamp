@@ -240,6 +240,8 @@ refresh, name and save a station, or replay the exact batch. Explicit stations k
 seeds and tuning while prefilling upcoming music, independently of ordinary autoplay. Home mix
 recommendations use listening activity and favorites with an exploration allocation. Strict genre,
 decade and artist constraints can return fewer tracks rather than silently changing the mix.
+Radio groups Mix Builders, Stations and Saved stations under Server Radio, with Internet Radio in
+a separate tab. Home retains personalized mixes, listening history and library discovery.
 Station-preserving Connect transfer requires updated peers; settings backup/sync uses schema 2.
 
 Genre Mix can organize the genre tags found on your server into a library-specific MusicBrainz

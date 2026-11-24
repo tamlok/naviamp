@@ -581,6 +581,8 @@
     <string name="storage_location_app">Spazio dell’app</string>
     <string name="storage_location_custom">Personalizzato</string>
     <string name="connect_recovery_secure_storage">Naviamp non è riuscito ad aprire l&apos;archivio sicuro delle credenziali di questo dispositivo. Sblocca il portachiavi di sistema, quindi riprova.</string>
+    <string name="radio_server_title">Radio del server</string>
+    <string name="radio_server_empty">Nessuna radio del server disponibile</string>
     <string name="generated_radio_saved">Stazioni salvate</string>
     <string name="generated_radio_revision">Revisione della ricetta %1$d</string>
     <string name="generated_radio_seeds">Elementi iniziali originali</string>

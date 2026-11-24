@@ -581,6 +581,8 @@
     <string name="storage_location_app">Сховище застосунку</string>
     <string name="storage_location_custom">Власне</string>
     <string name="connect_recovery_secure_storage">Naviamp не вдалося відкрити захищене сховище облікових даних цього пристрою. Розблокуйте системну в’язку ключів і спробуйте ще раз.</string>
+    <string name="radio_server_title">Радіо сервера</string>
+    <string name="radio_server_empty">Радіо сервера недоступне</string>
     <string name="generated_radio_saved">Збережені станції</string>
     <string name="generated_radio_revision">Версія рецепта %1$d</string>
     <string name="generated_radio_seeds">Початкові елементи</string>

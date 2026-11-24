@@ -34,7 +34,7 @@ class NaviampMainNavigationTest {
         }
         listOf(SharedRoute.ArtistMix, SharedRoute.AlbumMix, SharedRoute.GenreMix,
             SharedRoute.SonicPath, SharedRoute.SonicMix).forEach {
-            assertEquals(SharedRoute.Home, naviampMainNavigationSelection(it))
+            assertEquals(SharedRoute.Radio, naviampMainNavigationSelection(it))
         }
         assertNull(naviampMainNavigationSelection(SharedRoute.Search))
     }

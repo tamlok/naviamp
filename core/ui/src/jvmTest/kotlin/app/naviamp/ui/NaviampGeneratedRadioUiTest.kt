@@ -142,16 +142,17 @@ class NaviampGeneratedRadioUiTest {
     }
 
     @Test
-    fun savedHomeStationsOfferQuickStartPreviewAndViewAllOnTelevision() = runDesktopComposeUiTest(1000, 850) {
+    fun savedServerStationsOfferQuickStartPreviewAndViewAllOnTelevision() = runDesktopComposeUiTest(1000, 850) {
         val requests = mutableListOf<GeneratedRadioActionRequest>()
         val collections = mutableListOf<String>()
         val item = station.copy(saved = true).toSharedGeneratedRadioItem({ null })
         val section = SharedHomeCollectionSectionUi(SharedHomeCollectionSectionIds.SavedGeneratedStations, "", listOf(item),
             titleResource = SharedHomeCollectionTitleResource.SavedGeneratedStations)
         setContent {
-            TelevisionHome(NaviampHomeScreenUi(content = SharedHomeUi(collectionSections = listOf(section))),
-                NaviampColors.Dark, homeActions(requests::add, collections::add), mediaActions(), DiscoverySamplePlaybackUi(),
-                entryFocusGeneration = 1)
+            NaviampRadioContent(NaviampColors.Dark,
+                NaviampHomeScreenUi(content = SharedHomeUi(serverRadioSections = listOf(section))), NaviampInternetRadioScreenUi(),
+                homeActions(requests::add, collections::add), NaviampInternetRadioActions({}, {}, {}), mediaActions(),
+                television = true, entryFocusGeneration = 1)
         }
         onRoot().performKeyInput { pressKey(Key.Enter) }
         assertEquals(GeneratedRadioActionRequest(GeneratedRadioAction.Start, station.id), requests.single())

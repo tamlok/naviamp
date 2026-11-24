@@ -671,6 +671,8 @@
     <string name="storage_location_app">Pamięć aplikacji</string>
     <string name="storage_location_custom">Niestandardowa</string>
     <string name="connect_recovery_secure_storage">Naviamp nie może otworzyć bezpiecznego magazynu danych logowania na tym urządzeniu. Odblokuj systemowy pęk kluczy, a następnie spróbuj ponownie.</string>
+    <string name="radio_server_title">Radio serwera</string>
+    <string name="radio_server_empty">Brak dostępnego radia serwera</string>
     <string name="generated_radio_saved">Zapisane stacje</string>
     <string name="generated_radio_revision">Wersja receptury %1$d</string>
     <string name="generated_radio_seeds">Pierwotne źródła</string>

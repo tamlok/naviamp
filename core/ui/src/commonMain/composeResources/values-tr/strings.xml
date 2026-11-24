@@ -581,6 +581,8 @@
     <string name="storage_location_app">Uygulama depolama alanı</string>
     <string name="storage_location_custom">Özel</string>
     <string name="connect_recovery_secure_storage">Naviamp bu cihazın güvenli kimlik bilgisi deposunu açamadı. Sistem anahtarlığının kilidini açın ve yeniden deneyin.</string>
+    <string name="radio_server_title">Sunucu Radyosu</string>
+    <string name="radio_server_empty">Kullanılabilir sunucu radyosu yok</string>
     <string name="generated_radio_saved">Kaydedilen istasyonlar</string>
     <string name="generated_radio_revision">Tarif sürümü %1$d</string>
     <string name="generated_radio_seeds">Özgün başlangıç öğeleri</string>

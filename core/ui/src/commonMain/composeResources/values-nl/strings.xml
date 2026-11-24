@@ -581,6 +581,8 @@
     <string name="storage_location_app">App-opslag</string>
     <string name="storage_location_custom">Aangepast</string>
     <string name="connect_recovery_secure_storage">Naviamp kon de beveiligde opslag voor inloggegevens van dit apparaat niet openen. Ontgrendel de sleutelbos van het systeem en probeer het opnieuw.</string>
+    <string name="radio_server_title">Serverradio</string>
+    <string name="radio_server_empty">Geen serverradio beschikbaar</string>
     <string name="generated_radio_saved">Opgeslagen stations</string>
     <string name="generated_radio_revision">Receptrevisie %1$d</string>
     <string name="generated_radio_seeds">Oorspronkelijke uitgangspunten</string>

@@ -42,7 +42,8 @@ fun naviampSelectedTelevisionDestination(
     nowPlayingPreview: Boolean = false,
 ): NaviampTelevisionDestination? {
     if (nowPlayingOpen || nowPlayingPreview) return NaviampTelevisionDestination.NowPlaying
-    return NaviampTelevisionDestination.entries.firstOrNull { it.route == selectedRoute }
+    val owner = naviampMainNavigationSelection(selectedRoute)?.takeUnless { it == SharedRoute.My } ?: selectedRoute
+    return NaviampTelevisionDestination.entries.firstOrNull { it.route == owner }
 }
 
 fun naviampTelevisionNavigationEntersContent(

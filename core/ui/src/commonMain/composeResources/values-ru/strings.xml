@@ -581,6 +581,8 @@
     <string name="storage_location_app">Хранилище приложения</string>
     <string name="storage_location_custom">Пользовательское</string>
     <string name="connect_recovery_secure_storage">Naviamp не удалось открыть защищённое хранилище учётных данных этого устройства. Разблокируйте системную связку ключей и повторите попытку.</string>
+    <string name="radio_server_title">Радио сервера</string>
+    <string name="radio_server_empty">Радио сервера недоступно</string>
     <string name="generated_radio_saved">Сохранённые станции</string>
     <string name="generated_radio_revision">Версия рецепта %1$d</string>
     <string name="generated_radio_seeds">Исходные элементы</string>
