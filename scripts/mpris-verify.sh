@@ -2,10 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_ID="$(tr -d '\r\n' < "$ROOT_DIR/APPLICATION_ID")"
 for tool in dbus-run-session playerctl; do
     command -v "$tool" >/dev/null || { echo "Required MPRIS verification tool is missing: $tool" >&2; exit 1; }
 done
 cd "$ROOT_DIR"
+printf 'Verifying MPRIS player %s on a private session bus.\n' "$APP_ID"
 # A private real bus avoids colliding with an already-running user's player.
 # Integration mode always reruns the test task, while keeping compilation caches.
 NAVIAMP_MPRIS_INTEGRATION=true NAVIAMP_PLAYERCTL="$(command -v playerctl)" \

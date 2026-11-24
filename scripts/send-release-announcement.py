@@ -11,7 +11,8 @@ import urllib.parse
 import urllib.request
 
 
-DISCORD_USER_AGENT = "DiscordBot (https://github.com/goosepod/naviamp, 1.0)"
+RELEASE_REPOSITORY = (Path(__file__).resolve().parents[1] / "RELEASE_REPOSITORY").read_text().strip()
+DISCORD_USER_AGENT = f"DiscordBot (https://github.com/{RELEASE_REPOSITORY}, 1.0)"
 ANNOUNCEMENTS_CHANNEL_ID = "1547608244099489852"
 
 
@@ -22,7 +23,7 @@ def announcement_payload(notes, release_url):
     if not separator or not body.strip():
         raise ValueError("Announcement body is empty")
     tag = title.removeprefix("Naviamp ")
-    expected_url = f"https://github.com/goosepod/naviamp/releases/tag/{tag}"
+    expected_url = f"https://github.com/{RELEASE_REPOSITORY}/releases/tag/{tag}"
     if release_url != expected_url:
         raise ValueError("Announcement version does not match the release URL")
     if re.search(r"https://github.com/[^\s)]+/(?:issues|pull|commit)/", body):

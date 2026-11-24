@@ -12,6 +12,7 @@ fi
 "$repo_root/scripts/validate-version.sh" >/dev/null
 
 version="$(tr -d '[:space:]' < "$repo_root/VERSION")"
+repository="$(tr -d '[:space:]' < "$repo_root/RELEASE_REPOSITORY")"
 if [[ "$tag" != "$version" ]]; then
   echo "Release tag must match VERSION exactly: tag=$tag VERSION=$version" >&2
   exit 1
@@ -20,7 +21,7 @@ fi
 if [[ -f "$repo_root/scripts/send-release-announcement.py" ]]; then
   "${PYTHON:-python3}" "$repo_root/scripts/send-release-announcement.py" \
     --notes "$repo_root/.github/releases/${tag}-announcement.md" \
-    --release-url "https://github.com/goosepod/naviamp/releases/tag/${tag}" \
+    --release-url "https://github.com/${repository}/releases/tag/${tag}" \
     --dry-run >/dev/null
 fi
 

@@ -4,8 +4,8 @@ set -euo pipefail
 repo=$(realpath "${1:?signed repository}")
 work=$(realpath -m "${2:?fresh evidence directory}")
 root=$(cd "$(dirname "$0")/../.." && pwd)
-public_key=${3:-"$root/packaging/flatpak/naviamp.asc"}
-app=io.github.goosepod.Naviamp
+public_key=$(realpath "${3:?explicit accepted public signing key}")
+app=$(tr -d '\r\n' < "$root/APPLICATION_ID")
 if flatpak info --user "$app" >/dev/null 2>&1 || [[ -e "$HOME/.var/app/$app" ]]; then
   echo 'Use a fresh test user: refusing to touch an existing Flatpak profile' >&2
   exit 1
@@ -65,7 +65,7 @@ if [[ "$painted" != true ]]; then
   cat "$work/paint-readiness.txt" >&2
   exit 1
 fi
-gdbus call --session --dest org.mpris.MediaPlayer2.naviamp --object-path /org/mpris/MediaPlayer2 \
+gdbus call --session --dest "org.mpris.MediaPlayer2.$app" --object-path /org/mpris/MediaPlayer2 \
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus \
   > "$work/mpris.txt"
 cp "$root/scripts/flatpak/audio-probe.c" "$work/audio-probe.c"

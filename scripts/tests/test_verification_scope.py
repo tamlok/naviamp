@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -22,10 +23,10 @@ class VerificationScopeTest(unittest.TestCase):
                                            ('pull_request', '', False)]:
                 with self.subTest(event=event, source=source):
                     output.write_text('')
-                    result = subprocess.run(['bash', '-c', command], cwd=directory,
+                    result = subprocess.run([shutil.which('bash'), '-c', command], cwd=directory,
                         text=True, capture_output=True, env={**os.environ,
                             'GITHUB_EVENT_NAME': event, 'SOURCE_REF': source,
-                            'GITHUB_OUTPUT': str(output)})
+                            'GITHUB_OUTPUT': output.as_posix()})
                     self.assertEqual(allowed, result.returncode == 0, result.stderr)
                     self.assertEqual('run_full=true\nrun_translations=false\n' if allowed else '',
                         output.read_text())
@@ -54,7 +55,7 @@ class VerificationScopeTest(unittest.TestCase):
             git('commit', '-qm', 'baseline')
             base = git('rev-parse', 'HEAD')
             def classify(head, event='pull_request'):
-                return subprocess.run(['bash', str(SCRIPT)], cwd=directory, text=True,
+                return subprocess.run([shutil.which('bash'), SCRIPT.as_posix()], cwd=directory, text=True,
                     capture_output=True, env={**os.environ, 'GITHUB_EVENT_NAME': event,
                                              'BASE_SHA': base, 'HEAD_SHA': head})
             for filename, expected in [('README.md', 'false'), ('docs/guide.md', 'false'),
@@ -64,12 +65,23 @@ class VerificationScopeTest(unittest.TestCase):
                 with self.subTest(filename=filename):
                     git('reset', '--hard', base)
                     git('clean', '-fdq')
-                    path = Path(directory) / filename
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text('fixture\n')
-                    git('add', '.')
-                    git('commit', '-qm', 'change')
-                    result = classify(git('rev-parse', 'HEAD'))
+                    if '\n' in filename:
+                        # Git trees support this name even where the host filesystem does not.
+                        blob = subprocess.check_output(['git', 'hash-object', '-w', '--stdin'],
+                                                       input=b'fixture\n', cwd=directory).decode().strip()
+                        entries = subprocess.check_output(['git', 'ls-tree', '-z', base], cwd=directory)
+                        entries += f'100644 blob {blob}\t{filename}\0'.encode()
+                        tree = subprocess.check_output(['git', 'mktree', '-z'], input=entries,
+                                                       cwd=directory).decode().strip()
+                        head = git('commit-tree', tree, '-p', base, '-m', 'change')
+                    else:
+                        path = Path(directory) / filename
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_text('fixture\n')
+                        git('add', '.')
+                        git('commit', '-qm', 'change')
+                        head = git('rev-parse', 'HEAD')
+                    result = classify(head)
                     self.assertEqual(0, result.returncode, result.stderr)
                     self.assertEqual(f'run_full={expected}\nrun_translations=false\n', result.stdout)
             locale_path = 'core/ui/src/commonMain/composeResources/values-de/strings.xml'

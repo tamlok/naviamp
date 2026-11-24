@@ -7,7 +7,7 @@ if [[ -z "$ANDROID_HOME" && -f "$ROOT_DIR/local.properties" ]]; then
     ANDROID_HOME="$(sed -n 's/^sdk\.dir=//p' "$ROOT_DIR/local.properties" | tail -n 1)"
 fi
 ADB="${ADB:-$ANDROID_HOME/platform-tools/adb}"
-APP_ID="${APP_ID:-app.naviamp.android}"
+APP_ID="${APP_ID:-$(tr -d '[:space:]' < "$ROOT_DIR/APPLICATION_ID")}"
 DURATION_SECONDS=180
 INTERVAL_SECONDS=2
 MEMORY_INTERVAL_SECONDS=30

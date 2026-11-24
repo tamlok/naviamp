@@ -19,7 +19,7 @@ import uuid
 
 RUNNER_SHA256 = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 ownership = runpy.run_path(str(Path(__file__).with_name('tvos-build-lock.py')))
-APP = 'app.naviamp.tvos'
+APP = (Path(__file__).resolve().parents[1]/'APPLICATION_ID').read_text().strip() + '.tvos'
 TEST = 'NaviampTVUITests/TvosRemoteRecoveryTests/'
 URL = 'http://127.0.0.1:18790'
 

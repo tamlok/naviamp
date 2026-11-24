@@ -1,6 +1,7 @@
 """Exercise the actual release lookup shell, including unavailable/corrupt proof fallback."""
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -57,11 +58,11 @@ else:
             mock.chmod(0o755)
             output = root / 'outputs'
             env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ['PATH'],
-                       RUNNER_TEMP=str(root / 'runner'), GITHUB_OUTPUT=str(output),
-                       GITHUB_REPOSITORY='goosepod/naviamp', PROOF_MODE=mode,
+                       RUNNER_TEMP=(root / 'runner').as_posix(), GITHUB_OUTPUT=output.as_posix(),
+                       GITHUB_REPOSITORY='tamlok/naviamp', PROOF_MODE=mode,
                        PROOF_HEAD=head, PROOF_TREE=tree)
             (root / 'runner').mkdir()
-            result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', shell], cwd=root,
+            result = subprocess.run([shutil.which('bash'), '-e', '-o', 'pipefail', '-c', shell], cwd=root,
                                     env=env, capture_output=True, text=True)
             self.assertEqual(0, result.returncode, result.stdout + result.stderr)
             return output.read_text(), result.stdout

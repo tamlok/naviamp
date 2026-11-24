@@ -2,6 +2,10 @@ package app.naviamp.desktop.platform
 
 import app.naviamp.desktop.playback.bass.BassPlatform
 import app.naviamp.desktop.playback.bass.DesktopBassLibraryResolver
+import app.naviamp.domain.network.NaviampApplicationId
+import com.sun.jna.WString
+import com.sun.jna.platform.win32.COM.COMUtils
+import com.sun.jna.platform.win32.Shell32
 import java.awt.Window
 import java.io.File
 import javax.swing.SwingUtilities
@@ -12,6 +16,9 @@ fun configureDesktopHostAppearance() {
     System.setProperty("apple.awt.application.name", "Naviamp")
     System.setProperty("sun.awt.application.name", "Naviamp")
     if (isMacOs()) System.setProperty("apple.awt.application.appearance", "system")
+    if (isWindows()) {
+        COMUtils.checkRC(Shell32.INSTANCE.SetCurrentProcessExplicitAppUserModelID(WString(NaviampApplicationId)))
+    }
 }
 
 fun configureDesktopWindowAppearance(window: Window, isDark: Boolean) {

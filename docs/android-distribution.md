@@ -1,15 +1,20 @@
 # One Android app for phone, tablet, and TV
 
 Naviamp uses one Android application module (`:apps:android`) and one release package ID
-(`app.naviamp.android`). There are no phone/TV product flavors. Android's UI-mode configuration
+(`cn.com.letalk.naviamp`, from `APPLICATION_ID`). There are no phone/TV product flavors. Android's UI-mode configuration
 selects the shared Standard or Television surface at runtime. Both launcher entries, the TV banner,
 and optional leanback/touchscreen declarations live in the same manifest.
 
 The former “Naviamp TV” setup/restoration text was product copy inside that shared app, not a
 separate application. The shared translated setup copy calls it Naviamp. Debug builds still use
-`app.naviamp.android.v2test` and “Naviamp v2 Test” so they can coexist with the installed release;
+`cn.com.letalk.naviamp.v2test` and “Naviamp v2 Test” so they can coexist with the installed release;
 that distinction applies equally to phone and TV. Benchmark/profileable variants are development
 tools, not device-specific distributions.
+
+This LeTalk fork has a new signing and installation identity. It does not update upstream
+`app.naviamp.android` installations or inherit their app data or Google Play listing. Existing
+data stays untouched; import shared settings and reconnect accounts deliberately. Historical
+verification below describes upstream artifacts, not acceptance of this fork's packages.
 
 For the accepted v2.10.0 scope and the distinction between package readiness, deferred device
 testing and store review, see the [distribution handoff](releases/v2.10.0-readiness.md).

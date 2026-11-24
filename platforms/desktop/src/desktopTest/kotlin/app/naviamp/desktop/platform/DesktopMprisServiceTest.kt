@@ -28,6 +28,19 @@ import kotlin.test.assertTrue
 
 class DesktopMprisServiceTest {
     @Test
+    fun advertisesForkDesktopIdentityWithoutChangingTheMprisProtocol() {
+        assertEquals("org.mpris.MediaPlayer2.cn.com.letalk.naviamp", MprisBusName)
+        assertEquals(
+            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.naviamp-Naviamp",
+            rootProperties().getValue("DesktopEntry").value,
+        )
+        assertEquals("Naviamp", rootProperties().getValue("Identity").value)
+        assertEquals("/org/mpris/MediaPlayer2", MprisObjectPath)
+        assertEquals("org.mpris.MediaPlayer2", MprisRootInterface)
+        assertEquals("org.mpris.MediaPlayer2.Player", MprisPlayerInterface)
+    }
+
+    @Test
     fun malformedPropertiesAreRejectedAndFixedRateCanBeWritten() {
         val control = RecordingExternalPlaybackControl()
         val exported = DesktopMprisObject(control)

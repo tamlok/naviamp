@@ -26,11 +26,11 @@ class HostedArtifactTrustTest(unittest.TestCase):
         self.archive = self.root/'github.zip'
         with zipfile.ZipFile(self.archive, 'w') as zipped:
             zipped.write(self.bundle, 'compose.zip')
-        self.pin = dict(schemaVersion=1, status='approved', repository='goosepod/naviamp', repositoryId=91,
+        self.pin = dict(schemaVersion=1, status='approved', repository='tamlok/naviamp', repositoryId=91,
             workflowPath=api['WORKFLOW'], producerCommit='a'*40, runId=12, runAttempt=1, artifactId=34,
             artifactName='tvos-compose-candidate-12-1', artifactSha256=api['sha'](self.archive),
             bundleSha256=self.bundle_sha, manifestSha256=self.identity, sourceBundleSha256=api['SOURCE_SHA'])
-        repository = dict(id=91, full_name='goosepod/naviamp')
+        repository = dict(id=91, full_name='tamlok/naviamp')
         self.run = dict(id=12, run_attempt=1, event='workflow_dispatch', path=api['WORKFLOW'], head_branch='main',
             head_sha='a'*40, status='completed', conclusion='success', repository=repository, head_repository=repository)
         self.artifact = dict(id=34, name=self.pin['artifactName'], expired=False,
@@ -53,8 +53,8 @@ class HostedArtifactTrustTest(unittest.TestCase):
         self.attest.assert_called_once()
         self.assertEqual(fixtures.api['verify'](self.root/'installed', self.identity)['files'],
                          json.loads(self.manifest.read_text())['files'])
-        self.assertEqual(self.network.call_args_list, [mock.call('repos/goosepod/naviamp/actions/runs/12'),
-            mock.call('repos/goosepod/naviamp/actions/artifacts/34')])
+        self.assertEqual(self.network.call_args_list, [mock.call('repos/tamlok/naviamp/actions/runs/12'),
+            mock.call('repos/tamlok/naviamp/actions/artifacts/34')])
         self.assertFalse(list((self.root/'evidence').glob('.hosted-compose-*')))
 
     def test_unapproved_pin_fails_before_network_and_never_promotes_itself(self):
@@ -125,16 +125,16 @@ class HostedArtifactTrustTest(unittest.TestCase):
     def test_attestation_command_pins_subject_source_workflow_and_hosted_issuer(self):
         command = api['attestation_command'](self.bundle, self.pin)
         self.assertIn('--deny-self-hosted-runners', command)
-        for flag, value in [('--repo', 'goosepod/naviamp'), ('--source-ref', 'refs/heads/main'),
+        for flag, value in [('--repo', 'tamlok/naviamp'), ('--source-ref', 'refs/heads/main'),
             ('--source-digest', 'a'*40), ('--signer-digest', 'a'*40),
-            ('--signer-workflow', 'goosepod/naviamp/'+api['WORKFLOW']),
+            ('--signer-workflow', 'tamlok/naviamp/'+api['WORKFLOW']),
             ('--cert-oidc-issuer', 'https://token.actions.githubusercontent.com')]:
             self.assertEqual(command[command.index(flag)+1], value)
 
     def test_github_host_is_fixed_even_with_a_different_local_cli_default(self):
         with mock.patch.dict(os.environ, GH_HOST='untrusted.example'), \
                 mock.patch('subprocess.check_output', return_value='{}') as command:
-            api['gh_json']('repos/goosepod/naviamp/actions/runs/12')
+            api['gh_json']('repos/tamlok/naviamp/actions/runs/12')
         self.assertEqual(command.call_args.kwargs['env']['GH_HOST'], 'github.com')
         self.assertEqual(command.call_args.args[0][:4], ['gh', 'api', '--hostname', 'github.com'])
 
@@ -183,7 +183,7 @@ class HostedSceneBoundaryTest(unittest.TestCase):
         device = '11111111-2222-3333-4444-555555555555'
         with tempfile.TemporaryDirectory() as temporary:
             scene = Path(temporary)
-            (scene/'ownership.json').write_text(json.dumps(dict(device=device, application='app.naviamp.tvos')))
+            (scene/'ownership.json').write_text(json.dumps(dict(device=device, application='cn.com.letalk.naviamp.tvos')))
             devices = json.dumps({'devices': {'tv': [dict(udid=device, name='User Apple TV', state='Booted')]}})
             cleanup = mock.Mock()
             with mock.patch('subprocess.check_output', return_value=devices), \
@@ -209,13 +209,13 @@ class HostedWorkflowTrustTest(unittest.TestCase):
         return data
 
     def test_writer_is_main_dispatch_only_and_attestation_privileges_are_separate(self):
-        workflow = self.workflow('tvos-compose-producer.yml')
+        workflow = self.workflow('tvos-compose-producer.yml.disabled')
         self.assertEqual(set(workflow['on']), {'workflow_dispatch'})
         self.assertEqual(workflow['permissions'], {'contents': 'read'})
         build, attest = workflow['jobs']['build'], workflow['jobs']['attest']
         for job in (build, attest):
             self.assertIn("github.ref == 'refs/heads/main'", job['if'])
-            self.assertIn("github.repository == 'goosepod/naviamp'", job['if'])
+            self.assertIn("github.repository == 'tamlok/naviamp'", job['if'])
         self.assertEqual(attest['needs'], 'build')
         self.assertEqual(attest['permissions']['id-token'], 'write')
         self.assertEqual(attest['permissions']['attestations'], 'write')
@@ -236,7 +236,7 @@ class HostedWorkflowTrustTest(unittest.TestCase):
         self.assertIs(steps[upload]['with']['archive'], True)
 
     def test_consumer_uses_base_policy_with_read_only_permissions_and_step_scoped_token(self):
-        workflow = self.workflow('tvos-scene.yml')
+        workflow = self.workflow('tvos-scene.yml.disabled')
         pin = json.loads((ROOT / 'build-support/tvos-compose/trusted-artifact.json').read_text())
         expected = {'workflow_dispatch'} if pin['status'].startswith('pending') else {'pull_request', 'workflow_dispatch'}
         self.assertEqual(set(workflow['on']), expected)
@@ -264,7 +264,7 @@ class HostedWorkflowTrustTest(unittest.TestCase):
         self.assertIn('!build/tvos-transport/consumer/**', evidence)
 
     def test_workflow_receipts_accept_only_successful_simulator_qualification(self):
-        for name, job in [('tvos-compose-producer.yml', 'build'), ('tvos-scene.yml', 'scene')]:
+        for name, job in [('tvos-compose-producer.yml.disabled', 'build'), ('tvos-scene.yml.disabled', 'scene')]:
             steps = self.workflow(name)['jobs'][job]['steps']
             transport = next(s for s in steps if 'scripts/run-tvos-transport-tests.py' in s.get('run', ''))
             command = shlex.split(transport['run'].splitlines()[-1])
@@ -285,7 +285,7 @@ class HostedWorkflowTrustTest(unittest.TestCase):
                         self.assertEqual(result.returncode == 0, allowed, result.stderr)
 
     def test_every_action_is_commit_pinned_and_no_job_restores_or_writes_shared_caches(self):
-        for name in ('tvos-compose-producer.yml', 'tvos-scene.yml'):
+        for name in ('tvos-compose-producer.yml.disabled', 'tvos-scene.yml.disabled'):
             workflow = self.workflow(name)
             for job in workflow['jobs'].values():
                 for step in job['steps']:

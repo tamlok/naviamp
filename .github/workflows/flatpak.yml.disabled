@@ -1,12 +1,11 @@
 name: Flatpak package
 on:
-  pull_request:
-    paths:
-      - 'packaging/flatpak/**'
-      - 'scripts/flatpak/**'
-      - '.github/workflows/flatpak.yml'
-      - '.gitattributes'
   workflow_dispatch:
+    inputs:
+      linux_release_tag:
+        description: Existing tamlok/naviamp release tag containing a Linux standalone artifact
+        type: string
+        required: true
 permissions:
   contents: read
 jobs:
@@ -28,13 +27,16 @@ jobs:
       - name: Build the released application fixture
         env:
           GH_TOKEN: ${{ github.token }}
+          LINUX_RELEASE_TAG: ${{ inputs.linux_release_tag }}
         run: |
           mkdir -p build/flatpak-ci
-          gh api repos/goosepod/naviamp/releases/tags/v2.10.0 > build/flatpak-ci/release.json
+          test -n "$LINUX_RELEASE_TAG"
+          release_repository="$(cat RELEASE_REPOSITORY)"
+          gh api "repos/$release_repository/releases/tags/$LINUX_RELEASE_TAG" > build/flatpak-ci/release.json
           python3 scripts/flatpak/prepare.py --release-json build/flatpak-ci/release.json --output build/flatpak-ci/input
           flatpak-builder --user --force-clean --repo=build/flatpak-ci/repo build/flatpak-ci/app \
-            build/flatpak-ci/input/io.github.goosepod.Naviamp.json
-          appstreamcli validate --no-net build/flatpak-ci/input/io.github.goosepod.Naviamp.metainfo.xml
+            build/flatpak-ci/input/cn.com.letalk.naviamp.json
+          appstreamcli validate --no-net build/flatpak-ci/input/cn.com.letalk.naviamp.metainfo.xml
       - name: Sign the CI fixture with an ephemeral test identity
         run: |
           install -d -m 700 "$RUNNER_TEMP/flatpak-ci-key"
@@ -43,7 +45,7 @@ jobs:
           fingerprint=$(gpg --homedir "$RUNNER_TEMP/flatpak-ci-key" --with-colons --list-secret-keys | awk -F: '$1=="fpr" {print $10; exit}')
           gpg --homedir "$RUNNER_TEMP/flatpak-ci-key" --armor --export "$fingerprint" > build/flatpak-ci/test-key.asc
           flatpak build-sign --gpg-homedir="$RUNNER_TEMP/flatpak-ci-key" --gpg-sign="$fingerprint" \
-            build/flatpak-ci/repo io.github.goosepod.Naviamp stable
+            build/flatpak-ci/repo cn.com.letalk.naviamp stable
           flatpak build-update-repo --gpg-homedir="$RUNNER_TEMP/flatpak-ci-key" --gpg-sign="$fingerprint" build/flatpak-ci/repo
       - name: Verify the installed sandbox and native output
         run: |

@@ -5,6 +5,7 @@ import com.android.manifmerger.MergingReport
 import com.android.utils.StdLogger
 
 val composeVersion = libs.versions.compose.get()
+val naviampApplicationId = rootProject.file("APPLICATION_ID").readText().trim()
 val visualizerMountProbe = providers.gradleProperty("naviamp.visualizerMountProbe").orNull == "true"
 val animationProbe = providers.gradleProperty("naviamp.animationProbe").orNull == "true" || visualizerMountProbe
 
@@ -60,7 +61,6 @@ kotlin {
         withDeviceTestBuilder { sourceSetTreeName = "test" }.configure {
             targetSdk { version = release(34) }
             instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-            applicationId = if (visualizerMountProbe) "app.naviamp.ui.mount544.test" else "app.naviamp.ui.test"
             if (visualizerMountProbe) {
                 instrumentationRunnerArguments["class"] = "app.naviamp.ui.AndroidVisualizerMountTest"
             } else if (animationProbe) {
@@ -238,6 +238,10 @@ tasks.register<JavaExec>("plainLyricsWindowProbe") {
 androidComponents {
     onVariants { variant ->
         variant.deviceTests.values.forEach { deviceTest ->
+            // AGP's KMP manifest task consumes the variant property, not the device-test DSL value.
+            deviceTest.applicationId.set(
+                if (visualizerMountProbe) "$naviampApplicationId.ui.mount544.test" else "$naviampApplicationId.ui.test",
+            )
             val mergeFixture = tasks.register<MergeUiTestHostManifest>("merge${deviceTest.name.replaceFirstChar(Char::uppercase)}HostManifest") {
                 fixtureManifest.set(layout.projectDirectory.file(
                     if (animationProbe) "src/animationProbeAndroid/AndroidManifest.xml"

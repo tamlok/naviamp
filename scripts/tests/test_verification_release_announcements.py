@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "send-release-announcement.py"
 spec = importlib.util.spec_from_file_location("release_announcements", SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-URL = "https://github.com/goosepod/naviamp/releases/tag/v2.11.1"
+URL = "https://github.com/tamlok/naviamp/releases/tag/v2.11.1"
 FAKE_WEBHOOK = "https://discord.com/api/webhooks/123/fake_token"
 
 
@@ -39,6 +39,11 @@ class ReleaseAnnouncementTest(unittest.TestCase):
             with self.subTest(notes=notes[:60]), self.assertRaises(ValueError):
                 module.announcement_payload(notes, URL)
 
+    def test_rejects_an_upstream_release_for_the_fork(self):
+        with self.assertRaises(ValueError):
+            module.announcement_payload("Naviamp v2.11.1\n- A fix.",
+                                        "https://github.com/goosepod/naviamp/releases/tag/v2.11.1")
+
     def test_reuses_the_existing_webhook_without_github_payload_adapter(self):
         expected = "https://discord.com/api/webhooks/123/fake_token?wait=true"
         self.assertEqual(expected, module.discord_endpoint("https://discord.com/api/webhooks/123/fake_token/github"))
@@ -57,7 +62,7 @@ class ReleaseAnnouncementTest(unittest.TestCase):
         sent = request.call_args.args[0]
         self.assertEqual("POST", sent.get_method())
         self.assertEqual(FAKE_WEBHOOK + "?wait=true", sent.full_url)
-        self.assertEqual("DiscordBot (https://github.com/goosepod/naviamp, 1.0)", sent.get_header("User-agent"))
+        self.assertEqual("DiscordBot (https://github.com/tamlok/naviamp, 1.0)", sent.get_header("User-agent"))
         self.assertEqual("application/json", sent.get_header("Content-type"))
         self.assertEqual(payload, json.loads(sent.data))
         report.assert_called_once_with("Delivered release announcement; Discord message ID 12345")

@@ -5,14 +5,20 @@ val generatedNaviampVersionSources = layout.buildDirectory.dir("generated/naviam
 val generateNaviampVersion by tasks.registering {
     val versionFile = rootProject.layout.projectDirectory.file("VERSION")
     val buildNumberFile = rootProject.layout.projectDirectory.file("VERSION_CODE")
+    val applicationIdFile = rootProject.layout.projectDirectory.file("APPLICATION_ID")
+    val repositoryFile = rootProject.layout.projectDirectory.file("RELEASE_REPOSITORY")
     val outputDir = generatedNaviampVersionSources
     inputs.file(versionFile)
     inputs.file(buildNumberFile)
+    inputs.file(applicationIdFile)
+    inputs.file(repositoryFile)
     outputs.dir(outputDir)
     doLast {
         val version = versionFile.asFile.readText().trim()
         val buildNumber = buildNumberFile.asFile.readText().trim()
         val escapedVersion = version.replace("\\", "\\\\").replace("\"", "\\\"")
+        val applicationId = applicationIdFile.asFile.readText().trim().replace("\\", "\\\\").replace("\"", "\\\"")
+        val repository = repositoryFile.asFile.readText().trim().replace("\\", "\\\\").replace("\"", "\\\"")
         val packageDir = outputDir.get().file("app/naviamp/domain/network").asFile
         packageDir.mkdirs()
         packageDir.resolve("NaviampClientIdentity.kt").writeText(
@@ -21,9 +27,11 @@ val generateNaviampVersion by tasks.registering {
 
             const val NaviampAppVersion = "$escapedVersion"
             const val NaviampAppBuildNumber = "$buildNumber"
+            const val NaviampApplicationId = "$applicationId"
+            const val NaviampReleaseRepository = "$repository"
             const val NaviampClientName = "Naviamp"
             const val NaviampUserAgent = "Naviamp/$escapedVersion"
-            const val NaviampProjectUserAgent = "Naviamp/$escapedVersion (https://github.com/goosepod/naviamp)"
+            const val NaviampProjectUserAgent = "Naviamp/$escapedVersion (https://github.com/$repository)"
             """.trimIndent(),
         )
     }

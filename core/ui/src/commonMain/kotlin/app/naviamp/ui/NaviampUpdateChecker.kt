@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalUriHandler
 import app.naviamp.domain.network.KtorSharedHttpClient
+import app.naviamp.domain.network.NaviampReleaseRepository
 import app.naviamp.domain.network.SharedHttpClient
 import app.naviamp.domain.settings.ApplicationUpdateChannel
 import kotlinx.coroutines.delay
@@ -199,6 +200,6 @@ private fun String.naviampVersion(): NaviampVersion? {
     return NaviampVersion(numbers, prerelease)
 }
 
-const val NaviampReleasesUrl = "https://github.com/tamlok/naviamp/releases"
-private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/tamlok/naviamp/releases?per_page=30"
+const val NaviampReleasesUrl = "https://github.com/$NaviampReleaseRepository/releases"
+private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/$NaviampReleaseRepository/releases?per_page=30"
 private const val NaviampUpdateCheckIntervalMillis = 24L * 60L * 60L * 1_000L

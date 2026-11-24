@@ -11,15 +11,15 @@ Write this for someone deciding whether to update, not as an internal developmen
 
 ## Features
 
-- Describe the user-visible capability and why it is useful. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
+- Describe the user-visible capability and why it is useful. ([PR #456](https://github.com/tamlok/naviamp/pull/456))
 
 ## Improvements
 
-- Describe a meaningful improvement to existing behavior. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
+- Describe a meaningful improvement to existing behavior. ([PR #456](https://github.com/tamlok/naviamp/pull/456))
 
 ## Bug fixes
 
-- State what was broken and the behavior that is now restored. ([PR #456](https://github.com/goosepod/naviamp/pull/456))
+- State what was broken and the behavior that is now restored. ([PR #456](https://github.com/tamlok/naviamp/pull/456))
 
 ## Upgrade notes
 
@@ -33,9 +33,9 @@ Write this for someone deciding whether to update, not as an internal developmen
 
 ## Downloads and details
 
-- [Download Naviamp X.Y.Z](https://github.com/goosepod/naviamp/releases/tag/vX.Y.Z)
-- [See every change since X.Y.W](https://github.com/goosepod/naviamp/compare/vX.Y.W...vX.Y.Z)
-- [View the release milestone](https://github.com/goosepod/naviamp/milestone/NUMBER?closed=1)
+- [Download Naviamp X.Y.Z](https://github.com/tamlok/naviamp/releases/tag/vX.Y.Z)
+- [See every change since X.Y.W](https://github.com/tamlok/naviamp/compare/vX.Y.W...vX.Y.Z)
+- [View the release milestone](https://github.com/tamlok/naviamp/milestone/NUMBER?closed=1)
 
 ## Thanks
 

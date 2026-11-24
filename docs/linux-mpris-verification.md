@@ -1,12 +1,17 @@
 # Linux MPRIS verification
 
-Tracking: [GitHub issue #119](https://github.com/goosepod/naviamp/issues/119).
+Upstream implementation history: [GitHub issue #119](https://github.com/goosepod/naviamp/issues/119).
+Current fork source: [tamlok/naviamp](https://github.com/tamlok/naviamp).
 
-Naviamp publishes `org.mpris.MediaPlayer2.naviamp` at `/org/mpris/MediaPlayer2` on the
+Naviamp publishes `org.mpris.MediaPlayer2.cn.com.letalk.naviamp` at `/org/mpris/MediaPlayer2` on the
 Linux session bus. Failed MPRIS registration does not stop playback. The first process owns the
 name; later processes keep playing independently and retry registration with bounded backoff
 (1–30 seconds). Closing the owner releases its name, allowing another instance to acquire it.
 Name loss and disconnection use D-Bus callbacks rather than a polling timer.
+Native packages publish DesktopEntry `cn.com.letalk.naviamp-Naviamp`; Flatpak uses its actual
+`FLATPAK_ID` (`cn.com.letalk.naviamp` for this package). `playerctl` selects the canonical bus-name
+suffix `cn.com.letalk.naviamp`, independently of the desktop-entry filename.
+This identity is separate from the upstream player, without changing the visible Naviamp name.
 
 Core owns playback metadata, capabilities, commands, seek events, publication decisions,
 registration scheduling, retries, and cancellation. The Desktop adapter translates the MPRIS
@@ -31,14 +36,15 @@ Run the real-bus adapter checks on Linux with JDK 21+, `dbus-run-session`, and `
 The script uses a private session bus so it does not collide with a running desktop player.
 It checks discovery and commands with `playerctl`, property reads/writes, metadata,
 property/seek signals, name contention, name-loss and connection-loss recovery, shutdown
-cleanup, and unavailable-bus behavior. Linux CI runs these integration checks alongside its
-native Desktop suite. Integration mode always executes the test task, preserving compilation
-caches. Tests requiring a session bus are reported as skipped outside integration mode.
+cleanup, and unavailable-bus behavior. These are manual Linux checks: only Windows and Android
+pipelines are active in this fork; Linux/Flatpak automation is disabled. Integration mode always
+executes the test task, preserving compilation caches. Tests requiring a session bus are reported
+as skipped outside integration mode.
 
 Shared regression tests cover capabilities, transport routing, seek bounds, seek-generation
 preservation, publication suppression, bounded retries, recovery, and cancellation. Compile
-Core for JVM, Android, and both iOS targets before accepting platform wiring; run the full
-platform matrix through the linked pull request.
+Core for JVM, Android, and both iOS targets before accepting platform wiring where those toolchains
+are available; Apple and Linux native execution require separate manual host verification.
 
 ## Real desktop session checks
 
@@ -48,8 +54,8 @@ Build and start the staged app in a Linux desktop session:
 ./gradlew :apps:desktop:stageLocalTestApp
 ./build/local-test/Naviamp/bin/Naviamp
 playerctl -l
-playerctl -p naviamp metadata
-playerctl -p naviamp status
+playerctl -p cn.com.letalk.naviamp metadata
+playerctl -p cn.com.letalk.naviamp status
 ```
 
 Using a disposable source/queue, verify:
@@ -64,10 +70,13 @@ Using a disposable source/queue, verify:
 - Shutdown releases the name; restarting restores discovery; session-bus loss/recovery does
   not interrupt audio and permits re-registration.
 
-Use `gdbus monitor --session --dest org.mpris.MediaPlayer2.naviamp` to inspect signals.
+Use `gdbus monitor --session --dest org.mpris.MediaPlayer2.cn.com.letalk.naviamp` to inspect signals.
 Do not count a fixture-only bus check as verification of real audio or desktop media keys.
 
-## Acceptance evidence — 2026-10-01
+## Historical upstream acceptance evidence — 2026-10-01
+
+The following record describes the upstream application and its former identity. It is not
+verification of this fork's new IDs, current Linux packaging, or an active Linux CI pipeline.
 
 Verified against the staged Linux app in an XFCE/X11 desktop session using isolated temporary
 profiles and a silent WAV/live-audio fixture derived from `scripts/android-tv-fixture.py`.
@@ -102,4 +111,5 @@ existing Linux secure-credential service, before MPRIS registration. Whole-app s
 a session bus is therefore not verified; optional MPRIS registration failure and recovery passed
 the isolated shared and native tests.
 
-Apple host/native execution and the remaining cross-platform CI matrix are pull-request checks.
+At the time of this upstream record, Apple host/native execution and the remaining cross-platform
+CI matrix were assigned to its pull-request checks; this is not the fork's current pipeline scope.

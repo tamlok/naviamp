@@ -85,6 +85,11 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
 - Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
 - Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.
+- LeTalk builds use the independent `cn.com.letalk.naviamp` application identity across platforms. They do not update upstream app installations; desktop data and credentials are isolated and settings can be imported deliberately.
+
+### System settings
+
+- Limit enabled platform verification and release packaging to Windows and Android; retain other platform sources with their workflows disabled. Update discovery uses this fork's release channel.
 
 ## v2.12.0
 

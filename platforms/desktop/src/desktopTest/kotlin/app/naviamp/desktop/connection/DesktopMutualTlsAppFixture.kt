@@ -2,6 +2,7 @@ package app.naviamp.desktop
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.naviamp.desktop.settings.DesktopCoreSettingsValueStore
+import app.naviamp.domain.app.naviampApplicationProfileId
 import app.naviamp.domain.TrackId
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.settings.AudioOutputDeviceMode
@@ -41,8 +42,8 @@ fun main(args: Array<String>) = runBlocking {
         val client = createDefaultNavidromeKtorClient(tls)
         val provider = NavidromeProvider(connection, KtorNavidromeHttpClient(client))
         val track = try { requireNotNull(provider.track(TrackId("track"))) } finally { client.close() }
-        for (name in listOf("Naviamp", "Naviamp Development")) {
-            val directory = profile.resolve("Roaming").resolve(name)
+        for (development in listOf(false, true)) {
+            val directory = profile.resolve("Roaming").resolve(naviampApplicationProfileId(development))
             Files.createDirectories(directory)
             JdbcSqliteDriver("jdbc:sqlite:${directory.resolve(DefaultStorageDatabaseFileName)}").use { driver ->
                 val queries = initializeNaviampStorageDatabase(driver).naviampStorageQueries

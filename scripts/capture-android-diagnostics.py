@@ -6,6 +6,8 @@ from pathlib import Path
 import signal
 import subprocess
 
+APP_ID = (Path(__file__).resolve().parents[1] / 'APPLICATION_ID').read_text().strip()
+
 
 def capture(output, timeout):
     output.mkdir(parents=True, exist_ok=True)
@@ -45,7 +47,7 @@ def capture(output, timeout):
                                 (['shell', 'dumpsys', 'mdns'], 'mdns.txt'),
                                 (['shell', 'dumpsys', 'window', 'windows'], 'windows.txt'),
                                 (['shell', 'dumpsys', 'SurfaceFlinger', '--list'], 'surfaces.txt'),
-                                (['pull', '/sdcard/Android/data/app.naviamp.ui.test/files/raster-diagnostics',
+                                (['pull', f'/sdcard/Android/data/{APP_ID}.ui.test/files/raster-diagnostics',
                                   str(output / 'raster')], 'raster-pull.txt'),
                                 (['logcat', '-d', '-t', '8000', '-v', 'threadtime'], 'logcat.txt')]:
         run(['adb', '-s', serial, *arguments], filename)

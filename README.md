@@ -15,80 +15,16 @@ Navidrome project.
 
 ## Get Naviamp
 
-Download for macOS from the [Mac App Store](https://apps.apple.com/app/naviamp-music-player/id6821135881?platform=mac)
-or for Windows from the [Microsoft Store](https://apps.microsoft.com/detail/9PCFJ644LXLL).
+This is the LeTalk fork of [upstream Naviamp](https://github.com/goosepod/naviamp), with an
+independent application identity and release channel.
 
-Find the latest standalone downloads and release notes on [GitHub Releases](https://github.com/goosepod/naviamp/releases/latest).
+- [Source and issue tracking](https://github.com/tamlok/naviamp)
+- [This fork's releases and release notes](https://github.com/tamlok/naviamp/releases)
 
-Beta builds are available through TestFlight for [macOS](https://testflight.apple.com/join/vZ48sYNh) and
-[iOS](https://testflight.apple.com/join/efbB6TFd).
-
-[Join us on Discord](https://discord.gg/7dd9954VGd) to chat with the Naviamp community, ask questions,
-and share feedback.
-
-### Linux Flatpak
-
-Install the official Linux x86_64 Flatpak from Naviamp's signed GitHub Pages repository.
-The signed package contains v2.11.3, including Java, and runs on X11 or XWayland.
-Existing Flatpak installations can update through the same signed remote.
-[Bundles, checksums and release information](https://github.com/goosepod/naviamp-flatpak/releases)
-are hosted on GitHub Releases. A Flathub listing is not required; Flathub supplies the
-Freedesktop runtime. Linux DEB, RPM, and portable ZIP downloads remain on
-[GitHub Releases](https://github.com/goosepod/naviamp/releases/latest).
-
-1. [Set up Flatpak for your Linux distribution](https://flatpak.org/setup/).
-2. Open the [Naviamp installer](https://goosepod.com/naviamp-flatpak/Naviamp.flatpakref) in a
-   Flatpak-capable software center, or run:
-
-   ```sh
-   flatpak install --user --from https://goosepod.com/naviamp-flatpak/Naviamp.flatpakref
-   ```
-
-3. Launch Naviamp from your application menu, or run:
-
-   ```sh
-   flatpak run io.github.goosepod.Naviamp
-   ```
-
-The installer configures the app's update remote. To update a per-user installation:
-
-```sh
-flatpak update --user io.github.goosepod.Naviamp
-```
-
-Close and reopen Naviamp after updating. Automatic update scheduling depends on your software
-center's Flatpak support and settings. To uninstall the app:
-
-```sh
-flatpak uninstall --user io.github.goosepod.Naviamp
-```
-
-The Flatpak keeps its settings and database separately from DEB/RPM/ZIP installations. To migrate,
-export and import shared settings deliberately, reconnect your servers, and choose accessible download
-storage. Existing data is not silently moved or deleted. Native Wayland and other architectures
-are not currently advertised. See the [distribution notes](https://github.com/goosepod/naviamp-flatpak/releases)
-for tested environments and remaining compatibility checks.
-
-### Android Alpha on Google Play
-
-Naviamp is available through a closed Android Alpha on Google Play. To join:
-
-1. Join the [Naviamp testers Google Group](https://groups.google.com/g/naviamp-testers).
-2. Open the [Android Alpha opt-in page](https://play.google.com/apps/testing/app.naviamp.android)
-   and select **Become a tester**.
-3. Install [Naviamp from Google Play](https://play.google.com/store/apps/details?id=app.naviamp.android).
-
-Use the **same Google account** for the Google Group, tester enrollment, and Play Store. If you
-already belong to the group, start at step 2: group membership alone does not enroll you in the
-Play test. If the opt-in page says **You are a tester**, continue to installation. If access is
-unavailable, check that you joined the group with the account you are using for Google Play.
-
-Please use the app, stay opted in for at least 14 consecutive days, and share feedback on
-[Discord](https://discord.gg/7dd9954VGd). Include your device model, Android version, and steps to
-reproduce any problem; keep server credentials private.
-
-If you already have a newer sideloaded build, Google Play's older Alpha will not replace it.
-Ask on Discord before uninstalling: uninstalling erases local app data.
+Enabled release pipelines produce Android APKs and Windows ZIP/MSI/EXE packages. Download only
+artifacts actually published on this fork's Releases page. Upstream Google Play, OEM stores,
+App Store, Microsoft Store, TestFlight and Flatpak channels do not distribute this fork's identity.
+No replacement store listing or public Flatpak remote is configured by this repository.
 
 <p align="center">
   <img src="readme-assets/screenshots/desktop-now-playing-queue.png" alt="Naviamp desktop Now Playing screen and queue" width="780">
@@ -272,50 +208,26 @@ Naviamp uses the BASS audio engine and combines its playback controls with a fle
 
 ## Platforms and downloads
 
-Naviamp is available for macOS, Windows, Linux, and Android. Try the iPhone/iPad beta through
-[TestFlight](https://testflight.apple.com/join/efbB6TFd). An unsigned arm64 IPA is also available for
-users who can provide their own signing. Apple CarPlay (beta) is part of the iPhone app and shares
-its playback session. Android TV and Google TV use the same Android package.
+Android phone, tablet, Android TV and Google TV use one package, `cn.com.letalk.naviamp`.
+Debug builds use `.v2test`; benchmark builds use `.benchmark`. Windows uses the same canonical
+application identity with a separate installer family, installation directory and Start-menu group.
 
-Apple TV (beta) is available only by building from source; no Apple TV download is published. See
-[Apple TV (tvOS)](docs/tvos.md). CarPlay and Apple TV have not been verified on physical CarPlay or
-Apple TV hardware.
+The iOS and macOS bundle ID and Linux/Flatpak package ID are also `cn.com.letalk.naviamp`.
+tvOS development/simulator builds use `cn.com.letalk.naviamp.tvos`; device Release builds share
+the iOS bundle ID. Apple and Linux source/build configurations remain available, but their CI
+and release pipelines are disabled. See [Apple TV](docs/tvos.md),
+[iOS signing and sideloading](docs/ios-sideloading.md), and [Flatpak packaging](packaging/flatpak/README.md)
+for manual build and signing requirements. Store registration and signing are separate operations.
 
-Get Naviamp for macOS from the [Mac App Store](https://apps.apple.com/app/naviamp-music-player/id6821135881?platform=mac).
+These are new application identities, not upgrades to upstream installations. Desktop data and
+credentials use isolated namespaces; development storage has a separate `.development` profile.
+Existing upstream data is not read, moved or deleted. To migrate deliberately, export/import shared
+settings, reconnect accounts and select download storage. Source package names and JNI symbols remain
+unchanged. When retaining an upstream macOS installation, keep the two same-named `Naviamp.app`
+bundles in different folders.
 
-Get Naviamp for Windows from the [Microsoft Store](https://apps.microsoft.com/detail/9PCFJ644LXLL).
-
-Store and beta channels can carry different versions and have separate review or tester eligibility
-requirements. A GitHub release does not automatically update any store.
-
-Direct downloads for all available platforms are on [GitHub Releases](https://github.com/goosepod/naviamp/releases/latest).
-Windows and macOS desktop packages downloaded from GitHub are not publisher-signed and may show
-an operating-system warning. The Windows installers on GitHub install only for the current user
-and do not require administrator permission. See the
-[latest Naviamp release notes](https://github.com/goosepod/naviamp/releases/latest)
-for current upgrade details and
-[Sideloading Naviamp on iPhone or iPad](docs/ios-sideloading.md) for the iOS preview.
-
-If an older machine-wide Windows release is already installed, uninstall that copy once before
-using the current-user installer. Removing the old copy may require administrator permission; new
-installations and subsequent upgrades do not.
-
-### Opening a standalone macOS download
-
-Only bypass the macOS warning for a Naviamp package downloaded from the official GitHub Releases
-page above. Move `Naviamp.app` into Applications, then try to open it once. Open **System Settings →
-Privacy & Security**, scroll to **Security**, and click **Open Anyway** for Naviamp.
-
-Experienced users can instead remove the quarantine marker for this app only and open it from
-Terminal:
-
-```shell
-xattr -dr com.apple.quarantine "/Applications/Naviamp.app"
-open "/Applications/Naviamp.app"
-```
-
-These commands intentionally bypass Gatekeeper for this copy of Naviamp. They do not disable
-Gatekeeper system-wide and do not require `sudo`.
+`APPLICATION_ID` and `RELEASE_REPOSITORY` define the shared identity and update channel. Historical
+release notes and acceptance records describe upstream versions, not verified LeTalk store availability.
 
 ## Translations
 
@@ -335,7 +247,7 @@ integration. You will need JDK 17 or newer, Python 3 for release verification, a
 targets you want to build.
 
 ```shell
-git clone https://github.com/goosepod/naviamp.git
+git clone https://github.com/tamlok/naviamp.git
 cd naviamp
 ./gradlew check
 ```

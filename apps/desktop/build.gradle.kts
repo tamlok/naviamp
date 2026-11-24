@@ -23,6 +23,7 @@ val desktopPackagingProcess = objects.newInstance<DesktopPackagingProcess>()
 
 val naviampVersionName = rootProject.file("VERSION").readText().trim()
 val naviampVersionCode = rootProject.file("VERSION_CODE").readText().trim().toInt()
+val naviampApplicationId = rootProject.file("APPLICATION_ID").readText().trim()
 val naviampNativePackageVersion = nativeDistributionPackageVersion(naviampVersionName)
 val naviampWindowsPackageVersion = windowsDistributionPackageVersion(naviampVersionName, naviampVersionCode)
 val naviampLinuxPackageVersion = linuxDistributionPackageVersion(naviampVersionName)
@@ -83,9 +84,8 @@ val macLocalNetworkPackagingInputs = files(
     rootProject.file("core/app/src/commonMain/kotlin/app/naviamp/app/NaviampCastDiscoveryController.kt"),
     rootProject.fileTree("core/ui/src/commonMain/composeResources") { include("values*/strings.xml") },
 )
-// Per-user packages use a distinct upgrade family so Windows never tries to remove a legacy
-// machine-wide installation (and request elevation) while installing the current-user package.
-val windowsInstallerUpgradeUuid = "75051da2-0b4b-4f67-81d9-56d2e36a6437"
+// Stable fork upgrade family: never match or replace an upstream Naviamp installation.
+val windowsInstallerUpgradeUuid = "1560d807-e123-4b05-b883-b9b8ef9fd46c"
 val windowsInstallerResourcesDir = layout.buildDirectory.dir("windows-installer-resources")
 val windowsInstallerIcon = rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.ico")
 
@@ -177,7 +177,7 @@ compose.desktop {
             // jpackage maps this value to the Windows executable's FileDescription, which is
             // what Task Manager displays as the application name.
             description = desktopExecutableDescription
-            vendor = "Naviamp"
+            vendor = "LeTalk"
             copyright = "Copyright 2026 Naviamp contributors"
             licenseFile.set(rootProject.file("LICENSE"))
             appResourcesRootDir.set(generatedDesktopNativeAppResources)
@@ -192,23 +192,22 @@ compose.desktop {
                 // Compose exposes Windows screen-reader semantics through Java Access Bridge.
                 modules("jdk.accessibility")
             }
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
+            // Windows installers are owned by registerWindowsInstaller so their shortcuts
+            // carry the same explicit AppUserModel.ID as the running process.
+            targetFormats(TargetFormat.Dmg, TargetFormat.Deb, TargetFormat.Rpm)
 
             windows {
                 iconFile.set(windowsInstallerIcon)
-                upgradeUuid = windowsInstallerUpgradeUuid
-                msiPackageVersion = naviampWindowsPackageVersion
-                exePackageVersion = naviampWindowsPackageVersion
-                perUserInstall = true
-                menu = true
-                menuGroup = "Naviamp"
             }
             macOS {
+                bundleID = naviampApplicationId
                 iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.icns"))
             }
             linux {
                 iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.png"))
-                packageName = "naviamp"
+                packageName = naviampApplicationId
+                // jpackage appends the Linux package name: /opt/cn.com.letalk.naviamp.
+                installationPath = "/opt"
                 packageVersion = naviampLinuxPackageVersion
                 debPackageVersion = naviampLinuxPackageVersion
                 rpmPackageVersion = naviampLinuxPackageVersion
@@ -282,6 +281,7 @@ tasks.matching {
         sealMacAppBundle(appDirectory)
     }
     inputs.files(macLocalNetworkPackagingInputs)
+    inputs.file(rootProject.file("APPLICATION_ID"))
     inputs.property("naviampMacSigningIdentity", macSigningIdentity)
 }
 
@@ -517,6 +517,7 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
     inputs.dir(desktopReleasePackagedAppDir)
     inputs.file(rootProject.file("LICENSE"))
     inputs.file(windowsInstallerIcon)
+    inputs.file(rootProject.file("APPLICATION_ID"))
     outputs.file(outputFile)
 
     doLast {
@@ -554,6 +555,7 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         resourcesDirectory.resolve("main.wxs").writeText(
             windowsMainWxsWithOptionalLaunch(defaultMainWxs.readText()),
         )
+        resourcesDirectory.resolve("Naviamp-post-image.wsf").writeText(windowsShortcutIdentityScript())
 
         val destination = outputDirectory.get().asFile
         delete(destination)
@@ -567,14 +569,15 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
                 "--app-image", desktopReleasePackagedAppDir.get().asFile.absolutePath,
                 "--dest", destination.absolutePath,
                 "--description", desktopExecutableDescription,
-                "--vendor", "Naviamp",
+                "--vendor", "LeTalk",
                 "--copyright", "Copyright 2026 Naviamp contributors",
                 "--license-file", rootProject.file("LICENSE").absolutePath,
                 "--icon", windowsInstallerIcon.absolutePath,
                 "--resource-dir", resourcesDirectory.absolutePath,
+                "--install-dir", naviampApplicationId,
                 "--win-per-user-install",
                 "--win-menu",
-                "--win-menu-group", "Naviamp",
+                "--win-menu-group", "LeTalk",
                 "--win-upgrade-uuid", windowsInstallerUpgradeUuid,
             )
         }.assertNormalExitValue()
@@ -583,6 +586,33 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         }
     }
 }
+
+// JDK 21's generated shortcuts lack AppUserModel.ID. Its post-image hook runs after
+// bundle.wxf is generated and before WiX compiles it, so the installed shortcut and process agree.
+// WSH requires the XML declaration to interpret CDATA instead of compiling its delimiters as JScript.
+fun windowsShortcutIdentityScript(): String = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <job><script language="JScript"><![CDATA[
+    var files = new ActiveXObject("Scripting.FileSystemObject");
+    var path = files.BuildPath(files.GetParentFolderName(WScript.ScriptFullName), "bundle.wxf");
+    var document = new ActiveXObject("Msxml2.DOMDocument.6.0");
+    document.async = false;
+    document.preserveWhiteSpace = true;
+    if (!document.load(path)) throw new Error(document.parseError.reason);
+    var namespace = "http://schemas.microsoft.com/wix/2006/wi";
+    document.setProperty("SelectionNamespaces", "xmlns:w='" + namespace + "'");
+    var shortcuts = document.selectNodes("//w:Shortcut[@Name='Naviamp']");
+    if (shortcuts.length == 0) throw new Error("jpackage did not generate the Naviamp shortcut");
+    for (var i = 0; i < shortcuts.length; i++) {
+        var property = document.createNode(1, "ShortcutProperty", namespace);
+        property.setAttribute("Id", "NaviampAppUserModelID" + i);
+        property.setAttribute("Key", "System.AppUserModel.ID");
+        property.setAttribute("Value", "$naviampApplicationId");
+        shortcuts.item(i).appendChild(property);
+    }
+    document.save(path);
+    ]]></script></job>
+""".trimIndent()
 
 val packageReleaseWindowsMsi = registerWindowsInstaller("msi")
 val packageReleaseWindowsExe = registerWindowsInstaller("exe")

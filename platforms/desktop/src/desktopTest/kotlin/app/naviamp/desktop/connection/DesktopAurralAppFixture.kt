@@ -2,6 +2,7 @@ package app.naviamp.desktop
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.naviamp.desktop.settings.DesktopCoreSettingsValueStore
+import app.naviamp.domain.app.naviampApplicationProfileId
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.provider.ProviderIdAurral
 import app.naviamp.domain.settings.CacheSettings
@@ -31,7 +32,7 @@ fun main(args: Array<String>) {
         tlsSettings = NavidromeTlsSettings(insecureSkipTlsVerification =
             System.getenv("NAVIAMP_AURRAL_TEST_INSECURE").equals("true", ignoreCase = true)),
     )
-    val directory = profile.resolve("Roaming").resolve("Naviamp Development")
+    val directory = profile.resolve("Roaming").resolve(naviampApplicationProfileId(development = true))
     val noNetwork = object : NavidromeHttpClient {
         override suspend fun get(url: String): String = error("Profile preparation cannot contact the server")
     }

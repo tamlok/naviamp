@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_ID="$(tr -d '\r\n' < "$ROOT_DIR/APPLICATION_ID")"
 OUTPUT_DIR="$ROOT_DIR/build/linux-test"
 APP_PATH="$ROOT_DIR/build/local-test/Naviamp/bin/Naviamp"
 SMOKE_SECONDS="${LINUX_SMOKE_SECONDS:-15}"
@@ -55,5 +56,5 @@ if [[ "$smoke_status" -ne 124 ]]; then
     exit 1
 fi
 
-printf 'Linux verification passed: native tests, staged app, and %s-second launch smoke test.\n' "$SMOKE_SECONDS"
+printf 'Linux verification passed for %s: native tests, staged app, and %s-second launch smoke test.\n' "$APP_ID" "$SMOKE_SECONDS"
 printf 'Startup log: %s\n' "$OUTPUT_DIR/app-smoke.log"

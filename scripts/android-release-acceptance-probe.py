@@ -14,12 +14,14 @@ import shlex
 import subprocess
 import sys
 
+APP_ID = (Path(__file__).resolve().parents[1] / 'APPLICATION_ID').read_text().strip()
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--serial', required=True)
 parser.add_argument('--steps-file', type=Path, required=True)
 parser.add_argument('--evidence-dir', type=Path, required=True)
 parser.add_argument('--name', required=True)
-parser.add_argument('--package', choices=['app.naviamp.android', 'app.naviamp.android.v2test', 'com.tailscale.ipn'], default='app.naviamp.android')
+parser.add_argument('--package', choices=[APP_ID, f'{APP_ID}.v2test', 'com.tailscale.ipn'], default=APP_ID)
 parser.add_argument('--adb', default=str(Path(os.environ.get('ANDROID_HOME', str(Path.home() / 'Library/Android/sdk'))) / 'platform-tools/adb'))
 args = parser.parse_args()
 if not re.fullmatch(r'[A-Za-z0-9-]+', args.name):
@@ -35,7 +37,7 @@ command = ['shell', 'am', 'instrument', '-w', '-r',
            '-e', 'class', 'app.naviamp.android.AndroidReleaseAcceptanceInstrumentedTest',
            '-e', 'releaseAcceptance', 'true', '-e', 'acceptancePackage', args.package,
            '-e', 'acceptanceSteps', payload,
-           'app.naviamp.android.v2test.test/androidx.test.runner.AndroidJUnitRunner']
+           f'{APP_ID}.v2test.test/androidx.test.runner.AndroidJUnitRunner']
 result = subprocess.run(adb + command, capture_output=True, text=True, encoding='utf-8', errors='replace')
 log = args.evidence_dir / (args.name + '.log')
 log.write_text(result.stdout + result.stderr, encoding='utf-8')
@@ -48,7 +50,7 @@ for step in steps:
     if not re.fullmatch(r'[A-Za-z0-9-]+', name):
         continue
     for extension in ('txt', 'png'):
-        capture = subprocess.run(adb + ['exec-out', 'run-as', 'app.naviamp.android.v2test', 'cat',
+        capture = subprocess.run(adb + ['exec-out', 'run-as', f'{APP_ID}.v2test', 'cat',
                                        f'cache/release-acceptance/{name}.{extension}'], capture_output=True)
         if capture.returncode == 0:
             (args.evidence_dir / f'{name}.{extension}').write_bytes(capture.stdout)

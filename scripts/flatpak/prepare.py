@@ -7,8 +7,10 @@ import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-APP_ID = "io.github.goosepod.Naviamp"
 ROOT = Path(__file__).resolve().parents[2]
+APP_ID = (ROOT / "APPLICATION_ID").read_text(encoding="utf-8").strip()
+RELEASE_REPOSITORY = (ROOT / "RELEASE_REPOSITORY").read_text(encoding="utf-8").strip()
+PROJECT_URL = f"https://github.com/{RELEASE_REPOSITORY}"
 PACKAGING = ROOT / "packaging/flatpak"
 
 
@@ -16,16 +18,20 @@ def release_source(release):
     tag = release.get("tag_name", "")
     if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
         raise ValueError("A stable public release tag is required")
-    if release.get("draft") or release.get("prerelease"):
-        raise ValueError("Draft and prerelease applications cannot enter the stable remote")
+    if release.get("draft") is not False or release.get("prerelease") is not False:
+        raise ValueError("Only published stable releases can enter the stable remote")
+    if release.get("immutable") is not True:
+        raise ValueError("The published release must be immutable")
+    if release.get("html_url") != f"{PROJECT_URL}/releases/tag/{tag}":
+        raise ValueError("The release must belong to the configured fork repository")
     name = f"Naviamp-{tag}-linux-x64-release.zip"
     assets = [a for a in release.get("assets", []) if a.get("name") == name]
     if len(assets) != 1:
         raise ValueError("Exactly one official Linux image is required")
     asset = assets[0]
-    expected_url = f"https://github.com/goosepod/naviamp/releases/download/{tag}/{name}"
+    expected_url = f"{PROJECT_URL}/releases/download/{tag}/{name}"
     if asset.get("browser_download_url") != expected_url:
-        raise ValueError("The image must come from the canonical Naviamp release")
+        raise ValueError("The image must come from the configured fork release")
     digest = asset.get("digest", "")
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         raise ValueError("The published image must have a SHA-256 digest")
@@ -42,12 +48,12 @@ def prepare(release, output):
         shutil.copyfile(PACKAGING / name, output / name)
     shutil.copyfile(ROOT / "LICENSE", output / "LICENSE")
     shutil.copyfile(ROOT / "platforms/desktop/src/desktopMain/resources/icons/naviamp.png",
-                    output / "naviamp.png")
+                    output / f"{APP_ID}.png")
     metadata = ET.parse(PACKAGING / f"{APP_ID}.metainfo.xml")
     ET.SubElement(metadata.getroot().find("releases"), "release", version=version, date=date)
     metadata.write(output / f"{APP_ID}.metainfo.xml", encoding="UTF-8", xml_declaration=True)
     provenance = {"application_version": version, "source_url": url, "sha256": digest,
-                  "source_code": f"https://github.com/goosepod/naviamp/tree/v{version}",
+                  "source_code": f"{PROJECT_URL}/tree/v{version}",
                   "runtime": "org.freedesktop.Platform//25.08"}
     (output / "source.json").write_text(json.dumps(provenance, indent=2) + "\n")
     manifest = {
@@ -56,8 +62,8 @@ def prepare(release, output):
         "finish-args": ["--share=network", "--share=ipc", "--socket=x11",
                         "--socket=pulseaudio", "--device=dri",
                         "--talk-name=org.freedesktop.secrets",
-                        "--own-name=org.mpris.MediaPlayer2.naviamp",
-                        "--filesystem=xdg-download", "--persist=.local/share/naviamp",
+                        f"--own-name=org.mpris.MediaPlayer2.{APP_ID}",
+                        "--filesystem=xdg-download", f"--persist=.local/share/{APP_ID}",
                         "--env=GTK_USE_PORTAL=1"],
         "modules": [
             {"name": "secret-tool", "buildsystem": "meson",
@@ -75,7 +81,7 @@ def prepare(release, output):
                  "chmod +x /app/lib/naviamp/bin/Naviamp /app/lib/naviamp/lib/runtime/lib/jspawnhelper",
                  "install -Dm755 naviamp /app/bin/naviamp",
                  f"install -Dm644 {APP_ID}.desktop /app/share/applications/{APP_ID}.desktop",
-                 f"install -Dm644 naviamp.png /app/share/icons/hicolor/512x512/apps/{APP_ID}.png",
+                 f"install -Dm644 {APP_ID}.png /app/share/icons/hicolor/512x512/apps/{APP_ID}.png",
                  f"install -Dm644 {APP_ID}.metainfo.xml /app/share/metainfo/{APP_ID}.metainfo.xml",
                  f"install -Dm644 LICENSE /app/share/licenses/{APP_ID}/LICENSE",
                  f"install -Dm644 libsecret-COPYING /app/share/licenses/{APP_ID}/libsecret-COPYING",
@@ -84,7 +90,7 @@ def prepare(release, output):
              "sources": [{"type": "archive", "url": url, "sha256": digest, "strip-components": 0}]
                         + [{"type": "file", "path": name} for name in
                            ("naviamp", f"{APP_ID}.desktop", f"{APP_ID}.metainfo.xml",
-                            "naviamp.png", "LICENSE", "libsecret-COPYING", "THIRD-PARTY.txt", "source.json")]}
+                            f"{APP_ID}.png", "LICENSE", "libsecret-COPYING", "THIRD-PARTY.txt", "source.json")]}
         ]}
     (output / f"{APP_ID}.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return provenance

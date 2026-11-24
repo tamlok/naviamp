@@ -1,5 +1,6 @@
 package app.naviamp.desktop.settings
 
+import app.naviamp.domain.app.naviampApplicationProfileId
 import app.naviamp.presentation.NaviampCoreLegacySettingsValueStore
 import app.naviamp.presentation.NaviampCoreMutableSettingsValueStore
 import java.nio.file.Files
@@ -68,11 +69,11 @@ internal fun desktopDataDirectory(
 ): Path {
     return when {
         os.contains("mac") || os.contains("darwin") ->
-            home.resolve("Library/Application Support").resolve(desktopDirectoryName(development))
+            home.resolve("Library/Application Support").resolve(naviampApplicationProfileId(development))
         os.contains("win") ->
             Path.of(windowsAppData ?: home.resolve("AppData/Roaming").toString())
-                .resolve(desktopDirectoryName(development))
-        else -> home.resolve(".local/share").resolve(linuxDirectoryName(development))
+                .resolve(naviampApplicationProfileId(development))
+        else -> home.resolve(".local/share").resolve(naviampApplicationProfileId(development))
     }
 }
 
@@ -98,20 +99,14 @@ internal fun desktopSettingsDirectory(
 ): Path {
     val directory = when {
         os.contains("mac") || os.contains("darwin") ->
-            home.resolve("Library/Application Support").resolve(desktopDirectoryName(development))
+            home.resolve("Library/Application Support").resolve(naviampApplicationProfileId(development))
         os.contains("win") ->
             Path.of(windowsAppData ?: home.resolve("AppData/Roaming").toString())
-                .resolve(desktopDirectoryName(development))
+                .resolve(naviampApplicationProfileId(development))
         else -> Path.of(xdgConfigHome ?: home.resolve(".config").toString())
-            .resolve(linuxDirectoryName(development))
+            .resolve(naviampApplicationProfileId(development))
     }
     return directory
 }
-
-private fun desktopDirectoryName(development: Boolean): String =
-    if (development) "Naviamp Development" else "Naviamp"
-
-private fun linuxDirectoryName(development: Boolean): String =
-    if (development) "naviamp-development" else "naviamp"
 
 const val DesktopDevelopmentDataProfileProperty = "naviamp.developmentDataProfile"

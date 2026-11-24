@@ -11,6 +11,7 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
+import app.naviamp.domain.network.NaviampApplicationId
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.After
@@ -25,7 +26,7 @@ import kotlin.test.assertTrue
 class AndroidOptimizedPackageSmokeInstrumentedTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
-    private val packageName = "app.naviamp.android.benchmark"
+    private val packageName = "$NaviampApplicationId.benchmark"
 
     @After fun retainTestOwnedWindow() {
         if (InstrumentationRegistry.getArguments().getString("optimizedPackageSmoke") != "true") return

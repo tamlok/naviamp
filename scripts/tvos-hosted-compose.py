@@ -18,7 +18,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 DELIVERY = runpy.run_path(str(ROOT/'scripts/tvos-compose-delivery.py'))
 SOURCE_SHA = runpy.run_path(str(ROOT/'scripts/prepare-tvos-compose-sources.py'))['BUNDLE_SHA256']
-REPOSITORY = 'goosepod/naviamp'
+REPOSITORY = (ROOT/'RELEASE_REPOSITORY').read_text().strip()
 WORKFLOW = '.github/workflows/tvos-compose-producer.yml'
 MAX_DOWNLOAD = DELIVERY['MAX_BYTES'] + 1_000_000
 PIN_KEYS = {'schemaVersion', 'status', 'repository', 'repositoryId', 'workflowPath', 'producerCommit',

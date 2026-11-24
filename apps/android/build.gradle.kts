@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 val composeVersion = libs.versions.compose.get()
 val naviampVersionName = rootProject.file("VERSION").readText().trim()
 val naviampVersionCode = rootProject.file("VERSION_CODE").readText().trim().toInt()
+val naviampApplicationId = rootProject.file("APPLICATION_ID").readText().trim()
 val androidReleaseKeystore = providers.environmentVariable("NAVIAMP_ANDROID_KEYSTORE")
 val androidReleaseKeystorePassword = providers.environmentVariable("NAVIAMP_ANDROID_KEYSTORE_PASSWORD")
 val androidReleaseKeyAlias = providers.environmentVariable("NAVIAMP_ANDROID_KEY_ALIAS")
@@ -32,7 +33,7 @@ android {
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "app.naviamp.android"
+        applicationId = naviampApplicationId
         minSdk = 26
         targetSdk = 36
         versionCode = naviampVersionCode

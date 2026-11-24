@@ -162,7 +162,7 @@ jobs:
           packages: platform-tools
 
       - name: Install Android build packages
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
 
       - name: Restore Android signing key
         env:
@@ -228,6 +228,15 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up Android SDK for Gradle configuration
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      - name: Install Android build packages
+        shell: powershell
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
       - name: Install WiX Toolset
         shell: powershell
         run: |
@@ -255,100 +264,6 @@ jobs:
           path: |
             apps/desktop/build/release-artifacts/*
 
-  macos:
-    name: macOS zip and DMG
-    needs:
-      - version
-    runs-on: macos-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Build macOS standalone zip and DMG
-        run: ./gradlew -Pnaviamp.bass.platform=macos-arm64 -Pcompose.desktop.packaging.checkJdkVendor=false :apps:desktop:stageReleaseArtifacts
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: naviamp-macos
-          if-no-files-found: error
-          path: |
-            apps/desktop/build/release-artifacts/*
-
-  linux:
-    name: Linux zip, DEB, and RPM
-    needs:
-      - version
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
-
-      - name: Install pinned Corretto 21
-        if: hashFiles('.github/actions/release-corretto/action.yml') != ''
-        uses: ./.github/actions/release-corretto
-
-      - name: Set up JDK for older release sources
-        if: hashFiles('.github/actions/release-corretto/action.yml') == ''
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Install Linux packaging and secure-storage tools
-        run: sudo apt-get update && sudo apt-get install -y fakeroot rpm libsecret-tools libx11-dev libxrender-dev
-
-      - name: Build Linux standalone zip and installers
-        run: ./gradlew -Pkotlin.native.enableKlibsCrossCompilation=false -Pnaviamp.bass.platform=linux-x64 :apps:desktop:stageReleaseArtifacts
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: naviamp-linux
-          if-no-files-found: error
-          path: |
-            apps/desktop/build/release-artifacts/*
-
-  ios-unsigned:
-    name: iOS unsigned device IPA
-    needs:
-      - version
-    runs-on: macos-latest
-    # v2.10.0 already used almost 45 minutes; allow cold optimized linking and upload margin.
-    # Functional/native assertion deadlines remain in the separate verification workflow.
-    timeout-minutes: 90
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release_tag && format('refs/tags/{0}', inputs.release_tag) || github.ref }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Build unsigned iOS device IPA
-        run: scripts/build-ios-unsigned-ipa.sh
-
-      - name: Upload unsigned iOS artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: naviamp-ios-unsigned
-          if-no-files-found: error
-          path: build/ios-unsigned/distributions/*
-
   github-release:
     name: Publish GitHub release
     if: >-
@@ -357,18 +272,12 @@ jobs:
         (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')) &&
         needs.verification-gate.result == 'success' &&
         needs.android.result == 'success' &&
-        needs.windows.result == 'success' &&
-        needs.macos.result == 'success' &&
-        needs.linux.result == 'success' &&
-        needs['ios-unsigned'].result == 'success'
+        needs.windows.result == 'success'
       }}
     needs:
       - verification-gate
       - android
       - windows
-      - macos
-      - linux
-      - ios-unsigned
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository

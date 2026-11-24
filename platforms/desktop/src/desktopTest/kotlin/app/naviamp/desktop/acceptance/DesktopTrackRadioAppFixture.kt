@@ -2,6 +2,7 @@ package app.naviamp.desktop.acceptance
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import app.naviamp.desktop.settings.DesktopCoreSettingsValueStore
+import app.naviamp.domain.app.naviampApplicationProfileId
 import app.naviamp.domain.cache.ProviderMediaSourceConnection
 import app.naviamp.domain.settings.CacheSettings
 import app.naviamp.domain.settings.PlaybackSettings
@@ -34,8 +35,8 @@ fun main(args: Array<String>) {
     val namespace = try {
         NavidromeProvider(connection, KtorNavidromeHttpClient(client)).cacheNamespace
     } finally { client.close() }
-    for (name in listOf("Naviamp", "Naviamp Development")) {
-        val directory = profile.resolve("Roaming").resolve(name)
+    for (development in listOf(false, true)) {
+        val directory = profile.resolve("Roaming").resolve(naviampApplicationProfileId(development))
         Files.createDirectories(directory)
         JdbcSqliteDriver("jdbc:sqlite:${directory.resolve(DefaultStorageDatabaseFileName)}").use { driver ->
             val queries = initializeNaviampStorageDatabase(driver).naviampStorageQueries

@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.platform.app.InstrumentationRegistry
+import app.naviamp.domain.network.NaviampApplicationId
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
@@ -25,13 +26,13 @@ import org.json.JSONArray
 class AndroidReleaseAcceptanceInstrumentedTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private val automation get() = instrumentation.uiAutomation
-    private var packageName = "app.naviamp.android"
+    private var packageName = NaviampApplicationId
 
     @Test fun runAuthorizedAcceptanceSteps() {
         val args = InstrumentationRegistry.getArguments()
         assumeTrue(args.getString("releaseAcceptance") == "true")
         packageName = args.getString("acceptancePackage") ?: packageName
-        require(packageName in setOf("app.naviamp.android", "app.naviamp.android.v2test", "com.tailscale.ipn"))
+        require(packageName in setOf(NaviampApplicationId, "$NaviampApplicationId.v2test", "com.tailscale.ipn"))
         val rememberedSessionIds = mutableMapOf<String, String>()
         val rememberedSessionQueues = mutableMapOf<String, List<String>>()
         val steps = JSONArray(args.getString("acceptanceSteps") ?: "[]")
