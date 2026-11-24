@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -603,7 +604,15 @@ internal fun TelevisionInternetRadio(
     topNavigationFocusRequester: FocusRequester,
     entryFocusGeneration: Int? = null,
     onEntryFocusHandled: (Int) -> Unit = {},
-    showTitle: Boolean = true,
+    modifier: Modifier = Modifier.padding(horizontal = 30.dp),
+    contentUpFocusRequester: FocusRequester? = null,
+    header: @Composable (@Composable RowScope.() -> Unit) -> Unit = { controls ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(Res.string.tv_library_internet_radio), color = colors.primaryText, fontSize = 30.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.weight(1f))
+            controls()
+        }
+    },
 ) {
     val stations = screen.stations.sortedBy { it.item.title.lowercase() }
     val newFocusRequester = remember { FocusRequester() }
@@ -625,11 +634,9 @@ internal fun TelevisionInternetRadio(
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = Modifier.fillMaxSize().padding(horizontal = if (showTitle) 30.dp else 0.dp),
+        modifier = modifier.fillMaxSize(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            if (showTitle) Text(stringResource(Res.string.tv_library_internet_radio), color = colors.primaryText, fontSize = 30.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
+        val controls: @Composable RowScope.() -> Unit = {
             TelevisionTextButton(
                 stringResource(Res.string.tv_new_station),
                 colors,
@@ -680,6 +687,7 @@ internal fun TelevisionInternetRadio(
                 )
             }
         }
+        header(controls)
         screen.status?.let { Text(it, color = colors.secondaryText, fontSize = 15.sp) }
         if (stations.isEmpty()) {
             Text(
@@ -706,7 +714,7 @@ internal fun TelevisionInternetRadio(
                         onOpenActions = { actionStation = station },
                         modifier = Modifier.onPreviewKeyEvent { event ->
                             if (index == 0 && event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                                newFocusRequester.requestFocus()
+                                (contentUpFocusRequester ?: newFocusRequester).requestFocus()
                                 true
                             } else false
                         },

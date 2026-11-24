@@ -71,20 +71,39 @@ class NaviampRadioContentTest {
     fun internetTabPreservesPlaybackRefreshAndExplicitStationEditing() = runDesktopComposeUiTest(690, 850) {
         var serverRefreshes = 0
         var internetRefreshes = 0
+        var server by mutableStateOf(home())
+        var internet by mutableStateOf(internet())
         val stationActions = mutableListOf<StationRowActionRequest>()
         val saves = mutableListOf<NaviampInternetRadioStationEditUi>()
         setContent {
-            NaviampRadioContent(NaviampColors.Dark, home(), internet(), homeActions(refresh = { serverRefreshes++ }),
+            NaviampRadioContent(NaviampColors.Dark, server, internet, homeActions(refresh = { serverRefreshes++ }),
                 NaviampInternetRadioActions({ internetRefreshes++ }, stationActions::add, saves::add), mediaActions())
         }
+        assertHeaderActions("Refresh")
+        onNodeWithContentDescription("New station").assertDoesNotExist()
         onNodeWithContentDescription("Refresh").performClick()
         assertEquals(1, serverRefreshes)
+        runOnIdle { server = server.copy(refreshing = true) }
+        headerAction("Refresh").assertIsNotEnabled()
         onNodeWithText("Internet Radio").performClick()
         assertTrue(stationActions.isEmpty() && saves.isEmpty())
-        onAllNodesWithContentDescription("More actions").onFirst().performClick()
-        onNode(hasText("Refresh") and hasClickAction()).performClick()
+        assertHeaderActions("New station", "Refresh")
+        headerAction("Refresh").assertIsEnabled().performClick()
         assertEquals(1, internetRefreshes)
         assertEquals(1, serverRefreshes)
+        runOnIdle { internet = internet.copy(refreshing = true) }
+        headerAction("Refresh").assertIsNotEnabled()
+        headerAction("New station").assertIsEnabled()
+        onNodeWithText("Server Radio").performClick()
+        assertHeaderActions("Refresh")
+        onNodeWithContentDescription("New station").assertDoesNotExist()
+        headerAction("Refresh").assertIsNotEnabled()
+        runOnIdle { server = server.copy(refreshing = false) }
+        headerAction("Refresh").assertIsEnabled()
+        onNodeWithText("Internet Radio").performClick()
+        headerAction("Refresh").assertIsNotEnabled()
+        runOnIdle { internet = internet.copy(refreshing = false) }
+        headerAction("Refresh").assertIsEnabled()
         onNodeWithText("Ambient One").performClick()
         assertEquals(StationRowAction.Select, stationActions.single().action)
         onNodeWithContentDescription("New station").performClick()
@@ -119,10 +138,13 @@ class NaviampRadioContentTest {
         runOnIdle { visible = false }
         runOnIdle { visible = true }
         onNodeWithText("Internet Radio").assertIsSelected()
+        assertHeaderActions("New station", "Refresh")
         runOnIdle { source = "second" }
         onNodeWithText("Server Radio").assertIsSelected()
+        assertHeaderActions("Refresh")
         runOnIdle { source = "first" }
         onNodeWithText("Internet Radio").assertIsSelected()
+        assertHeaderActions("New station", "Refresh")
     }
 
     @Test
@@ -140,11 +162,25 @@ class NaviampRadioContentTest {
         onRoot().performKeyInput { pressKey(Key.DirectionUp) }
         onNodeWithText("Server Radio").assertIsFocused()
         onRoot().performKeyInput { pressKey(Key.DirectionRight); pressKey(Key.Enter) }
-        onNodeWithText("Internet Radio").assertIsSelected()
+        onNodeWithText("Internet Radio").assertIsSelected().assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+        headerAction("New station").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        headerAction("Refresh").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        onNodeWithText("Internet Radio").assertIsFocused()
         assertTrue(stations.isEmpty())
         runOnIdle { entry = 2 }
         onRoot().performKeyInput { pressKey(Key.Enter) }
         assertEquals(StationRowAction.Select, stations.single().action)
+        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+        onNodeWithText("Internet Radio").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionLeft); pressKey(Key.Enter) }
+        onNodeWithText("Server Radio").assertIsSelected().assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionUp) }
+        headerAction("Refresh").assertIsFocused()
+        onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        onNodeWithText("Server Radio").assertIsFocused()
     }
 
     @Test
@@ -163,9 +199,11 @@ class NaviampRadioContentTest {
                     }
                     onNodeWithText("Server Radio").assertIsDisplayed().assertIsSelected()
                     onNodeWithText("Internet Radio").assertIsDisplayed()
+                    assertHeaderActions("Refresh")
                     capture("server-$width-$height-$television-$theme")
                     onNodeWithText("Internet Radio").performClick()
                     onNodeWithText("Ambient One").assertIsDisplayed()
+                    assertHeaderActions("New station", "Refresh", inline = !television || width >= 690)
                     capture("internet-$width-$height-$television-$theme")
                     onNodeWithText("Server Radio").performClick()
                     runOnIdle { empty = true }
@@ -173,6 +211,28 @@ class NaviampRadioContentTest {
                     onNodeWithContentDescription("Refresh").performClick()
                     assertEquals(1, refreshes)
                 }
+            }
+        }
+    }
+
+    private fun ComposeUiTest.headerAction(label: String) = onNode(
+        (hasContentDescription(label) or hasText(label)) and hasClickAction() and hasAnyAncestor(hasTestTag("radio-header")),
+    )
+
+    private fun ComposeUiTest.assertHeaderActions(vararg labels: String, inline: Boolean = true) {
+        onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag("radio-header"))).assertCountEquals(labels.size)
+        onNode(hasContentDescription("More actions") and hasAnyAncestor(hasTestTag("radio-header"))).assertDoesNotExist()
+        val title = onNodeWithText("Radio").fetchSemanticsNode().boundsInRoot
+        val tabs = onNodeWithTag("radio-tabs").fetchSemanticsNode().boundsInRoot
+        val header = onNodeWithTag("radio-header").fetchSemanticsNode().boundsInRoot
+        assertTrue(header.bottom <= tabs.top, "Radio title and controls must stay above the tabs")
+        for (label in labels) {
+            val bounds = headerAction(label).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue(bounds.left >= header.left && bounds.right <= header.right && bounds.bottom <= tabs.top,
+                "$label must fit in the Radio header")
+            if (inline) {
+                assertTrue(bounds.left >= title.right, "$label must be beside the title")
+                assertTrue(kotlin.math.abs(bounds.center.y - title.center.y) <= 1f, "$label must align with the title")
             }
         }
     }

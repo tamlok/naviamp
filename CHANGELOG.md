@@ -7,7 +7,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Features
 
 - Preview generated radio before playing, save station recipes in Radio, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
-- Move Mix Builders, Stations, and Saved stations from Home into Radio's Server Radio tab, alongside a separate Internet Radio tab. Keep section actions, source-scoped tab selection, and Back navigation consistent across shared app surfaces.
+- Move Mix Builders, Stations, and Saved stations from Home into Radio's Server Radio tab, alongside a separate Internet Radio tab. Keep section actions, source-scoped tab selection, and Back navigation consistent across shared app surfaces. Place each tab's controls beside the Radio title, with Refresh directly available instead of a refresh-only menu.
 - Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
 - Replace the full player's generated-station text row with a Flame status icon immediately after DJs. Active stations open their details, and narrow bottom controls wrap without reducing touch targets or changing the player's outer padding.
 - Give generated stations a playlist-style detail page with a pinned Back arrow and the same compact action toolbar. Show station actions directly beside the artwork, using toolbar overflow only in narrow windows. Keep fresh-batch generation and application controls adjacent. Organize recipe details into aligned tuning fields and separate artist, album, and song seed lists.
