@@ -483,10 +483,10 @@ data class PlaybackSettings(
     val equalizer: EqualizerSettings = EqualizerSettings(),
     val volumePercent: Int = 100,
     val debugLoggingEnabled: Boolean = false,
-    val lrclibLyricsEnabled: Boolean = false,
+    val lrclibLyricsEnabled: Boolean = true,
     val lyricsTimingPreference: LyricsTimingPreference = LyricsTimingPreference.FirstAvailable,
     val lyricsDisplayPreference: LyricsDisplayPreference = LyricsDisplayPreference.MatchDownload,
-    val compactLyricsFontSizeSp: Int = 14,
+    val compactLyricsFontSizeSp: Int = 24,
     // Retained so existing v2 settings migrate without silently losing the user's preference.
     val preferSyncedLyrics: Boolean = false,
     val preferWordSyncedLyrics: Boolean = false,

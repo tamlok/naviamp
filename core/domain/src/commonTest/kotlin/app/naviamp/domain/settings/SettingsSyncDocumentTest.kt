@@ -82,17 +82,17 @@ class SettingsSyncDocumentTest {
 
     @Test
     fun compactLyricsFontSizesSurviveExportImportAndSyncDocumentRebuild() {
-        for (size in listOf(14, 20, 24, 48, 64)) {
-            val settings = PlaybackSettings(compactLyricsFontSizeSp = size, lrclibLyricsEnabled = true)
+        for (size in listOf(14, 20, 24, 48, 64)) for (onlineEnabled in listOf(true, false)) {
+            val settings = PlaybackSettings(compactLyricsFontSizeSp = size, lrclibLyricsEnabled = onlineEnabled)
             val document = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = settings), 1L, "source")
             val imported = SettingsSyncJson.decode(SettingsSyncJson.encode(document)).preferences.playback
             assertEquals(size, imported.compactLyricsFontSizeSp)
-            assertTrue(imported.lrclibLyricsEnabled)
+            assertEquals(onlineEnabled, imported.lrclibLyricsEnabled)
 
             val synced = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(playback = imported), 2L, "destination")
             val restored = SettingsSyncJson.decode(SettingsSyncJson.encode(synced)).preferences.playback
             assertEquals(size, restored.compactLyricsFontSizeSp)
-            assertTrue(restored.lrclibLyricsEnabled)
+            assertEquals(onlineEnabled, restored.lrclibLyricsEnabled)
         }
     }
 
@@ -100,15 +100,16 @@ class SettingsSyncDocumentTest {
     fun compactLyricsFontSizeDefaultsForOlderExportsAndNormalizesMalformedValues() {
         val older = SettingsSyncJson.decode("""{"preferences":{"playback":{"volumePercent":37}}}""")
             .preferences.playback
-        assertEquals(14, older.compactLyricsFontSizeSp)
+        assertEquals(24, older.compactLyricsFontSizeSp)
+        assertTrue(older.lrclibLyricsEnabled)
         assertEquals(37, older.volumePercent)
-        assertEquals(14, SettingsSyncJson.decode("""{}""").preferences.playback.compactLyricsFontSizeSp)
+        assertEquals(24, SettingsSyncJson.decode("""{}""").preferences.playback.compactLyricsFontSizeSp)
 
         for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 16, 18, 25, Int.MAX_VALUE)) {
             val imported = SettingsSyncJson.decode(
                 """{"preferences":{"playback":{"compactLyricsFontSizeSp":$size,"volumePercent":37}}}""",
             ).preferences.playback
-            assertEquals(14, imported.compactLyricsFontSizeSp)
+            assertEquals(24, imported.compactLyricsFontSizeSp)
             assertEquals(37, imported.volumePercent)
 
             val document = buildSettingsSyncDocument(
@@ -116,7 +117,7 @@ class SettingsSyncDocumentTest {
                 1L,
                 "test",
             )
-            assertEquals(14, document.preferences.playback.compactLyricsFontSizeSp)
+            assertEquals(24, document.preferences.playback.compactLyricsFontSizeSp)
         }
     }
 

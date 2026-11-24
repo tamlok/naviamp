@@ -81,7 +81,7 @@ class NaviampCompactLyricsUiTest {
             assertTrue(range.maxValue() > viewport.height)
             assertEquals(playing.lyricsLines.joinToString("\n") { it.text },
                 lyrics.fetchSemanticsNode().config[SemanticsProperties.Text].single().text)
-            for (expected in listOf(20, 24, 48, 64, 14)) {
+            for (expected in listOf(48, 64, 14, 20, 24)) {
                 font.performClick()
                 val layouts = mutableListOf<TextLayoutResult>()
                 lyrics.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }

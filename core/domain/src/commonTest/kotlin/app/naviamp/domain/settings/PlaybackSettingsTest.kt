@@ -21,7 +21,7 @@ import kotlin.test.assertTrue
 class PlaybackSettingsTest {
     @Test
     fun compactLyricsFontSizeCyclesThroughSupportedSizesAndWraps() {
-        assertEquals(14, PlaybackSettings().compactLyricsFontSizeSp)
+        assertEquals(24, PlaybackSettings().compactLyricsFontSizeSp)
         assertEquals(20, nextCompactLyricsFontSize(14))
         assertEquals(24, nextCompactLyricsFontSize(20))
         assertEquals(48, nextCompactLyricsFontSize(24))
@@ -36,15 +36,15 @@ class PlaybackSettingsTest {
             assertEquals(size, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
         }
         for (size in listOf(Int.MIN_VALUE, -1, 0, 15, 16, 18, 25, Int.MAX_VALUE)) {
-            assertEquals(14, normalizedCompactLyricsFontSize(size))
-            assertEquals(14, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
-            assertEquals(20, nextCompactLyricsFontSize(size))
+            assertEquals(24, normalizedCompactLyricsFontSize(size))
+            assertEquals(24, PlaybackSettings(compactLyricsFontSizeSp = size).normalized().compactLyricsFontSizeSp)
+            assertEquals(48, nextCompactLyricsFontSize(size))
         }
     }
 
     @Test
     fun compactLyricsFontSizeChangeDoesNotReloadLyricsSidecars() {
-        val previous = PlaybackSettings()
+        val previous = PlaybackSettings(compactLyricsFontSizeSp = 14)
         val changed = playbackSettingsChange(
             requested = previous.copy(compactLyricsFontSizeSp = 24),
             playbackEngine = FakePlaybackEngine(),

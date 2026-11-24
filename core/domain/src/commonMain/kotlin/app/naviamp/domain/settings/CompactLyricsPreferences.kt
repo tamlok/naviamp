@@ -3,7 +3,7 @@ package app.naviamp.domain.settings
 fun normalizedCompactLyricsFontSize(size: Int): Int =
     when (size) {
         14, 20, 24, 48, 64 -> size
-        else -> 14
+        else -> 24
     }
 
 fun nextCompactLyricsFontSize(size: Int): Int =

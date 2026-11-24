@@ -1157,7 +1157,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         runCurrent()
         assertEquals(1, requested.size)
         assertEquals(0, cancelled)
-        fixture.services.settings.apply(original.copy(lrclibLyricsEnabled = true), false)
+        fixture.services.settings.apply(original.copy(lrclibLyricsEnabled = false), false)
         runCurrent()
         assertEquals(2, requested.size)
         assertEquals(1, cancelled)

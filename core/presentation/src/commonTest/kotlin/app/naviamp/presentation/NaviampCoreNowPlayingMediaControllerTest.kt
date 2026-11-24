@@ -154,7 +154,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
     @Test
     fun compactLyricsFontCyclePersistsWithoutReloadingLyrics() = runTest {
         val fixture = mediaFixture(this)
-        for (expected in listOf(20, 24, 48, 64, 14)) {
+        for (expected in listOf(48, 64, 14, 20, 24)) {
             fixture.controller.execute(displayCommand(NowPlayingDisplayAction.CycleCompactLyricsFontSize))
             assertEquals(expected, fixture.store.state.value.shell.playback.settings.compactLyricsFontSizeSp)
             assertEquals(expected, fixture.store.state.value.shell.nowPlaying?.compactLyricsFontSizeSp)

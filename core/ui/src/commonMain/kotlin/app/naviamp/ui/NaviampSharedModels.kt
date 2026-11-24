@@ -1368,7 +1368,7 @@ data class NowPlayingUi(
     val lyricsAvailable: Boolean = false,
     val lyricsVisible: Boolean = false,
     val lyricsStatus: String? = null,
-    val compactLyricsFontSizeSp: Int = 14,
+    val compactLyricsFontSizeSp: Int = 24,
     val lyricsLoading: Boolean = false,
     val canRefreshLyrics: Boolean = false,
     val lyricsSourceId: String? = null,
