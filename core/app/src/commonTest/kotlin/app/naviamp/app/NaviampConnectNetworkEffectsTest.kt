@@ -2,6 +2,7 @@ package app.naviamp.app
 
 import app.naviamp.domain.connect.NaviampConnectAdvertisement
 import app.naviamp.domain.connect.NaviampConnectProtocolRange
+import app.naviamp.domain.network.NaviampClientName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -139,7 +140,7 @@ class NaviampConnectNetworkEffectsTest {
     private class Advertising(private val calls: MutableList<String>) : NaviampConnectAdvertisingEffect {
         val listeners = mutableListOf<NaviampConnectAdvertisingListener>()
         override fun start(service: NaviampConnectRegistrationService, listener: NaviampConnectAdvertisingListener): NaviampConnectAdvertisingStartResult {
-            calls += "start:${service.textAttributes["id"] ?: service.serviceName.removePrefix("Naviamp ")}"
+            calls += "start:${service.textAttributes["id"] ?: service.serviceName.removePrefix("$NaviampClientName ")}"
             listeners += listener
             return NaviampConnectAdvertisingStartResult.Started
         }

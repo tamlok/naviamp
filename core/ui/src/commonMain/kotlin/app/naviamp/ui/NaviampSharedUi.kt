@@ -68,6 +68,19 @@ import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.*
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.getString
+
+/** Host-facing copy stays resource-backed without exposing generated resource implementation types. */
+@Composable
+fun naviampApplicationName(): String = stringResource(Res.string.app_name)
+
+@Composable
+fun naviampStatsWindowTitle(): String = stringResource(Res.string.stats_window_title)
+
+/** Native picker effects receive already-localized strings from the common UI owner. */
+suspend fun naviampSettingsImportTitle(): String = getString(Res.string.settings_sync_import_title)
+
+suspend fun naviampSettingsExportTitle(): String = getString(Res.string.settings_sync_export_title)
 
 /** [playbackProgress] is the presented timeline for whichever output plays, including a remote target. */
 @Composable
@@ -354,7 +367,7 @@ private fun NaviampSharedAppShellContent(
                 ) {
                     val showingRouteConnectionForm = editingConnection && selectedRoute != SharedRoute.Settings
                     if (!showFullNowPlaying && (restoringConnection || showingDisconnectedConnectionForm || showingRouteConnectionForm)) {
-                        Text("Naviamp", color = colors.primaryText, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(Res.string.app_name), color = colors.primaryText, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         if (!connection.statusIsError) {
                             Text(status, color = colors.secondaryText, fontSize = 13.sp)
                         }

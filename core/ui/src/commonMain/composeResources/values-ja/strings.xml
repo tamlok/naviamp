@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">ペアリング済みの Navo コントローラー</string>
+    <string name="connect_paired_target">ペアリング済みの Navo ターゲット</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - 詳細統計情報</string>
+    <string name="bootstrap_preparing">Navo Core を準備中…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Navo デバイスを検索</string>
+    <string name="settings_updates_description">Navo が安定版とベータ版のどちらのリリースを通知するかを選択します</string>
+    <string name="settings_shortcuts_description">Navo の実行中は、ウィンドウにフォーカスがなくてもこれらのショートカットを許可します</string>
+    <string name="shortcut_bring_to_front">Navo を最前面に表示</string>
+    <string name="smart_playlist_token_help">スマートプレイリストの変更には Navidrome API トークンが必要です。パスワードを一度入力すると、Navo が今後の編集用にトークンを保存します。</string>
+    <string name="smart_playlist_token_refresh_help">このスマートプレイリストの編集には、更新された Navidrome API トークンが必要です。パスワードを一度入力すると、Navo が新しいトークンを保存します。</string>
+    <string name="update_available_title">Navo のアップデートがあります</string>
+    <string name="connection_unsupported_provider">保存されたこのプロバイダーの種類は、このバージョンの Navo ではサポートされていません。</string>
+    <string name="settings_sync_newer_version">設定同期ファイルは、より新しいバージョンの Navo で作成されました。</string>
+    <string name="settings_sync_setup_choice">Navo の設定方法を選択してください。</string>
+    <string name="settings_sync_import_title">Navo の設定をインポート</string>
+    <string name="settings_sync_export_title">Navo の設定をエクスポート</string>
+    <string name="connect_incompatible_version">このデバイスには別のバージョンの Navo が必要です。</string>
+    <string name="connect_pairing_start_failed">Navo Connect のペアリングを開始できませんでした。</string>
+    <string name="connect_target_command_unsupported">この Navo ターゲットは、要求されたコマンドにまだ対応していません。</string>
+    <string name="connect_advertising_permission_required">この Navo ターゲットを公開するには、ローカルネットワークへのアクセス許可が必要です。</string>
+    <string name="connect_request_failed">Navo Connect はリクエストを完了できませんでした。</string>
     <string name="settings_resume_playlists">プレイリストを再開</string>
     <string name="settings_resume_playlists_description">前回の曲と再生位置からプレイリストを再開します</string>
     <string name="common_back">戻る</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">ダーク</string>
     <string name="settings_themes_system">システム</string>
     <string name="settings_themes_catalog">テーマパック</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">森</string>
     <string name="settings_player_background">プレーヤーの背景</string>
     <string name="tv_aurora">オーロラ</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">タイトル</string>
     <string name="tv_group_albums_by_release_type">リリース種別でアルバムをグループ化</string>
     <string name="tv_group_albums_by_release_type_description">アルバム、EP、シングルなどを別々のセクションに表示</string>
-    <string name="connect_setup_password_required">設定を完了するには、音楽ソースのパスワードを入力してください。Naviampはパスワードを検証し、今後の接続のために安全に保存します。</string>
+    <string name="connect_setup_password_required">設定を完了するには、音楽ソースのパスワードを入力してください。Navoはパスワードを検証し、今後の接続のために安全に保存します。</string>
     <string name="connect_setup_code_consent">コードを表示すると、そのコードを入力したデバイスとのペアリングと、そのデバイスの音楽ソースおよび設定を使ったこのデバイスのセットアップを許可します。</string>
     <string name="connect_setup_new_code_required">テレビに新しいコードを表示し、もう一度ペアリングして設定を完了してください。</string>
     <string name="settings_keep_screen_awake">画面をオンに保つ</string>
-    <string name="settings_keep_screen_awake_description">Naviampの表示中は画面の自動スリープを防ぎます。システムのスリープ、画面ロック、テレビの電源タイマーは引き続き動作する場合があります。</string>
+    <string name="settings_keep_screen_awake_description">Navoの表示中は画面の自動スリープを防ぎます。システムのスリープ、画面ロック、テレビの電源タイマーは引き続き動作する場合があります。</string>
     <string name="settings_keep_screen_awake_failed">画面のスリープ防止設定を変更できませんでした。この設定をオフにしてからオンにし、再試行してください。</string>
     <string name="now_playing_playback_device">再生デバイス: %1$s</string>
     <string name="now_playing_from_playlist">プレイリストから再生: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">省略可能。例: 12h、1d、1w。</string>
     <string name="smart_playlist_refresh_delay_invalid">12h、1d、1w などの有効な期間を入力してください。</string>
     <string name="connect_pairing_code">ペアリングコード</string>
-    <string name="connect_devices_description">このネットワーク上のNaviampデバイスを操作・ペアリング</string>
+    <string name="connect_devices_description">このネットワーク上のNavoデバイスを操作・ペアリング</string>
     <string name="connect_setup_timed_out">デバイスの設定がタイムアウトしました。再生デバイスを確認してから、もう一度お試しください。</string>
     <string name="library_sort_title">アルバムの並び順：タイトル</string>
     <string name="library_sort_recently_added">アルバムの並び順：最近追加</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">再生を送信</string>
     <string name="library_sources_choose">ライブラリを選択</string>
     <string name="library_sources_title">ライブラリ</string>
-    <string name="library_sources_description">Naviamp に表示するライブラリを選択します</string>
+    <string name="library_sources_description">Navo に表示するライブラリを選択します</string>
     <string name="library_sources_loading">ライブラリを読み込み中…</string>
     <string name="library_sources_empty">このサーバーには選択可能なライブラリがありません</string>
     <string name="library_sources_save">保存</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">小</string>
     <string name="settings_font_size_small_subtitle">画面により多くの内容を表示します</string>
     <string name="settings_font_size_standard">標準</string>
-    <string name="settings_font_size_standard_subtitle">Naviamp の標準文字サイズを使用します</string>
+    <string name="settings_font_size_standard_subtitle">Navo の標準文字サイズを使用します</string>
     <string name="settings_font_size_large">大</string>
     <string name="settings_font_size_large_subtitle">大きな文字で読みやすくします</string>
     <string name="description_less">閉じる</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">このサーバーはこの操作に対応していません。</string>
     <string name="discovery_action_uncertain">結果を確認できませんでした。再試行する前にAurralで確認してください。</string>
     <string name="discovery_samples_loading">試聴を読み込み中…</string>
-    <string name="permission_local_network_usage">Naviampは音楽サーバーに接続し、ローカルネットワーク上の再生デバイスを検索します。</string>
+    <string name="permission_local_network_usage">Navoは音楽サーバーに接続し、ローカルネットワーク上の再生デバイスを検索します。</string>
     <string name="now_playing_playback_position">再生位置</string>
     <string name="now_playing_volume">音量</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Naviamp でこの言語を使用します</string>
+    <string name="settings_language_use_subtitle">Navo でこの言語を使用します</string>
     <string name="tv_keep_now_playing_controls_visible">プレーヤーの操作ボタンを常に表示</string>
     <string name="tv_keep_now_playing_controls_visible_description">数秒後も再生中の操作ボタンを非表示にしない</string>
     <string name="settings_square_album_artwork">アルバム画像の角を直角にする</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">システムキーボード</string>
     <string name="storage_location_app">アプリのストレージ</string>
     <string name="storage_location_custom">カスタム</string>
-    <string name="connect_recovery_secure_storage">Naviamp はこのデバイスの安全な資格情報ストレージを開けませんでした。システムのキーリングのロックを解除してから、もう一度お試しください。</string>
+    <string name="connect_recovery_secure_storage">Navo はこのデバイスの安全な資格情報ストレージを開けませんでした。システムのキーリングのロックを解除してから、もう一度お試しください。</string>
     <string name="radio_server_title">サーバーラジオ</string>
     <string name="radio_server_empty">利用できるサーバーラジオはありません</string>
     <string name="generated_radio_saved">保存したステーション</string>

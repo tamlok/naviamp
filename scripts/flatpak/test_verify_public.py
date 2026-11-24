@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from prepare import APP_ID, PROJECT_URL
+from prepare import APP_ID, APP_NAME, PROJECT_URL
 from publish import publish
 from verify_public import read_accepted_key, verify, verify_descriptors
 
@@ -16,8 +16,8 @@ from verify_public import read_accepted_key, verify, verify_descriptors
 def release_fixture():
     return {"tag_name": "v2.10.0", "draft": False, "prerelease": False, "immutable": True,
             "html_url": f"{PROJECT_URL}/releases/tag/v2.10.0", "published_at": "2026-11-03T12:00:00Z",
-            "assets": [{"name": "Naviamp-v2.10.0-linux-x64-release.zip",
-                        "browser_download_url": f"{PROJECT_URL}/releases/download/v2.10.0/Naviamp-v2.10.0-linux-x64-release.zip",
+            "assets": [{"name": f"{APP_NAME}-v2.10.0-linux-x64-release.zip",
+                        "browser_download_url": f"{PROJECT_URL}/releases/download/v2.10.0/{APP_NAME}-v2.10.0-linux-x64-release.zip",
                         "digest": "sha256:" + "a" * 64}]}
 
 
@@ -28,17 +28,18 @@ class DescriptorTests(unittest.TestCase):
             repository_url = "https://example.org/naviamp/repo/"
             key = b"accepted public key"
             encoded = base64.b64encode(key).decode()
-            reference = f"[Flatpak Ref]\nName={APP_ID}\nBranch=stable\nUrl={repository_url}\nGPGKey={encoded}\n"
-            repository = f"[Flatpak Repo]\nUrl={repository_url}\nGPGKey={encoded}\n"
-            (root / "naviamp.flatpakrepo").write_text(repository)
-            path = root / "Naviamp.flatpakref"
+            reference = f"[Flatpak Ref]\nName={APP_ID}\nBranch=stable\nTitle={APP_NAME}\nUrl={repository_url}\nGPGKey={encoded}\n"
+            repository = f"[Flatpak Repo]\nTitle={APP_NAME}\nUrl={repository_url}\nGPGKey={encoded}\n"
+            (root / f"{APP_NAME.lower()}.flatpakrepo").write_text(repository)
+            path = root / f"{APP_NAME}.flatpakref"
             path.write_text(reference)
             verify_descriptors(root, repository_url, key)
-            for name, original in (("Naviamp.flatpakref", reference), ("naviamp.flatpakrepo", repository)):
+            for name, original in ((f"{APP_NAME}.flatpakref", reference),
+                                   (f"{APP_NAME.lower()}.flatpakrepo", repository)):
                 replacements = [original.replace("example.org", "attacker.example"),
                                 original.replace(encoded, base64.b64encode(b"other key").decode()),
                                 original.replace(encoded, "not-valid-base64!")]
-                if name == "Naviamp.flatpakref":
+                if name == f"{APP_NAME}.flatpakref":
                     replacements += [original.replace(APP_ID, "io.github.goosepod.Naviamp"),
                                      original.replace("Branch=stable", "Branch=testing")]
                 for replacement in replacements:
@@ -142,12 +143,13 @@ class PublicIdentityTests(unittest.TestCase):
         self.fingerprint, armored, self.key = self.keys[0]
         self.accepted = self.root / "accepted.asc"
         self.accepted.write_bytes(armored)
-        (self.public / "naviamp.asc").write_bytes(armored)
+        (self.public / f"{APP_NAME.lower()}.asc").write_bytes(armored)
         self.url = "https://example.org/repo/"
         encoded = base64.b64encode(self.key).decode()
-        (self.public / "Naviamp.flatpakref").write_text(
-            f"[Flatpak Ref]\nName={APP_ID}\nBranch=stable\nUrl={self.url}\nGPGKey={encoded}\n")
-        (self.public / "naviamp.flatpakrepo").write_text(f"[Flatpak Repo]\nUrl={self.url}\nGPGKey={encoded}\n")
+        (self.public / f"{APP_NAME}.flatpakref").write_text(
+            f"[Flatpak Ref]\nName={APP_ID}\nBranch=stable\nTitle={APP_NAME}\nUrl={self.url}\nGPGKey={encoded}\n")
+        (self.public / f"{APP_NAME.lower()}.flatpakrepo").write_text(
+            f"[Flatpak Repo]\nTitle={APP_NAME}\nUrl={self.url}\nGPGKey={encoded}\n")
         self.release = release_fixture()
         self.provenance = {"application_version": "2.10.0",
                            "source_url": self.release["assets"][0]["browser_download_url"],
@@ -166,7 +168,7 @@ class PublicIdentityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "signing fingerprint"):
             self.verify_output()
         self.accepted.write_bytes(self.keys[0][1])
-        (self.public / "naviamp.asc").write_bytes(self.keys[1][1])
+        (self.public / f"{APP_NAME.lower()}.asc").write_bytes(self.keys[1][1])
         with self.assertRaisesRegex(ValueError, "signing fingerprint"):
             self.verify_output()
 

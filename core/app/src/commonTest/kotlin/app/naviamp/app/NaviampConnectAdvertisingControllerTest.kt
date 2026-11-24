@@ -4,6 +4,7 @@ import app.naviamp.domain.connect.NaviampConnectAdvertisement
 import app.naviamp.domain.connect.NaviampConnectCapability
 import app.naviamp.domain.connect.NaviampConnectDiscoveryMetadata
 import app.naviamp.domain.connect.NaviampConnectProtocolRange
+import app.naviamp.domain.network.NaviampClientName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -19,14 +20,14 @@ class NaviampConnectAdvertisingControllerTest {
 
         controller.start(advertisement)
 
-        assertEquals("Naviamp Living Room", effect.service.serviceName)
+        assertEquals("$NaviampClientName ${advertisement.displayName}", effect.service.serviceName)
         assertEquals(NaviampConnectDiscoveryMetadata.encode(advertisement), effect.service.textAttributes)
         assertIs<NaviampConnectAdvertisingStatus.Starting>(controller.state.value)
 
-        effect.listener.onServiceRegistered("Naviamp Living Room (2)")
+        effect.listener.onServiceRegistered("$NaviampClientName Living Room (2)")
 
         val advertising = assertIs<NaviampConnectAdvertisingStatus.Advertising>(controller.state.value)
-        assertEquals("Naviamp Living Room (2)", advertising.registeredServiceName)
+        assertEquals("$NaviampClientName Living Room (2)", advertising.registeredServiceName)
     }
 
     @Test
@@ -45,7 +46,7 @@ class NaviampConnectAdvertisingControllerTest {
         val effect = FakeAdvertisingEffect()
         val controller = NaviampConnectAdvertisingController(effect, nowEpochMillis = { now })
         controller.start(advertisement(expiresAt = 2_000))
-        effect.listener.onServiceRegistered("Naviamp Living Room")
+        effect.listener.onServiceRegistered("$NaviampClientName Living Room")
 
         now = 2_000
 
@@ -63,6 +64,7 @@ class NaviampConnectAdvertisingControllerTest {
 
         val failed = assertIs<NaviampConnectAdvertisingStatus.Failed>(controller.state.value)
         assertTrue(failed.permissionDenied)
+        assertEquals("connect_advertising_permission_required", failed.message)
     }
 
     @Test
@@ -72,9 +74,10 @@ class NaviampConnectAdvertisingControllerTest {
         controller.start(advertisement())
         effect.listener.onPermissionDenied()
         assertTrue(assertIs<NaviampConnectAdvertisingStatus.Failed>(controller.state.value).permissionDenied)
+        assertEquals("connect_advertising_permission_required", assertIs<NaviampConnectAdvertisingStatus.Failed>(controller.state.value).message)
         assertEquals(1, effect.stopCount)
         controller.start(advertisement())
-        effect.listener.onServiceRegistered("Naviamp Living Room")
+        effect.listener.onServiceRegistered("$NaviampClientName Living Room")
         assertIs<NaviampConnectAdvertisingStatus.Advertising>(controller.state.value)
     }
 

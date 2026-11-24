@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import app.naviamp.app.NaviampConnectSessionCredentialStorageEffect
+import app.naviamp.domain.network.NaviampClientName
 import java.security.KeyStore
 import java.util.Base64
 import javax.crypto.Cipher
@@ -48,7 +49,7 @@ class AndroidNaviampConnectSessionCredentialStorageEffect(context: Context) :
         try {
             val encoded = Base64.getEncoder().encodeToString(payload)
             check(preferences.edit().putString(storageKey(peerDeviceId), encoded).commit()) {
-                "Android could not persist the Naviamp Connect session credential."
+                "Android could not persist the $NaviampClientName Connect session credential."
             }
         } finally {
             ciphertext.fill(0)

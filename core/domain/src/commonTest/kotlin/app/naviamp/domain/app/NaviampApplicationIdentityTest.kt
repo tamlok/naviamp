@@ -1,6 +1,7 @@
 package app.naviamp.domain.app
 
 import app.naviamp.domain.network.NaviampApplicationId
+import app.naviamp.domain.network.NaviampClientName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,7 +13,7 @@ class NaviampApplicationIdentityTest {
         val release = naviampApplicationProfileId(development = false)
         val development = naviampApplicationProfileId(development = true)
 
-        assertEquals(NaviampApplicationId, release)
+        assertEquals("cn.com.letalk.naviamp", release)
         assertEquals("$release.development", development)
         assertNotEquals(release, development)
         val upstreamDirectories = setOf("Naviamp", "Naviamp Development", "naviamp", "naviamp-development")
@@ -22,7 +23,7 @@ class NaviampApplicationIdentityTest {
 
     @Test
     fun linuxDesktopEntryMatchesTheInstalledNativeOrFlatpakLauncher() {
-        assertEquals("$NaviampApplicationId-Naviamp", naviampLinuxDesktopEntryId(null))
+        assertEquals("$NaviampApplicationId-$NaviampClientName", naviampLinuxDesktopEntryId(null))
         val flatpakVariant = "$NaviampApplicationId.preview"
         assertEquals(flatpakVariant, naviampLinuxDesktopEntryId(flatpakVariant))
     }

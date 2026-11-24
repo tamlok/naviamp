@@ -9,6 +9,7 @@ import app.naviamp.domain.radio.GeneratedRadioCheckpoint
 import app.naviamp.domain.radio.GeneratedRadioPlaybackMode
 import app.naviamp.domain.radio.RadioQueueOccurrence
 import app.naviamp.ui.NaviampConnectStatusText
+import app.naviamp.domain.network.NaviampClientName
 
 import app.naviamp.app.NaviampConnectAdvertisingController
 import app.naviamp.app.NaviampConnectAdvertisingEffect
@@ -176,7 +177,7 @@ class NaviampCoreConnectController(
     private val identityState = kotlinx.coroutines.flow.MutableStateFlow<IdentityState>(IdentityState.Loading)
     private val localIdentity: NaviampConnectDeviceIdentity
         get() = (identityState.value as? IdentityState.Ready)?.identity
-            ?: error("The Naviamp Connect device identity is not available.")
+            ?: error("The $NaviampClientName Connect device identity is not available.")
     private val canControl = NaviampConnectDeviceCapability.ControlPlayback in services.deviceCapabilities
     private val canPlayRemotely = NaviampConnectDeviceCapability.PlaybackTarget in services.deviceCapabilities
     private val localControllerDevice: NaviampConnectDevice
@@ -777,7 +778,7 @@ class NaviampCoreConnectController(
             throw failure
         } catch (failure: Exception) {
             handleAdvertisingFailure(NaviampConnectAdvertisingStatus.Failed(
-                failure.message ?: "Could not start Naviamp Connect pairing.",
+                failure.message ?: "connect_pairing_start_failed",
             ))
             publish()
         }
@@ -1227,7 +1228,7 @@ class NaviampCoreConnectController(
                 is app.naviamp.app.NaviampConnectResumptionResult.Failed -> {
                     playbackDestination.unavailable()
                     phase = NaviampConnectPairingUiPhase.Failed
-                    status = if (manual) null else "Could not securely reconnect to ${trust.displayName}. Naviamp will retry when the TV is available."
+                    status = if (manual) null else "Could not securely reconnect to ${trust.displayName}. $NaviampClientName will retry when the TV is available."
                     statusMessage = if (manual) NaviampConnectStatusMessage(
                         if (reachedEndpoint) NaviampConnectStatusText.ManualEndpointRejected
                         else NaviampConnectStatusText.ManualEndpointUnreachable,
@@ -2328,7 +2329,8 @@ class NaviampCoreConnectController(
                     pendingControllerName = pendingTargetPairing?.controller?.displayName,
                     selectedTargetId = selectedTarget?.advertisement?.instanceId,
                     status = effectiveStatus,
-                    statusMessage = statusMessage.takeIf { discovered?.problem == null && effectiveStatus == status },
+                    statusMessage = statusMessage.takeIf { discovered?.problem == null && effectiveStatus == status }
+                        ?: connectStatusMessageForKey(effectiveStatus),
                     notice = notice,
                     recovery = recoveryProblem()?.let { problem ->
                         app.naviamp.ui.NaviampConnectRecoveryUi(
@@ -2551,7 +2553,10 @@ private fun NaviampConnectTrustRecord.toUi(
     deviceId = trustedDeviceId,
     displayName = displayName,
     localAlias = localAlias,
-    detail = "Paired Naviamp ${peerDevice.role.name.lowercase()}",
+    detail = when (peerDevice.role) {
+        NaviampConnectDeviceRole.Controller -> "connect_paired_controller"
+        NaviampConnectDeviceRole.Target -> "connect_paired_target"
+    },
     reconnectAvailable = reconnectAvailable,
     playbackTarget = peerDevice.canActAs(NaviampConnectDeviceRole.Target),
 )
@@ -2564,14 +2569,24 @@ private fun NaviampConnectDiscoveryProblem.userMessage(): String = when (this) {
 }
 
 private fun NaviampConnectErrorCode.userMessage(): String = when (this) {
-    NaviampConnectErrorCode.IncompatibleProtocol -> "This device requires a different Naviamp version."
+    NaviampConnectErrorCode.IncompatibleProtocol -> "connect_incompatible_version"
+    NaviampConnectErrorCode.UnsupportedCapability -> "connect_target_command_unsupported"
     NaviampConnectErrorCode.AuthenticationRequired -> "The pairing code or device identity could not be verified."
     NaviampConnectErrorCode.PairingExpired -> "The pairing code expired. Start pairing again."
     NaviampConnectErrorCode.RateLimited -> "Too many pairing attempts. Try again shortly."
     NaviampConnectErrorCode.TargetUnavailable -> "The target is no longer available."
     NaviampConnectErrorCode.InvalidRequest -> "The pairing request was invalid."
-    else -> "Naviamp Connect could not complete the request."
+    else -> "connect_request_failed"
 }
+
+private fun connectStatusMessageForKey(key: String?): NaviampConnectStatusMessage? = when (key) {
+    "connect_incompatible_version" -> NaviampConnectStatusText.IncompatibleVersion
+    "connect_pairing_start_failed" -> NaviampConnectStatusText.PairingStartFailed
+    "connect_target_command_unsupported" -> NaviampConnectStatusText.TargetCommandUnsupported
+    "connect_advertising_permission_required" -> NaviampConnectStatusText.AdvertisingPermissionRequired
+    "connect_request_failed" -> NaviampConnectStatusText.RequestFailed
+    else -> null
+}?.let { NaviampConnectStatusMessage(it) }
 
 private const val TargetSnapshotDebounceMillis = 250L
 private const val AutomaticReconnectDelayMillis = 750L

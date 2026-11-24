@@ -285,7 +285,7 @@ class AndroidNaviampPlaybackService : MediaBrowserServiceCompat() {
             notificationAction(ActionPlayPause, android.R.drawable.ic_media_play, "Play")
         }
         return Notification.Builder(this, NotificationChannelId)
-            .setContentTitle(current?.title ?: "Naviamp")
+            .setContentTitle(current?.title ?: getString(R.string.app_name))
             .setContentText(current?.subtitle ?: "Playback")
             .setSubText(current?.description?.takeIf(String::isNotBlank))
             .setSmallIcon(R.drawable.ic_notification)

@@ -555,7 +555,7 @@ internal fun NaviampConnectSettingsSection(
     actions: NaviampConnectSettingsActions?,
 ) {
     if (!connect.available || actions == null) {
-        SettingsPlaceholderSection(colors, "Naviamp Connect", "Connect is unavailable on this device.")
+        SettingsPlaceholderSection(colors, stringResource(Res.string.connect_title), stringResource(Res.string.tv_naviamp_connect_is_unavailable_on_this_device))
         return
     }
     Column(
@@ -627,7 +627,7 @@ internal fun NaviampConnectSettingsSection(
             )
         }
         if (connect.canDiscover) {
-            PrimaryButton("Find Naviamp devices", colors, enabled = true, onClick = actions.onRefreshTargets)
+            PrimaryButton(stringResource(Res.string.connect_find_devices), colors, enabled = true, onClick = actions.onRefreshTargets)
             Text(stringResource(Res.string.connect_manual_address_hint), color = colors.secondaryText, fontSize = 12.sp)
             OutlinedTextField(
                 colors = naviampOutlinedTextFieldColors(colors),
@@ -1101,7 +1101,7 @@ private fun ExperienceSettingsPage.subtitle(): String =
         ExperienceSettingsPage.HomeScreen -> "Choose List, Grid, or Carousel for each Home section"
         ExperienceSettingsPage.KeyboardShortcuts -> "Customize global Desktop shortcuts"
         ExperienceSettingsPage.SwipeActions -> "Choose gesture shortcuts; actions stay available in each track's More actions menu"
-        ExperienceSettingsPage.Updates -> "Choose whether Naviamp announces stable or beta releases"
+        ExperienceSettingsPage.Updates -> stringResource(Res.string.settings_updates_description)
     }
 
 private val ApplicationUpdateChannel.label: String
@@ -1545,7 +1545,7 @@ private fun GlobalKeyboardShortcutsSettingsPage(
         colors = colors,
         checked = settings.enabled,
         label = "Global keyboard shortcuts",
-        subtitle = "Allow these shortcuts while Naviamp is running, even when its window is not focused",
+        subtitle = stringResource(Res.string.settings_shortcuts_description),
         onCheckedChange = { enabled ->
             onInterfaceSettingsChanged(
                 interfaceSettings.copy(globalKeyboardShortcuts = settings.copy(enabled = enabled)).normalized(),
@@ -1565,7 +1565,7 @@ private fun GlobalKeyboardShortcutsSettingsPage(
             else -> "Unavailable on this desktop session"
         }
         SettingsRow(
-            title = action.label,
+            title = action.displayLabel(),
             subtitle = "$registrationStatus\nShortcut: ${binding?.label(platform) ?: "None"}",
             colors = colors,
         ) {
@@ -1603,6 +1603,10 @@ private fun GlobalKeyboardShortcutsSettingsPage(
 }
 
 @Composable
+private fun GlobalShortcutAction.displayLabel(): String =
+    if (this == GlobalShortcutAction.BringToFront) stringResource(Res.string.shortcut_bring_to_front) else label
+
+@Composable
 private fun KeyboardShortcutCaptureDialog(
     action: GlobalShortcutAction,
     colors: NaviampColors,
@@ -1614,7 +1618,7 @@ private fun KeyboardShortcutCaptureDialog(
     NaviampPopupPresence()
     NaviampAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(action.label) },
+        title = { Text(action.displayLabel()) },
         text = {
             Box(
                 contentAlignment = Alignment.Center,
@@ -2441,7 +2445,7 @@ fun NaviampAboutSettingsSection(
             contentDescription = null,
             modifier = Modifier.size(78.dp),
         )
-        Text("Naviamp", color = colors.primaryText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(stringResource(Res.string.app_name), color = colors.primaryText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Text(stringResource(Res.string.settings_about_production), color = colors.secondaryText, fontSize = 14.sp)
         Text(stringResource(Res.string.settings_about_version_build, about.version, about.buildNumber), color = colors.secondaryText, fontSize = 12.sp)
     }
@@ -2647,7 +2651,7 @@ private fun NaviampConnectionsSettingsSection(
                     PrimarySettingsButton(stringResource(Res.string.settings_sync_import_provider), colors, enabled = !isConnecting, onClick = importSettings)
                 }
                 settingsSyncStatus?.let {
-                    Text(it, color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
+                    Text(localizedConnectionStatus(it), color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
                 }
             }
         }
@@ -2670,7 +2674,7 @@ private fun NaviampConnectionsSettingsSection(
                     SourceSubpageRow(
                         title = stringResource(Res.string.settings_sync_title),
                         subtitle = stringResource(Res.string.settings_sync_subtitle),
-                        value = settingsSyncStatus,
+                        value = settingsSyncStatus?.let { localizedConnectionStatus(it) },
                         colors = colors,
                         enabled = !isConnecting,
                     ) {

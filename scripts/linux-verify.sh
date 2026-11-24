@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_ID="$(tr -d '\r\n' < "$ROOT_DIR/APPLICATION_ID")"
+APP_NAME="$(tr -d '\r\n' < "$ROOT_DIR/APPLICATION_NAME")"
 OUTPUT_DIR="$ROOT_DIR/build/linux-test"
-APP_PATH="$ROOT_DIR/build/local-test/Naviamp/bin/Naviamp"
+APP_PATH="$ROOT_DIR/build/local-test/$APP_NAME/bin/$APP_NAME"
 SMOKE_SECONDS="${LINUX_SMOKE_SECONDS:-15}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then

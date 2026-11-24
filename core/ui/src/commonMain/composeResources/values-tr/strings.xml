@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">Eşleştirilmiş Navo denetleyicisi</string>
+    <string name="connect_paired_target">Eşleştirilmiş Navo hedef cihazı</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - Meraklılar için istatistikler</string>
+    <string name="bootstrap_preparing">Navo Core hazırlanıyor…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Navo cihazlarını bul</string>
+    <string name="settings_updates_description">Navo’nun kararlı sürümleri mi yoksa beta sürümleri mi duyuracağını seçin</string>
+    <string name="settings_shortcuts_description">Navo çalışırken, penceresi odakta olmasa bile bu kısayollara izin ver</string>
+    <string name="shortcut_bring_to_front">Navo’yu öne getir</string>
+    <string name="smart_playlist_token_help">Akıllı çalma listesi değişiklikleri bir Navidrome API belirteci gerektirir. Parolanızı bir kez girin; Navo belirteci gelecekteki düzenlemeler için kaydeder.</string>
+    <string name="smart_playlist_token_refresh_help">Bu akıllı çalma listesini düzenlemek için yenilenmiş bir Navidrome API belirteci gerekir. Parolanızı bir kez girin; Navo yeni belirteci kaydeder.</string>
+    <string name="update_available_title">Navo güncellemesi mevcut</string>
+    <string name="connection_unsupported_provider">Kaydedilen bu sağlayıcı türü, Navo’nun bu sürümünde desteklenmiyor.</string>
+    <string name="settings_sync_newer_version">Ayar eşitleme dosyası daha yeni bir Navo sürümüyle oluşturulmuş.</string>
+    <string name="settings_sync_setup_choice">Navo’yu nasıl kuracağınızı seçin.</string>
+    <string name="settings_sync_import_title">Navo ayarlarını içe aktar</string>
+    <string name="settings_sync_export_title">Navo ayarlarını dışa aktar</string>
+    <string name="connect_incompatible_version">Bu cihaz farklı bir Navo sürümü gerektiriyor.</string>
+    <string name="connect_pairing_start_failed">Navo Connect eşleştirmesi başlatılamadı.</string>
+    <string name="connect_target_command_unsupported">Bu Navo hedefi istenen komutu henüz desteklemiyor.</string>
+    <string name="connect_advertising_permission_required">Bu Navo hedefini duyurmak için yerel ağ izni gerekiyor.</string>
+    <string name="connect_request_failed">Navo Connect isteği tamamlayamadı.</string>
     <string name="settings_resume_playlists">Çalma listelerine kaldığı yerden devam et</string>
     <string name="settings_resume_playlists_description">Çalma listelerine son parçadan ve konumdan devam et</string>
     <string name="common_back">Geri</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">Koyu</string>
     <string name="settings_themes_system">Sistem</string>
     <string name="settings_themes_catalog">Tema paketleri</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">Orman</string>
     <string name="settings_player_background">Oynatıcı arka planı</string>
     <string name="tv_aurora">Aurora</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">Başlık</string>
     <string name="tv_group_albums_by_release_type">Albümleri yayın türüne göre grupla</string>
     <string name="tv_group_albums_by_release_type_description">Albümleri, EP’leri, single’ları ve diğer yayınları ayrı bölümlerde göster</string>
-    <string name="connect_setup_password_required">Kurulumu tamamlamak için kaynak parolanızı girin. Naviamp parolayı doğrular ve gelecekteki bağlantılar için güvenli şekilde kaydeder.</string>
+    <string name="connect_setup_password_required">Kurulumu tamamlamak için kaynak parolanızı girin. Navo parolayı doğrular ve gelecekteki bağlantılar için güvenli şekilde kaydeder.</string>
     <string name="connect_setup_code_consent">Kodun gösterilmesi, kodu giren cihazın eşleşmesine ve bu cihazı kendi müzik kaynağı ve ayarlarıyla kurmasına izin verir.</string>
     <string name="connect_setup_new_code_required">Kurulumu tamamlamak için TV’de yeni bir kod gösterin ve yeniden eşleştirin.</string>
     <string name="settings_keep_screen_awake">Ekranı açık tut</string>
-    <string name="settings_keep_screen_awake_description">Naviamp görünürken ekranın otomatik uykuya geçmesini önler. Sistem uykusu, ekran kilitleri ve TV zamanlayıcıları yine de devreye girebilir.</string>
+    <string name="settings_keep_screen_awake_description">Navo görünürken ekranın otomatik uykuya geçmesini önler. Sistem uykusu, ekran kilitleri ve TV zamanlayıcıları yine de devreye girebilir.</string>
     <string name="settings_keep_screen_awake_failed">Ekran uykusunu önleme ayarı değiştirilemedi. Yeniden denemek için bu ayarı kapatıp açın.</string>
     <string name="now_playing_playback_device">Oynatma cihazı: %1$s</string>
     <string name="now_playing_from_playlist">Çalma listesinden: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">İsteğe bağlı. Örnekler: 12h, 1d veya 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">12h, 1d veya 1w gibi geçerli bir süre kullanın.</string>
     <string name="connect_pairing_code">Eşleştirme kodu</string>
-    <string name="connect_devices_description">Bu ağdaki Naviamp cihazlarını kontrol edin ve eşleştirin</string>
+    <string name="connect_devices_description">Bu ağdaki Navo cihazlarını kontrol edin ve eşleştirin</string>
     <string name="connect_setup_timed_out">Cihaz kurulumu zaman aşımına uğradı. Oynatma cihazını kontrol edip yeniden deneyin.</string>
     <string name="library_sort_title">Albüm sırası: Başlık</string>
     <string name="library_sort_recently_added">Albüm sırası: Son eklenenler</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">Dinlemeyi gönder</string>
     <string name="library_sources_choose">Kitaplıkları seç</string>
     <string name="library_sources_title">Kitaplıklar</string>
-    <string name="library_sources_description">Naviamp’ta görünecek kitaplıkları seçin</string>
+    <string name="library_sources_description">Navo’ta görünecek kitaplıkları seçin</string>
     <string name="library_sources_loading">Kitaplıklar yükleniyor…</string>
     <string name="library_sources_empty">Bu sunucuda seçilebilir kitaplık yok</string>
     <string name="library_sources_save">Kaydet</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">Küçük</string>
     <string name="settings_font_size_small_subtitle">Ekranda daha fazla içerik gösterir</string>
     <string name="settings_font_size_standard">Standart</string>
-    <string name="settings_font_size_standard_subtitle">Naviamp’ın varsayılan metin boyutunu kullanır</string>
+    <string name="settings_font_size_standard_subtitle">Navo’ın varsayılan metin boyutunu kullanır</string>
     <string name="settings_font_size_large">Büyük</string>
     <string name="settings_font_size_large_subtitle">Daha büyük metinle okunabilirliği artırır</string>
     <string name="description_less">Daha az</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">Bu sunucu bu işlemi desteklemiyor.</string>
     <string name="discovery_action_uncertain">Sonuç doğrulanamadı. Tekrar denemeden önce Aurral üzerinden kontrol edin.</string>
     <string name="discovery_samples_loading">Örnekler yükleniyor…</string>
-    <string name="permission_local_network_usage">Naviamp müzik sunucularınıza bağlanır ve yerel ağınızdaki oynatma cihazlarını bulur.</string>
+    <string name="permission_local_network_usage">Navo müzik sunucularınıza bağlanır ve yerel ağınızdaki oynatma cihazlarını bulur.</string>
     <string name="now_playing_playback_position">Çalma konumu</string>
     <string name="now_playing_volume">Ses düzeyi</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Naviamp için bu dili kullan</string>
+    <string name="settings_language_use_subtitle">Navo için bu dili kullan</string>
     <string name="tv_keep_now_playing_controls_visible">Oynatıcı kontrollerini görünür tut</string>
     <string name="tv_keep_now_playing_controls_visible_description">Birkaç saniye sonra Şimdi Çalınıyor kontrollerini gizleme</string>
     <string name="settings_square_album_artwork">Dik köşeli albüm kapakları</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">Sistem klavyesi</string>
     <string name="storage_location_app">Uygulama depolama alanı</string>
     <string name="storage_location_custom">Özel</string>
-    <string name="connect_recovery_secure_storage">Naviamp bu cihazın güvenli kimlik bilgisi deposunu açamadı. Sistem anahtarlığının kilidini açın ve yeniden deneyin.</string>
+    <string name="connect_recovery_secure_storage">Navo bu cihazın güvenli kimlik bilgisi deposunu açamadı. Sistem anahtarlığının kilidini açın ve yeniden deneyin.</string>
     <string name="radio_server_title">Sunucu Radyosu</string>
     <string name="radio_server_empty">Kullanılabilir sunucu radyosu yok</string>
     <string name="generated_radio_saved">Kaydedilen istasyonlar</string>

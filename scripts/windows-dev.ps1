@@ -26,19 +26,20 @@ function ConvertTo-ApplicationPath([string]$Path) {
 }
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
-$applicationDirectory = Join-Path $repositoryRoot 'build/local-test/Naviamp'
-$executable = ConvertTo-ApplicationPath (Join-Path $applicationDirectory 'Naviamp.exe')
-$buildExecutable = ConvertTo-ApplicationPath (Join-Path $repositoryRoot 'apps/desktop/build/compose/binaries/main/app/Naviamp/Naviamp.exe')
+$applicationName = (Get-Content -LiteralPath (Join-Path $repositoryRoot 'APPLICATION_NAME') -Raw).Trim()
+$applicationDirectory = Join-Path $repositoryRoot "build/local-test/$applicationName"
+$executable = ConvertTo-ApplicationPath (Join-Path $applicationDirectory "$applicationName.exe")
+$buildExecutable = ConvertTo-ApplicationPath (Join-Path $repositoryRoot "apps/desktop/build/compose/binaries/main/app/$applicationName/$applicationName.exe")
 
 # Both images must be unlocked before Gradle rebuilds or replaces their files.
-foreach ($process in Get-Process -Name Naviamp -ErrorAction SilentlyContinue) {
+foreach ($process in Get-Process -Name $applicationName -ErrorAction SilentlyContinue) {
     $processPath = $process.Path
     if (-not $processPath) {
-        throw "Cannot identify the executable path of Naviamp (PID $($process.Id)). Close it before rebuilding."
+        throw "Cannot identify the executable path of $applicationName (PID $($process.Id)). Close it before rebuilding."
     }
     $processPath = ConvertTo-ApplicationPath $processPath
     if ($processPath -ieq $executable -or $processPath -ieq $buildExecutable) {
-        throw "Close the local Naviamp app before rebuilding (PID $($process.Id), $processPath)."
+        throw "Close the local $applicationName app before rebuilding (PID $($process.Id), $processPath)."
     }
 }
 
@@ -70,7 +71,7 @@ try {
         '-Pnaviamp.bass.platform=windows-x64' `
         :apps:desktop:stageLocalTestApp
     if ($LASTEXITCODE -ne 0) {
-        throw "Windows development build failed with exit code $LASTEXITCODE. Naviamp was not launched."
+        throw "Windows development build failed with exit code $LASTEXITCODE. $applicationName was not launched."
     }
     if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
         throw "The build did not produce the staged executable: $executable"

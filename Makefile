@@ -1,5 +1,6 @@
 GRADLE ?= ./gradlew
 GRADLEW_BAT ?= ./gradlew.bat
+APPLICATION_NAME := $(shell cat APPLICATION_NAME)
 
 # Configuration-on-demand is unstable with the current Kotlin Multiplatform build
 # and can fail before Desktop packaging dependencies are resolved.
@@ -10,11 +11,11 @@ LINUX_DESKTOP_PROPS = -Pnaviamp.bass.platform=linux-x64
 
 .PHONY: help
 help:
-	@printf "Naviamp build shortcuts\n\n"
+	@printf "$(APPLICATION_NAME) build shortcuts\n\n"
 	@printf "macOS:\n"
-	@printf "  make macos-test          Build, stage, and open build/local-test/Naviamp.app\n"
+	@printf "  make macos-test          Build, stage, and open build/local-test/$(APPLICATION_NAME).app\n"
 	@printf "  make macos-standalone    Build release zip at apps/desktop/build/compose/distributions\n"
-	@printf "  make macos-stage         Build and stage build/release/Naviamp.app\n"
+	@printf "  make macos-stage         Build and stage build/release/$(APPLICATION_NAME).app\n"
 	@printf "  make macos-installer     Build macOS DMG installer\n\n"
 	@printf "Windows, run on a Windows runner or shell:\n"
 	@printf "  make windows-test        Build and stage the Windows test app\n"
@@ -32,7 +33,7 @@ help:
 	@printf "Android Auto DHU:\n"
 	@printf "  make android-auto-dhu    Install debug APK, start head unit server, and launch DHU\n"
 	@printf "  make android-auto-start  Start head unit server and launch DHU without reinstalling\n"
-	@printf "  make android-auto-logs   Follow Naviamp Android Auto logs\n"
+	@printf "  make android-auto-logs   Follow $(APPLICATION_NAME) Android Auto logs\n"
 	@printf "  make android-auto-status Show connected device and package state\n\n"
 	@printf "Verification:\n"
 	@printf "  make test                Run the complete local, non-device verification suite\n"
@@ -62,8 +63,8 @@ clean-generated: clean
 .PHONY: macos-test
 macos-test:
 	$(GRADLE) $(GRADLE_COMMON) $(MACOS_DESKTOP_PROPS) :apps:desktop:stageLocalTestApp
-	-pkill -f "$(CURDIR)/build/local-test/Naviamp.app/Contents/MacOS/Naviamp"
-	open -n build/local-test/Naviamp.app
+	-pkill -f "$(CURDIR)/build/local-test/$(APPLICATION_NAME).app/Contents/MacOS/$(APPLICATION_NAME)"
+	open -n "build/local-test/$(APPLICATION_NAME).app"
 
 .PHONY: macos-stage
 macos-stage:

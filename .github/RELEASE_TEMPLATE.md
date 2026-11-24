@@ -33,7 +33,7 @@ Write this for someone deciding whether to update, not as an internal developmen
 
 ## Downloads and details
 
-- [Download Naviamp X.Y.Z](https://github.com/tamlok/naviamp/releases/tag/vX.Y.Z)
+- [Download Navo X.Y.Z](https://github.com/tamlok/naviamp/releases/tag/vX.Y.Z)
 - [See every change since X.Y.W](https://github.com/tamlok/naviamp/compare/vX.Y.W...vX.Y.Z)
 - [View the release milestone](https://github.com/tamlok/naviamp/milestone/NUMBER?closed=1)
 

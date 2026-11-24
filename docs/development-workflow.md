@@ -1,8 +1,8 @@
-# Naviamp Development Workflow
+# Navo Development Workflow
 
 ## Canonical repository
 
-GitHub became Naviamp's primary repository and source of truth on 2026-09-11. GitHub is canonical
+GitHub became upstream Naviamp's primary repository and source of truth on 2026-09-11. GitHub is canonical
 for source, issues, pull requests, checks, tags, and releases. Forgejo is a secondary mirror that the
 project owner updates manually after accepted GitHub changes and releases.
 
@@ -14,6 +14,9 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 This fork's source, issues and releases live at `tamlok/naviamp`. `APPLICATION_ID` defines
 `cn.com.letalk.naviamp`; `RELEASE_REPOSITORY` selects its update and release channel. Upstream
 store records, publication keys and dated acceptance evidence do not establish this fork's availability.
+`APPLICATION_NAME` defines the Navo app/launcher/package name without changing those identifiers.
+The repository's separate release-title policy remains exactly `Naviamp vX.Y.Z`; no release is
+published by an app-name change.
 
 Only Windows and Android platform pipelines are enabled. Verify retains shared Kotlin checks,
 Android unit/emulator coverage and Windows native checks; aggregate JVM coverage runs on Windows.

@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">已配对的 Navo 控制器</string>
+    <string name="connect_paired_target">已配对的 Navo 目标设备</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - 技术统计信息</string>
+    <string name="bootstrap_preparing">正在准备 Navo Core…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">查找 Navo 设备</string>
+    <string name="settings_updates_description">选择 Navo 提醒稳定版还是测试版更新</string>
+    <string name="settings_shortcuts_description">在 Navo 运行时允许使用这些快捷键，即使其窗口未获得焦点</string>
+    <string name="shortcut_bring_to_front">将 Navo 置于前台</string>
+    <string name="smart_playlist_token_help">修改智能播放列表需要 Navidrome API 令牌。输入一次密码，Navo 就会保存令牌供今后编辑使用。</string>
+    <string name="smart_playlist_token_refresh_help">编辑此智能播放列表需要刷新 Navidrome API 令牌。输入一次密码，Navo 就会保存新令牌。</string>
+    <string name="update_available_title">Navo 有可用更新</string>
+    <string name="connection_unsupported_provider">此版本的 Navo 不支持已保存的此提供方类型。</string>
+    <string name="settings_sync_newer_version">设置同步文件由更新版本的 Navo 创建。</string>
+    <string name="settings_sync_setup_choice">选择如何设置 Navo。</string>
+    <string name="settings_sync_import_title">导入 Navo 设置</string>
+    <string name="settings_sync_export_title">导出 Navo 设置</string>
+    <string name="connect_incompatible_version">此设备需要其他版本的 Navo。</string>
+    <string name="connect_pairing_start_failed">无法启动 Navo Connect 配对。</string>
+    <string name="connect_target_command_unsupported">此 Navo 目标设备尚不支持所请求的命令。</string>
+    <string name="connect_advertising_permission_required">需要本地网络权限才能广播此 Navo 目标设备。</string>
+    <string name="connect_request_failed">Navo Connect 无法完成请求。</string>
     <string name="settings_resume_playlists">继续播放歌单</string>
     <string name="settings_resume_playlists_description">从上次的曲目和播放位置继续播放歌单</string>
     <string name="common_back">返回</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">深色</string>
     <string name="settings_themes_system">跟随系统</string>
     <string name="settings_themes_catalog">主题包</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">森林</string>
     <string name="settings_player_background">播放器背景</string>
     <string name="tv_aurora">极光</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">标题</string>
     <string name="tv_group_albums_by_release_type">按发行类型分组专辑</string>
     <string name="tv_group_albums_by_release_type_description">将专辑、EP、单曲和其他发行作品分别显示</string>
-    <string name="connect_setup_password_required">请输入音乐源密码以完成设置。Naviamp 会验证密码并安全保存，供今后连接使用。</string>
+    <string name="connect_setup_password_required">请输入音乐源密码以完成设置。Navo 会验证密码并安全保存，供今后连接使用。</string>
     <string name="connect_setup_code_consent">显示代码即允许输入该代码的设备配对，并使用其音乐源和设置配置此设备。</string>
     <string name="connect_setup_new_code_required">请在电视上显示新代码并重新配对，以完成设置。</string>
     <string name="settings_keep_screen_awake">保持屏幕常亮</string>
-    <string name="settings_keep_screen_awake_description">在 Naviamp 可见时阻止屏幕自动休眠。系统睡眠、屏幕锁定和电视电源定时器仍可能生效。</string>
+    <string name="settings_keep_screen_awake_description">在 Navo 可见时阻止屏幕自动休眠。系统睡眠、屏幕锁定和电视电源定时器仍可能生效。</string>
     <string name="settings_keep_screen_awake_failed">无法更改屏幕休眠阻止设置。请关闭后重新开启此设置以重试。</string>
     <string name="now_playing_playback_device">播放设备：%1$s</string>
     <string name="now_playing_from_playlist">来自播放列表：%1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">可选。示例：12h、1d 或 1w。</string>
     <string name="smart_playlist_refresh_delay_invalid">请输入有效时长，例如 12h、1d 或 1w。</string>
     <string name="connect_pairing_code">配对码</string>
-    <string name="connect_devices_description">控制和配对此网络上的 Naviamp 设备</string>
+    <string name="connect_devices_description">控制和配对此网络上的 Navo 设备</string>
     <string name="connect_setup_timed_out">设备设置超时。请检查播放设备，然后重试。</string>
     <string name="library_sort_title">专辑排序：标题</string>
     <string name="library_sort_recently_added">专辑排序：最近添加</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">提交收听记录</string>
     <string name="library_sources_choose">选择媒体库</string>
     <string name="library_sources_title">媒体库</string>
-    <string name="library_sources_description">选择要在 Naviamp 中显示的媒体库</string>
+    <string name="library_sources_description">选择要在 Navo 中显示的媒体库</string>
     <string name="library_sources_loading">正在加载媒体库…</string>
     <string name="library_sources_empty">此服务器没有可选择的媒体库</string>
     <string name="library_sources_save">保存</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">小</string>
     <string name="settings_font_size_small_subtitle">在屏幕上显示更多内容</string>
     <string name="settings_font_size_standard">标准</string>
-    <string name="settings_font_size_standard_subtitle">使用 Naviamp 的默认文字大小</string>
+    <string name="settings_font_size_standard_subtitle">使用 Navo 的默认文字大小</string>
     <string name="settings_font_size_large">大</string>
     <string name="settings_font_size_large_subtitle">使用更大的文字提高可读性</string>
     <string name="description_less">收起</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">此服务器不支持此操作。</string>
     <string name="discovery_action_uncertain">无法确认结果。请先在 Aurral 中检查，然后再重试。</string>
     <string name="discovery_samples_loading">正在加载试听…</string>
-    <string name="permission_local_network_usage">Naviamp 会连接到你的音乐服务器，并发现本地网络上的播放设备。</string>
+    <string name="permission_local_network_usage">Navo 会连接到你的音乐服务器，并发现本地网络上的播放设备。</string>
     <string name="now_playing_playback_position">播放位置</string>
     <string name="now_playing_volume">音量</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">在 Naviamp 中使用此语言</string>
+    <string name="settings_language_use_subtitle">在 Navo 中使用此语言</string>
     <string name="tv_keep_now_playing_controls_visible">保持播放器控件可见</string>
     <string name="tv_keep_now_playing_controls_visible_description">不要在几秒后隐藏正在播放的控件</string>
     <string name="settings_square_album_artwork">直角专辑封面</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">系统键盘</string>
     <string name="storage_location_app">应用存储</string>
     <string name="storage_location_custom">自定义</string>
-    <string name="connect_recovery_secure_storage">Naviamp 无法打开此设备的安全凭据存储。请解锁系统密钥环，然后重试。</string>
+    <string name="connect_recovery_secure_storage">Navo 无法打开此设备的安全凭据存储。请解锁系统密钥环，然后重试。</string>
 
     <string name="equalizer_gain_axis">增益（dB）</string>
     <string name="equalizer_frequency_axis">频率（Hz）</string>
@@ -590,9 +613,9 @@
     <string name="settings_language_system_title">系统默认</string>
     <string name="settings_language_system_subtitle">跟随此设备的语言</string>
     <string name="settings_language_english_title">英语</string>
-    <string name="settings_language_english_subtitle">以英语使用 Naviamp</string>
+    <string name="settings_language_english_subtitle">以英语使用 Navo</string>
     <string name="settings_language_spanish_title">西班牙语</string>
-    <string name="settings_language_spanish_subtitle">以西班牙语使用 Naviamp</string>
+    <string name="settings_language_spanish_subtitle">以西班牙语使用 Navo</string>
     <string name="settings_category_source_title">音乐源</string>
     <string name="settings_category_source_subtitle">服务器和媒体库</string>
     <string name="settings_category_language_title">语言</string>
@@ -638,7 +661,7 @@
     <string name="settings_lyrics_timing_word">逐字同步</string>
     <string name="settings_lyrics_timing_word_subtitle">优先使用逐字同步歌词，不可用时使用同步精度较低的歌词</string>
     <string name="settings_lyrics_download_timing">下载歌词同步精度</string>
-    <string name="settings_lyrics_download_timing_subtitle">选择 Naviamp 查找和保存歌词时使用的同步精度</string>
+    <string name="settings_lyrics_download_timing_subtitle">选择 Navo 查找和保存歌词时使用的同步精度</string>
     <string name="settings_lyrics_display_timing">显示歌词同步精度</string>
     <string name="settings_lyrics_display_timing_subtitle">选择播放时已保存歌词的显示方式</string>
     <string name="settings_lyrics_display_match_download">与下载设置一致</string>
@@ -647,7 +670,7 @@
     <string name="settings_lyrics_display_synced_subtitle">显示逐行同步歌词，不逐字高亮</string>
     <string name="settings_lyrics_display_word_subtitle">有逐字同步信息时逐字高亮显示</string>
     <string name="settings_lyrics_search_order">搜索顺序</string>
-    <string name="settings_lyrics_search_order_subtitle">选择 Naviamp 优先查找歌词的来源</string>
+    <string name="settings_lyrics_search_order_subtitle">选择 Navo 优先查找歌词的来源</string>
     <string name="settings_lyrics_summary_download">在线</string>
     <string name="settings_lyrics_summary_display">显示：%1$s</string>
     <string name="lyrics_display_text">文本</string>
@@ -689,7 +712,7 @@
     <string name="settings_source_new_connection_button">新建连接</string>
     <string name="settings_sync_title">设置同步</string>
     <string name="settings_sync_subtitle">通过文件夹同步设置</string>
-    <string name="settings_sync_description">使用由 Nextcloud、Dropbox、Syncthing、FolderSync 或其他文件同步应用管理的文件夹。Naviamp 会保留本地副本，并在文件提供方允许时同步此文件。</string>
+    <string name="settings_sync_description">使用由 Nextcloud、Dropbox、Syncthing、FolderSync 或其他文件同步应用管理的文件夹。Navo 会保留本地副本，并在文件提供方允许时同步此文件。</string>
     <string name="settings_sync_auto_sync">自动同步更改</string>
     <string name="settings_sync_choose_folder">选择同步文件夹</string>
     <string name="settings_sync_now">立即同步</string>
@@ -1049,10 +1072,10 @@
     <string name="tv_track_title_label">曲目：</string>
     <string name="connect_remote_unavailable">所选播放设备不可用。请重新连接或选择其他输出设备。</string>
     <string name="connect_connection_timed_out">播放设备已停止响应。正在重新连接…</string>
-    <string name="connect_recovery_permission">本地网络访问被拒绝。如果系统设置中提供了此权限，请允许 Naviamp 访问本地网络，然后返回重试。</string>
-    <string name="connect_recovery_discovery">Naviamp 无法搜索本地网络。请确认两台设备连接到同一网络，且网络允许设备之间通信，然后重试。</string>
+    <string name="connect_recovery_permission">本地网络访问被拒绝。如果系统设置中提供了此权限，请允许 Navo 访问本地网络，然后返回重试。</string>
+    <string name="connect_recovery_discovery">Navo 无法搜索本地网络。请确认两台设备连接到同一网络，且网络允许设备之间通信，然后重试。</string>
     <string name="connect_recovery_advertising">本设备无法进入可配对状态。请检查网络连接后重试。</string>
-    <string name="connect_recovery_settings_failed">无法打开系统设置。请在系统设置中打开 Naviamp 的权限页面，然后返回重试。</string>
+    <string name="connect_recovery_settings_failed">无法打开系统设置。请在系统设置中打开 Navo 的权限页面，然后返回重试。</string>
     <string name="connect_recovery_open_settings">打开系统设置</string>
     <string name="connect_recovery_retry">重试连接</string>
     <string name="tv_sources">音乐源</string>
@@ -1063,15 +1086,15 @@
     <string name="tv_audio_and_queue_behavior">音频和队列行为</string>
     <string name="tv_sources_and_synchronization">音乐源和同步</string>
     <string name="tv_controllers">控制设备</string>
-    <string name="tv_trusted_naviamp_remotes">受信任的 Naviamp 遥控设备</string>
+    <string name="tv_trusted_naviamp_remotes">受信任的 Navo 遥控设备</string>
     <string name="tv_diagnostics">诊断</string>
     <string name="tv_connection_and_local_health">连接和本地运行状况</string>
     <string name="tv_version_and_build_information">版本和构建信息</string>
-    <string name="tv_naviamp_connect_is_unavailable_on_this_device">此设备无法使用 Naviamp Connect</string>
+    <string name="tv_naviamp_connect_is_unavailable_on_this_device">此设备无法使用 Navo Connect</string>
     <string name="tv_name_this_device">为此设备命名</string>
     <string name="tv_friendly_name">易记名称</string>
     <string name="tv_device_name">设备名称</string>
-    <string name="tv_the_name_other_naviamp_devices_see_when_connecting">其他 Naviamp 设备连接时看到的名称</string>
+    <string name="tv_the_name_other_naviamp_devices_see_when_connecting">其他 Navo 设备连接时看到的名称</string>
     <string name="tv_stop_pairing">停止配对</string>
     <string name="tv_pair_a_controller">配对控制设备</string>
     <string name="tv_only_approve_if_you_started_pairing_on_this_device">只有在您主动从此设备发起配对时，才应批准。</string>
@@ -1081,8 +1104,8 @@
     <string name="tv_reject">拒绝</string>
     <string name="tv_disconnect_this_controller_while_playback_continues_on_the_target">断开此控制设备的连接，目标设备上的播放将继续。</string>
     <string name="tv_disconnect">断开连接</string>
-    <string name="tv_find_naviamp_targets">查找 Naviamp 目标设备</string>
-    <string name="tv_search_this_local_network_for_naviamp_devices_ready_to_pair">在此局域网中搜索已准备好配对的 Naviamp 设备</string>
+    <string name="tv_find_naviamp_targets">查找 Navo 目标设备</string>
+    <string name="tv_search_this_local_network_for_naviamp_devices_ready_to_pair">在此局域网中搜索已准备好配对的 Navo 设备</string>
     <string name="tv_pair">配对</string>
     <string name="tv_update_required">需要更新</string>
     <string name="tv_reject_server_setup">拒绝服务器设置</string>
@@ -1137,8 +1160,8 @@
     <string name="tv_line_synced">逐行同步</string>
     <string name="tv_word_synced">逐字同步</string>
     <string name="tv_match_preferred_lyrics">与首选歌词一致</string>
-    <string name="tv_restoring_naviamp_tv">正在恢复 Naviamp</string>
-    <string name="tv_set_up_naviamp_tv">设置 Naviamp</string>
+    <string name="tv_restoring_naviamp_tv">正在恢复 Navo</string>
+    <string name="tv_set_up_naviamp_tv">设置 Navo</string>
     <string name="tv_direct_setup_description">直接从此电视连接。您仍可自行选择是否配对手机或电脑。</string>
     <string name="tv_set_up_from_a_phone_or_computer">通过手机或电脑设置</string>
     <string name="tv_show_pairing_code">显示配对码</string>
@@ -1269,7 +1292,7 @@
     <string name="connect_status_looking_for_device_start_pairing_mode_on_the_tv_if_needed">正在查找 %1$s… 如有需要，请在该设备上启动配对模式。</string>
     <string name="connect_status_securely_reconnecting_to_device">正在安全地重新连接到 %1$s…</string>
     <string name="connect_status_the_trusted_tv_did_not_start_a_compatible_control_session">受信任的电视未启动兼容的控制会话。</string>
-    <string name="connect_status_could_not_securely_reconnect_to_device_naviamp_will_retry_when_the_tv_is_available">无法安全地重新连接到 %1$s。Naviamp 将在该设备可用时重试。</string>
+    <string name="connect_status_could_not_securely_reconnect_to_device_naviamp_will_retry_when_the_tv_is_available">无法安全地重新连接到 %1$s。Navo 将在该设备可用时重试。</string>
     <string name="connect_status_enter_the_six_digit_code_shown_on_device">请输入 %1$s 上显示的六位配对码。</string>
     <string name="connect_status_enter_all_six_digits_shown_on_the_tv">请输入该设备上显示的完整六位配对码。</string>
     <string name="connect_status_the_paired_device_did_not_start_a_compatible_control_session">已配对的设备未启动兼容的控制会话。</string>
@@ -1288,8 +1311,8 @@
     <string name="connect_status_the_tv_did_not_pause_so_its_queue_was_left_in_place">播放设备未暂停，因此保留了其队列。</string>
     <string name="connect_status_this_device_could_not_resolve_every_track_so_the_tv_kept_playback_authority">本设备无法解析全部曲目，因此仍由播放设备负责播放。</string>
     <string name="connect_status_the_tv_queue_is_now_playing_on_this_device">播放设备的队列现已在本设备上播放</string>
-    <string name="tv_paired_device">已配对的 Naviamp 设备</string>
-    <string name="connect_target_default_name">Naviamp</string>
+    <string name="tv_paired_device">已配对的 Navo 设备</string>
+    <string name="connect_target_default_name">Navo</string>
     <string name="tv_alphabetical_sort">A–Z</string>
     <plurals name="tv_item_count">
         <item quantity="other">%1$d 项</item>

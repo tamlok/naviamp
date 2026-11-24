@@ -77,6 +77,7 @@ class AndroidPlaybackServiceStartupInstrumentedTest {
                 val initial = checkNotNull(posted) { "Media-session notification was not posted" }
                 assertEquals(Notification.MediaStyle::class.java.name, initial.notification.extras.getString(Notification.EXTRA_TEMPLATE))
                 assertTrue(initial.notification.extras.containsKey(Notification.EXTRA_MEDIA_SESSION))
+                assertEquals(context.getString(R.string.app_name), initial.notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
                 val updated = Notification.Builder.recoverBuilder(context, initial.notification)
                     .setContentText("Notification exemption regression")
                     .build()

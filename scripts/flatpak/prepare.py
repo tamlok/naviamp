@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package an immutable, published Naviamp Linux image; never relabel development code."""
+"""Package an immutable, published Linux image; never relabel development code."""
 import argparse
 import json
 import re
@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 APP_ID = (ROOT / "APPLICATION_ID").read_text(encoding="utf-8").strip()
+APP_NAME = (ROOT / "APPLICATION_NAME").read_text(encoding="utf-8").strip()
 RELEASE_REPOSITORY = (ROOT / "RELEASE_REPOSITORY").read_text(encoding="utf-8").strip()
 PROJECT_URL = f"https://github.com/{RELEASE_REPOSITORY}"
 PACKAGING = ROOT / "packaging/flatpak"
@@ -24,7 +25,7 @@ def release_source(release):
         raise ValueError("The published release must be immutable")
     if release.get("html_url") != f"{PROJECT_URL}/releases/tag/{tag}":
         raise ValueError("The release must belong to the configured fork repository")
-    name = f"Naviamp-{tag}-linux-x64-release.zip"
+    name = f"{APP_NAME}-{tag}-linux-x64-release.zip"
     assets = [a for a in release.get("assets", []) if a.get("name") == name]
     if len(assets) != 1:
         raise ValueError("Exactly one official Linux image is required")
@@ -77,8 +78,8 @@ def prepare(release, output):
              "build-options": {"strip": False, "no-debuginfo": True},
              "build-commands": [
                  "install -d /app/lib/naviamp",
-                 "cp -a Naviamp/. /app/lib/naviamp/",
-                 "chmod +x /app/lib/naviamp/bin/Naviamp /app/lib/naviamp/lib/runtime/lib/jspawnhelper",
+                 f"cp -a {APP_NAME}/. /app/lib/naviamp/",
+                 f"chmod +x /app/lib/naviamp/bin/{APP_NAME} /app/lib/naviamp/lib/runtime/lib/jspawnhelper",
                  "install -Dm755 naviamp /app/bin/naviamp",
                  f"install -Dm644 {APP_ID}.desktop /app/share/applications/{APP_ID}.desktop",
                  f"install -Dm644 {APP_ID}.png /app/share/icons/hicolor/512x512/apps/{APP_ID}.png",

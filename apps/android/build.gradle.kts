@@ -6,6 +6,7 @@ val composeVersion = libs.versions.compose.get()
 val naviampVersionName = rootProject.file("VERSION").readText().trim()
 val naviampVersionCode = rootProject.file("VERSION_CODE").readText().trim().toInt()
 val naviampApplicationId = rootProject.file("APPLICATION_ID").readText().trim()
+val naviampApplicationName = rootProject.file("APPLICATION_NAME").readText().trim()
 val androidReleaseKeystore = providers.environmentVariable("NAVIAMP_ANDROID_KEYSTORE")
 val androidReleaseKeystorePassword = providers.environmentVariable("NAVIAMP_ANDROID_KEYSTORE_PASSWORD")
 val androidReleaseKeyAlias = providers.environmentVariable("NAVIAMP_ANDROID_KEY_ALIAS")
@@ -38,7 +39,7 @@ android {
         targetSdk = 36
         versionCode = naviampVersionCode
         versionName = naviampVersionName
-        resValue("string", "app_name", "Naviamp")
+        resValue("string", "app_name", naviampApplicationName)
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "NAVIAMP_CONNECT_DEBUG_HOST", "\"\"")
         externalNativeBuild {
@@ -61,7 +62,7 @@ android {
         debug {
             applicationIdSuffix = ".v2test"
             versionNameSuffix = "-v2test"
-            resValue("string", "app_name", "Naviamp v2 Test")
+            resValue("string", "app_name", "$naviampApplicationName v2 Test")
             val escapedConnectDebugHost = connectDebugHost.get()
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"")
@@ -84,7 +85,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".benchmark"
             versionNameSuffix = "-benchmark"
-            resValue("string", "app_name", "Naviamp v2 Benchmark")
+            resValue("string", "app_name", "$naviampApplicationName v2 Benchmark")
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = false
             isProfileable = true
@@ -94,7 +95,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".v2test"
             versionNameSuffix = "-v2test-profileable"
-            resValue("string", "app_name", "Naviamp v2 Profileable")
+            resValue("string", "app_name", "$naviampApplicationName v2 Profileable")
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = false
             isProfileable = true
@@ -214,25 +215,25 @@ tasks.register<Sync>("stageReleaseArtifacts") {
     dependsOn("assembleRelease", "bundleRelease")
     from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
-        rename { "Naviamp-$naviampVersionName-android.apk" }
+        rename { "$naviampApplicationName-$naviampVersionName-android.apk" }
     }
     from(layout.buildDirectory.dir("outputs/bundle/release")) {
         include("*.aab")
-        rename { "Naviamp-$naviampVersionName-android.aab" }
+        rename { "$naviampApplicationName-$naviampVersionName-android.aab" }
     }
     from(layout.buildDirectory.file("outputs/mapping/release/mapping.txt")) {
-        rename { "Naviamp-$naviampVersionName-android-mapping.txt" }
+        rename { "$naviampApplicationName-$naviampVersionName-android-mapping.txt" }
     }
     from(layout.buildDirectory.file("outputs/native-debug-symbols/release/native-debug-symbols.zip")) {
-        rename { "Naviamp-$naviampVersionName-android-native-debug-symbols.zip" }
+        rename { "$naviampApplicationName-$naviampVersionName-android-native-debug-symbols.zip" }
     }
     into(layout.buildDirectory.dir("release-artifacts"))
     doLast {
         listOf(
-            "Naviamp-$naviampVersionName-android.apk",
-            "Naviamp-$naviampVersionName-android.aab",
-            "Naviamp-$naviampVersionName-android-mapping.txt",
-            "Naviamp-$naviampVersionName-android-native-debug-symbols.zip",
+            "$naviampApplicationName-$naviampVersionName-android.apk",
+            "$naviampApplicationName-$naviampVersionName-android.aab",
+            "$naviampApplicationName-$naviampVersionName-android-mapping.txt",
+            "$naviampApplicationName-$naviampVersionName-android-native-debug-symbols.zip",
         ).forEach { filename ->
             val artifact = layout.buildDirectory.file("release-artifacts/$filename").get().asFile
             check(artifact.isFile) { "Versioned Android release artifact was not produced: ${artifact.absolutePath}" }
@@ -247,11 +248,11 @@ tasks.register("verifyReleaseOptimization") {
     dependsOn("stageReleaseArtifacts")
     doLast {
         val artifactDirectory = layout.buildDirectory.dir("release-artifacts").get().asFile
-        val apk = artifactDirectory.resolve("Naviamp-$naviampVersionName-android.apk")
-        val mapping = artifactDirectory.resolve("Naviamp-$naviampVersionName-android-mapping.txt")
+        val apk = artifactDirectory.resolve("$naviampApplicationName-$naviampVersionName-android.apk")
+        val mapping = artifactDirectory.resolve("$naviampApplicationName-$naviampVersionName-android-mapping.txt")
         val usage = layout.buildDirectory.file("outputs/mapping/release/usage.txt").get().asFile
         val nativeSymbols = artifactDirectory.resolve(
-            "Naviamp-$naviampVersionName-android-native-debug-symbols.zip",
+            "$naviampApplicationName-$naviampVersionName-android-native-debug-symbols.zip",
         )
 
         val dexBytes = ZipFile(apk).use { zip ->

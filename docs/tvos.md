@@ -1,4 +1,4 @@
-# Apple TV (tvOS)
+# Navo on Apple TV (tvOS)
 
 This fork preserves the Apple TV beta source originally tracked by upstream
 [#590](https://github.com/goosepod/naviamp/issues/590), introduced in v2.12.0. Build from
@@ -55,7 +55,10 @@ Device Release builds use the canonical bundle ID `cn.com.letalk.naviamp`, match
 claiming an App Store record. Debug and simulator builds use `cn.com.letalk.naviamp.tvos`.
 Storage-host, unit-test and UI-test IDs append `.storage-test-host`, `.tests` and `.uitests` to
 that tvOS ID. `scripts/validate-ios-version.py` checks both projects against `APPLICATION_ID`,
-including the device-only Release override, as well as `VERSION` and `VERSION_CODE`.
+including the device-only Release override, as well as `VERSION`, `VERSION_CODE` and the
+display/product names in `APPLICATION_NAME`. Both Debug and Release produce `Navo.app` with
+the `Navo` executable. The `NaviampTV` project, target, schemes and Swift module and
+`NaviampTvShared` framework retain their technical names; test-host products are unchanged.
 The deployment target is tvOS 18.5. The fork uses a fresh app sandbox and does not migrate
 upstream settings or private credentials.
 

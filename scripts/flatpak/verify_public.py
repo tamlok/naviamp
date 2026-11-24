@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
-from prepare import APP_ID, PROJECT_URL, release_source
+from prepare import APP_ID, APP_NAME, PROJECT_URL, release_source
 
 
 def validate_identity(repository_url, fingerprint):
@@ -47,7 +47,8 @@ def read_accepted_key(path, fingerprint):
 
 
 def verify_descriptors(public, repository_url, public_key):
-    for name, section in (("Naviamp.flatpakref", "Flatpak Ref"), ("naviamp.flatpakrepo", "Flatpak Repo")):
+    for name, section in ((f"{APP_NAME}.flatpakref", "Flatpak Ref"),
+                          (f"{APP_NAME.lower()}.flatpakrepo", "Flatpak Repo")):
         descriptor = configparser.ConfigParser(interpolation=None)
         descriptor.read(public / name)
         values = descriptor[section]
@@ -67,11 +68,12 @@ def verify(public, source, release, repository_url, signing_fingerprint, accepte
         provenance.get("signing_fingerprint"), provenance.get("repository_url"), provenance.get("source_code")) != (
             version, url, digest, signing_fingerprint, repository_url, f"{PROJECT_URL}/tree/v{version}"):
         raise ValueError("Published provenance differs from the canonical release/signing identity")
-    allowed = {"repo", "naviamp.asc", "Naviamp.flatpakref", "naviamp.flatpakrepo", ".nojekyll", "index.html"}
+    allowed = {"repo", f"{APP_NAME.lower()}.asc", f"{APP_NAME}.flatpakref",
+               f"{APP_NAME.lower()}.flatpakrepo", ".nojekyll", "index.html"}
     if {p.name for p in public.iterdir()} != allowed:
         raise ValueError("Unexpected files in the public publication root")
     public_key = read_accepted_key(accepted_public_key, signing_fingerprint)
-    provided_key = read_accepted_key(public / "naviamp.asc", signing_fingerprint)
+    provided_key = read_accepted_key(public / f"{APP_NAME.lower()}.asc", signing_fingerprint)
     if public_key != provided_key:
         raise ValueError("The published key differs from accepted source")
     verify_descriptors(public, repository_url, public_key)

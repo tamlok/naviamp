@@ -17,8 +17,8 @@ class ReleasePackagingTest(unittest.TestCase):
         self.release = {"tag_name": "v2.10.0", "draft": False, "prerelease": False, "immutable": True,
                         "html_url": f"{prepare.PROJECT_URL}/releases/tag/v2.10.0",
                         "published_at": "2026-11-03T12:00:00Z", "assets": [{
-                            "name": "Naviamp-v2.10.0-linux-x64-release.zip",
-                            "browser_download_url": f"{prepare.PROJECT_URL}/releases/download/v2.10.0/Naviamp-v2.10.0-linux-x64-release.zip",
+                            "name": f"{prepare.APP_NAME}-v2.10.0-linux-x64-release.zip",
+                            "browser_download_url": f"{prepare.PROJECT_URL}/releases/download/v2.10.0/{prepare.APP_NAME}-v2.10.0-linux-x64-release.zip",
                             "digest": "sha256:" + "a" * 64}]}
 
     def assert_rejected(self, release):
@@ -38,6 +38,7 @@ class ReleasePackagingTest(unittest.TestCase):
                 self.assert_rejected(release)
         for key, value in (("digest", ""), ("digest", "sha256:" + "A" * 64),
                            ("digest", "sha256:" + "a" * 63),
+                           ("name", "Naviamp-v2.10.0-linux-x64-release.zip"),
                            ("browser_download_url", "https://example.com/application.zip")):
             release = copy.deepcopy(self.release)
             release["assets"][0][key] = value
@@ -53,7 +54,7 @@ class ReleasePackagingTest(unittest.TestCase):
                 else:
                     release["assets"][0][field] = (
                         f"https://github.com/{repository}/releases/download/v2.10.0/"
-                        "Naviamp-v2.10.0-linux-x64-release.zip")
+                        f"{prepare.APP_NAME}-v2.10.0-linux-x64-release.zip")
                 with self.subTest(repository=repository, field=field):
                     self.assert_rejected(release)
 
@@ -69,6 +70,17 @@ class ReleasePackagingTest(unittest.TestCase):
             self.assertEqual("a" * 64, manifest["modules"][-1]["sources"][0]["sha256"])
             self.assertEqual(prepare.APP_ID, manifest["app-id"])
             self.assertEqual("stable", manifest["branch"])
+            self.assertEqual("naviamp", manifest["command"])
+            commands = manifest["modules"][-1]["build-commands"]
+            self.assertIn(f"cp -a {prepare.APP_NAME}/. /app/lib/naviamp/", commands)
+            self.assertIn(f"chmod +x /app/lib/naviamp/bin/{prepare.APP_NAME} "
+                          "/app/lib/naviamp/lib/runtime/lib/jspawnhelper", commands)
+            self.assertIn("install -Dm755 naviamp /app/bin/naviamp", commands)
+            self.assertNotIn("/bin/Naviamp", "\n".join(commands))
+            launcher = (output / "naviamp").read_text()
+            self.assertIn(f'exec /app/lib/naviamp/bin/{prepare.APP_NAME} "$@"', launcher)
+            self.assertNotIn("/bin/Naviamp", launcher)
+            self.assertEqual(0, manifest["modules"][-1]["sources"][0]["strip-components"])
             self.assertEqual({"--share=network", "--share=ipc", "--socket=x11", "--socket=pulseaudio",
                               "--device=dri", "--talk-name=org.freedesktop.secrets",
                               f"--own-name=org.mpris.MediaPlayer2.{prepare.APP_ID}",
@@ -83,12 +95,14 @@ class ReleasePackagingTest(unittest.TestCase):
             desktop = configparser.ConfigParser(interpolation=None)
             desktop.read(output / f"{prepare.APP_ID}.desktop")
             self.assertEqual(prepare.APP_ID, desktop["Desktop Entry"]["Icon"])
-            self.assertEqual("Naviamp", desktop["Desktop Entry"]["Name"])
+            self.assertEqual(prepare.APP_NAME, desktop["Desktop Entry"]["Name"])
             self.assertEqual("naviamp", desktop["Desktop Entry"]["Exec"])
             self.assertEqual("app-naviamp-desktop-MainKt", desktop["Desktop Entry"]["StartupWMClass"])
             self.assertTrue((output / f"{prepare.APP_ID}.png").is_file())
             metadata = ET.parse(output / f"{prepare.APP_ID}.metainfo.xml").getroot()
             self.assertEqual(prepare.APP_ID, metadata.findtext("id"))
+            self.assertEqual(prepare.APP_NAME, metadata.findtext("name"))
+            self.assertEqual("naviamp", metadata.findtext("provides/binary"))
             self.assertEqual(f"{prepare.APP_ID}.desktop", metadata.findtext("launchable"))
             self.assertEqual("cn.com.letalk", metadata.find("developer").get("id"))
             self.assertEqual(prepare.PROJECT_URL, metadata.find("url[@type='homepage']").text)

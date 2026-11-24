@@ -50,6 +50,7 @@ def main():
 
 def run_scene(args):
     root, out = args.checkout.resolve(), args.output.resolve()
+    application_name = (root / 'APPLICATION_NAME').read_text().strip()
     out.mkdir(parents=True, exist_ok=False)
     report = dict(passed=False, timings={}, tests={}, cleanup={}, sources={}, artifactManifest=args.expected_manifest_sha256, runnerSha256=RUNNER_SHA256, buildTimeoutSeconds=args.build_timeout)
     device = fixture = None
@@ -177,7 +178,7 @@ def run_scene(args):
             try:
                 with (out/'system-media.log').open('x') as log:
                     subprocess.run(['xcrun','simctl','spawn',device,'log','show','--last','8m','--style','compact',
-                        '--predicate','(process == "NaviampTV" AND subsystem == "com.apple.amp.mediaplayer") OR '
+                        '--predicate',f'(process == {json.dumps(application_name)} AND subsystem == "com.apple.amp.mediaplayer") OR '
                         '(process == "PineBoard" AND (subsystem == "com.apple.PineBoard.gestures" OR '
                         'subsystem == "com.apple.PineBoard.mediaRemote" OR subsystem == "com.apple.PineBoard.bulletin"))'],
                         stdout=log,stderr=subprocess.STDOUT,timeout=30)

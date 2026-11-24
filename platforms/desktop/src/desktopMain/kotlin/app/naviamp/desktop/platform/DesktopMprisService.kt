@@ -2,6 +2,7 @@ package app.naviamp.desktop.platform
 
 import app.naviamp.domain.app.naviampLinuxDesktopEntryId
 import app.naviamp.domain.network.NaviampApplicationId
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.presentation.NaviampCore
 import app.naviamp.presentation.NaviampExternalArtworkFileWriter
 import app.naviamp.presentation.localArtworkExternalPlayback
@@ -249,7 +250,7 @@ internal fun rootProperties(): Map<String, Variant<*>> = linkedMapOf(
     "CanSetFullscreen" to Variant(false),
     "CanRaise" to Variant(false),
     "HasTrackList" to Variant(false),
-    "Identity" to Variant("Naviamp"),
+    "Identity" to Variant(NaviampClientName),
     "DesktopEntry" to Variant(MprisDesktopEntryId),
     "SupportedUriSchemes" to Variant(emptyList<String>(), "as"),
     "SupportedMimeTypes" to Variant(emptyList<String>(), "as"),

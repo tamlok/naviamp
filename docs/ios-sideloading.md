@@ -1,4 +1,4 @@
-# Sideloading Naviamp on iPhone or iPad
+# Sideloading Navo on iPhone or iPad
 
 The LeTalk fork currently supports iOS through source builds from
 [`tamlok/naviamp`](https://github.com/tamlok/naviamp). Only Windows and Android pipelines are
@@ -7,6 +7,8 @@ unsigned IPA, App Store listing or TestFlight distribution.
 
 The Xcode app bundle ID is `cn.com.letalk.naviamp`, mirrored from root `APPLICATION_ID`.
 Unit tests use `.tests` and the Keychain test host uses `.keychain-test-host` suffixes.
+The display name and `Navo.app` product mirror root `APPLICATION_NAME`; the Xcode project,
+`Naviamp` scheme and Swift module, and `NaviampShared` framework retain their technical names.
 This is an independent installation with a fresh sandbox. Provider credentials use the actual
 host bundle ID plus `.provider-credentials`; the app does not read or migrate upstream Keychain
 items. Apple runtime execution and signing for this identity remain unverified on Windows.
@@ -33,6 +35,14 @@ Apple allows up to 100 registered iPhones and 100 registered iPads per membershi
 If you export an unsigned device IPA from your own source build, it is not directly installable.
 Sign it locally with your own Apple identity using a trusted tool that supports re-signing.
 An iOS device build targets physical arm64 iPhone and iPad devices, not the simulator.
+
+On a Mac, `bash scripts/build-ios-unsigned-ipa.sh` creates
+`build/ios-unsigned/Navo.xcarchive` and
+`build/ios-unsigned/distributions/Navo-<VERSION>-ios-unsigned.ipa`, alongside
+`Navo-iOS-Sideloading.md`. The IPA contains `Payload/Navo.app` with the `Navo` executable.
+These product and artifact names derive from `APPLICATION_NAME`; the script still builds
+the `Naviamp` scheme and does not sign the app.
+
 No downloaded or automated Apple artifact is promised by the current release pipelines.
 
 Upstream TestFlight preparation is retained only as [historical reference](testflight/README.md),

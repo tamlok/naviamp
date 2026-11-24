@@ -7,13 +7,20 @@ or availability. Current source and standalone releases are at
 [tamlok/naviamp](https://github.com/tamlok/naviamp) and its
 [release page](https://github.com/tamlok/naviamp/releases).
 
-`prepare.py` reads `APPLICATION_ID` and `RELEASE_REPOSITORY` from the repository root. It requires an
-existing immutable, published stable release from that fork with the exact release page, Linux asset
-download URL, and SHA-256 digest. It refuses mutable/draft/prerelease versions, ambiguous assets, and
+`prepare.py` reads `APPLICATION_NAME`, `APPLICATION_ID` and `RELEASE_REPOSITORY` from the repository
+root, exporting the name as `APP_NAME` for the Python publisher and verifier. It requires an existing
+immutable, published stable release from that fork with the exact release page, Linux asset download
+URL, and SHA-256 digest. It refuses mutable/draft/prerelease versions, ambiguous assets, and
 upstream or foreign releases. There is no upstream-image fallback or relabelling. Current supported
 pipelines do not produce Linux release images, so an eligible fork Linux release must already exist
 before these manual packaging steps can be used. The Java runtime and native libraries come from
 that same image. This is binary packaging, not a Flathub source-build submission.
+
+The accepted archive is `Navo-vVERSION-linux-x64-release.zip` for tag `vVERSION`; old-name archives
+are not accepted. Its top-level `Navo/` directory contains the actual executable `bin/Navo` plus the
+bundled runtime and libraries. Packaging copies that directory into the unchanged `/app/lib/naviamp`
+location. The Flatpak command remains `naviamp`, whose launcher directly executes
+`/app/lib/naviamp/bin/Navo`; no old-executable alias is installed.
 
 The retained runtime is Freedesktop 25.08; review its support window before use. The tooling targets
 x86_64. Java/Compose uses X11, including XWayland; native Wayland is not claimed.
@@ -66,6 +73,13 @@ publication. Public output must stay below 900 MiB, leaving headroom under GitHu
 if the operator chooses that hosting service. Any external upload, hosting and release publication
 is a separate, explicitly authorized operator action; none is configured here.
 
+Public output contains `Navo.flatpakref`, `navo.flatpakrepo`, `navo.asc`, `repo/`, `index.html` and
+`.nojekyll`. Release assets include the same descriptors and armored key, the binary key `navo.gpg`,
+`Navo-vVERSION-x86_64.flatpak`, `source.json`, `repository.tar.zst`, `pages.tar.zst` and `SHA256SUMS`.
+The generated installation command uses `flatpak install --user --from ./Navo.flatpakref`; the run
+command remains `flatpak run cn.com.letalk.naviamp`. Filenames do not establish trust: independently
+accept the signing fingerprint and key before installing or passing `navo.asc` to the smoke script.
+
 ## Sandbox and acceptance
 
 Network supports remote libraries and LAN discovery. X11/IPC and DRI support the existing renderer;
@@ -73,7 +87,7 @@ PulseAudio supports native playback. Secret Service and
 `org.mpris.MediaPlayer2.cn.com.letalk.naviamp` are the only extra session-bus permissions. Downloads is
 the only host filesystem permission. `.local/share/cn.com.letalk.naviamp` is persisted inside Flatpak's
 private namespace; settings use its XDG config directory. The app/desktop/icon identity is
-`cn.com.letalk.naviamp`, while its display name remains Naviamp. Existing upstream and non-Flatpak
+`cn.com.letalk.naviamp`, while its display name is Navo. Existing upstream and non-Flatpak
 private data is neither imported nor modified. Use shared settings export/import for a deliberate
 migration, and select accessible download storage.
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
+import app.naviamp.domain.network.NaviampClientName
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -82,7 +83,7 @@ class NaviampConnectTargetSettingsTest {
             }
         }
         onNodeWithTag("connect-target-pairing").assertDoesNotExist()
-        onNodeWithText("Find Naviamp devices").performScrollTo().assertIsDisplayed()
+        onNodeWithText("Find $NaviampClientName devices").performScrollTo().assertIsDisplayed()
     }
 
     @Test fun targetOnlyDevicesExposePairingWithoutDiscovery() = runComposeUiTest {
@@ -93,7 +94,7 @@ class NaviampConnectTargetSettingsTest {
             }
         }
         onNodeWithText("Show pairing code").performScrollTo().assertIsDisplayed()
-        onNodeWithText("Find Naviamp devices").assertDoesNotExist()
+        onNodeWithText("Find $NaviampClientName devices").assertDoesNotExist()
     }
 
     private fun target() = NaviampConnectSettingsUi(available = true, role = NaviampConnectUiRole.ControllerAndTarget)

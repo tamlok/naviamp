@@ -1,5 +1,6 @@
 package app.naviamp.desktop.platform
 
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.presentation.NaviampExternalMediaItem
 import app.naviamp.presentation.NaviampExternalPlaybackControl
 import app.naviamp.presentation.NaviampExternalPlaybackSnapshot
@@ -31,10 +32,10 @@ class DesktopMprisServiceTest {
     fun advertisesForkDesktopIdentityWithoutChangingTheMprisProtocol() {
         assertEquals("org.mpris.MediaPlayer2.cn.com.letalk.naviamp", MprisBusName)
         assertEquals(
-            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.naviamp-Naviamp",
+            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.naviamp-$NaviampClientName",
             rootProperties().getValue("DesktopEntry").value,
         )
-        assertEquals("Naviamp", rootProperties().getValue("Identity").value)
+        assertEquals(NaviampClientName, rootProperties().getValue("Identity").value)
         assertEquals("/org/mpris/MediaPlayer2", MprisObjectPath)
         assertEquals("org.mpris.MediaPlayer2", MprisRootInterface)
         assertEquals("org.mpris.MediaPlayer2.Player", MprisPlayerInterface)

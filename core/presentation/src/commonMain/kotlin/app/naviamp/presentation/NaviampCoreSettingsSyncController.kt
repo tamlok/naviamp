@@ -18,6 +18,9 @@ import app.naviamp.domain.settings.settingsSyncImportedConnection
 import app.naviamp.domain.source.SavedMediaSource
 import app.naviamp.ui.NaviampSettingsSyncUi
 import app.naviamp.ui.naviampVisualizerFromName
+import app.naviamp.domain.network.NaviampClientName
+import app.naviamp.ui.naviampSettingsImportTitle
+import app.naviamp.ui.naviampSettingsExportTitle
 
 data class NaviampCoreSettingsSyncConfiguration(
     val directoryPath: String? = null,
@@ -185,27 +188,27 @@ class NaviampCoreSettingsSyncController(
     }
 
     private suspend fun selectAndImport() {
-        val selected = pickDirectory("Import Naviamp settings") ?: return
+        val selected = pickDirectory(naviampSettingsImportTitle()) ?: return
         selectImportDirectory(selected)
     }
 
     private suspend fun selectAndImportFile() {
         val selected = services.port.chooseDocument(
             currentPath = configuredDirectory() ?: services.port.defaultDirectory(),
-            title = "Import Naviamp settings",
+            title = naviampSettingsImportTitle(),
         ) ?: return
         importFile(selected)
     }
 
     private suspend fun importFile(path: String) {
         val document = services.port.readDocumentFile(path)
-            ?: error("The selected file is not a Naviamp settings document.")
+            ?: error("The selected file is not a $NaviampClientName settings document.")
         status = settingsSyncReconciliationStatus(services.controller.applySyncedDocument(document))
         publishAppliedSnapshot(services.controller.localSnapshot(), document)
     }
 
     private suspend fun exportFolder() {
-        val selected = pickDirectory("Export Naviamp settings") ?: return
+        val selected = pickDirectory(naviampSettingsExportTitle()) ?: return
         save(configuration().copy(directoryPath = selected))
         export()
     }

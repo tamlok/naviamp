@@ -18,6 +18,9 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.update_available_title
+import org.jetbrains.compose.resources.stringResource
 
 data class NaviampAvailableUpdate(
     val version: String,
@@ -74,7 +77,7 @@ fun NaviampApplicationUpdateEffect(
         NaviampPopupPresence()
         NaviampAlertDialog(
             onDismissRequest = { availableUpdate = null },
-            title = { Text("Naviamp Update Available") },
+            title = { Text(stringResource(Res.string.update_available_title)) },
             text = {
                 Text("${update.name} is available. You are currently running $currentVersion.")
             },

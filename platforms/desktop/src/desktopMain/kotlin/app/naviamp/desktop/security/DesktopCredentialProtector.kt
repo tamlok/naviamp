@@ -3,6 +3,7 @@ package app.naviamp.desktop.security
 import app.naviamp.desktop.settings.DesktopDevelopmentDataProfileProperty
 import app.naviamp.desktop.settings.defaultDesktopDataDirectory
 import app.naviamp.domain.app.naviampApplicationProfileId
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.storage.StorageCredentialProtector
 import java.nio.file.Files
 import java.nio.file.Path
@@ -120,7 +121,7 @@ private object LinuxSecretServiceValueStore : DesktopSecureValueStore {
             listOf(
                 "secret-tool",
                 "store",
-                "--label=Naviamp credentials",
+                "--label=$NaviampClientName credentials",
                 "application",
                 CredentialProfileId,
                 "purpose",

@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">Sparowany kontroler Navo</string>
+    <string name="connect_paired_target">Sparowane urządzenie docelowe Navo</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - Statystyki dla zaawansowanych</string>
+    <string name="bootstrap_preparing">Przygotowywanie Navo Core…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Znajdź urządzenia Navo</string>
+    <string name="settings_updates_description">Wybierz, czy Navo ma informować o wersjach stabilnych czy beta</string>
+    <string name="settings_shortcuts_description">Zezwalaj na te skróty podczas działania Navo, nawet gdy jego okno nie jest aktywne</string>
+    <string name="shortcut_bring_to_front">Przenieś Navo na pierwszy plan</string>
+    <string name="smart_playlist_token_help">Zmiany inteligentnych playlist wymagają tokenu API Navidrome. Wpisz hasło raz, a Navo zapisze token do przyszłych edycji.</string>
+    <string name="smart_playlist_token_refresh_help">Edycja tej inteligentnej playlisty wymaga odnowionego tokenu API Navidrome. Wpisz hasło raz, a Navo zapisze nowy token.</string>
+    <string name="update_available_title">Dostępna aktualizacja Navo</string>
+    <string name="connection_unsupported_provider">Ten zapisany typ dostawcy nie jest obsługiwany przez tę wersję Navo.</string>
+    <string name="settings_sync_newer_version">Plik synchronizacji ustawień został utworzony przez nowszą wersję Navo.</string>
+    <string name="settings_sync_setup_choice">Wybierz sposób konfiguracji Navo.</string>
+    <string name="settings_sync_import_title">Importuj ustawienia Navo</string>
+    <string name="settings_sync_export_title">Eksportuj ustawienia Navo</string>
+    <string name="connect_incompatible_version">To urządzenie wymaga innej wersji Navo.</string>
+    <string name="connect_pairing_start_failed">Nie udało się rozpocząć parowania Navo Connect.</string>
+    <string name="connect_target_command_unsupported">To urządzenie docelowe Navo nie obsługuje jeszcze żądanego polecenia.</string>
+    <string name="connect_advertising_permission_required">Do rozgłaszania tego urządzenia docelowego Navo wymagane jest uprawnienie dostępu do sieci lokalnej.</string>
+    <string name="connect_request_failed">Navo Connect nie może zrealizować żądania.</string>
     <string name="settings_resume_playlists">Wznawiaj playlisty</string>
     <string name="settings_resume_playlists_description">Kontynuuj playlisty od ostatniego utworu i miejsca odtwarzania</string>
     <string name="settings_category_appearance_title">Wygląd</string>
@@ -9,7 +32,7 @@
     <string name="settings_themes_dark">Ciemny</string>
     <string name="settings_themes_system">Systemowy</string>
     <string name="settings_themes_catalog">Pakiety motywów</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">Las</string>
     <string name="settings_player_background">Tło odtwarzacza</string>
     <string name="tv_aurora">Zorza</string>
@@ -50,9 +73,9 @@
     <string name="settings_language_system_title">Systemowy</string>
     <string name="settings_language_system_subtitle">Używaj języka systemu</string>
     <string name="settings_language_english_title">Angielski</string>
-    <string name="settings_language_english_subtitle">Używaj Angielskiego dla Naviamp</string>
+    <string name="settings_language_english_subtitle">Używaj Angielskiego dla Navo</string>
     <string name="settings_language_spanish_title">Hiszpański</string>
-    <string name="settings_language_spanish_subtitle">Używaj Hiszpańskiego dla Naviamp</string>
+    <string name="settings_language_spanish_subtitle">Używaj Hiszpańskiego dla Navo</string>
     <string name="settings_category_source_title">Źródło</string>
     <string name="settings_category_source_subtitle">Serwery i biblioteki</string>
     <string name="settings_category_language_title">Język</string>
@@ -105,10 +128,10 @@
     <string name="settings_lyrics_timing_word">Zsynchronizowane ze słowami</string>
     <string name="settings_lyrics_timing_word_subtitle">Preferuj synchronizację co do słowa; mniej szczegółowy tekst używany jako zapasowy</string>
     <string name="settings_lyrics_download_timing">Harmonogram pobierania</string>
-    <string name="settings_lyrics_download_timing_subtitle">Określ szczegółowość synchronizacji do wyszukiwania i zapisywania przez Naviamp</string>
+    <string name="settings_lyrics_download_timing_subtitle">Określ szczegółowość synchronizacji do wyszukiwania i zapisywania przez Navo</string>
     <string name="settings_lyrics_display_timing">Prezentacja synchronizacji</string>
     <string name="settings_lyrics_display_timing_subtitle">Wybierz jak zapisane teksty piosenek są pokazywane podczas odtwarzania</string>
-    <string name="settings_lyrics_search_order_subtitle">Wybierz gdzie Naviamp szuka tekstów w pierwszej kolejności</string>
+    <string name="settings_lyrics_search_order_subtitle">Wybierz gdzie Navo szuka tekstów w pierwszej kolejności</string>
     <string name="settings_about_production">Twórczość GoosePod</string>
     <string name="settings_about_version_build">%1$s Wersja %2$s</string>
     <string name="settings_about_libraries_title">Biblioteki</string>
@@ -135,7 +158,7 @@
     <string name="settings_source_new_connection_button">Nowe połączenie</string>
     <string name="settings_sync_title">Synchronizacja ustawień</string>
     <string name="settings_sync_subtitle">Synchronizacja ustawień bazująca na folderach</string>
-    <string name="settings_sync_description">Użyj folderu zarządzanego przez Nextcloud, Dropbox, Syncthing, FolderSync, lub inną aplikację do synchronizacji. Naviamp zapisuje lokalną kopię i synchronizuje ten plik gdy dostawca na to zezwala.</string>
+    <string name="settings_sync_description">Użyj folderu zarządzanego przez Nextcloud, Dropbox, Syncthing, FolderSync, lub inną aplikację do synchronizacji. Navo zapisuje lokalną kopię i synchronizuje ten plik gdy dostawca na to zezwala.</string>
     <string name="settings_sync_auto_sync">Zmiany auto-sync</string>
     <string name="settings_sync_choose_folder">Wybierz folder do synchronizacji</string>
     <string name="settings_sync_now">Synchronizuj teraz</string>
@@ -148,11 +171,11 @@
     <string name="settings_source_delete_content_description">Usuń połączenie</string>
     <string name="settings_source_libraries_prefix">Biblioteki: %1$s</string>
     <string name="settings_local_data_title">Dane lokalne</string>
-    <string name="connect_setup_password_required">Wpisz hasło źródła, aby dokończyć konfigurację. Naviamp sprawdzi je i bezpiecznie zapisze na potrzeby przyszłych połączeń.</string>
+    <string name="connect_setup_password_required">Wpisz hasło źródła, aby dokończyć konfigurację. Navo sprawdzi je i bezpiecznie zapisze na potrzeby przyszłych połączeń.</string>
     <string name="connect_setup_code_consent">Wyświetlenie kodu pozwala urządzeniu, które go wpisze, sparować się i skonfigurować to urządzenie ze swoim źródłem muzyki i ustawieniami.</string>
     <string name="connect_setup_new_code_required">Wyświetl nowy kod na telewizorze i sparuj ponownie, aby dokończyć konfigurację.</string>
     <string name="settings_keep_screen_awake">Nie wygaszaj ekranu</string>
-    <string name="settings_keep_screen_awake_description">Zapobiega automatycznemu uśpieniu ekranu, gdy Naviamp jest widoczny. Uśpienie systemu, blokady ekranu i wyłączniki czasowe telewizora mogą nadal działać.</string>
+    <string name="settings_keep_screen_awake_description">Zapobiega automatycznemu uśpieniu ekranu, gdy Navo jest widoczny. Uśpienie systemu, blokady ekranu i wyłączniki czasowe telewizora mogą nadal działać.</string>
     <string name="settings_keep_screen_awake_failed">Nie można zmienić zapobiegania uśpieniu ekranu. Wyłącz i włącz to ustawienie, aby spróbować ponownie.</string>
     <string name="now_playing_playback_device">Urządzenie odtwarzające: %1$s</string>
     <string name="now_playing_from_playlist">Z playlisty: %1$s</string>
@@ -169,7 +192,7 @@
     <string name="smart_playlist_refresh_delay_hint">Opcjonalnie. Przykłady: 12h, 1d lub 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">Użyj prawidłowego czasu, np. 12h, 1d lub 1w.</string>
     <string name="connect_pairing_code">Kod parowania</string>
-    <string name="connect_devices_description">Steruj urządzeniami Naviamp w tej sieci i paruj je</string>
+    <string name="connect_devices_description">Steruj urządzeniami Navo w tej sieci i paruj je</string>
     <string name="connect_setup_timed_out">Upłynął limit czasu konfiguracji. Sprawdź urządzenie odtwarzające i spróbuj ponownie.</string>
     <string name="library_sort_title">Sortowanie albumów: Tytuł</string>
     <string name="library_sort_recently_added">Sortowanie albumów: Ostatnio dodane</string>
@@ -187,7 +210,7 @@
     <string name="diagnostics_failure_listen_submission">Prześlij odsłuch</string>
     <string name="library_sources_choose">Wybierz biblioteki</string>
     <string name="library_sources_title">Biblioteki</string>
-    <string name="library_sources_description">Wybierz biblioteki wyświetlane w Naviamp</string>
+    <string name="library_sources_description">Wybierz biblioteki wyświetlane w Navo</string>
     <string name="library_sources_loading">Wczytywanie bibliotek…</string>
     <string name="library_sources_empty">Ten serwer nie ma bibliotek, które można wybrać</string>
     <string name="library_sources_save">Zapisz</string>
@@ -204,7 +227,7 @@
     <string name="settings_font_size_small">Mały</string>
     <string name="settings_font_size_small_subtitle">Wyświetla więcej treści na ekranie</string>
     <string name="settings_font_size_standard">Standardowy</string>
-    <string name="settings_font_size_standard_subtitle">Używa domyślnego rozmiaru tekstu Naviamp</string>
+    <string name="settings_font_size_standard_subtitle">Używa domyślnego rozmiaru tekstu Navo</string>
     <string name="settings_font_size_large">Duży</string>
     <string name="settings_font_size_large_subtitle">Poprawia czytelność dzięki większemu tekstowi</string>
     <string name="description_less">Mniej</string>
@@ -517,7 +540,7 @@
     <string name="discovery_action_unsupported">Ten serwer nie obsługuje tej czynności.</string>
     <string name="discovery_action_uncertain">Nie udało się potwierdzić wyniku. Sprawdź w Aurral przed ponowną próbą.</string>
     <string name="discovery_samples_loading">Wczytywanie próbek…</string>
-    <string name="permission_local_network_usage">Naviamp łączy się z Twoimi serwerami muzyki i wyszukuje urządzenia odtwarzające w sieci lokalnej.</string>
+    <string name="permission_local_network_usage">Navo łączy się z Twoimi serwerami muzyki i wyszukuje urządzenia odtwarzające w sieci lokalnej.</string>
     <string name="now_playing_playback_position">Pozycja odtwarzania</string>
     <string name="now_playing_volume">Głośność</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -535,7 +558,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Używaj tego języka w Naviamp</string>
+    <string name="settings_language_use_subtitle">Używaj tego języka w Navo</string>
     <string name="tv_keep_now_playing_controls_visible">Pozostaw przyciski odtwarzacza widoczne</string>
     <string name="tv_keep_now_playing_controls_visible_description">Nie ukrywaj przycisków ekranu odtwarzania po kilku sekundach</string>
     <string name="settings_square_album_artwork">Okładki z prostymi rogami</string>
@@ -670,7 +693,7 @@
     <string name="tv_search_system_keyboard">Klawiatura systemowa</string>
     <string name="storage_location_app">Pamięć aplikacji</string>
     <string name="storage_location_custom">Niestandardowa</string>
-    <string name="connect_recovery_secure_storage">Naviamp nie może otworzyć bezpiecznego magazynu danych logowania na tym urządzeniu. Odblokuj systemowy pęk kluczy, a następnie spróbuj ponownie.</string>
+    <string name="connect_recovery_secure_storage">Navo nie może otworzyć bezpiecznego magazynu danych logowania na tym urządzeniu. Odblokuj systemowy pęk kluczy, a następnie spróbuj ponownie.</string>
     <string name="radio_server_title">Radio serwera</string>
     <string name="radio_server_empty">Brak dostępnego radia serwera</string>
     <string name="generated_radio_saved">Zapisane stacje</string>

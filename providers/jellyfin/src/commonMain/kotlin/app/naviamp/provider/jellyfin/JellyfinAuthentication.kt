@@ -1,6 +1,7 @@
 package app.naviamp.provider.jellyfin
 
 import app.naviamp.domain.provider.ProviderMediaByteResponse
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.network.NaviampUserAgent
 import app.naviamp.domain.network.urlEncodedParameter
 import app.naviamp.domain.provider.ProviderIdJellyfin
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.put
 data class JellyfinClientIdentity(
     val deviceId: String,
     val deviceName: String,
-    val clientName: String = "Naviamp",
+    val clientName: String = NaviampClientName,
     val clientVersion: String,
 ) {
     init {

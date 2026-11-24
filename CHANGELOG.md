@@ -86,6 +86,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
 - Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.
 - LeTalk builds use the independent `cn.com.letalk.naviamp` application identity across platforms. They do not update upstream app installations; desktop data and credentials are isolated and settings can be imported deliberately.
+- Rename the displayed application to Navo while retaining this fork's application IDs, signing identity, settings and credentials. Executables and public package filenames now use Navo; replace old application bundles and re-pin outdated desktop launchers if needed.
 
 ### System settings
 

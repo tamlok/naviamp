@@ -3,17 +3,18 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
+application_name="$(tr -d '\r\n' < "$repo_root/APPLICATION_NAME")"
 build_root="$repo_root/build/ios-unsigned"
-archive_path="$build_root/Naviamp.xcarchive"
+archive_path="$build_root/$application_name.xcarchive"
 package_root="$build_root/package"
 distribution_dir="$build_root/distributions"
-app_path="$archive_path/Products/Applications/Naviamp.app"
+app_path="$archive_path/Products/Applications/$application_name.app"
 
 version="$(tr -d '[:space:]' < "$repo_root/VERSION")"
 build_number="$(tr -d '[:space:]' < "$repo_root/VERSION_CODE")"
 version_without_prefix="${version#v}"
 marketing_version="${version_without_prefix%%-*}"
-ipa_name="Naviamp-${version}-ios-unsigned.ipa"
+ipa_name="${application_name}-${version}-ios-unsigned.ipa"
 ipa_path="$distribution_dir/$ipa_name"
 
 case "$build_root" in
@@ -69,7 +70,7 @@ if codesign --verify "$app_path" >/dev/null 2>&1; then
     exit 1
 fi
 
-archs="$(lipo -archs "$app_path/Naviamp")"
+archs="$(lipo -archs "$app_path/$application_name")"
 if [[ " $archs " != *" arm64 "* ]]; then
     echo "Archived app does not contain the required arm64 device architecture: $archs" >&2
     exit 1
@@ -107,14 +108,14 @@ mark_phase validation end
 
 mark_phase packaging start
 mkdir -p "$package_root/Payload"
-ditto "$app_path" "$package_root/Payload/Naviamp.app"
+ditto "$app_path" "$package_root/Payload/$application_name.app"
 (
     cd "$package_root"
     /usr/bin/zip -qry "$ipa_path" Payload
 )
 
 /usr/bin/unzip -tq "$ipa_path"
-cp "$repo_root/docs/ios-sideloading.md" "$distribution_dir/Naviamp-iOS-Sideloading.md"
+cp "$repo_root/docs/ios-sideloading.md" "$distribution_dir/${application_name}-iOS-Sideloading.md"
 
 mark_phase packaging end
 

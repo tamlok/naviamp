@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">Pengontrol Navo yang dipasangkan</string>
+    <string name="connect_paired_target">Perangkat target Navo yang dipasangkan</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - Statistik untuk pengguna mahir</string>
+    <string name="bootstrap_preparing">Menyiapkan Navo Core…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Temukan perangkat Navo</string>
+    <string name="settings_updates_description">Pilih apakah Navo mengumumkan rilis stabil atau beta</string>
+    <string name="settings_shortcuts_description">Izinkan pintasan ini saat Navo berjalan, meskipun jendelanya tidak sedang aktif</string>
+    <string name="shortcut_bring_to_front">Tampilkan Navo di depan</string>
+    <string name="smart_playlist_token_help">Perubahan daftar putar cerdas memerlukan token API Navidrome. Masukkan kata sandi sekali dan Navo akan menyimpan token untuk pengeditan berikutnya.</string>
+    <string name="smart_playlist_token_refresh_help">Mengedit daftar putar cerdas ini memerlukan token API Navidrome yang diperbarui. Masukkan kata sandi sekali dan Navo akan menyimpan token baru.</string>
+    <string name="update_available_title">Pembaruan Navo tersedia</string>
+    <string name="connection_unsupported_provider">Jenis penyedia yang tersimpan ini tidak didukung oleh versi Navo ini.</string>
+    <string name="settings_sync_newer_version">File sinkronisasi pengaturan dibuat oleh versi Navo yang lebih baru.</string>
+    <string name="settings_sync_setup_choice">Pilih cara menyiapkan Navo.</string>
+    <string name="settings_sync_import_title">Impor pengaturan Navo</string>
+    <string name="settings_sync_export_title">Ekspor pengaturan Navo</string>
+    <string name="connect_incompatible_version">Perangkat ini memerlukan versi Navo yang berbeda.</string>
+    <string name="connect_pairing_start_failed">Tidak dapat memulai pemasangan Navo Connect.</string>
+    <string name="connect_target_command_unsupported">Target Navo ini belum mendukung perintah yang diminta.</string>
+    <string name="connect_advertising_permission_required">Izin jaringan lokal diperlukan untuk mengumumkan target Navo ini.</string>
+    <string name="connect_request_failed">Navo Connect tidak dapat menyelesaikan permintaan.</string>
     <string name="settings_resume_playlists">Lanjutkan daftar putar</string>
     <string name="settings_resume_playlists_description">Lanjutkan daftar putar dari lagu dan posisi terakhir</string>
     <string name="common_back">Kembali</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">Gelap</string>
     <string name="settings_themes_system">Sistem</string>
     <string name="settings_themes_catalog">Paket tema</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">Hutan</string>
     <string name="settings_player_background">Latar belakang pemutar</string>
     <string name="tv_aurora">Aurora</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">Judul</string>
     <string name="tv_group_albums_by_release_type">Kelompokkan album menurut jenis rilisan</string>
     <string name="tv_group_albums_by_release_type_description">Tampilkan album, EP, singel, dan rilisan lain dalam bagian terpisah</string>
-    <string name="connect_setup_password_required">Masukkan kata sandi sumber Anda untuk menyelesaikan penyiapan. Naviamp memvalidasi dan menyimpannya dengan aman untuk koneksi berikutnya.</string>
+    <string name="connect_setup_password_required">Masukkan kata sandi sumber Anda untuk menyelesaikan penyiapan. Navo memvalidasi dan menyimpannya dengan aman untuk koneksi berikutnya.</string>
     <string name="connect_setup_code_consent">Menampilkan kode mengizinkan perangkat yang memasukkannya untuk berpasangan dan menyiapkan perangkat ini dengan sumber musik dan pengaturannya.</string>
     <string name="connect_setup_new_code_required">Tampilkan kode baru di TV dan pasangkan kembali untuk menyelesaikan penyiapan.</string>
     <string name="settings_keep_screen_awake">Biarkan layar menyala</string>
-    <string name="settings_keep_screen_awake_description">Mencegah layar tidur otomatis saat Naviamp terlihat. Tidur sistem, kunci layar, dan pengatur waktu TV mungkin tetap berlaku.</string>
+    <string name="settings_keep_screen_awake_description">Mencegah layar tidur otomatis saat Navo terlihat. Tidur sistem, kunci layar, dan pengatur waktu TV mungkin tetap berlaku.</string>
     <string name="settings_keep_screen_awake_failed">Pencegahan tidur layar tidak dapat diubah. Nonaktifkan lalu aktifkan pengaturan ini untuk mencoba lagi.</string>
     <string name="now_playing_playback_device">Perangkat pemutaran: %1$s</string>
     <string name="now_playing_from_playlist">Dari daftar putar: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">Opsional. Contoh: 12h, 1d, atau 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">Gunakan durasi yang valid seperti 12h, 1d, atau 1w.</string>
     <string name="connect_pairing_code">Kode pemasangan</string>
-    <string name="connect_devices_description">Kontrol dan pasangkan perangkat Naviamp di jaringan ini</string>
+    <string name="connect_devices_description">Kontrol dan pasangkan perangkat Navo di jaringan ini</string>
     <string name="connect_setup_timed_out">Waktu penyiapan perangkat habis. Periksa perangkat pemutaran, lalu coba lagi.</string>
     <string name="library_sort_title">Urutkan album: Judul</string>
     <string name="library_sort_recently_added">Urutkan album: Baru ditambahkan</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">Kirim pemutaran</string>
     <string name="library_sources_choose">Pilih pustaka</string>
     <string name="library_sources_title">Pustaka</string>
-    <string name="library_sources_description">Pilih pustaka yang muncul di Naviamp</string>
+    <string name="library_sources_description">Pilih pustaka yang muncul di Navo</string>
     <string name="library_sources_loading">Memuat pustaka…</string>
     <string name="library_sources_empty">Server ini tidak memiliki pustaka yang dapat dipilih</string>
     <string name="library_sources_save">Simpan</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">Kecil</string>
     <string name="settings_font_size_small_subtitle">Menampilkan lebih banyak konten di layar</string>
     <string name="settings_font_size_standard">Standar</string>
-    <string name="settings_font_size_standard_subtitle">Menggunakan ukuran teks bawaan Naviamp</string>
+    <string name="settings_font_size_standard_subtitle">Menggunakan ukuran teks bawaan Navo</string>
     <string name="settings_font_size_large">Besar</string>
     <string name="settings_font_size_large_subtitle">Meningkatkan keterbacaan dengan teks lebih besar</string>
     <string name="description_less">Lebih sedikit</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">Server ini tidak mendukung tindakan ini.</string>
     <string name="discovery_action_uncertain">Hasil tidak dapat dipastikan. Periksa di Aurral sebelum mencoba lagi.</string>
     <string name="discovery_samples_loading">Memuat cuplikan…</string>
-    <string name="permission_local_network_usage">Naviamp terhubung ke server musik Anda dan menemukan perangkat pemutaran di jaringan lokal Anda.</string>
+    <string name="permission_local_network_usage">Navo terhubung ke server musik Anda dan menemukan perangkat pemutaran di jaringan lokal Anda.</string>
     <string name="now_playing_playback_position">Posisi pemutaran</string>
     <string name="now_playing_volume">Volume</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Gunakan bahasa ini untuk Naviamp</string>
+    <string name="settings_language_use_subtitle">Gunakan bahasa ini untuk Navo</string>
     <string name="tv_keep_now_playing_controls_visible">Biarkan kontrol pemutar tetap terlihat</string>
     <string name="tv_keep_now_playing_controls_visible_description">Jangan sembunyikan kontrol Sedang Diputar setelah beberapa detik</string>
     <string name="settings_square_album_artwork">Sampul album persegi</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">Papan ketik sistem</string>
     <string name="storage_location_app">Penyimpanan aplikasi</string>
     <string name="storage_location_custom">Kustom</string>
-    <string name="connect_recovery_secure_storage">Naviamp tidak dapat membuka penyimpanan kredensial aman perangkat ini. Buka kunci keyring sistem, lalu coba lagi.</string>
+    <string name="connect_recovery_secure_storage">Navo tidak dapat membuka penyimpanan kredensial aman perangkat ini. Buka kunci keyring sistem, lalu coba lagi.</string>
     <string name="radio_server_title">Radio server</string>
     <string name="radio_server_empty">Tidak ada radio server yang tersedia</string>
     <string name="generated_radio_saved">Stasiun tersimpan</string>

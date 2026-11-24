@@ -90,8 +90,13 @@ import app.naviamp.domain.source.SubsonicAuthApiKey
 import app.naviamp.domain.source.SubsonicAuthToken
 
 @Composable
-private fun localizedConnectionStatus(status: String): String =
+internal fun localizedConnectionStatus(status: String): String =
     when (status) {
+        "connection_unsupported_provider" -> stringResource(Res.string.connection_unsupported_provider)
+        "settings_sync_newer_version" -> stringResource(Res.string.settings_sync_newer_version)
+        "settings_sync_setup_choice" -> stringResource(Res.string.settings_sync_setup_choice)
+        "connect_paired_controller" -> stringResource(Res.string.connect_paired_controller)
+        "connect_paired_target" -> stringResource(Res.string.connect_paired_target)
         "connection_aurral_companion_save_failed" -> stringResource(Res.string.connection_aurral_companion_save_failed)
         "connection_aurral_companion_invalid" -> stringResource(Res.string.connection_aurral_companion_invalid)
         ConnectionPasswordRequiredStatus -> stringResource(Res.string.connection_password_required)
@@ -225,7 +230,7 @@ fun NaviampConnectionForm(
                 onClick = importSettings,
             )
             settingsSyncStatus?.let {
-                Text(it, color = colors.secondaryText, fontSize = 12.sp)
+                Text(localizedConnectionStatus(it), color = colors.secondaryText, fontSize = 12.sp)
             }
         }
         if (!companionMode) NaviampTextField(

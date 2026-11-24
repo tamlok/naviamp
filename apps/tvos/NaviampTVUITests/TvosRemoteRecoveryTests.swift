@@ -124,7 +124,7 @@ final class TvosRemoteRecoveryTests: XCTestCase {
     }
 
     private func createAccountsThroughRemote() {
-        XCTAssertTrue(app.staticTexts["Set up Naviamp"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Set up Navo"].waitForExistence(timeout: 20))
         record("initial")
         remote.press(.right)
         remote.press(.right)

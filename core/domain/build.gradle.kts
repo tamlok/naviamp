@@ -7,11 +7,13 @@ val generateNaviampVersion by tasks.registering {
     val buildNumberFile = rootProject.layout.projectDirectory.file("VERSION_CODE")
     val applicationIdFile = rootProject.layout.projectDirectory.file("APPLICATION_ID")
     val repositoryFile = rootProject.layout.projectDirectory.file("RELEASE_REPOSITORY")
+    val applicationNameFile = rootProject.layout.projectDirectory.file("APPLICATION_NAME")
     val outputDir = generatedNaviampVersionSources
     inputs.file(versionFile)
     inputs.file(buildNumberFile)
     inputs.file(applicationIdFile)
     inputs.file(repositoryFile)
+    inputs.file(applicationNameFile)
     outputs.dir(outputDir)
     doLast {
         val version = versionFile.asFile.readText().trim()
@@ -19,6 +21,7 @@ val generateNaviampVersion by tasks.registering {
         val escapedVersion = version.replace("\\", "\\\\").replace("\"", "\\\"")
         val applicationId = applicationIdFile.asFile.readText().trim().replace("\\", "\\\\").replace("\"", "\\\"")
         val repository = repositoryFile.asFile.readText().trim().replace("\\", "\\\\").replace("\"", "\\\"")
+        val applicationName = applicationNameFile.asFile.readText().trim().replace("\\", "\\\\").replace("\"", "\\\"")
         val packageDir = outputDir.get().file("app/naviamp/domain/network").asFile
         packageDir.mkdirs()
         packageDir.resolve("NaviampClientIdentity.kt").writeText(
@@ -29,9 +32,9 @@ val generateNaviampVersion by tasks.registering {
             const val NaviampAppBuildNumber = "$buildNumber"
             const val NaviampApplicationId = "$applicationId"
             const val NaviampReleaseRepository = "$repository"
-            const val NaviampClientName = "Naviamp"
-            const val NaviampUserAgent = "Naviamp/$escapedVersion"
-            const val NaviampProjectUserAgent = "Naviamp/$escapedVersion (https://github.com/$repository)"
+            const val NaviampClientName = "$applicationName"
+            const val NaviampUserAgent = "$applicationName/$escapedVersion"
+            const val NaviampProjectUserAgent = "$applicationName/$escapedVersion (https://github.com/$repository)"
             """.trimIndent(),
         )
     }

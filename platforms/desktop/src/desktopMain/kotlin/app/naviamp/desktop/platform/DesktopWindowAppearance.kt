@@ -3,6 +3,7 @@ package app.naviamp.desktop.platform
 import app.naviamp.desktop.playback.bass.BassPlatform
 import app.naviamp.desktop.playback.bass.DesktopBassLibraryResolver
 import app.naviamp.domain.network.NaviampApplicationId
+import app.naviamp.domain.network.NaviampClientName
 import com.sun.jna.WString
 import com.sun.jna.platform.win32.COM.COMUtils
 import com.sun.jna.platform.win32.Shell32
@@ -12,9 +13,9 @@ import javax.swing.SwingUtilities
 
 /** Desktop OS appearance facts applied before AWT creates the application and per-window chrome. */
 fun configureDesktopHostAppearance() {
-    System.setProperty("compose.application.name", "Naviamp")
-    System.setProperty("apple.awt.application.name", "Naviamp")
-    System.setProperty("sun.awt.application.name", "Naviamp")
+    System.setProperty("compose.application.name", NaviampClientName)
+    System.setProperty("apple.awt.application.name", NaviampClientName)
+    System.setProperty("sun.awt.application.name", NaviampClientName)
     if (isMacOs()) System.setProperty("apple.awt.application.appearance", "system")
     if (isWindows()) {
         COMUtils.checkRC(Shell32.INSTANCE.SetCurrentProcessExplicitAppUserModelID(WString(NaviampApplicationId)))

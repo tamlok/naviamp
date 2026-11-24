@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Reject stale Xcode release versions and bundle identities before packaging."""
+"""Reject stale Xcode release versions, product names and bundle identities before packaging."""
+import plistlib
 import re
 import sys
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 
 def parse_project(project):
@@ -91,6 +93,72 @@ def validate_bundle_ids(project, path, application_id, targets):
         raise ValueError(f"{path.parent.name} missing or malformed bundle metadata") from error
     except ValueError as error:
         raise ValueError(f"{path.parent.name}: {error}") from error
+    return metadata
+
+
+def validate_product_names(path, metadata, application_name):
+    app_target = path.parent.stem
+    plist_relative = {'Naviamp': 'iosApp/Info.plist', 'NaviampTV': 'NaviampTV/Info.plist'}[app_target]
+    try:
+        objects = metadata['objects']
+        targets = {reference: objects[reference]
+                   for reference in objects[metadata['rootObject']]['targets']}
+        products = {}
+        for reference, target in targets.items():
+            name = target['name']
+            is_app = name == app_target
+            product_name = application_name if is_app else name
+            extension = '.app' if target['productType'] == 'com.apple.product-type.application' else '.xctest'
+            product = objects[target['productReference']]
+            if target['productName'] != product_name or product['path'] != product_name + extension:
+                raise ValueError(f"{name} product reference must name {product_name + extension}")
+            products[reference] = product['path']
+            for configuration in objects[target['buildConfigurationList']]['buildConfigurations']:
+                settings = objects[configuration]['buildSettings']
+                actual = {key: value for key, value in settings.items() if key.startswith('PRODUCT_NAME')}
+                expected_name = product_name
+                if not is_app and settings.get('PRODUCT_NAME') == '$(TARGET_NAME)':
+                    expected_name = '$(TARGET_NAME)'
+                if actual != {'PRODUCT_NAME': expected_name}:
+                    raise ValueError(f"{name} PRODUCT_NAME must equal {product_name}; got {actual}")
+                if is_app:
+                    for setting, expected in (('PRODUCT_MODULE_NAME', app_target), ('INFOPLIST_FILE', plist_relative)):
+                        actual = {key: value for key, value in settings.items() if key.startswith(setting)}
+                        if actual != {setting: expected}:
+                            raise ValueError(f"{name} {setting} must equal {expected}; got {actual}")
+
+        plist_path = path.parent.parent / plist_relative
+        plist = plistlib.loads(plist_path.read_bytes())
+        for key, expected in (
+            ('CFBundleDisplayName', application_name), ('CFBundleName', '$(PRODUCT_NAME)'),
+            ('CFBundleExecutable', '$(EXECUTABLE_NAME)'), ('CFBundleIdentifier', '$(PRODUCT_BUNDLE_IDENTIFIER)'),
+            ('CFBundleShortVersionString', '$(MARKETING_VERSION)'), ('CFBundleVersion', '$(CURRENT_PROJECT_VERSION)'),
+        ):
+            if plist.get(key) != expected:
+                raise ValueError(f"{plist_relative} {key} must equal {expected}")
+
+        schemes = [app_target]
+        if app_target == 'NaviampTV':
+            schemes.append('NaviampTVSceneTests')
+        for name in schemes:
+            scheme = ET.parse(path.parent / 'xcshareddata/xcschemes' / (name + '.xcscheme'))
+            app_referenced = False
+            for buildable in scheme.iter('BuildableReference'):
+                reference = buildable.get('BlueprintIdentifier')
+                if reference not in targets:
+                    raise ValueError(f"{name} scheme references an unknown target {reference}")
+                target_name = targets[reference]['name']
+                expected = {'BlueprintName': target_name, 'BuildableName': products[reference],
+                            'ReferencedContainer': 'container:' + path.parent.name}
+                if any(buildable.get(key) != value for key, value in expected.items()):
+                    raise ValueError(f"{name} scheme product reference must match {expected}")
+                app_referenced |= target_name == app_target
+            if not app_referenced:
+                raise ValueError(f"{name} scheme must reference {app_target}")
+    except (KeyError, TypeError, AttributeError, plistlib.InvalidFileException, ET.ParseError) as error:
+        raise ValueError(f"{path.parent.name} missing or malformed product metadata") from error
+    except ValueError as error:
+        raise ValueError(f"{path.parent.name}: {error}") from error
 
 
 def validate(root):
@@ -100,6 +168,9 @@ def validate(root):
     application_id = (root / "APPLICATION_ID").read_text().strip()
     if not re.fullmatch(r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+", application_id):
         raise ValueError("APPLICATION_ID must contain one reverse-domain bundle identifier")
+    application_name = (root / "APPLICATION_NAME").read_text().strip()
+    if not application_name or len(application_name.splitlines()) != 1:
+        raise ValueError("APPLICATION_NAME must contain one product name")
     # Device Release tvOS retains the shared iOS identity, independently of store registration.
     projects = {
         "apps/ios/Naviamp.xcodeproj/project.pbxproj": {
@@ -117,7 +188,8 @@ def validate(root):
             values = re.findall(rf"\b{setting}\s*=\s*([^;]+);", project)
             if len(values) != 2 or any(value.strip().strip('"') != expected for value in values):
                 raise ValueError(f"{path.parent.name} Debug/Release {setting} must both equal {expected}; got {values}")
-        validate_bundle_ids(project, path, application_id, targets)
+        metadata = validate_bundle_ids(project, path, application_id, targets)
+        validate_product_names(path, metadata, application_name)
 
 
 if __name__ == "__main__":
@@ -125,4 +197,4 @@ if __name__ == "__main__":
         validate(Path(__file__).resolve().parents[1])
     except (ValueError, OSError) as error:
         sys.exit(str(error))
-    print("Xcode archive defaults match VERSION, VERSION_CODE and APPLICATION_ID")
+    print("Xcode archive defaults match VERSION, VERSION_CODE, APPLICATION_ID and APPLICATION_NAME")

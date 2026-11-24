@@ -552,7 +552,7 @@ private fun TelevisionControllersSettings(
         items(connect.trustedDevices, key = { "trusted-${it.deviceId}" }) { device ->
             TelevisionSettingsRow(
                 title = device.displayName,
-                subtitle = stringResource(Res.string.tv_paired_device),
+                subtitle = localizedConnectionStatus(device.detail),
                 value = if (device.reconnectAvailable) stringResource(Res.string.common_reconnect) else stringResource(Res.string.tv_trusted),
                 icon = NaviampIcons.Player,
                 enabled = device.reconnectAvailable,
@@ -1229,7 +1229,7 @@ internal fun TelevisionAboutSettings(
     TelevisionSettingsList {
         item(key = "version") {
             TelevisionSettingsRow(
-                "Naviamp",
+                stringResource(Res.string.app_name),
                 stringResource(Res.string.tv_shared_music_player_for_every_screen),
                 about.version,
                 NaviampIcons.AppMark,

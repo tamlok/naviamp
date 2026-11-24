@@ -2,8 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_PATH="$ROOT_DIR/build/local-test/Naviamp.app"
-PROCESS_MATCH="$APP_PATH/Contents/MacOS/Naviamp"
+APP_NAME="$(tr -d '\r\n' < "$ROOT_DIR/APPLICATION_NAME")"
+APP_PATH="$ROOT_DIR/build/local-test/$APP_NAME.app"
+PROCESS_MATCH="$APP_PATH/Contents/MacOS/$APP_NAME"
 DURATION_SECONDS=180
 INTERVAL_SECONDS=2
 OUT_DIR=""
@@ -16,11 +17,11 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [options]
 
-Observe the local macOS Naviamp app while you use it manually.
+Observe the local macOS $APP_NAME app while you use it manually.
 
 Options:
-  --open                 Open build/local-test/Naviamp.app before observing.
-  --app PATH             App bundle path. Defaults to build/local-test/Naviamp.app.
+  --open                 Open build/local-test/$APP_NAME.app before observing.
+  --app PATH             App bundle path. Defaults to build/local-test/$APP_NAME.app.
   --pid PID              Attach to a specific running process.
   --duration SECONDS     Observation duration. Defaults to $DURATION_SECONDS.
   --interval SECONDS     Metrics interval. Defaults to $INTERVAL_SECONDS.
@@ -32,7 +33,7 @@ Options:
 
 Outputs:
   metrics.csv            Timestamped CPU, memory, RSS, VSZ, and elapsed time samples.
-  app-warnings.log       macOS unified-log warning/error lines for the Naviamp process.
+  app-warnings.log       macOS unified-log warning/error lines for the $APP_NAME process.
   samples/*.txt          Stack samples captured when CPU crosses the threshold.
   summary.txt            Quick average/max CPU and memory summary.
 EOF
@@ -47,7 +48,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --app)
             APP_PATH="$2"
-            PROCESS_MATCH="$APP_PATH/Contents/MacOS/Naviamp"
+            PROCESS_MATCH="$APP_PATH/Contents/MacOS/$APP_NAME"
             shift 2
             ;;
         --pid)
@@ -124,7 +125,7 @@ wait_for_pid() {
         sleep 1
     done
     if [[ -z "$PID" ]]; then
-        echo "Could not find a Naviamp process matching: $PROCESS_MATCH" >&2
+        echo "Could not find a $APP_NAME process matching: $PROCESS_MATCH" >&2
         echo "Start the app or pass --open / --pid." >&2
         exit 1
     fi
@@ -132,7 +133,7 @@ wait_for_pid() {
 
 wait_for_pid
 
-echo "Observing Naviamp PID $PID"
+echo "Observing $APP_NAME PID $PID"
 echo "Output: $OUT_DIR"
 echo "timestamp_epoch,elapsed_seconds,pid,cpu_percent,mem_percent,rss_kb,vsz_kb,process_elapsed" > "$METRICS_FILE"
 
@@ -142,7 +143,7 @@ if [[ "$CAPTURE_LOGS" -eq 1 ]] && command -v log >/dev/null 2>&1; then
     log stream \
         --style compact \
         --level info \
-        --predicate 'process == "Naviamp" AND (eventMessage CONTAINS[c] "warn" OR eventMessage CONTAINS[c] "error" OR eventMessage CONTAINS[c] "exception" OR eventMessage CONTAINS[c] "fatal")' \
+        --predicate "process == \"$APP_NAME\" AND (eventMessage CONTAINS[c] \"warn\" OR eventMessage CONTAINS[c] \"error\" OR eventMessage CONTAINS[c] \"exception\" OR eventMessage CONTAINS[c] \"fatal\")" \
         > "$LOG_FILE" 2>&1 &
     LOG_PID="$!"
 else

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import plistlib
 import re
+import xml.etree.ElementTree as ET
 
 SCRIPT = Path(__file__).resolve().parents[1] / "validate-ios-version.py"
 SPEC = importlib.util.spec_from_file_location("ios_version", SCRIPT)
@@ -15,6 +16,7 @@ def release_fixture(root):
     (root / "VERSION").write_text("v2.10.0-beta.1+test\n")
     (root / "VERSION_CODE").write_text("60\n")
     (root / "APPLICATION_ID").write_text((SCRIPT.parents[1] / "APPLICATION_ID").read_text())
+    (root / "APPLICATION_NAME").write_text((SCRIPT.parents[1] / "APPLICATION_NAME").read_text())
     projects = []
     for relative in ("apps/ios/Naviamp.xcodeproj/project.pbxproj",
                      "apps/tvos/NaviampTV.xcodeproj/project.pbxproj"):
@@ -25,6 +27,15 @@ def release_fixture(root):
             text = re.sub(rf'(\b{setting}\s*=\s*)[^;]+;', rf'\g<1>"{value}";', text)
         project.write_text(text)
         projects.append(project)
+    for relative in (
+        "apps/ios/iosApp/Info.plist", "apps/tvos/NaviampTV/Info.plist",
+        "apps/ios/Naviamp.xcodeproj/xcshareddata/xcschemes/Naviamp.xcscheme",
+        "apps/tvos/NaviampTV.xcodeproj/xcshareddata/xcschemes/NaviampTV.xcscheme",
+        "apps/tvos/NaviampTV.xcodeproj/xcshareddata/xcschemes/NaviampTVSceneTests.xcscheme",
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((SCRIPT.parents[1] / relative).read_bytes())
     return projects
 
 
@@ -158,6 +169,104 @@ class IosReleaseVersionTest(unittest.TestCase):
                 MODULE.validate(root)
             for value in ('', 'not an ID', 'org.example.first\norg.example.second', 'org.example.other'):
                 with self.subTest(application_id=value):
+                    metadata.write_text(value)
+                    with self.assertRaises(ValueError):
+                        MODULE.validate(root)
+
+    def test_product_names_and_stable_modules_reject_configuration_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for project in release_fixture(root):
+                valid = project.read_text()
+                for setting in ('PRODUCT_NAME', 'PRODUCT_MODULE_NAME', 'INFOPLIST_FILE'):
+                    declarations = list(re.finditer(rf'\b{setting}\s*=\s*[^;]+;', valid))
+                    self.assertGreaterEqual(len(declarations), 2)
+                    for declaration in declarations:
+                        for replacement in (
+                            f'{setting} = "Wrong";', '',
+                            declaration.group() + f' "{setting}[sdk=iphoneos*]" = "Wrong";',
+                        ):
+                            with self.subTest(project=project.parent.name, setting=setting,
+                                              position=declaration.start(), replacement=replacement):
+                                project.write_text(valid[:declaration.start()] + replacement + valid[declaration.end():])
+                                with self.assertRaisesRegex(ValueError, setting):
+                                    MODULE.validate(root)
+                project.write_text(valid)
+
+    def test_app_and_test_product_references_reject_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for project in release_fixture(root):
+                valid = project.read_text()
+                for pattern in (r'\bproductName\s*=\s*[^;]+;', r'\bproductReference\s*=\s*[^;]+;',
+                                r'\bpath\s*=\s*"?[^\s;"]+\.(?:app|xctest)"?;'):
+                    declarations = list(re.finditer(pattern, valid))
+                    self.assertGreaterEqual(len(declarations), 3)
+                    for declaration in declarations:
+                        key = declaration.group().split('=')[0].strip()
+                        for replacement in (f'{key} = Wrong;', ''):
+                            with self.subTest(project=project.parent.name, metadata=key,
+                                              position=declaration.start(), replacement=replacement):
+                                project.write_text(valid[:declaration.start()] + replacement + valid[declaration.end():])
+                                with self.assertRaisesRegex(ValueError, 'product'):
+                                    MODULE.validate(root)
+                project.write_text(valid)
+
+    def test_app_plists_reject_display_and_build_setting_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_fixture(root)
+            for path in (root / 'apps/ios/iosApp/Info.plist', root / 'apps/tvos/NaviampTV/Info.plist'):
+                valid = path.read_bytes()
+                for key in ('CFBundleDisplayName', 'CFBundleName', 'CFBundleExecutable', 'CFBundleIdentifier',
+                            'CFBundleShortVersionString', 'CFBundleVersion'):
+                    for missing in (False, True):
+                        with self.subTest(plist=path, key=key, missing=missing):
+                            data = plistlib.loads(valid)
+                            if missing:
+                                del data[key]
+                            else:
+                                data[key] = 'Wrong'
+                            path.write_bytes(plistlib.dumps(data))
+                            with self.assertRaisesRegex(ValueError, key):
+                                MODULE.validate(root)
+                path.write_bytes(valid)
+
+    def test_schemes_reject_product_and_target_reference_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_fixture(root)
+            schemes = list(root.glob('apps/*/*.xcodeproj/xcshareddata/xcschemes/*.xcscheme'))
+            self.assertEqual(3, len(schemes))
+            for path in schemes:
+                valid = path.read_bytes()
+                references = list(ET.fromstring(valid).iter('BuildableReference'))
+                self.assertTrue(references)
+                for index in range(len(references)):
+                    for attribute in ('BuildableName', 'BlueprintName', 'BlueprintIdentifier', 'ReferencedContainer'):
+                        for missing in (False, True):
+                            with self.subTest(scheme=path.name, reference=index, attribute=attribute, missing=missing):
+                                tree = ET.fromstring(valid)
+                                reference = list(tree.iter('BuildableReference'))[index]
+                                if missing:
+                                    del reference.attrib[attribute]
+                                else:
+                                    reference.set(attribute, 'Wrong')
+                                path.write_bytes(ET.tostring(tree))
+                                with self.assertRaisesRegex(ValueError, 'scheme'):
+                                    MODULE.validate(root)
+                path.write_bytes(valid)
+
+    def test_application_name_metadata_is_required_and_authoritative(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release_fixture(root)
+            metadata = root / 'APPLICATION_NAME'
+            metadata.unlink()
+            with self.assertRaises(OSError):
+                MODULE.validate(root)
+            for value in ('', 'First\nSecond', 'Other'):
+                with self.subTest(application_name=value):
                     metadata.write_text(value)
                     with self.assertRaises(ValueError):
                         MODULE.validate(root)

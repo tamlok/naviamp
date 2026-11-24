@@ -11,13 +11,14 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw 'Kernel CPU profiling requires an administrator PowerShell. Leave the test app running normally.'
 }
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+$applicationName = (Get-Content -LiteralPath (Join-Path $repository 'APPLICATION_NAME') -Raw).Trim()
 $target = Get-Process -Id $ApplicationProcessId
 $nativeProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $ApplicationProcessId"
 $executable = $nativeProcess.ExecutablePath
-if ($nativeProcess.Name -ne 'Naviamp.exe' -or [string]::IsNullOrEmpty($executable) -or
+if ($nativeProcess.Name -ne "$applicationName.exe" -or [string]::IsNullOrEmpty($executable) -or
     -not ($executable.StartsWith((Join-Path $repository 'build/'), [StringComparison]::OrdinalIgnoreCase) -or
         $executable.StartsWith((Join-Path $repository 'apps/desktop/build/'), [StringComparison]::OrdinalIgnoreCase))) {
-    throw 'Target must be a disposable Naviamp build in this checkout, not the installed app.'
+    throw "Target must be a disposable $applicationName build in this checkout, not the installed app."
 }
 $systemDirectory = if ([Environment]::Is64BitProcess) { 'System32' } else { 'Sysnative' }
 $recorder = Join-Path $env:WINDIR "$systemDirectory/wpr.exe"

@@ -1,6 +1,7 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampLivePlaybackState
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.connect.NaviampConnectStationStart
 import app.naviamp.domain.connect.NaviampConnectStationHandoff
 import app.naviamp.domain.connect.NaviampConnectStationSessionVersion
@@ -293,7 +294,7 @@ class NaviampCoreConnectTargetCommandExecutor(
                 message = if (supported) {
                     "The requested playback or queue item is no longer available."
                 } else {
-                    "This Naviamp target does not support the requested command yet."
+                    "This $NaviampClientName target does not support the requested command yet."
                 },
             )
         }

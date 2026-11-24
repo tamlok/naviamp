@@ -8,7 +8,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
-from prepare import APP_ID, PROJECT_URL, release_source
+from prepare import APP_ID, APP_NAME, PROJECT_URL, release_source
 from verify_public import read_accepted_key, validate_identity
 
 
@@ -43,50 +43,50 @@ def publish(repo, signing, public, assets, release, repository_url, signing_fing
         "--generate-static-deltas", "--prune", "--prune-depth=2", repo)
     shutil.copytree(repo, public / "repo")
     armored = run("gpg", "--homedir", ".", "--armor", "--export", fingerprint, cwd=signing, capture_output=True).stdout
-    (public / "naviamp.asc").write_bytes(armored)
-    key_file = assets / "naviamp.gpg"
+    (public / f"{APP_NAME.lower()}.asc").write_bytes(armored)
+    key_file = assets / f"{APP_NAME.lower()}.gpg"
     key_file.write_bytes(public_key)
     encoded = base64.b64encode(public_key).decode("ascii")
     remote = f"""[Flatpak Repo]
-Title=Naviamp
+Title={APP_NAME}
 Url={repository_url}
 Homepage={PROJECT_URL}
-Description=Naviamp Flatpak updates
+Description={APP_NAME} Flatpak updates
 GPGKey={encoded}
 """
     reference = f"""[Flatpak Ref]
 Name={APP_ID}
 Branch=stable
-Title=Naviamp
+Title={APP_NAME}
 Url={repository_url}
 SuggestRemoteName={APP_ID}
 IsRuntime=false
 RuntimeRepo=https://dl.flathub.org/repo/flathub.flatpakrepo
 GPGKey={encoded}
 """
-    for name, content in (("Naviamp.flatpakref", reference), ("naviamp.flatpakrepo", remote)):
+    for name, content in ((f"{APP_NAME}.flatpakref", reference), (f"{APP_NAME.lower()}.flatpakrepo", remote)):
         (public / name).write_text(content)
         (assets / name).write_text(content)
-    shutil.copyfile(public / "naviamp.asc", assets / "naviamp.asc")
+    shutil.copyfile(public / f"{APP_NAME.lower()}.asc", assets / f"{APP_NAME.lower()}.asc")
     provenance = {"application_version": version, "source_url": source_url, "source_sha256": digest,
                   "signing_fingerprint": fingerprint, "repository_url": repository_url,
                   "source_code": f"{PROJECT_URL}/tree/v{version}"}
     (assets / "source.json").write_text(json.dumps(provenance, indent=2) + "\n")
     run("flatpak", "build-bundle", f"--gpg-keys={key_file}", f"--repo-url={repository_url}",
         "--runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo", repo,
-        assets / f"Naviamp-v{version}-x86_64.flatpak", APP_ID, "stable")
+        assets / f"{APP_NAME}-v{version}-x86_64.flatpak", APP_ID, "stable")
     (public / ".nojekyll").write_text("")
     (public / "index.html").write_text(f"""<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Naviamp Flatpak</title><body><main>
-<h1>Naviamp for Linux</h1><p>Stable version {html.escape(version)}, x86_64.</p>
-<p><a href="Naviamp.flatpakref">Install Naviamp with Flatpak</a></p>
+<title>{html.escape(APP_NAME)} Flatpak</title><body><main>
+<h1>{html.escape(APP_NAME)} for Linux</h1><p>Stable version {html.escape(version)}, x86_64.</p>
+<p><a href="{html.escape(APP_NAME)}.flatpakref">Install {html.escape(APP_NAME)} with Flatpak</a></p>
 <p>Open the installer in your software center, or download it and run:</p>
-<pre>flatpak install --user --from ./Naviamp.flatpakref
+<pre>flatpak install --user --from ./{html.escape(APP_NAME)}.flatpakref
 flatpak run {APP_ID}</pre>
-<p>Update with <code>flatpak update --user {APP_ID}</code>, then restart Naviamp.</p>
-<p>Signing fingerprint: <code>{fingerprint}</code> · <a href="naviamp.asc">Public key</a></p>
-<p><a href="{PROJECT_URL}">Naviamp source repository</a> ·
+<p>Update with <code>flatpak update --user {APP_ID}</code>, then restart {html.escape(APP_NAME)}.</p>
+<p>Signing fingerprint: <code>{fingerprint}</code> · <a href="{html.escape(APP_NAME.lower())}.asc">Public key</a></p>
+<p><a href="{PROJECT_URL}">{html.escape(APP_NAME)} source repository</a> ·
 <a href="{PROJECT_URL}/releases/tag/v{version}">Application release</a> ·
 <a href="{PROJECT_URL}/tree/v{version}">Application source</a></p>
 </main></body></html>""")

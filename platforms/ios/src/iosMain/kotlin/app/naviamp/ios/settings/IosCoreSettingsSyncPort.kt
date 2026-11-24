@@ -2,6 +2,7 @@
 
 package app.naviamp.ios.settings
 
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.settings.SettingsSyncDocument
 import app.naviamp.domain.settings.SettingsSyncFileName
 import app.naviamp.domain.settings.SettingsSyncJson
@@ -202,7 +203,7 @@ private fun readSettingsDocument(url: NSURL, missingIsNull: Boolean): SettingsSy
         fclose(handle)
     }
     return runCatching { SettingsSyncJson.decode(text) }
-        .getOrElse { error("The selected file is not valid Naviamp settings JSON.") }
+        .getOrElse { error("The selected file is not valid $NaviampClientName settings JSON.") }
 }
 
 private fun writeUtf8Atomically(url: NSURL, text: String) {
