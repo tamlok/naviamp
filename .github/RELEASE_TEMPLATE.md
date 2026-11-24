@@ -1,4 +1,4 @@
-# Naviamp X.Y.Z
+# Navo vX.Y.Z
 
 One or two sentences explaining the release's purpose and its most important user-visible outcome.
 Write this for someone deciding whether to update, not as an internal development summary.
@@ -46,7 +46,7 @@ Write this for someone deciding whether to update, not as an internal developmen
 Release-author guidance:
 
 - Remove this comment and every unused example before publication.
-- Never use emoji in Naviamp release notes or announcements.
+- Never use emoji in Navo release notes or announcements.
 - Use the previous public release as the comparison baseline. Do not treat intermediate branch or
   prerelease behavior as something users received.
 - Present a first-time platform or feature as a complete new capability. Fold its prerelease fixes,
@@ -70,7 +70,7 @@ Release-author guidance:
   fixed by @AUTHOR”), linking their public profiles and accurately identifying their roles.
 - Deduplicate contributors in Thanks and include non-code contributions. Verify first-time status
   using prior release acknowledgments and repository history, including reports and testing.
-  First-time means a contributor's first release acknowledgment for contributing to Naviamp.
+  First-time means a contributor's first release acknowledgment for contributing to Navo.
   Honor anonymous attribution requests. Remove Thanks if there are no community contributors.
 - Carry the same Thanks credits into the About-page release changelog and Discord/Discussion
   announcements, even when those channels use a shorter description of the release.

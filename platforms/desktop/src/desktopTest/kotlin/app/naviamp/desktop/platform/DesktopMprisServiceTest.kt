@@ -30,9 +30,9 @@ import kotlin.test.assertTrue
 class DesktopMprisServiceTest {
     @Test
     fun advertisesForkDesktopIdentityWithoutChangingTheMprisProtocol() {
-        assertEquals("org.mpris.MediaPlayer2.cn.com.letalk.naviamp", MprisBusName)
+        assertEquals("org.mpris.MediaPlayer2.cn.com.letalk.navo", MprisBusName)
         assertEquals(
-            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.naviamp-$NaviampClientName",
+            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.navo-$NaviampClientName",
             rootProperties().getValue("DesktopEntry").value,
         )
         assertEquals(NaviampClientName, rootProperties().getValue("Identity").value)

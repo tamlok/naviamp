@@ -5,13 +5,14 @@ The LeTalk fork currently supports iOS through source builds from
 enabled: Apple workflows are disabled, and this fork does not currently provide an automated
 unsigned IPA, App Store listing or TestFlight distribution.
 
-The Xcode app bundle ID is `cn.com.letalk.naviamp`, mirrored from root `APPLICATION_ID`.
+The Xcode app bundle ID is `cn.com.letalk.navo`, mirrored from root `APPLICATION_ID`.
 Unit tests use `.tests` and the Keychain test host uses `.keychain-test-host` suffixes.
 The display name and `Navo.app` product mirror root `APPLICATION_NAME`; the Xcode project,
 `Naviamp` scheme and Swift module, and `NaviampShared` framework retain their technical names.
 This is an independent installation with a fresh sandbox. Provider credentials use the actual
-host bundle ID plus `.provider-credentials`; the app does not read or migrate upstream Keychain
-items. Apple runtime execution and signing for this identity remain unverified on Windows.
+host bundle ID plus `.provider-credentials`; the app does not read or automatically migrate upstream
+data or Keychain items, or those from previous local `cn.com.letalk.naviamp` builds. Reconnect accounts
+deliberately. Apple runtime execution and signing for this identity remain unverified on Windows.
 
 ## Before installing
 

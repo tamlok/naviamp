@@ -44,19 +44,19 @@ class DesktopCoreSettingsValueStoreTest {
         val home = Path.of("/Users/tester")
 
         assertEquals(
-            home.resolve("Library/Application Support/cn.com.letalk.naviamp"),
+            home.resolve("Library/Application Support/cn.com.letalk.navo"),
             desktopDataDirectory(home, "mac os x", null, development = false),
         )
         assertEquals(
-            home.resolve("Library/Application Support/cn.com.letalk.naviamp.development"),
+            home.resolve("Library/Application Support/cn.com.letalk.navo.development"),
             desktopDataDirectory(home, "mac os x", null, development = true),
         )
         assertEquals(
-            home.resolve("Library/Application Support/cn.com.letalk.naviamp.development"),
+            home.resolve("Library/Application Support/cn.com.letalk.navo.development"),
             desktopSettingsDirectory(home, "darwin", null, null, development = true),
         )
         assertEquals(
-            home.resolve("Library/Application Support/cn.com.letalk.naviamp"),
+            home.resolve("Library/Application Support/cn.com.letalk.navo"),
             desktopSettingsDirectory(home, "mac os x", null, null, development = false),
         )
     }
@@ -67,19 +67,19 @@ class DesktopCoreSettingsValueStoreTest {
         val appData = "C:/Users/tester/AppData/Roaming"
 
         assertEquals(
-            Path.of(appData).resolve("cn.com.letalk.naviamp"),
+            Path.of(appData).resolve("cn.com.letalk.navo"),
             desktopDataDirectory(home, "windows 11", appData, development = false),
         )
         assertEquals(
-            Path.of(appData).resolve("cn.com.letalk.naviamp.development"),
+            Path.of(appData).resolve("cn.com.letalk.navo.development"),
             desktopDataDirectory(home, "windows 11", appData, development = true),
         )
         assertEquals(
-            Path.of(appData).resolve("cn.com.letalk.naviamp.development"),
+            Path.of(appData).resolve("cn.com.letalk.navo.development"),
             desktopSettingsDirectory(home, "windows 11", appData, null, development = true),
         )
         assertEquals(
-            home.resolve("AppData/Roaming/cn.com.letalk.naviamp"),
+            home.resolve("AppData/Roaming/cn.com.letalk.navo"),
             desktopSettingsDirectory(home, "windows 11", null, null, development = false),
         )
     }
@@ -89,19 +89,19 @@ class DesktopCoreSettingsValueStoreTest {
         val home = Path.of("/home/tester")
 
         assertEquals(
-            home.resolve(".local/share/cn.com.letalk.naviamp.development"),
+            home.resolve(".local/share/cn.com.letalk.navo.development"),
             desktopDataDirectory(home, "linux", null, development = true),
         )
         assertEquals(
-            Path.of("/tmp/config/cn.com.letalk.naviamp.development"),
+            Path.of("/tmp/config/cn.com.letalk.navo.development"),
             desktopSettingsDirectory(home, "linux", null, "/tmp/config", development = true),
         )
         assertEquals(
-            home.resolve(".local/share/cn.com.letalk.naviamp"),
+            home.resolve(".local/share/cn.com.letalk.navo"),
             desktopDataDirectory(home, "linux", null, development = false),
         )
         assertEquals(
-            home.resolve(".config/cn.com.letalk.naviamp"),
+            home.resolve(".config/cn.com.letalk.navo"),
             desktopSettingsDirectory(home, "linux", null, null, development = false),
         )
     }

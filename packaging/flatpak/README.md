@@ -77,19 +77,20 @@ Public output contains `Navo.flatpakref`, `navo.flatpakrepo`, `navo.asc`, `repo/
 `.nojekyll`. Release assets include the same descriptors and armored key, the binary key `navo.gpg`,
 `Navo-vVERSION-x86_64.flatpak`, `source.json`, `repository.tar.zst`, `pages.tar.zst` and `SHA256SUMS`.
 The generated installation command uses `flatpak install --user --from ./Navo.flatpakref`; the run
-command remains `flatpak run cn.com.letalk.naviamp`. Filenames do not establish trust: independently
+command is `flatpak run cn.com.letalk.navo`. Filenames do not establish trust: independently
 accept the signing fingerprint and key before installing or passing `navo.asc` to the smoke script.
 
 ## Sandbox and acceptance
 
 Network supports remote libraries and LAN discovery. X11/IPC and DRI support the existing renderer;
 PulseAudio supports native playback. Secret Service and
-`org.mpris.MediaPlayer2.cn.com.letalk.naviamp` are the only extra session-bus permissions. Downloads is
-the only host filesystem permission. `.local/share/cn.com.letalk.naviamp` is persisted inside Flatpak's
+`org.mpris.MediaPlayer2.cn.com.letalk.navo` are the only extra session-bus permissions. Downloads is
+the only host filesystem permission. `.local/share/cn.com.letalk.navo` is persisted inside Flatpak's
 private namespace; settings use its XDG config directory. The app/desktop/icon identity is
-`cn.com.letalk.naviamp`, while its display name is Navo. Existing upstream and non-Flatpak
-private data is neither imported nor modified. Use shared settings export/import for a deliberate
-migration, and select accessible download storage.
+`cn.com.letalk.navo`, while its display name is Navo. This final ID creates a fresh installation,
+private-data and credential namespace. Previous local `cn.com.letalk.naviamp` builds, upstream and
+non-Flatpak private data are neither read nor automatically migrated or modified. Use shared settings
+export/import for a deliberate migration, reconnect accounts, and select accessible download storage.
 
 The runtime supplies the portal-backed desktop tools. The manifest builds the existing `secret-tool`
 effect from checksum-pinned libsecret source; no credential policy is duplicated. Linux's in-app

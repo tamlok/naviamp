@@ -207,7 +207,7 @@ compose.desktop {
             linux {
                 iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.png"))
                 packageName = naviampApplicationId
-                // jpackage appends the Linux package name: /opt/cn.com.letalk.naviamp.
+                // jpackage appends the Linux package name: /opt/cn.com.letalk.navo.
                 installationPath = "/opt"
                 packageVersion = naviampLinuxPackageVersion
                 debPackageVersion = naviampLinuxPackageVersion

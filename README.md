@@ -210,12 +210,12 @@ Navo uses the BASS audio engine and combines its playback controls with a flexib
 
 ## Platforms and downloads
 
-Android phone, tablet, Android TV and Google TV use one package, `cn.com.letalk.naviamp`.
+Android phone, tablet, Android TV and Google TV use one package, `cn.com.letalk.navo`.
 Debug builds use `.v2test`; benchmark builds use `.benchmark`. Windows uses the same canonical
 application identity with a separate installer family, installation directory and Start-menu group.
 
-The iOS and macOS bundle ID and Linux/Flatpak package ID are also `cn.com.letalk.naviamp`.
-tvOS development/simulator builds use `cn.com.letalk.naviamp.tvos`; device Release builds share
+The iOS and macOS bundle ID and Linux/Flatpak package ID are also `cn.com.letalk.navo`.
+tvOS development/simulator builds use `cn.com.letalk.navo.tvos`; device Release builds share
 the iOS bundle ID. Apple and Linux source/build configurations remain available, but their CI
 and release pipelines are disabled. See [Apple TV](docs/tvos.md),
 [iOS signing and sideloading](docs/ios-sideloading.md), and [Flatpak packaging](packaging/flatpak/README.md)
@@ -225,8 +225,8 @@ These are new application identities, not upgrades to upstream installations. De
 credentials use isolated namespaces; development storage has a separate `.development` profile.
 Existing upstream data is not read, moved or deleted. To migrate deliberately, export/import shared
 settings, reconnect accounts and select download storage. Source package names and JNI symbols remain
-unchanged. The Navo name change retains this fork's IDs and data. Replace older LeTalk application
-bundles and re-pin outdated desktop launchers when installing the Navo-named build.
+unchanged. Earlier local LeTalk builds using `cn.com.letalk.naviamp` have separate app/data/credential
+namespaces; the final ID does not migrate them automatically. The existing signing key can be reused.
 
 `APPLICATION_NAME` defines Navo's product and package names; `APPLICATION_ID` and `RELEASE_REPOSITORY`
 retain its identity and update channel. Historical release notes and acceptance records describe

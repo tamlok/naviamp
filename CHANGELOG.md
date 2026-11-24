@@ -85,8 +85,8 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 - Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
 - Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
 - Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.
-- LeTalk builds use the independent `cn.com.letalk.naviamp` application identity across platforms. They do not update upstream app installations; desktop data and credentials are isolated and settings can be imported deliberately.
-- Rename the displayed application to Navo while retaining this fork's application IDs, signing identity, settings and credentials. Executables and public package filenames now use Navo; replace old application bundles and re-pin outdated desktop launchers if needed.
+- Use `cn.com.letalk.navo` as the final application identity across platforms. Upstream apps and earlier local `cn.com.letalk.naviamp` builds have separate data and credential namespaces; there is no automatic migration. Import shared settings deliberately and reconnect accounts.
+- Display the application as Navo and name future releases exactly `Navo vX.Y.Z`. Existing signing keys remain usable; executables and public package filenames use Navo. Replace old application bundles and re-pin outdated desktop launchers if needed.
 
 ### System settings
 

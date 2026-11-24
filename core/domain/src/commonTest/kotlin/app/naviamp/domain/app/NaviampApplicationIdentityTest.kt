@@ -13,7 +13,7 @@ class NaviampApplicationIdentityTest {
         val release = naviampApplicationProfileId(development = false)
         val development = naviampApplicationProfileId(development = true)
 
-        assertEquals("cn.com.letalk.naviamp", release)
+        assertEquals("cn.com.letalk.navo", release)
         assertEquals("$release.development", development)
         assertNotEquals(release, development)
         val upstreamDirectories = setOf("Naviamp", "Naviamp Development", "naviamp", "naviamp-development")

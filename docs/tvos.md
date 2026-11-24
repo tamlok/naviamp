@@ -51,16 +51,18 @@ both properties. Use exact target tasks (Debug simulator for iteration; optimize
 for archives), and keep one consistent `KONAN_DATA_DIR` per checkout: mixing native homes produces
 duplicate platform KLIB errors.
 
-Device Release builds use the canonical bundle ID `cn.com.letalk.naviamp`, matching iOS without
-claiming an App Store record. Debug and simulator builds use `cn.com.letalk.naviamp.tvos`.
+Device Release builds use the canonical bundle ID `cn.com.letalk.navo`, matching iOS without
+claiming an App Store record. Debug and simulator builds use `cn.com.letalk.navo.tvos`.
 Storage-host, unit-test and UI-test IDs append `.storage-test-host`, `.tests` and `.uitests` to
 that tvOS ID. `scripts/validate-ios-version.py` checks both projects against `APPLICATION_ID`,
 including the device-only Release override, as well as `VERSION`, `VERSION_CODE` and the
 display/product names in `APPLICATION_NAME`. Both Debug and Release produce `Navo.app` with
 the `Navo` executable. The `NaviampTV` project, target, schemes and Swift module and
 `NaviampTvShared` framework retain their technical names; test-host products are unchanged.
-The deployment target is tvOS 18.5. The fork uses a fresh app sandbox and does not migrate
-upstream settings or private credentials.
+The deployment target is tvOS 18.5. The fork uses a fresh app sandbox and credential namespace;
+it does not read or automatically migrate upstream settings or private credentials, or those from
+previous local `cn.com.letalk.naviamp` and `cn.com.letalk.naviamp.tvos` builds. Reconnect accounts
+deliberately.
 
 ## Testing
 

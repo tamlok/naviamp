@@ -297,7 +297,7 @@ jobs:
             echo "DNS-SD repeat $attempt of 3"
             adb shell am instrument -w \
               -e class app.naviamp.android.AndroidNaviampConnectDiscoveryInstrumentedTest \
-              cn.com.letalk.naviamp.v2test.test/androidx.test.runner.AndroidJUnitRunner \
+              cn.com.letalk.navo.v2test.test/androidx.test.runner.AndroidJUnitRunner \
               | tee "/tmp/naviamp-dnssd-repeat-$attempt.txt"
             grep -q '^OK (5 tests)' "/tmp/naviamp-dnssd-repeat-$attempt.txt"
           done

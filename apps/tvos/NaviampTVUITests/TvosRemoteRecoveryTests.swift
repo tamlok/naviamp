@@ -3,7 +3,7 @@ import XCTest
 /// Drives the shipped scene through the tvOS remote and system keyboard, without a test-only app entry point.
 @MainActor
 final class TvosRemoteRecoveryTests: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "cn.com.letalk.naviamp.tvos")
+    private let app = XCUIApplication(bundleIdentifier: "cn.com.letalk.navo.tvos")
     private let remote = XCUIRemote.shared
 
     private var recommendationsCard: XCUIElement {

@@ -3,7 +3,7 @@
 > **Historical UPSTREAM reference — not LeTalk distribution instructions.** This packet records
 > `goosepod/naviamp` operations and Apple app records, not registrations for `tamlok/naviamp`.
 > Do not reuse the upstream app records, groups, signing identities or public links for LeTalk.
-> This fork uses `cn.com.letalk.naviamp` for iOS and has no established Apple store/TestFlight
+> This fork uses `cn.com.letalk.navo` for iOS and has no established Apple store/TestFlight
 > distribution or automated unsigned IPA. Apple pipelines are disabled; only Windows and Android
 > pipelines are enabled. Use [iOS source-build instructions](../ios-sideloading.md) instead.
 > The dated observations, provenance and original operator runbook below are retained as history.

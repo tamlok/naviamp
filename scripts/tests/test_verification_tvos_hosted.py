@@ -183,7 +183,7 @@ class HostedSceneBoundaryTest(unittest.TestCase):
         device = '11111111-2222-3333-4444-555555555555'
         with tempfile.TemporaryDirectory() as temporary:
             scene = Path(temporary)
-            (scene/'ownership.json').write_text(json.dumps(dict(device=device, application='cn.com.letalk.naviamp.tvos')))
+            (scene/'ownership.json').write_text(json.dumps(dict(device=device, application='cn.com.letalk.navo.tvos')))
             devices = json.dumps({'devices': {'tv': [dict(udid=device, name='User Apple TV', state='Booted')]}})
             cleanup = mock.Mock()
             with mock.patch('subprocess.check_output', return_value=devices), \

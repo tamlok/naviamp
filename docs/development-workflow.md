@@ -12,11 +12,15 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 ## Fork identity and enabled platforms
 
 This fork's source, issues and releases live at `tamlok/naviamp`. `APPLICATION_ID` defines
-`cn.com.letalk.naviamp`; `RELEASE_REPOSITORY` selects its update and release channel. Upstream
+`cn.com.letalk.navo`; `RELEASE_REPOSITORY` selects its update and release channel. Upstream
 store records, publication keys and dated acceptance evidence do not establish this fork's availability.
-`APPLICATION_NAME` defines the Navo app/launcher/package name without changing those identifiers.
-The repository's separate release-title policy remains exactly `Naviamp vX.Y.Z`; no release is
-published by an app-name change.
+`APPLICATION_NAME` defines the Navo app/launcher/package name. The final ID creates fresh namespaces
+relative to earlier local `cn.com.letalk.naviamp` builds; settings and credentials are not migrated
+automatically. Future release titles are exactly `Navo vX.Y.Z`, with no subtitle or suffix.
+
+This is a new, unreleased app. Existing versioned Naviamp notes are upstream history, not ready-made
+Navo announcements. Prepare and review Navo's own versioned notes before tagging; the strict title
+gate intentionally rejects a historical Naviamp announcement even if its version matches `VERSION`.
 
 Only Windows and Android platform pipelines are enabled. Verify retains shared Kotlin checks,
 Android unit/emulator coverage and Windows native checks; aggregate JVM coverage runs on Windows.
@@ -83,7 +87,7 @@ integration branch, large late merge conflicts, and fixes that exist only in one
    not be presented as already available. Update and render-verify the shared About changelog and
    run all changelog/About regression suites before tagging.
 8. Tag the accepted commit. The tag workflow builds Windows and Android artifacts and creates a draft GitHub Release.
-9. Review the draft and verify its name is exactly `Naviamp vX.Y.Z`, with no descriptive suffix.
+9. Review the draft and verify its name is exactly `Navo vX.Y.Z`, with no descriptive suffix.
    Publish it, verify the published name, then create an Announcements Discussion linking to the release.
 10. Close the milestone when its shipped state is accurate.
 11. Mirror the accepted commits and tags to Forgejo using the procedure below.
@@ -123,7 +127,7 @@ branch, and rerun the affected checks. Resolving a conflict must not silently br
 
 ## Release notes and Discord announcements
 
-GitHub release names must be exactly `Naviamp vX.Y.Z` (for example, `Naviamp v2.9.0`).
+GitHub release names must be exactly `Navo vX.Y.Z` (for example, `Navo v1.0.0`).
 Do not append subtitles, feature descriptions, codenames, or other suffixes. Put those details
 in the release body or announcement text.
 

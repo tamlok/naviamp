@@ -35,8 +35,8 @@ jobs:
           gh api "repos/$release_repository/releases/tags/$LINUX_RELEASE_TAG" > build/flatpak-ci/release.json
           python3 scripts/flatpak/prepare.py --release-json build/flatpak-ci/release.json --output build/flatpak-ci/input
           flatpak-builder --user --force-clean --repo=build/flatpak-ci/repo build/flatpak-ci/app \
-            build/flatpak-ci/input/cn.com.letalk.naviamp.json
-          appstreamcli validate --no-net build/flatpak-ci/input/cn.com.letalk.naviamp.metainfo.xml
+            build/flatpak-ci/input/cn.com.letalk.navo.json
+          appstreamcli validate --no-net build/flatpak-ci/input/cn.com.letalk.navo.metainfo.xml
       - name: Sign the CI fixture with an ephemeral test identity
         run: |
           install -d -m 700 "$RUNNER_TEMP/flatpak-ci-key"
@@ -45,7 +45,7 @@ jobs:
           fingerprint=$(gpg --homedir "$RUNNER_TEMP/flatpak-ci-key" --with-colons --list-secret-keys | awk -F: '$1=="fpr" {print $10; exit}')
           gpg --homedir "$RUNNER_TEMP/flatpak-ci-key" --armor --export "$fingerprint" > build/flatpak-ci/test-key.asc
           flatpak build-sign --gpg-homedir="$RUNNER_TEMP/flatpak-ci-key" --gpg-sign="$fingerprint" \
-            build/flatpak-ci/repo cn.com.letalk.naviamp stable
+            build/flatpak-ci/repo cn.com.letalk.navo stable
           flatpak build-update-repo --gpg-homedir="$RUNNER_TEMP/flatpak-ci-key" --gpg-sign="$fingerprint" build/flatpak-ci/repo
       - name: Verify the installed sandbox and native output
         run: |

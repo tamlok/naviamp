@@ -3,15 +3,17 @@
 Upstream implementation history: [GitHub issue #119](https://github.com/goosepod/naviamp/issues/119).
 Current fork source: [tamlok/naviamp](https://github.com/tamlok/naviamp).
 
-Navo publishes `org.mpris.MediaPlayer2.cn.com.letalk.naviamp` at `/org/mpris/MediaPlayer2` on the
+Navo publishes `org.mpris.MediaPlayer2.cn.com.letalk.navo` at `/org/mpris/MediaPlayer2` on the
 Linux session bus. Failed MPRIS registration does not stop playback. The first process owns the
 name; later processes keep playing independently and retry registration with bounded backoff
 (1–30 seconds). Closing the owner releases its name, allowing another instance to acquire it.
 Name loss and disconnection use D-Bus callbacks rather than a polling timer.
-Native packages publish DesktopEntry `cn.com.letalk.naviamp-Navo`; Flatpak uses its actual
-`FLATPAK_ID` (`cn.com.letalk.naviamp` for this package). `playerctl` selects the canonical bus-name
-suffix `cn.com.letalk.naviamp`, independently of the desktop-entry filename.
-The stable bus identity remains unchanged by the Navo display-name change.
+Native packages publish DesktopEntry `cn.com.letalk.navo-Navo`; Flatpak uses its actual
+`FLATPAK_ID` (`cn.com.letalk.navo` for this package). `playerctl` selects the canonical bus-name
+suffix `cn.com.letalk.navo`, independently of the desktop-entry filename.
+The final application ID creates a new bus identity and fresh desktop data, settings and credential
+namespaces. Previous local `cn.com.letalk.naviamp` profiles are not read or automatically migrated;
+reconnect accounts deliberately. The MPRIS protocol and object path remain unchanged.
 
 Core owns playback metadata, capabilities, commands, seek events, publication decisions,
 registration scheduling, retries, and cancellation. The Desktop adapter translates the MPRIS
@@ -54,8 +56,8 @@ Build and start the staged app in a Linux desktop session:
 ./gradlew :apps:desktop:stageLocalTestApp
 ./build/local-test/Navo/bin/Navo
 playerctl -l
-playerctl -p cn.com.letalk.naviamp metadata
-playerctl -p cn.com.letalk.naviamp status
+playerctl -p cn.com.letalk.navo metadata
+playerctl -p cn.com.letalk.navo status
 ```
 
 Using a disposable source/queue, verify:
@@ -70,7 +72,7 @@ Using a disposable source/queue, verify:
 - Shutdown releases the name; restarting restores discovery; session-bus loss/recovery does
   not interrupt audio and permits re-registration.
 
-Use `gdbus monitor --session --dest org.mpris.MediaPlayer2.cn.com.letalk.naviamp` to inspect signals.
+Use `gdbus monitor --session --dest org.mpris.MediaPlayer2.cn.com.letalk.navo` to inspect signals.
 Do not count a fixture-only bus check as verification of real audio or desktop media keys.
 
 ## Historical upstream acceptance evidence — 2026-10-01
