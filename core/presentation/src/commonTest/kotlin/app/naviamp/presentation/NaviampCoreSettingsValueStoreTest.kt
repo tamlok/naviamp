@@ -27,16 +27,25 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
 
 class NaviampCoreSettingsValueStoreTest {
     @Test fun generatedStationRecipeAndBatchSurviveReopeningWithoutChangingSnapshotOrder() {
         val values = MemorySettingsValues()
         val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "My station", app.naviamp.domain.radio.GeneratedRadioKind.Track,
-            sourceId = "source", seedTracks = listOf(SavedTrack("seed", "Seed", artistName = "Artist")), saved = true, pinned = true)
+            sourceId = "source", seedTracks = listOf(SavedTrack("seed", "Seed", artistName = "Artist")), saved = true)
         val batch = app.naviamp.domain.radio.GeneratedRadioBatch("batch", station.id, 1, 42,
             listOf(SavedTrack("b", "B", artistName = "Artist"), SavedTrack("a", "A", artistName = "Artist")), resolvedRecipe = station)
         val library = app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station), batches = listOf(batch))
         naviampCoreSettingsValueCatalog(values).storedSettings.generatedRadio.save(library)
+        val legacyLibrary = Json.parseToJsonElement(values.entries.getValue(KeyGeneratedRadio)).jsonObject
+        val legacyStation = JsonObject(legacyLibrary.getValue("stations").jsonArray.single().jsonObject + ("pinned" to JsonPrimitive(true)))
+        val legacyBatch = JsonObject(legacyLibrary.getValue("batches").jsonArray.single().jsonObject + ("resolvedRecipe" to legacyStation))
+        values.entries[KeyGeneratedRadio] = JsonObject(legacyLibrary + mapOf("stations" to JsonArray(listOf(legacyStation)),
+            "batches" to JsonArray(listOf(legacyBatch)))).toString()
         assertEquals(library, naviampCoreSettingsValueCatalog(values).storedSettings.generatedRadio.load())
         val migration = naviampCoreProviderIdentitySettingsMigrationRepository(values)
         migration.migrateProviderIdentitySettings("source", 1) { "new:$it" }

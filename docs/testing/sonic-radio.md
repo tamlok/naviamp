@@ -48,11 +48,11 @@ exclude recent listening for 24 hours by default, configurable independently of 
 Short/empty results remain valid; no selected-method substitution is permitted.
 
 Home recommendations use listening activity, favorites and an exploration allocation. The daily
-selection persists across navigation/restarts; explicit refresh rotates eligible seeds. Saved and
-pinned stations live in their own Home collection and are not replaced by rotation. Preview and
+selection persists across navigation/restarts; explicit refresh rotates eligible seeds. Saved
+stations live in their own Home collection and are not replaced by rotation. Preview and
 station actions are shared with keyboard/TV surfaces. Cached metadata is not downloaded audio.
 
-Recipes, pins and preferences use settings-sync schema 2. Upgrade devices sharing the settings
+Station recipes and preferences use settings-sync schema 2. Upgrade devices sharing the settings
 file; older builds cannot preserve these fields when forcibly exporting. Importing a version-1
 document preserves local station fields that version 1 cannot represent. Legacy radio batches
 remain exact; missing source/seed/options information is not guessed. SQL migration 32 adds the

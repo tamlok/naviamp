@@ -1297,6 +1297,7 @@
     <string name="generated_radio_saved">已保存的电台</string>
     <string name="generated_radio_revision">配方版本 %1$d</string>
     <string name="generated_radio_seeds">原始种子</string>
+    <string name="generated_radio_details">电台详情</string>
     <string name="generated_radio_start">启动电台</string>
     <string name="generated_radio_play_batch">播放此批次</string>
     <string name="generated_radio_refresh">生成新批次</string>
@@ -1305,8 +1306,6 @@
     <string name="generated_radio_save_playlist">另存为播放列表</string>
     <string name="generated_radio_save">保存电台</string>
     <string name="generated_radio_rename">重命名电台</string>
-    <string name="generated_radio_pin">置顶电台</string>
-    <string name="generated_radio_unpin">取消置顶</string>
     <string name="generated_radio_retry">重试</string>
     <string name="generated_radio_name">名称</string>
     <string name="generated_radio_delete_notice">删除此已保存的电台？当前播放将继续使用现有配方。</string>
@@ -1334,7 +1333,6 @@
     <string name="generated_radio_mixed">混合</string>
     <string name="generated_radio_single_artist">单一艺人</string>
     <string name="generated_radio_artist_blocks">艺人分组</string>
-    <string name="generated_radio_tuning">熟悉度：%1$s · 范围：%2$s · 顺序：%3$s · 批次：%4$d</string>
     <string name="generated_radio_runs">同一艺人的 %1$d 首曲目，然后是其他艺人的 %2$d 首曲目</string>
     <string name="generated_radio_connect_upgrade">请升级播放设备以传输或启动生成电台。其队列未更改。</string>
     <string name="generated_radio_connect_recipe">无法传输此电台，因为其配方不完整或超出传输限制。</string>

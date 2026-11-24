@@ -22,12 +22,15 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.*
 
 class SettingsSyncMappingTest {
     @Test fun generatedStationsRoundTripAndLegacyImportsCannotEraseThem() {
         val station = app.naviamp.domain.radio.GeneratedRadioStation("station", "My mix", app.naviamp.domain.radio.GeneratedRadioKind.Artists,
-            artists = listOf(SavedArtist("artist:one", "One"), SavedArtist("artist:two", "Two")), saved = true, pinned = true)
-        val library = app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station),
+            artists = listOf(SavedArtist("artist:one", "One"), SavedArtist("artist:two", "Two")), saved = true)
+        val batch = app.naviamp.domain.radio.GeneratedRadioBatch("batch", station.id, station.revision, 42,
+            listOf(SavedTrack("b", "B", artistName = "Artist"), SavedTrack("a", "A", artistName = "Artist")), station)
+        val library = app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station), batches = listOf(batch),
             preferences = app.naviamp.domain.radio.GeneratedRadioPreferences(false, 48))
         val exported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(generatedRadio = library), 3L, "sender")
         val decoded = SettingsSyncJson.decode(SettingsSyncJson.encode(exported))
@@ -35,6 +38,15 @@ class SettingsSyncMappingTest {
         val repository = RecordingProviderMediaSourceRepository()
         val djs = RecordingRadioDjPresetRepository()
         assertEquals(library, applySettingsSyncDocument(decoded, repository, djs).generatedRadio)
+        val legacyDocument = Json.parseToJsonElement(SettingsSyncJson.encode(exported)).jsonObject
+        val legacyPreferences = legacyDocument.getValue("preferences").jsonObject
+        val legacyLibrary = legacyPreferences.getValue("generatedRadio").jsonObject
+        val legacyStation = JsonObject(legacyLibrary.getValue("stations").jsonArray.single().jsonObject + ("pinned" to JsonPrimitive(true)))
+        val legacyBatch = JsonObject(legacyLibrary.getValue("batches").jsonArray.single().jsonObject + ("resolvedRecipe" to legacyStation))
+        val withObsoletePin = JsonObject(legacyDocument + ("preferences" to JsonObject(legacyPreferences +
+            ("generatedRadio" to JsonObject(legacyLibrary + mapOf("stations" to JsonArray(listOf(legacyStation)),
+                "batches" to JsonArray(listOf(legacyBatch))))))))
+        assertEquals(library, applySettingsSyncDocument(SettingsSyncJson.decode(withObsoletePin.toString()), repository, djs).generatedRadio)
         val old = SettingsSyncJson.decode("""{"preferences":{}}""")
         assertEquals(library, applySettingsSyncDocument(old, repository, djs, localGeneratedRadio = library).generatedRadio)
         val cleared = decoded.copy(preferences = decoded.preferences.copy(generatedRadio = app.naviamp.domain.radio.GeneratedRadioLibrary()))

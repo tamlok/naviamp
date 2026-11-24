@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Stazioni salvate</string>
     <string name="generated_radio_revision">Revisione della ricetta %1$d</string>
     <string name="generated_radio_seeds">Elementi iniziali originali</string>
+    <string name="generated_radio_details">Dettagli della stazione</string>
     <string name="generated_radio_start">Avvia stazione</string>
     <string name="generated_radio_play_batch">Riproduci questo gruppo</string>
     <string name="generated_radio_refresh">Genera un nuovo gruppo</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Salva come playlist</string>
     <string name="generated_radio_save">Salva stazione</string>
     <string name="generated_radio_rename">Rinomina stazione</string>
-    <string name="generated_radio_pin">Fissa stazione</string>
-    <string name="generated_radio_unpin">Rimuovi stazione dai fissati</string>
     <string name="generated_radio_retry">Riprova</string>
     <string name="generated_radio_name">Nome</string>
     <string name="generated_radio_delete_notice">Rimuovere questa stazione salvata? La riproduzione corrente continuerà con la ricetta esistente.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Misto</string>
     <string name="generated_radio_single_artist">Un solo artista</string>
     <string name="generated_radio_artist_blocks">Blocchi per artista</string>
-    <string name="generated_radio_tuning">Familiarità: %1$s · varietà: %2$s · ordine: %3$s · gruppo: %4$d</string>
     <string name="generated_radio_runs">%1$d brani dello stesso artista, poi %2$d di altri artisti</string>
     <string name="generated_radio_connect_upgrade">Aggiorna il dispositivo di riproduzione per trasferire o avviare una stazione generata. La sua coda non è stata modificata.</string>
     <string name="generated_radio_connect_recipe">Impossibile trasferire questa stazione: la ricetta è incompleta o supera il limite di trasferimento.</string>

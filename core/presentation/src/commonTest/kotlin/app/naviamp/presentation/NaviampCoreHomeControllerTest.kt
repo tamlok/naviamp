@@ -76,18 +76,18 @@ class NaviampCoreHomeControllerTest {
         assertEquals(first, registry.home.generatedMixes)
         home.execute(NaviampCoreCommand.Home.Refresh)
         assertFalse(first.map { it.id } == registry.home.generatedMixes.map { it.id })
-        val pinned = registry.home.generatedMixes.first().copy(saved = true, pinned = true, name = "My station")
-        repository.save(repository.load().copy(stations = repository.load().stations.map { if (it.id == pinned.id) pinned else it }))
+        val savedStation = registry.home.generatedMixes.first().copy(saved = true, name = "My station")
+        repository.save(repository.load().copy(stations = repository.load().stations.map { if (it.id == savedStation.id) savedStation else it }))
         val previousCalls = calls
         home.generatedStationsChanged()
         assertEquals(previousCalls, calls)
-        assertFalse(registry.home.generatedMixes.any { it.id == pinned.id })
+        assertFalse(registry.home.generatedMixes.any { it.id == savedStation.id })
         val savedSection = store.state.value.shell.home.content.collectionSections.single {
             it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations
         }
-        assertEquals(pinned.id, savedSection.items.single().mediaItem.id)
+        assertEquals(savedStation.id, savedSection.items.single().mediaItem.id)
         assertEquals("My station", savedSection.items.single().mediaItem.title)
-        repository.save(repository.load().copy(stations = repository.load().stations.filterNot { it.id == pinned.id }))
+        repository.save(repository.load().copy(stations = repository.load().stations.filterNot { it.id == savedStation.id }))
         home.generatedStationsChanged()
         assertTrue(store.state.value.shell.home.content.collectionSections
             .firstOrNull { it.id == SharedHomeCollectionSectionIds.SavedGeneratedStations }?.items.isNullOrEmpty())

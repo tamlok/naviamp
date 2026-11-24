@@ -8,16 +8,14 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GeneratedRadioStationTest {
-    @Test fun transientRecipesAreBoundedWithoutEvictingPinsOrReferencedBatches() {
+    @Test fun transientRecipesAreBoundedWithoutEvictingSavedStationsOrReferencedBatches() {
         val old = GeneratedRadioStation("old", "Old batch", GeneratedRadioKind.Track)
-        val pinned = old.copy(id = "pinned", pinned = true)
         val saved = old.copy(id = "saved", saved = true)
         val recent = (1..200).map { old.copy(id = "station-$it", updatedAtEpochMillis = it.toLong()) }
         val batch = GeneratedRadioBatch("batch", old.id, 1, 1, listOf(SavedTrack("track", "Track", artistName = "Artist")))
-        val result = GeneratedRadioLibrary(stations = listOf(old, pinned, saved) + recent, batches = listOf(batch)).normalized()
-        assertEquals(103, result.stations.size)
+        val result = GeneratedRadioLibrary(stations = listOf(old, saved) + recent, batches = listOf(batch)).normalized()
+        assertEquals(102, result.stations.size)
         assertTrue(result.stations.any { it.id == old.id })
-        assertTrue(result.stations.any { it.id == pinned.id })
         assertTrue(result.stations.any { it.id == saved.id })
         assertFalse(result.stations.any { it.id == "station-1" })
         assertEquals(batch, result.batches.single())

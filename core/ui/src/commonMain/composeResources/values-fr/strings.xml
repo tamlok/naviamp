@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Stations enregistrées</string>
     <string name="generated_radio_revision">Révision de la recette %1$d</string>
     <string name="generated_radio_seeds">Sources initiales</string>
+    <string name="generated_radio_details">Détails de la station</string>
     <string name="generated_radio_start">Démarrer la station</string>
     <string name="generated_radio_play_batch">Lire ce lot</string>
     <string name="generated_radio_refresh">Générer un nouveau lot</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Enregistrer comme playlist</string>
     <string name="generated_radio_save">Enregistrer la station</string>
     <string name="generated_radio_rename">Renommer la station</string>
-    <string name="generated_radio_pin">Épingler la station</string>
-    <string name="generated_radio_unpin">Désépingler la station</string>
     <string name="generated_radio_retry">Réessayer</string>
     <string name="generated_radio_name">Nom</string>
     <string name="generated_radio_delete_notice">Supprimer cette station enregistrée ? La lecture en cours conservera sa recette actuelle.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Mélangé</string>
     <string name="generated_radio_single_artist">Un seul artiste</string>
     <string name="generated_radio_artist_blocks">Blocs par artiste</string>
-    <string name="generated_radio_tuning">Familiarité : %1$s · diversité : %2$s · ordre : %3$s · lot : %4$d</string>
     <string name="generated_radio_runs">%1$d titres du même artiste, puis %2$d d’autres artistes</string>
     <string name="generated_radio_connect_upgrade">Mettez à jour l’appareil de lecture pour transférer ou démarrer une station générée. Sa file n’a pas été modifiée.</string>
     <string name="generated_radio_connect_recipe">Cette station ne peut pas être transférée : sa recette est incomplète ou dépasse la limite de transfert.</string>

@@ -1331,6 +1331,7 @@
     <string name="generated_radio_saved">Saved stations</string>
     <string name="generated_radio_revision">Recipe revision %1$d</string>
     <string name="generated_radio_seeds">Original seeds</string>
+    <string name="generated_radio_details">Station details</string>
     <string name="generated_radio_start">Start station</string>
     <string name="generated_radio_play_batch">Play this batch</string>
     <string name="generated_radio_refresh">Generate fresh batch</string>
@@ -1339,8 +1340,6 @@
     <string name="generated_radio_save_playlist">Save as playlist</string>
     <string name="generated_radio_save">Save station</string>
     <string name="generated_radio_rename">Rename station</string>
-    <string name="generated_radio_pin">Pin station</string>
-    <string name="generated_radio_unpin">Unpin station</string>
     <string name="generated_radio_retry">Retry</string>
     <string name="generated_radio_name">Name</string>
     <string name="generated_radio_delete_notice">Remove this saved station? Current playback will continue with its existing recipe.</string>
@@ -1368,7 +1367,6 @@
     <string name="generated_radio_mixed">Mixed</string>
     <string name="generated_radio_single_artist">Single artist</string>
     <string name="generated_radio_artist_blocks">Artist blocks</string>
-    <string name="generated_radio_tuning">Familiarity: %1$s · spread: %2$s · order: %3$s · batch: %4$d</string>
     <string name="generated_radio_runs">%1$d tracks by the same artist, then %2$d by other artists</string>
     <string name="generated_radio_connect_upgrade">Upgrade the playback device to transfer or start a generated station. Its queue was not changed.</string>
     <string name="generated_radio_connect_recipe">This station cannot be transferred because its recipe is incomplete or exceeds the transfer limit.</string>

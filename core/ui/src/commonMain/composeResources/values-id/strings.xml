@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Stasiun tersimpan</string>
     <string name="generated_radio_revision">Revisi resep %1$d</string>
     <string name="generated_radio_seeds">Benih asli</string>
+    <string name="generated_radio_details">Detail stasiun</string>
     <string name="generated_radio_start">Mulai stasiun</string>
     <string name="generated_radio_play_batch">Putar kumpulan ini</string>
     <string name="generated_radio_refresh">Buat kumpulan baru</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Simpan sebagai playlist</string>
     <string name="generated_radio_save">Simpan stasiun</string>
     <string name="generated_radio_rename">Ganti nama stasiun</string>
-    <string name="generated_radio_pin">Sematkan stasiun</string>
-    <string name="generated_radio_unpin">Lepas sematan stasiun</string>
     <string name="generated_radio_retry">Coba lagi</string>
     <string name="generated_radio_name">Nama</string>
     <string name="generated_radio_delete_notice">Hapus stasiun tersimpan ini? Pemutaran saat ini akan berlanjut dengan resep yang ada.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Campuran</string>
     <string name="generated_radio_single_artist">Satu artis</string>
     <string name="generated_radio_artist_blocks">Blok artis</string>
-    <string name="generated_radio_tuning">Keakraban: %1$s · ragam: %2$s · urutan: %3$s · kumpulan: %4$d</string>
     <string name="generated_radio_runs">%1$d lagu dari artis yang sama, lalu %2$d dari artis lain</string>
     <string name="generated_radio_connect_upgrade">Perbarui perangkat pemutaran untuk mentransfer atau memulai stasiun buatan. Antreannya tidak diubah.</string>
     <string name="generated_radio_connect_recipe">Stasiun ini tidak dapat ditransfer karena resepnya tidak lengkap atau melebihi batas transfer.</string>

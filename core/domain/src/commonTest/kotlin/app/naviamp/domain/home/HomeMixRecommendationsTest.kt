@@ -95,16 +95,16 @@ class HomeMixRecommendationsTest {
         assertEquals(first.map { it.id }.toSet(), refreshed.map { it.id }.toSet())
     }
 
-    @Test fun pinsRemainStoredAndOutsideTheRotatingShelf() {
+    @Test fun savedStationsRemainStoredAndOutsideTheRotatingShelf() {
         val repository = MemoryGeneratedRadioRepository()
         val engine = engine(repository)
         val signals = HomeMixSignals(explorationAlbums = albums("album", 12))
         val initial = engine.load("source", Identity, "scope", HomeDate(2026, 100), signals)
-        val pinned = initial.first().copy(pinned = true, saved = true, name = "My station")
-        repository.save(repository.load().copy(stations = repository.load().stations.map { if (it.id == pinned.id) pinned else it }))
+        val savedStation = initial.first().copy(saved = true, name = "My station")
+        repository.save(repository.load().copy(stations = repository.load().stations.map { if (it.id == savedStation.id) savedStation else it }))
         val refreshed = engine.load("source", Identity, "scope", HomeDate(2026, 100), signals, refresh = true)
-        assertFalse(refreshed.any { it.id == pinned.id || it.albums == pinned.albums })
-        assertEquals(pinned, repository.load().stations.single { it.id == pinned.id })
+        assertFalse(refreshed.any { it.id == savedStation.id || it.albums == savedStation.albums })
+        assertEquals(savedStation, repository.load().stations.single { it.id == savedStation.id })
         assertEquals(8, refreshed.size)
     }
 

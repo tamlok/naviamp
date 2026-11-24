@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Opgeslagen stations</string>
     <string name="generated_radio_revision">Receptrevisie %1$d</string>
     <string name="generated_radio_seeds">Oorspronkelijke uitgangspunten</string>
+    <string name="generated_radio_details">Stationdetails</string>
     <string name="generated_radio_start">Station starten</string>
     <string name="generated_radio_play_batch">Deze reeks afspelen</string>
     <string name="generated_radio_refresh">Nieuwe reeks genereren</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Opslaan als afspeellijst</string>
     <string name="generated_radio_save">Station opslaan</string>
     <string name="generated_radio_rename">Station hernoemen</string>
-    <string name="generated_radio_pin">Station vastzetten</string>
-    <string name="generated_radio_unpin">Station losmaken</string>
     <string name="generated_radio_retry">Opnieuw proberen</string>
     <string name="generated_radio_name">Naam</string>
     <string name="generated_radio_delete_notice">Dit opgeslagen station verwijderen? De huidige weergave gaat verder met het bestaande recept.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Gemengd</string>
     <string name="generated_radio_single_artist">Eén artiest</string>
     <string name="generated_radio_artist_blocks">Artiestblokken</string>
-    <string name="generated_radio_tuning">Bekendheid: %1$s · spreiding: %2$s · volgorde: %3$s · reeks: %4$d</string>
     <string name="generated_radio_runs">%1$d nummers van dezelfde artiest, daarna %2$d van andere artiesten</string>
     <string name="generated_radio_connect_upgrade">Werk het afspeelapparaat bij om een gegenereerd station over te dragen of te starten. De wachtrij is niet gewijzigd.</string>
     <string name="generated_radio_connect_recipe">Dit station kan niet worden overgedragen omdat het recept onvolledig is of de overdrachtslimiet overschrijdt.</string>

@@ -1308,6 +1308,7 @@
     <string name="generated_radio_saved">Estações salvas</string>
     <string name="generated_radio_revision">Revisão da receita %1$d</string>
     <string name="generated_radio_seeds">Sementes originais</string>
+    <string name="generated_radio_details">Detalhes da estação</string>
     <string name="generated_radio_start">Iniciar estação</string>
     <string name="generated_radio_play_batch">Reproduzir este lote</string>
     <string name="generated_radio_refresh">Gerar novo lote</string>
@@ -1316,8 +1317,6 @@
     <string name="generated_radio_save_playlist">Salvar como playlist</string>
     <string name="generated_radio_save">Salvar estação</string>
     <string name="generated_radio_rename">Renomear estação</string>
-    <string name="generated_radio_pin">Fixar estação</string>
-    <string name="generated_radio_unpin">Desafixar estação</string>
     <string name="generated_radio_retry">Tentar novamente</string>
     <string name="generated_radio_name">Nome</string>
     <string name="generated_radio_delete_notice">Remover esta estação salva? A reprodução atual continuará com a receita existente.</string>
@@ -1345,7 +1344,6 @@
     <string name="generated_radio_mixed">Mista</string>
     <string name="generated_radio_single_artist">Um artista</string>
     <string name="generated_radio_artist_blocks">Blocos por artista</string>
-    <string name="generated_radio_tuning">Familiaridade: %1$s · variedade: %2$s · ordem: %3$s · lote: %4$d</string>
     <string name="generated_radio_runs">%1$d faixas do mesmo artista, depois %2$d de outros artistas</string>
     <string name="generated_radio_connect_upgrade">Atualize o dispositivo de reprodução para transferir ou iniciar uma estação gerada. A fila dele não foi alterada.</string>
     <string name="generated_radio_connect_recipe">Não é possível transferir esta estação porque a receita está incompleta ou excede o limite de transferência.</string>

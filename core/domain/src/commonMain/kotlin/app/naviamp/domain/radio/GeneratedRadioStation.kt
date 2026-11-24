@@ -16,7 +16,6 @@ data class GeneratedRadioStation(
     val sourceIdentity: NaviampConnectSourceIdentity? = null,
     val libraryScope: String = "",
     val revision: Long = 1,
-    val pinned: Boolean = false,
     val saved: Boolean = false,
     val updatedAtEpochMillis: Long = 0,
     val seedTracks: List<SavedTrack> = emptyList(),
@@ -97,10 +96,10 @@ data class GeneratedRadioLibrary(
         val retainedBatches = batches.distinctBy { it.stationId }.sortedByDescending { it.generatedAtEpochMillis }.take(50)
         val retainedRotations = rotations.distinctBy { it.sourceId to it.libraryScope }.take(50)
         val ordered = stations.distinctBy { it.id }.map(GeneratedRadioStation::normalized).sortedByDescending { it.updatedAtEpochMillis }
-        val retainedIds = ordered.filterNot { it.saved || it.pinned }.take(100).mapTo(mutableSetOf()) { it.id }
+        val retainedIds = ordered.filterNot { it.saved }.take(100).mapTo(mutableSetOf()) { it.id }
         retainedBatches.mapTo(retainedIds) { it.stationId }
         retainedRotations.forEach { retainedIds.addAll(it.stationIds) }
-        return copy(preferences = preferences.normalized(), stations = ordered.filter { it.saved || it.pinned || it.id in retainedIds },
+        return copy(preferences = preferences.normalized(), stations = ordered.filter { it.saved || it.id in retainedIds },
             batches = retainedBatches, rotations = retainedRotations, migratedSourceIds = migratedSourceIds.distinct())
     }
 }

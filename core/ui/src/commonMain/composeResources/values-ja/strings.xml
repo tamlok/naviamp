@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">保存したステーション</string>
     <string name="generated_radio_revision">レシピのリビジョン %1$d</string>
     <string name="generated_radio_seeds">元のシード</string>
+    <string name="generated_radio_details">ステーションの詳細</string>
     <string name="generated_radio_start">ステーションを開始</string>
     <string name="generated_radio_play_batch">このバッチを再生</string>
     <string name="generated_radio_refresh">新しいバッチを生成</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">プレイリストとして保存</string>
     <string name="generated_radio_save">ステーションを保存</string>
     <string name="generated_radio_rename">ステーション名を変更</string>
-    <string name="generated_radio_pin">ステーションを固定</string>
-    <string name="generated_radio_unpin">ステーションの固定を解除</string>
     <string name="generated_radio_retry">再試行</string>
     <string name="generated_radio_name">名前</string>
     <string name="generated_radio_delete_notice">この保存済みステーションを削除しますか？現在の再生は既存のレシピで続行されます。</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">混合</string>
     <string name="generated_radio_single_artist">単一アーティスト</string>
     <string name="generated_radio_artist_blocks">アーティスト別ブロック</string>
-    <string name="generated_radio_tuning">親しみやすさ：%1$s · 幅：%2$s · 順序：%3$s · バッチ：%4$d</string>
     <string name="generated_radio_runs">同じアーティストの曲を%1$d曲、続いて他のアーティストの曲を%2$d曲</string>
     <string name="generated_radio_connect_upgrade">生成ステーションを転送または開始するには、再生デバイスを更新してください。キューは変更されていません。</string>
     <string name="generated_radio_connect_recipe">レシピが不完全か転送上限を超えているため、このステーションを転送できません。</string>

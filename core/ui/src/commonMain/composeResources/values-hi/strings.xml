@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">सहेजे गए स्टेशन</string>
     <string name="generated_radio_revision">रेसिपी संस्करण %1$d</string>
     <string name="generated_radio_seeds">मूल आधार</string>
+    <string name="generated_radio_details">स्टेशन की जानकारी</string>
     <string name="generated_radio_start">स्टेशन शुरू करें</string>
     <string name="generated_radio_play_batch">यह बैच चलाएँ</string>
     <string name="generated_radio_refresh">नया बैच बनाएँ</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">प्लेलिस्ट के रूप में सहेजें</string>
     <string name="generated_radio_save">स्टेशन सहेजें</string>
     <string name="generated_radio_rename">स्टेशन का नाम बदलें</string>
-    <string name="generated_radio_pin">स्टेशन पिन करें</string>
-    <string name="generated_radio_unpin">स्टेशन अनपिन करें</string>
     <string name="generated_radio_retry">फिर प्रयास करें</string>
     <string name="generated_radio_name">नाम</string>
     <string name="generated_radio_delete_notice">यह सहेजा गया स्टेशन हटाएँ? मौजूदा प्लेबैक अपनी वर्तमान रेसिपी के साथ जारी रहेगा।</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">मिश्रित</string>
     <string name="generated_radio_single_artist">एक कलाकार</string>
     <string name="generated_radio_artist_blocks">कलाकार के समूह</string>
-    <string name="generated_radio_tuning">परिचितता: %1$s · विविधता: %2$s · क्रम: %3$s · बैच: %4$d</string>
     <string name="generated_radio_runs">एक ही कलाकार के %1$d ट्रैक, फिर अन्य कलाकारों के %2$d ट्रैक</string>
     <string name="generated_radio_connect_upgrade">जनरेटेड स्टेशन स्थानांतरित या शुरू करने के लिए प्लेबैक डिवाइस अपडेट करें। उसकी कतार नहीं बदली गई है।</string>
     <string name="generated_radio_connect_recipe">यह स्टेशन स्थानांतरित नहीं किया जा सकता क्योंकि इसकी रेसिपी अधूरी है या स्थानांतरण सीमा से अधिक है।</string>

@@ -1302,6 +1302,7 @@
     <string name="generated_radio_saved">Gespeicherte Stationen</string>
     <string name="generated_radio_revision">Rezeptversion %1$d</string>
     <string name="generated_radio_seeds">Ursprüngliche Ausgangstitel</string>
+    <string name="generated_radio_details">Stationsdetails</string>
     <string name="generated_radio_start">Station starten</string>
     <string name="generated_radio_play_batch">Diesen Stapel abspielen</string>
     <string name="generated_radio_refresh">Neuen Stapel erzeugen</string>
@@ -1310,8 +1311,6 @@
     <string name="generated_radio_save_playlist">Als Playlist speichern</string>
     <string name="generated_radio_save">Station speichern</string>
     <string name="generated_radio_rename">Station umbenennen</string>
-    <string name="generated_radio_pin">Station anheften</string>
-    <string name="generated_radio_unpin">Station lösen</string>
     <string name="generated_radio_retry">Erneut versuchen</string>
     <string name="generated_radio_name">Name</string>
     <string name="generated_radio_delete_notice">Diese gespeicherte Station entfernen? Die aktuelle Wiedergabe behält ihr bisheriges Rezept.</string>
@@ -1339,7 +1338,6 @@
     <string name="generated_radio_mixed">Gemischt</string>
     <string name="generated_radio_single_artist">Ein Künstler</string>
     <string name="generated_radio_artist_blocks">Künstlerblöcke</string>
-    <string name="generated_radio_tuning">Vertrautheit: %1$s · Vielfalt: %2$s · Reihenfolge: %3$s · Stapel: %4$d</string>
     <string name="generated_radio_runs">%1$d Titel desselben Künstlers, dann %2$d anderer Künstler</string>
     <string name="generated_radio_connect_upgrade">Aktualisiere das Wiedergabegerät, um eine generierte Station zu übertragen oder zu starten. Seine Warteschlange wurde nicht geändert.</string>
     <string name="generated_radio_connect_recipe">Diese Station kann nicht übertragen werden, da ihr Rezept unvollständig ist oder die Übertragungsgrenze überschreitet.</string>

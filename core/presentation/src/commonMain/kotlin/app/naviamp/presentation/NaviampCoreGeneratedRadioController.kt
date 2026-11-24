@@ -155,10 +155,9 @@ class NaviampCoreGeneratedRadioController(
                 } catch (cancelled: CancellationException) { throw cancelled }
                 catch (_: Exception) { publish(GeneratedRadioStatus.Failed) }
             } }
-            GeneratedRadioAction.Save, GeneratedRadioAction.Rename, GeneratedRadioAction.TogglePin -> station?.let { selected ->
+            GeneratedRadioAction.Save, GeneratedRadioAction.Rename -> station?.let { selected ->
                 val name = request.value?.trim()?.takeIf(String::isNotEmpty) ?: selected.name
                 rememberStation(selected.copy(name = name, saved = true,
-                    pinned = if (request.action == GeneratedRadioAction.TogglePin) !selected.pinned else selected.pinned,
                     updatedAtEpochMillis = nowMillis()))
                 publish()
             }
@@ -589,7 +588,7 @@ class NaviampCoreGeneratedRadioController(
     private fun executionRecipe(station: GeneratedRadioStation): GeneratedRadioStation =
         batch(station.id)?.takeIf { it.stationRevision == station.revision }?.resolvedRecipe
             ?.takeIf { it.id == station.id && it.revision == station.revision && available(it) }
-            ?.copy(name = station.name, saved = station.saved, pinned = station.pinned, updatedAtEpochMillis = station.updatedAtEpochMillis)
+            ?.copy(name = station.name, saved = station.saved, updatedAtEpochMillis = station.updatedAtEpochMillis)
             ?: station
     private fun updateLibrary(transform: (GeneratedRadioLibrary) -> GeneratedRadioLibrary) {
         repository.save(transform(repository.load()).normalized()); settingsChanged()

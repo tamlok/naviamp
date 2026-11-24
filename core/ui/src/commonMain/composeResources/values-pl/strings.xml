@@ -674,6 +674,7 @@
     <string name="generated_radio_saved">Zapisane stacje</string>
     <string name="generated_radio_revision">Wersja receptury %1$d</string>
     <string name="generated_radio_seeds">Pierwotne źródła</string>
+    <string name="generated_radio_details">Szczegóły stacji</string>
     <string name="generated_radio_start">Uruchom stację</string>
     <string name="generated_radio_play_batch">Odtwórz tę partię</string>
     <string name="generated_radio_refresh">Wygeneruj nową partię</string>
@@ -682,8 +683,6 @@
     <string name="generated_radio_save_playlist">Zapisz jako playlistę</string>
     <string name="generated_radio_save">Zapisz stację</string>
     <string name="generated_radio_rename">Zmień nazwę stacji</string>
-    <string name="generated_radio_pin">Przypnij stację</string>
-    <string name="generated_radio_unpin">Odepnij stację</string>
     <string name="generated_radio_retry">Spróbuj ponownie</string>
     <string name="generated_radio_name">Nazwa</string>
     <string name="generated_radio_delete_notice">Usunąć tę zapisaną stację? Bieżące odtwarzanie będzie kontynuowane według dotychczasowej receptury.</string>
@@ -711,7 +710,6 @@
     <string name="generated_radio_mixed">Mieszana</string>
     <string name="generated_radio_single_artist">Jeden wykonawca</string>
     <string name="generated_radio_artist_blocks">Bloki wykonawców</string>
-    <string name="generated_radio_tuning">Znajomość: %1$s · zakres: %2$s · kolejność: %3$s · partia: %4$d</string>
     <string name="generated_radio_runs">%1$d utworów tego samego wykonawcy, następnie %2$d innych wykonawców</string>
     <string name="generated_radio_connect_upgrade">Zaktualizuj urządzenie odtwarzające, aby przenieść lub uruchomić generowaną stację. Jego kolejka nie została zmieniona.</string>
     <string name="generated_radio_connect_recipe">Nie można przenieść tej stacji, ponieważ jej receptura jest niekompletna lub przekracza limit transferu.</string>

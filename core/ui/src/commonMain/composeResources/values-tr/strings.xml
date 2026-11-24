@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Kaydedilen istasyonlar</string>
     <string name="generated_radio_revision">Tarif sürümü %1$d</string>
     <string name="generated_radio_seeds">Özgün başlangıç öğeleri</string>
+    <string name="generated_radio_details">İstasyon ayrıntıları</string>
     <string name="generated_radio_start">İstasyonu başlat</string>
     <string name="generated_radio_play_batch">Bu grubu çal</string>
     <string name="generated_radio_refresh">Yeni grup oluştur</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Çalma listesi olarak kaydet</string>
     <string name="generated_radio_save">İstasyonu kaydet</string>
     <string name="generated_radio_rename">İstasyonu yeniden adlandır</string>
-    <string name="generated_radio_pin">İstasyonu sabitle</string>
-    <string name="generated_radio_unpin">İstasyonun sabitlemesini kaldır</string>
     <string name="generated_radio_retry">Yeniden dene</string>
     <string name="generated_radio_name">Ad</string>
     <string name="generated_radio_delete_notice">Bu kayıtlı istasyon kaldırılsın mı? Mevcut çalma, var olan tarifiyle devam eder.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Karışık</string>
     <string name="generated_radio_single_artist">Tek sanatçı</string>
     <string name="generated_radio_artist_blocks">Sanatçı blokları</string>
-    <string name="generated_radio_tuning">Aşinalık: %1$s · çeşitlilik: %2$s · sıra: %3$s · grup: %4$d</string>
     <string name="generated_radio_runs">Aynı sanatçıdan %1$d parça, ardından diğer sanatçılardan %2$d parça</string>
     <string name="generated_radio_connect_upgrade">Oluşturulan bir istasyonu aktarmak veya başlatmak için çalma cihazını güncelleyin. Cihazın kuyruğu değiştirilmedi.</string>
     <string name="generated_radio_connect_recipe">Tarifi eksik olduğu veya aktarım sınırını aştığı için bu istasyon aktarılamıyor.</string>

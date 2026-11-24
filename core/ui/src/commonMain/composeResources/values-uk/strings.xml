@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">Збережені станції</string>
     <string name="generated_radio_revision">Версія рецепта %1$d</string>
     <string name="generated_radio_seeds">Початкові елементи</string>
+    <string name="generated_radio_details">Відомості про станцію</string>
     <string name="generated_radio_start">Запустити станцію</string>
     <string name="generated_radio_play_batch">Відтворити цю добірку</string>
     <string name="generated_radio_refresh">Створити нову добірку</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">Зберегти як плейлист</string>
     <string name="generated_radio_save">Зберегти станцію</string>
     <string name="generated_radio_rename">Перейменувати станцію</string>
-    <string name="generated_radio_pin">Закріпити станцію</string>
-    <string name="generated_radio_unpin">Відкріпити станцію</string>
     <string name="generated_radio_retry">Повторити</string>
     <string name="generated_radio_name">Назва</string>
     <string name="generated_radio_delete_notice">Видалити цю збережену станцію? Поточне відтворення продовжиться за наявним рецептом.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">Змішаний</string>
     <string name="generated_radio_single_artist">Один виконавець</string>
     <string name="generated_radio_artist_blocks">Блоки виконавців</string>
-    <string name="generated_radio_tuning">Знайомість: %1$s · охоплення: %2$s · порядок: %3$s · добірка: %4$d</string>
     <string name="generated_radio_runs">%1$d треків одного виконавця, потім %2$d інших виконавців</string>
     <string name="generated_radio_connect_upgrade">Оновіть пристрій відтворення, щоб передати або запустити генеровану станцію. Його чергу не змінено.</string>
     <string name="generated_radio_connect_recipe">Неможливо передати станцію: її рецепт неповний або перевищує ліміт передавання.</string>

@@ -321,7 +321,7 @@ fun HomeContent.toSharedHomeUi(
             id = SharedHomeCollectionSectionIds.SavedGeneratedStations,
             title = "",
             titleResource = SharedHomeCollectionTitleResource.SavedGeneratedStations,
-            items = savedGeneratedStations.sortedByDescending { it.pinned }.map { station ->
+            items = savedGeneratedStations.map { station ->
                 station.toSharedGeneratedRadioItem(coverArtUrl, artistArtworkUrl)
             },
             homeItemLimit = 10,

@@ -1306,6 +1306,7 @@
     <string name="generated_radio_saved">Emisoras guardadas</string>
     <string name="generated_radio_revision">Revisión de la receta %1$d</string>
     <string name="generated_radio_seeds">Semillas originales</string>
+    <string name="generated_radio_details">Detalles de la emisora</string>
     <string name="generated_radio_start">Iniciar emisora</string>
     <string name="generated_radio_play_batch">Reproducir este lote</string>
     <string name="generated_radio_refresh">Generar un lote nuevo</string>
@@ -1314,8 +1315,6 @@
     <string name="generated_radio_save_playlist">Guardar como lista</string>
     <string name="generated_radio_save">Guardar emisora</string>
     <string name="generated_radio_rename">Renombrar emisora</string>
-    <string name="generated_radio_pin">Fijar emisora</string>
-    <string name="generated_radio_unpin">Desfijar emisora</string>
     <string name="generated_radio_retry">Reintentar</string>
     <string name="generated_radio_name">Nombre</string>
     <string name="generated_radio_delete_notice">¿Eliminar esta emisora guardada? La reproducción actual continuará con su receta existente.</string>
@@ -1343,7 +1342,6 @@
     <string name="generated_radio_mixed">Mezclado</string>
     <string name="generated_radio_single_artist">Un solo artista</string>
     <string name="generated_radio_artist_blocks">Bloques por artista</string>
-    <string name="generated_radio_tuning">Familiaridad: %1$s · variedad: %2$s · orden: %3$s · lote: %4$d</string>
     <string name="generated_radio_runs">%1$d pistas del mismo artista, después %2$d de otros artistas</string>
     <string name="generated_radio_connect_upgrade">Actualiza el dispositivo de reproducción para transferir o iniciar una emisora generada. Su cola no ha cambiado.</string>
     <string name="generated_radio_connect_recipe">No se puede transferir esta emisora porque su receta está incompleta o supera el límite de transferencia.</string>

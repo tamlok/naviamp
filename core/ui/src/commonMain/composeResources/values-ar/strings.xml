@@ -584,6 +584,7 @@
     <string name="generated_radio_saved">المحطات المحفوظة</string>
     <string name="generated_radio_revision">إصدار الوصفة %1$d</string>
     <string name="generated_radio_seeds">العناصر الأصلية</string>
+    <string name="generated_radio_details">تفاصيل المحطة</string>
     <string name="generated_radio_start">بدء المحطة</string>
     <string name="generated_radio_play_batch">تشغيل هذه الدفعة</string>
     <string name="generated_radio_refresh">إنشاء دفعة جديدة</string>
@@ -592,8 +593,6 @@
     <string name="generated_radio_save_playlist">حفظ كقائمة تشغيل</string>
     <string name="generated_radio_save">حفظ المحطة</string>
     <string name="generated_radio_rename">إعادة تسمية المحطة</string>
-    <string name="generated_radio_pin">تثبيت المحطة</string>
-    <string name="generated_radio_unpin">إلغاء تثبيت المحطة</string>
     <string name="generated_radio_retry">إعادة المحاولة</string>
     <string name="generated_radio_name">الاسم</string>
     <string name="generated_radio_delete_notice">هل تريد إزالة هذه المحطة المحفوظة؟ سيستمر التشغيل الحالي بالوصفة الحالية.</string>
@@ -621,7 +620,6 @@
     <string name="generated_radio_mixed">مختلط</string>
     <string name="generated_radio_single_artist">فنان واحد</string>
     <string name="generated_radio_artist_blocks">مجموعات حسب الفنان</string>
-    <string name="generated_radio_tuning">الألفة: %1$s · التنوع: %2$s · الترتيب: %3$s · الدفعة: %4$d</string>
     <string name="generated_radio_runs">%1$d مقطعًا للفنان نفسه، ثم %2$d لفنانين آخرين</string>
     <string name="generated_radio_connect_upgrade">حدّث جهاز التشغيل لنقل محطة مُنشأة أو بدء تشغيلها. لم تتغير قائمة الانتظار فيه.</string>
     <string name="generated_radio_connect_recipe">لا يمكن نقل هذه المحطة لأن وصفتها غير مكتملة أو تتجاوز حد النقل.</string>

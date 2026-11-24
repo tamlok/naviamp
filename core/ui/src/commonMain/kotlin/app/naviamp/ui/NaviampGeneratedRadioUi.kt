@@ -1,13 +1,19 @@
 package app.naviamp.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -37,7 +43,7 @@ data class NaviampGeneratedRadioUi(
 
 enum class GeneratedRadioAction {
     Open, Close, Start, PlayBatch, Refresh, Apply, PlayNext, AddToQueue, SavePlaylist,
-    Save, Rename, TogglePin, Delete, OpenSeed, Retry, StartFromMix,
+    Save, Rename, Delete, OpenSeed, Retry, StartFromMix,
 }
 
 data class GeneratedRadioActionRequest(
@@ -73,7 +79,6 @@ internal fun SharedHomeCollectionItemUi.generatedRadioPreviewRequest(): Generate
     else -> null
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NaviampGeneratedRadioContent(
     screen: NaviampGeneratedRadioUi,
@@ -102,101 +107,121 @@ fun NaviampGeneratedRadioContent(
     val hasBatch = batch?.tracks?.isNotEmpty() == true
     val canGenerate = station != null && station.regenerable && screen.sourceAvailable && !screen.offline && !screen.loading &&
         screen.status != GeneratedRadioStatus.Unsupported && screen.status != GeneratedRadioStatus.InvalidRecipe
-    LazyColumn(modifier.fillMaxSize().testTag("generated-radio-detail"),
-        contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item(key = "back") {
-            TextButton(onClick = { emit(GeneratedRadioAction.Close, null) }, modifier = Modifier.focusRequester(backFocus)) {
-                Text(stringResource(Res.string.common_back))
-            }
-        }
-        if (station != null) {
-            item(key = "recipe") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    NaviampCoverArt(screen.artworkUrl, colors, 112.dp, 8.dp,
-                        mediaKind = if (station.kind == GeneratedRadioKind.Artist || station.kind == GeneratedRadioKind.Artists)
-                            SharedMediaItemKind.Artist else SharedMediaItemKind.Album)
-                    Text(station.name, style = MaterialTheme.typography.headlineSmall, color = colors.primaryText)
-                    Text(stringResource(Res.string.generated_radio_revision, station.revision), color = colors.secondaryText)
-                    Text(stringResource(if (station.sonicSimilarity) Res.string.settings_related_sonic_similarity else Res.string.radio_instant_mix),
-                        color = colors.secondaryText)
-                    GeneratedRadioTuningSummary(station, colors)
-                    Text(stringResource(Res.string.generated_radio_seeds), color = colors.primaryText)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        station.artists.forEach { seed ->
-                            TextButton(onClick = { emit(GeneratedRadioAction.OpenSeed, "artist:${seed.id}") }, enabled = screen.sourceAvailable) {
-                                Text(seed.name, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        station.albums.forEach { seed ->
-                            TextButton(onClick = { emit(GeneratedRadioAction.OpenSeed, "album:${seed.id}") }, enabled = screen.sourceAvailable) {
-                                Text(seed.title, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        station.seedTracks.forEach { seed ->
-                            Column {
-                                Text(seed.title, color = colors.primaryText)
-                                seed.artistId?.let { id ->
-                                    TextButton(onClick = { emit(GeneratedRadioAction.OpenSeed, "artist:$id") }, enabled = screen.sourceAvailable) {
-                                        Text(seed.artistName, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                                seed.albumId?.let { id ->
-                                    TextButton(onClick = { emit(GeneratedRadioAction.OpenSeed, "album:$id") }, enabled = screen.sourceAvailable) {
-                                        Text(seed.albumTitle.orEmpty(), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
-                            }
+    var detailsOpen by remember(station?.id) { mutableStateOf(false) }
+    val covers = remember(screen.artworkUrl) { listOfNotNull(screen.artworkUrl) }
+    val headerBackground = rememberNaviampDetailHeaderColors(station?.id, covers, null, colors)
+    val status = if (screen.loading) GeneratedRadioStatus.Fetching else screen.status
+    val ordinaryStatus = when (status) {
+        GeneratedRadioStatus.Inactive, GeneratedRadioStatus.Active -> true
+        GeneratedRadioStatus.Fetching, GeneratedRadioStatus.Exhausted, GeneratedRadioStatus.Failed,
+        GeneratedRadioStatus.Unsupported, GeneratedRadioStatus.InvalidRecipe -> false
+    }
+    val detailActions = if (station == null) emptyList() else buildList {
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_start), NaviampIcons.Flame,
+            { emit(GeneratedRadioAction.Start, null) }, canGenerate))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_play_batch), NaviampTransportIcons.Play,
+            { emit(GeneratedRadioAction.PlayBatch, null) }, hasBatch && screen.sourceAvailable))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_refresh), NaviampIcons.Refresh,
+            { emit(GeneratedRadioAction.Refresh, null) }, canGenerate))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_apply), NaviampIcons.Check,
+            { emit(GeneratedRadioAction.Apply, null) },
+            hasBatch && screen.sourceAvailable && !screen.loading && screen.activeStationId == station.id && batch.stationRevision == station.revision))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_details), NaviampIcons.Info, { detailsOpen = true }))
+        add(NaviampDetailAction(stringResource(Res.string.tv_play_next), NaviampTransportIcons.Next,
+            { emit(GeneratedRadioAction.PlayNext, null) }, hasBatch && screen.sourceAvailable))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_add_queue), NaviampIcons.Queue,
+            { emit(GeneratedRadioAction.AddToQueue, null) }, hasBatch && screen.sourceAvailable))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_save_playlist), NaviampIcons.Playlist,
+            { nameAction = GeneratedRadioAction.SavePlaylist }, hasBatch && screen.sourceAvailable && !screen.offline && canSavePlaylist))
+        if (!station.saved) add(NaviampDetailAction(stringResource(Res.string.generated_radio_save), NaviampIcons.Plus,
+            { emit(GeneratedRadioAction.Save, null) }))
+        add(NaviampDetailAction(stringResource(Res.string.generated_radio_rename), NaviampIcons.Edit,
+            { nameAction = GeneratedRadioAction.Rename }))
+        if (station.saved) add(NaviampDetailAction(stringResource(Res.string.common_delete), NaviampIcons.Trash,
+            { deleteOpen = true }))
+    }
+    Column(modifier.fillMaxSize().background(colors.background).testTag("generated-radio-detail")) {
+        NaviampDetailHeader(colors, headerBackground) { headerColors ->
+            Column(Modifier.fillMaxWidth().padding(if (television) 16.dp else 8.dp).testTag("generated-radio-header"),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (television) {
+                        TelevisionIconButton(true, NaviampIcons.Back, stringResource(Res.string.common_back), headerColors,
+                            initiallyFocused = true, focusRequester = backFocus) { emit(GeneratedRadioAction.Close, null) }
+                    } else {
+                        IconButton(onClick = { emit(GeneratedRadioAction.Close, null) }, modifier = Modifier.size(32.dp)) {
+                            Icon(NaviampIcons.Back, stringResource(Res.string.common_back), tint = headerColors.primaryText,
+                                modifier = Modifier.size(18.dp))
                         }
                     }
-                    if (station.genres.isNotEmpty()) Text(station.genres.joinToString(" · "), color = colors.secondaryText)
-                    if (station.fromYear != null || station.toYear != null) Text(
-                        listOfNotNull(station.fromYear, station.toYear).distinct().joinToString("–"), color = colors.secondaryText)
+                    Text(station?.name ?: stringResource(Res.string.generated_radio_preview),
+                        color = headerColors.primaryText, fontWeight = FontWeight.Bold, fontSize = 18.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                }
+                if (station != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        NaviampCoverArt(screen.artworkUrl, headerColors, if (television) 132.dp else 96.dp, 4.dp,
+                            mediaKind = if (station.kind == GeneratedRadioKind.Artist || station.kind == GeneratedRadioKind.Artists)
+                                SharedMediaItemKind.Artist else SharedMediaItemKind.Album)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(if (station.sonicSimilarity) Res.string.settings_related_sonic_similarity else Res.string.radio_instant_mix),
+                                color = headerColors.secondaryText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(trackCountDurationLabel(screen.tracks.size, ""), color = headerColors.secondaryText, fontSize = 12.sp)
+                            if (ordinaryStatus) Text(stringResource(generatedRadioStatusResource(status)),
+                                color = headerColors.secondaryText, fontSize = 11.sp)
+                            if (!television) NaviampResponsiveActionRow(headerColors, detailActions, Modifier.testTag("generated-radio-toolbar"))
+                        }
+                    }
+                    if (television) GeneratedRadioTelevisionActions(detailActions, headerColors)
                 }
             }
         }
-        item(key = "status") {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(stringResource(generatedRadioStatusResource(if (screen.loading) GeneratedRadioStatus.Fetching else screen.status)),
-                    color = colors.secondaryText, modifier = Modifier.testTag("generated-radio-status"))
-                if (!screen.sourceAvailable) Text(stringResource(Res.string.generated_radio_source_unavailable), color = colors.secondaryText)
-                Text(stringResource(Res.string.generated_radio_cached_notice), color = colors.secondaryText)
-                if (screen.offline) Text(stringResource(Res.string.generated_radio_offline), color = colors.secondaryText)
-                batch?.let {
-                    Text(stringResource(Res.string.generated_radio_batch_time,
-                        formatNaviampDateTime(it.generatedAtEpochMillis, includeTime = true, timeZoneId = null), it.stationRevision),
-                        color = colors.secondaryText)
-                }
-            }
-        }
-        if (station != null) {
-            item(key = "actions") {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    GeneratedRadioButton(GeneratedRadioAction.Start, Res.string.generated_radio_start, canGenerate, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.PlayBatch, Res.string.generated_radio_play_batch, hasBatch && screen.sourceAvailable, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.Refresh, Res.string.generated_radio_refresh, canGenerate, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.Apply, Res.string.generated_radio_apply,
-                        hasBatch && screen.sourceAvailable && !screen.loading && screen.activeStationId == station.id && batch?.stationRevision == station.revision, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.PlayNext, Res.string.tv_play_next, hasBatch && screen.sourceAvailable, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.AddToQueue, Res.string.generated_radio_add_queue, hasBatch && screen.sourceAvailable, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.SavePlaylist, Res.string.generated_radio_save_playlist,
-                        hasBatch && screen.sourceAvailable && !screen.offline && canSavePlaylist) { action, _ -> nameAction = action }
-                    if (!station.saved) GeneratedRadioButton(GeneratedRadioAction.Save, Res.string.generated_radio_save, true, emit)
-                    GeneratedRadioButton(GeneratedRadioAction.Rename, Res.string.generated_radio_rename, true) { action, _ -> nameAction = action }
-                    GeneratedRadioButton(GeneratedRadioAction.TogglePin,
-                        if (station.pinned) Res.string.generated_radio_unpin else Res.string.generated_radio_pin, true, emit)
-                    if (station.saved || station.pinned) GeneratedRadioButton(GeneratedRadioAction.Delete, Res.string.common_delete, true) { _, _ -> deleteOpen = true }
-                    if (screen.status == GeneratedRadioStatus.Failed || screen.status == GeneratedRadioStatus.Exhausted)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("generated-radio-tracks"),
+            contentPadding = PaddingValues(horizontal = if (television) 16.dp else 8.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (!ordinaryStatus || !screen.sourceAvailable || screen.offline) item(key = "status") {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!ordinaryStatus) Text(stringResource(generatedRadioStatusResource(status)),
+                        color = colors.secondaryText, fontSize = 13.sp, modifier = Modifier.testTag("generated-radio-status"))
+                    if (!screen.sourceAvailable) Text(stringResource(Res.string.generated_radio_source_unavailable), color = colors.secondaryText)
+                    if (screen.offline) Text(stringResource(Res.string.generated_radio_offline), color = colors.secondaryText)
+                    if (station != null && (screen.status == GeneratedRadioStatus.Failed || screen.status == GeneratedRadioStatus.Exhausted))
                         GeneratedRadioButton(GeneratedRadioAction.Retry, Res.string.generated_radio_retry, canGenerate, emit)
                 }
             }
+            itemsIndexed(screen.tracks, key = { index, track -> "$index:${track.id}" }) { index, track ->
+                TrackRow(track, colors, mediaActions.onTrackAction,
+                    canSelect = screen.sourceAvailable, canStartRadio = canGenerate,
+                    canAddToQueue = screen.sourceAvailable, canDownload = canDownload && !screen.offline && screen.sourceAvailable,
+                    canAddToPlaylist = canSavePlaylist && !screen.offline && screen.sourceAvailable,
+                    showMenu = true, trackNumber = index + 1, background = true, horizontalPadding = 8.dp, verticalPadding = 8.dp)
+            }
         }
-        itemsIndexed(screen.tracks, key = { index, track -> "$index:${track.id}" }) { index, track ->
-            TrackRow(track, colors, mediaActions.onTrackAction,
-                canSelect = screen.sourceAvailable, canStartRadio = canGenerate,
-                canAddToQueue = screen.sourceAvailable, canDownload = canDownload && !screen.offline && screen.sourceAvailable,
-                canAddToPlaylist = canSavePlaylist && !screen.offline && screen.sourceAvailable,
-                showMenu = true, trackNumber = index + 1, background = true, horizontalPadding = 8.dp, verticalPadding = 8.dp)
-        }
+    }
+    if (detailsOpen && station != null) {
+        NaviampPopupPresence()
+        NaviampAlertDialog(onDismissRequest = { detailsOpen = false },
+            containerColor = colors.menuSurface, titleContentColor = colors.primaryText, textContentColor = colors.secondaryText,
+            title = { Text(stringResource(Res.string.generated_radio_details)) },
+            text = {
+                Column(Modifier.fillMaxWidth().testTag("generated-radio-details-body").verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(station.name, color = colors.primaryText, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(stringResource(Res.string.generated_radio_revision, station.revision), fontSize = 12.sp)
+                    GeneratedRadioTuningDetails(station, colors)
+                    Text(stringResource(Res.string.generated_radio_seeds), color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    GeneratedRadioSeeds(station, screen.sourceAvailable, colors) { value ->
+                        detailsOpen = false
+                        emit(GeneratedRadioAction.OpenSeed, value)
+                    }
+                    batch?.let {
+                        Text(stringResource(Res.string.generated_radio_batch_time,
+                            formatNaviampDateTime(it.generatedAtEpochMillis, includeTime = true, timeZoneId = null), it.stationRevision), fontSize = 12.sp)
+                    }
+                    Text(stringResource(Res.string.generated_radio_cached_notice), fontSize = 12.sp)
+                }
+            },
+            confirmButton = { NaviampTextButton(onClick = { detailsOpen = false },
+                colors = ButtonDefaults.textButtonColors(contentColor = colors.actionText)) { Text(stringResource(Res.string.common_close)) } })
     }
     nameAction?.let { action ->
         var name by remember(station?.id, action) { mutableStateOf(station?.name.orEmpty()) }
@@ -209,18 +234,100 @@ fun NaviampGeneratedRadioContent(
                 nameAction = null
             }
         } else {
-        AlertDialog(onDismissRequest = { nameAction = null },
-            title = { Text(stringResource(if (action == GeneratedRadioAction.Rename) Res.string.generated_radio_rename else Res.string.generated_radio_save_playlist)) },
-            text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text(stringResource(Res.string.generated_radio_name)) }) },
-            confirmButton = { TextButton(onClick = { emit(action, name.trim()); nameAction = null }, enabled = name.isNotBlank()) { Text(stringResource(Res.string.common_save)) } },
-            dismissButton = { TextButton(onClick = { nameAction = null }) { Text(stringResource(Res.string.common_cancel)) } })
+            NaviampPopupPresence()
+            NaviampAlertDialog(onDismissRequest = { nameAction = null },
+                title = { Text(stringResource(if (action == GeneratedRadioAction.Rename) Res.string.generated_radio_rename else Res.string.generated_radio_save_playlist)) },
+                text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text(stringResource(Res.string.generated_radio_name)) }) },
+                confirmButton = { TextButton(onClick = { emit(action, name.trim()); nameAction = null }, enabled = name.isNotBlank()) { Text(stringResource(Res.string.common_save)) } },
+                dismissButton = { TextButton(onClick = { nameAction = null }) { Text(stringResource(Res.string.common_cancel)) } })
         }
     }
-    if (deleteOpen) AlertDialog(onDismissRequest = { deleteOpen = false },
-        title = { Text(stringResource(Res.string.common_delete)) },
-        text = { Text(stringResource(Res.string.generated_radio_delete_notice)) },
-        confirmButton = { TextButton(onClick = { emit(GeneratedRadioAction.Delete, null); deleteOpen = false }) { Text(stringResource(Res.string.common_delete)) } },
-        dismissButton = { TextButton(onClick = { deleteOpen = false }) { Text(stringResource(Res.string.common_cancel)) } })
+    if (deleteOpen) {
+        NaviampPopupPresence()
+        NaviampAlertDialog(onDismissRequest = { deleteOpen = false },
+            title = { Text(stringResource(Res.string.common_delete)) },
+            text = { Text(stringResource(Res.string.generated_radio_delete_notice)) },
+            confirmButton = { TextButton(onClick = { emit(GeneratedRadioAction.Delete, null); deleteOpen = false }) { Text(stringResource(Res.string.common_delete)) } },
+            dismissButton = { TextButton(onClick = { deleteOpen = false }) { Text(stringResource(Res.string.common_cancel)) } })
+    }
+}
+
+@Composable
+private fun GeneratedRadioTelevisionActions(actions: List<NaviampDetailAction>, colors: NaviampColors) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag("generated-radio-toolbar")) {
+        val visibleCount = responsiveVisibleActionCount(maxWidth.value, actions.size, actionSlotWidthDp = 54f)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            for (index in 0 until visibleCount) {
+                val action = actions[index]
+                TelevisionIconButton(action.enabled, action.icon, action.label, colors,
+                    selected = action.selected, onClick = action.onClick)
+            }
+            if (visibleCount < actions.size) {
+                NaviampRowOverflowMenu(colors, actions.drop(visibleCount).map {
+                    NaviampRowMenuItem(it.label, it.icon, it.onClick, it.enabled)
+                }, button = { onClick ->
+                    TelevisionIconButton(true, NaviampTransportIcons.MoreVertical,
+                        stringResource(Res.string.playlist_item_more_actions), colors, onClick = onClick)
+                })
+            }
+        }
+    }
+}
+
+@Composable
+private fun GeneratedRadioSeeds(station: GeneratedRadioStation, sourceAvailable: Boolean, colors: NaviampColors,
+    openSeed: (String) -> Unit) {
+    if (station.artists.isNotEmpty()) Column(Modifier.fillMaxWidth().testTag("generated-radio-seed-artists")) {
+        Text(stringResource(Res.string.library_view_artists), color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        station.artists.forEach { seed ->
+            GeneratedRadioSeedLink(seed.name, sourceAvailable, colors) { openSeed("artist:${seed.id}") }
+        }
+    }
+    if (station.albums.isNotEmpty()) Column(Modifier.fillMaxWidth().testTag("generated-radio-seed-albums")) {
+        Text(stringResource(Res.string.library_view_albums), color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        station.albums.forEach { seed ->
+            GeneratedRadioSeedLink(seed.title, sourceAvailable, colors) { openSeed("album:${seed.id}") }
+        }
+    }
+    if (station.seedTracks.isNotEmpty()) Column(Modifier.fillMaxWidth().testTag("generated-radio-seed-tracks"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(Res.string.library_view_songs), color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        station.seedTracks.forEachIndexed { index, seed ->
+            Column(Modifier.fillMaxWidth().testTag("generated-radio-seed-track-$index")) {
+                Text(seed.title, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                if (seed.artistId != null && seed.artistName.isNotBlank()) {
+                    GeneratedRadioSeedLink(seed.artistName, sourceAvailable, colors) { openSeed("artist:${seed.artistId}") }
+                } else if (seed.artistName.isNotBlank()) {
+                    Text(seed.artistName, color = colors.secondaryText, fontSize = 12.sp)
+                }
+                val albumTitle = seed.albumTitle
+                if (seed.albumId != null && !albumTitle.isNullOrBlank()) {
+                    GeneratedRadioSeedLink(albumTitle, sourceAvailable, colors) { openSeed("album:${seed.albumId}") }
+                } else if (!albumTitle.isNullOrBlank()) {
+                    Text(albumTitle, color = colors.secondaryText, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+    if (station.genres.isNotEmpty()) Text(station.genres.joinToString(" · "), color = colors.secondaryText, fontSize = 12.sp)
+    if (station.fromYear != null || station.toYear != null) Text(
+        listOfNotNull(station.fromYear, station.toYear).distinct().joinToString("–"), color = colors.secondaryText, fontSize = 12.sp)
+}
+
+@Composable
+private fun GeneratedRadioSeedLink(label: String, enabled: Boolean, colors: NaviampColors, onClick: () -> Unit) {
+    NaviampTextButton(onClick, enabled = enabled, modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp),
+        colors = ButtonDefaults.textButtonColors(contentColor = colors.actionText, disabledContentColor = colors.mutedText)) {
+        Text(label, modifier = Modifier.fillMaxWidth(), fontSize = 12.sp, fontWeight = FontWeight.Normal, textAlign = TextAlign.Start)
+    }
+}
+
+@Composable
+private fun GeneratedRadioMetadataRow(label: String, value: String, colors: NaviampColors) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(96.dp))
+        Text(value, color = colors.primaryText, fontSize = 12.sp, modifier = Modifier.weight(1f))
+    }
 }
 
 @Composable
@@ -318,7 +425,7 @@ internal fun NaviampGeneratedRadioPreferences(preferences: GeneratedRadioPrefere
 }
 
 @Composable
-private fun GeneratedRadioTuningSummary(station: GeneratedRadioStation, colors: NaviampColors) {
+private fun GeneratedRadioTuningDetails(station: GeneratedRadioStation, colors: NaviampColors) {
     val tuning = station.tuning
     val familiarity = when (tuning.familiarity) {
         RadioFamiliarity.Balanced -> Res.string.mix_bias_balanced
@@ -335,8 +442,14 @@ private fun GeneratedRadioTuningSummary(station: GeneratedRadioStation, colors: 
         RadioArtistRunMode.SingleArtist -> Res.string.generated_radio_single_artist
         RadioArtistRunMode.ArtistBlocks -> Res.string.generated_radio_artist_blocks
     }
-    Text(stringResource(Res.string.generated_radio_tuning, stringResource(familiarity), stringResource(spread), stringResource(runs), station.batchSize), color = colors.secondaryText)
-    if (tuning.sameDecadeOnly) Text(stringResource(Res.string.settings_radio_stay_in_decade), color = colors.secondaryText)
-    if (tuning.artistRunMode == RadioArtistRunMode.ArtistBlocks) Text(
-        stringResource(Res.string.generated_radio_runs, tuning.sameArtistRunLength, tuning.otherArtistRunLength), color = colors.secondaryText)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        GeneratedRadioMetadataRow(stringResource(Res.string.settings_radio_familiarity), stringResource(familiarity), colors)
+        GeneratedRadioMetadataRow(stringResource(Res.string.settings_radio_artist_spread), stringResource(spread), colors)
+        GeneratedRadioMetadataRow(stringResource(Res.string.settings_radio_artist_runs), stringResource(runs), colors)
+        GeneratedRadioMetadataRow(stringResource(Res.string.mix_target_tracks), station.batchSize.toString(), colors)
+        if (tuning.sameDecadeOnly) Text(stringResource(Res.string.settings_radio_stay_in_decade), color = colors.secondaryText, fontSize = 12.sp)
+        if (tuning.artistRunMode == RadioArtistRunMode.ArtistBlocks) Text(
+            stringResource(Res.string.generated_radio_runs, tuning.sameArtistRunLength, tuning.otherArtistRunLength),
+            color = colors.secondaryText, fontSize = 12.sp)
+    }
 }

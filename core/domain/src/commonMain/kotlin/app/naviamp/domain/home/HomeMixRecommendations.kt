@@ -55,7 +55,7 @@ class HomeMixRecommendations(
         }
         val stationsById = scopedStations.associateBy { it.id }
         val rotation = library.rotations.firstOrNull { it.sourceId == sourceId && it.libraryScope == libraryScope }
-        val previous = rotation?.stationIds.orEmpty().mapNotNull(stationsById::get).filterNot { it.pinned }
+        val previous = rotation?.stationIds.orEmpty().mapNotNull(stationsById::get).filterNot { it.saved }
         val count = limit.coerceIn(0, HomeMixRecommendationLimit)
         val day = date.year.toLong() * 366 + date.dayOfYear
         if (rotation != null && !refresh && rotation.day == day && previous.isNotEmpty() && previous.size == rotation.stationIds.size) {
@@ -68,7 +68,7 @@ class HomeMixRecommendations(
         val candidates = candidates(signals, now).filter { candidate ->
             (!tuning.sameDecadeOnly || candidate.decade != null) &&
                 (tuning.artistRunMode != RadioArtistRunMode.SingleArtist || candidate.artist != null) &&
-                scopedStations.none { it.pinned && candidate.matches(it) }
+                scopedStations.none { it.saved && candidate.matches(it) }
         }
         val recentSeeds = rotation?.recentSeedIds.orEmpty().withIndex().associate { it.value to it.index }
         val ranked = candidates.sortedWith(
@@ -99,7 +99,7 @@ class HomeMixRecommendations(
         select(ranked, count)
         val allocatedIds = library.stations.mapTo(HashSet()) { it.id }
         val stations = selected.map { candidate ->
-            scopedStations.firstOrNull { candidate.matches(it) && !it.pinned } ?: GeneratedRadioStation(
+            scopedStations.firstOrNull { candidate.matches(it) && !it.saved } ?: GeneratedRadioStation(
                 id = newId(allocatedIds).also(allocatedIds::add),
                 name = candidate.artist?.name.takeIf { candidate.album == null } ?: candidate.album!!.title,
                 kind = if (candidate.album == null) GeneratedRadioKind.Artist else GeneratedRadioKind.Album,
@@ -131,7 +131,7 @@ class HomeMixRecommendations(
         val retainedIds = rotations.flatMapTo(HashSet()) { it.stationIds }
         library.batches.mapTo(retainedIds) { it.stationId }
         val obsoleteIds = library.rotations.flatMapTo(HashSet()) { it.stationIds } - retainedIds
-        val nextStations = library.stations.filterNot { it.id in obsoleteIds && !it.saved && !it.pinned }
+        val nextStations = library.stations.filterNot { it.id in obsoleteIds && !it.saved }
         repository.save(library.copy(
             stations = (stations + nextStations).distinctBy { it.id },
             rotations = rotations,

@@ -501,10 +501,10 @@ class NaviampCoreHomeController(
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { return }
         val current = library.stations.filter { it.belongsTo(sourceId, identity, provider.cacheNamespace) }.associateBy { it.id }
-        val stations = current.values.filter { it.saved || it.pinned }
+        val stations = current.values.filter { it.saved }
         cachedSavedStations = stations
         mediaRegistry.updateHome(mediaRegistry.home.copy(generatedMixes = mediaRegistry.home.generatedMixes
-            .mapNotNull { current[it.id] }.filterNot { it.pinned }), mediaRegistry.sonicRows)
+            .mapNotNull { current[it.id] }.filterNot { it.saved }), mediaRegistry.sonicRows)
         stateStore.updateShell { shell ->
             val sonicEnabled = shell.playback.settings.effectiveSonicSimilarityEnabled() && provider.capabilities.supportsSonicSimilarity
             val content = mediaRegistry.home.toSharedHomeUi(
@@ -534,7 +534,7 @@ class NaviampCoreHomeController(
         catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) { cachedSavedStations }
         return stations.filter {
-            (it.saved || it.pinned) && it.belongsTo(sourceId, sourceIdentity, provider.cacheNamespace)
+            it.saved && it.belongsTo(sourceId, sourceIdentity, provider.cacheNamespace)
         }.also { cachedSavedStations = it }
     }
 
