@@ -208,6 +208,7 @@ class NaviampExternalPlaybackPublicationPlanner(
             prior.queue != next.queue ||
             prior.durationMillis != next.durationMillis
         val semanticPlaybackChange = prior == null || sourceChanged ||
+            prior.current?.mediaId != next.current?.mediaId ||
             prior.state != next.state ||
             prior.currentQueueIndex != next.currentQueueIndex ||
             prior.canPlayPause != next.canPlayPause ||

@@ -518,6 +518,60 @@ class NaviampCoreExternalPlaybackBridgeTest {
     }
 
     @Test
+    fun replacingTrackAtTheSameQueuePositionRefreshesPlaybackWithoutReportingASeek() {
+        val planner = NaviampExternalPlaybackPublicationPlanner()
+        val first = bridge().snapshot()
+        planner.plan(first)
+        val replacement = first.copy(
+            current = first.current!!.copy(mediaId = "replacement", title = "Replacement"),
+            positionMillis = 0L,
+        )
+
+        val publication = planner.plan(replacement)
+
+        assertTrue(publication.sessionContent)
+        assertTrue(publication.playbackState)
+        assertNull(publication.seekedPositionMillis)
+        val progress = planner.plan(replacement.copy(positionMillis = 250L))
+        assertFalse(progress.sessionContent)
+        assertFalse(progress.playbackState)
+    }
+
+    @Test
+    fun liveMediaAppearingAndClearingRefreshesSessionActivationWithoutReportingASeek() {
+        val planner = NaviampExternalPlaybackPublicationPlanner()
+        val empty = NaviampExternalPlaybackSnapshot(state = NaviampExternalPlaybackState.Playing, isLive = true)
+        planner.plan(empty)
+        val live = empty.copy(current = NaviampExternalMediaItem("station", "Station", "Artist"))
+
+        val appearing = planner.plan(live)
+        assertTrue(appearing.sessionContent)
+        assertTrue(appearing.playbackState)
+        assertNull(appearing.seekedPositionMillis)
+        val clearing = planner.plan(empty)
+        assertTrue(clearing.sessionContent)
+        assertTrue(clearing.playbackState)
+        assertNull(clearing.seekedPositionMillis)
+    }
+
+    @Test
+    fun sameTrackMetadataCorrectionDoesNotResetThePlaybackClock() {
+        val planner = NaviampExternalPlaybackPublicationPlanner()
+        val first = bridge().snapshot()
+        planner.plan(first)
+
+        val corrected = first.copy(current = first.current!!.copy(title = "Corrected", albumTitle = "Album"))
+        val publication = planner.plan(corrected)
+
+        assertTrue(publication.sessionContent)
+        assertFalse(publication.playbackState)
+        assertNull(publication.seekedPositionMillis)
+        val unchanged = planner.plan(corrected)
+        assertFalse(unchanged.sessionContent)
+        assertFalse(unchanged.playbackState)
+    }
+
+    @Test
     fun externalPublicationPlannerPublishesSemanticChangesImmediately() {
         val planner = NaviampExternalPlaybackPublicationPlanner()
         val current = NaviampExternalMediaItem("track", "Track", "Artist")

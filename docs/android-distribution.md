@@ -14,6 +14,33 @@ tools, not device-specific distributions.
 For the accepted v2.10.0 scope and the distinction between package readiness, deferred device
 testing and store review, see the [distribution handoff](releases/v2.10.0-readiness.md).
 
+## Now-playing publication for Android Automotive OS
+
+The Android playback service publishes Core's now-playing state through its existing standard
+`MediaSessionCompat`. An AAOS system media host or OEM instrument-cluster consumer can observe
+that framework session with `MediaSessionManager` and `MediaController`; Naviamp does not need
+privileged cluster permissions or a manufacturer-specific broadcast.
+
+- Metadata includes media ID, track title, artist, canonical album title, known duration, and
+  local artwork `content://` URIs. Album metadata excludes the UI's formatted year suffix.
+  Replacing the metadata clears previous artwork, album, and duration when unavailable.
+- Playback state, position, queue selection, and supported controls follow the shared external
+  playback bridge. Changing tracks refreshes the playback clock even at the same queue position;
+  normal progress ticks do not repeatedly rebuild metadata or reset that clock.
+- Artwork continues through Naviamp's existing content provider and provider-aware cache, rather
+  than exposing authenticated remote artwork URLs as session metadata.
+
+This is the publication contract, not a dedicated AAOS distribution or Google Play Automotive
+qualification. The current package still has the phone/tablet/TV launcher and Android Auto
+declarations. Whether media appears behind the steering wheel, its layout, and artwork support
+remain the vehicle manufacturer's responsibility. See
+[AOSP's cluster media-status integration](https://source.android.com/docs/automotive/displays/monitor#media-status).
+
+Regression coverage: `NaviampCoreExternalPlaybackBridgeTest` exercises publication timing in
+common code; `AndroidExternalPlaybackPublicationInstrumentedTest` exercises metadata replacement
+and delivery through real framework controller callbacks without an account or network. A phone
+or tablet emulator can run the latter, but cannot verify a vehicle's AAOS cluster display.
+
 ## Build and distribute
 
 Run `./gradlew :apps:android:stageReleaseArtifacts` to produce the installable formats and their

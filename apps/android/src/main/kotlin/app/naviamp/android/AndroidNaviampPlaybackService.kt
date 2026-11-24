@@ -43,7 +43,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
-/** Android MediaSession, foreground notification, and Android Auto API boundary. */
+/** Android MediaSession, foreground notification, and Android Auto/AAOS API boundary. */
 class AndroidNaviampPlaybackService : MediaBrowserServiceCompat() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var session: MediaSessionCompat
@@ -177,22 +177,7 @@ class AndroidNaviampPlaybackService : MediaBrowserServiceCompat() {
     private fun publishSessionContent(value: NaviampExternalPlaybackSnapshot) {
         val current = value.current
         val artworkUri = current?.artworkUrl?.let { AndroidNaviampArtworkProvider.uriFor(this, it).toString() }
-        session.setMetadata(
-            MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, current?.mediaId)
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, current?.title.orEmpty())
-                .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, current?.subtitle.orEmpty())
-                .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, current?.description.orEmpty())
-                .apply {
-                    value.durationMillis?.let { putLong(MediaMetadataCompat.METADATA_KEY_DURATION, it) }
-                    artworkUri?.let {
-                        putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, it)
-                        putString(MediaMetadataCompat.METADATA_KEY_ART_URI, it)
-                        putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, it)
-                    }
-                }
-                .build(),
-        )
+        session.setMetadata(value.androidMediaMetadata(artworkUri))
         session.setQueue(value.automotiveQueue().mapIndexed { index, item ->
             MediaSessionCompat.QueueItem(item.description(), item.queueIndex?.toLong() ?: index.toLong())
         })
@@ -426,6 +411,25 @@ class AndroidNaviampPlaybackService : MediaBrowserServiceCompat() {
             context.naviampPlaybackServiceIntent(ActionReleaseForeground)
     }
 }
+
+/** Translate Core metadata into the framework fields read by Android Auto and AAOS media hosts. */
+internal fun NaviampExternalPlaybackSnapshot.androidMediaMetadata(artworkUri: String?): MediaMetadataCompat =
+    MediaMetadataCompat.Builder()
+        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, current?.mediaId)
+        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, current?.title.orEmpty())
+        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, current?.subtitle.orEmpty())
+        .apply {
+            current?.albumTitle?.takeIf(String::isNotBlank)?.let {
+                putString(MediaMetadataCompat.METADATA_KEY_ALBUM, it)
+            }
+            durationMillis?.let { putLong(MediaMetadataCompat.METADATA_KEY_DURATION, it) }
+            artworkUri?.let {
+                putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, it)
+                putString(MediaMetadataCompat.METADATA_KEY_ART_URI, it)
+                putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, it)
+            }
+        }
+        .build()
 
 /** Only Android's MediaSession ABI constants belong here; availability/priority are in Core. */
 internal fun NaviampExternalPlaybackSnapshot.androidPlaybackActions(): Long = transportActions.fold(0L) { flags, action ->
