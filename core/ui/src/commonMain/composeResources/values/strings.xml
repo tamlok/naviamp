@@ -164,7 +164,7 @@
     <string name="settings_experience_waveforms_title">Waveforms</string>
     <string name="settings_experience_waveforms_subtitle">Track waveforms and detail</string>
 
-    <string name="settings_about_production">A GoosePod Production</string>
+    <string name="settings_about_production">A LeTalk Production Based on Naviamp</string>
     <string name="settings_about_version_build">%1$s Build %2$s</string>
     <string name="settings_about_libraries_title">Libraries</string>
     <string name="settings_about_fonts_title">Fonts</string>

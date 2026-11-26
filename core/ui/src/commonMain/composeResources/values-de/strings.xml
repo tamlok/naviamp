@@ -254,7 +254,7 @@
     <string name="settings_experience_related_tracks_subtitle">Wählen, wie Radio Titel findet und die Wiedergabe fortsetzt</string>
     <string name="settings_experience_waveforms_title">Wellenformen</string>
     <string name="settings_experience_waveforms_subtitle">Wellenformdarstellung und Detailgrad der Titel.</string>
-    <string name="settings_about_production">Eine GoosePod-Produktion</string>
+    <string name="settings_about_production">Eine LeTalk-Produktion auf Basis von Naviamp</string>
     <string name="settings_about_version_build">%1$s Erstellen Sie %2$s</string>
     <string name="settings_about_libraries_title">Bibliotheken</string>
     <string name="settings_about_fonts_title">Schriftarten</string>

@@ -2,6 +2,12 @@
 
 Release changes are grouped into user-facing Features, Bug Fixes, and deployment or infrastructure-related System Settings. Internal task-tracking notes are intentionally not included.
 
+## Unreleased
+
+### Bug Fixes
+
+- Update the About page attribution to “A LeTalk Production Based on Naviamp”, including existing translations.
+
 ## v1.0.0
 
 Navo’s first public release brings its shared music player to Windows and Android.

@@ -160,7 +160,7 @@
     <string name="settings_experience_related_tracks_subtitle">Elige cómo Radio encuentra canciones y continúa la reproducción</string>
     <string name="settings_experience_waveforms_title">Formas de onda</string>
     <string name="settings_experience_waveforms_subtitle">Formas de onda y detalle de pistas</string>
-    <string name="settings_about_production">Una producción de GoosePod</string>
+    <string name="settings_about_production">Una producción de LeTalk basada en Naviamp</string>
     <string name="settings_about_version_build">%1$s Build %2$s</string>
     <string name="settings_about_libraries_title">Bibliotecas</string>
     <string name="settings_about_fonts_title">Fuentes</string>

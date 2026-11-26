@@ -132,7 +132,7 @@
     <string name="settings_lyrics_display_timing">Prezentacja synchronizacji</string>
     <string name="settings_lyrics_display_timing_subtitle">Wybierz jak zapisane teksty piosenek są pokazywane podczas odtwarzania</string>
     <string name="settings_lyrics_search_order_subtitle">Wybierz gdzie Navo szuka tekstów w pierwszej kolejności</string>
-    <string name="settings_about_production">Twórczość GoosePod</string>
+    <string name="settings_about_production">Produkcja LeTalk oparta na Naviamp</string>
     <string name="settings_about_version_build">%1$s Wersja %2$s</string>
     <string name="settings_about_libraries_title">Biblioteki</string>
     <string name="settings_about_fonts_title">Czcionki</string>

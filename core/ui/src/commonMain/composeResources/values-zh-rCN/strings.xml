@@ -731,7 +731,7 @@
     <string name="settings_experience_player_subtitle">队列行为、正在播放和波形</string>
     <string name="settings_experience_waveforms_title">波形</string>
     <string name="settings_experience_waveforms_subtitle">曲目波形及精细度</string>
-    <string name="settings_about_production">GoosePod 出品</string>
+    <string name="settings_about_production">LeTalk 出品，基于 Naviamp</string>
     <string name="settings_about_version_build">%1$s 构建 %2$s</string>
     <string name="settings_about_libraries_title">依赖库</string>
     <string name="settings_about_fonts_title">字体</string>
