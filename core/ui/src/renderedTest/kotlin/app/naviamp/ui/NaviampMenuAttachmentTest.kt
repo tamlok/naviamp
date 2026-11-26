@@ -23,14 +23,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntSize
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -59,7 +62,9 @@ class NaviampMenuAttachmentTest {
         val scroll = ScrollState(24)
         var rowCoordinates: LayoutCoordinates? = null
         var menuCoordinates: LayoutCoordinates? = null
+        var viewport = IntSize.Zero
         setContent {
+            viewport = LocalWindowInfo.current.containerSize
             CompositionLocalProvider(LocalNaviampOwnedPopupWindows provides owned,
                 LocalLayoutDirection provides direction, LocalDensity provides Density(densityScale)) {
                 val input = Modifier.testTag("cursor-row")
@@ -94,11 +99,24 @@ class NaviampMenuAttachmentTest {
             onNodeWithTag("cursor-row").performMouseInput { click(relative, MouseButton.Secondary) }
             onNodeWithText("Cursor action 0").assertIsDisplayed()
             val bounds = runOnIdle { checkNotNull(menuCoordinates).boundsInWindow() }
-            val x = if (atEdge || direction == LayoutDirection.Rtl) bounds.right else bounds.left
+            val popupViewport = runOnIdle { checkNotNull(menuCoordinates).findRootCoordinates().boundsInWindow() }
+            assertTrue(popupViewport.width >= viewport.width - 1f && popupViewport.height >= viewport.height - 1f,
+                "Popup must cover the parent viewport, not subtract its insets: parent=$viewport popup=$popupViewport")
+            val preferredLeft = if (direction == LayoutDirection.Ltr) cursor.x else cursor.x - bounds.width
+            val flippedLeft = if (direction == LayoutDirection.Ltr) cursor.x - bounds.width else cursor.x
+            val lastLeft = (viewport.width - bounds.width).coerceAtLeast(0f)
+            val expectedLeft = when {
+                preferredLeft in 0f..lastLeft -> preferredLeft
+                flippedLeft in 0f..lastLeft -> flippedLeft
+                else -> preferredLeft.coerceIn(0f, lastLeft)
+            }
+            val x = if (atEdge) bounds.right else bounds.left
+            val expectedX = if (atEdge) cursor.x else expectedLeft
             val y = if (atEdge) bounds.bottom else bounds.top
-            assertTrue(abs(x - cursor.x) <= 1f && abs(y - cursor.y) <= 1f,
-                "Context menu must attach to cursor, not its parent: cursor=$cursor menu=$bounds")
-            assertTrue(bounds.left >= 0 && bounds.top >= 0)
+            assertTrue(abs(x - expectedX) <= 1f && abs(y - cursor.y) <= 1f,
+                "Context menu must attach or legally clamp to cursor: cursor=$cursor menu=$bounds viewport=$viewport")
+            assertTrue(bounds.left >= -1f && bounds.top >= -1f &&
+                bounds.right <= viewport.width + 1f && bounds.bottom <= viewport.height + 1f)
             onNodeWithText("Cursor action 0").performClick()
             onNodeWithTag("cursor-menu").assertDoesNotExist()
         }

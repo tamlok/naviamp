@@ -1,8 +1,6 @@
 package app.naviamp.presentation
 
 import app.naviamp.app.NaviampSettingsSyncController
-import app.naviamp.ui.naviampSettingsImportTitle
-import app.naviamp.ui.naviampSettingsExportTitle
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.SettingsSyncDocument
 import app.naviamp.domain.settings.SettingsSyncLocalSnapshot
@@ -122,6 +120,7 @@ class NaviampCoreSettingsSyncControllerTest {
                 ),
                 port = port,
             ),
+            loadExportTitle = { "Fixture export" },
         )
 
         controller.execute(NaviampCoreCommand.SettingsSync.ChangeAutoExport(true))
@@ -131,7 +130,7 @@ class NaviampCoreSettingsSyncControllerTest {
         controller.execute(NaviampCoreCommand.SettingsSync.ExportFolder)
         assertEquals("/picked", store.state.value.settingsSync.directoryPath)
         assertEquals("Settings exported to naviamp-settings.json.", store.state.value.settingsSync.status)
-        assertTrue(port.operations.contains("pick:${naviampSettingsExportTitle()}"))
+        assertTrue(port.operations.contains("pick:Fixture export"))
     }
 
     @Test
@@ -212,12 +211,13 @@ class NaviampCoreSettingsSyncControllerTest {
                 ),
                 port = port,
             ),
+            loadImportTitle = { "Fixture import" },
         )
 
         controller.execute(NaviampCoreCommand.SettingsSync.ImportFile)
 
         assertEquals(
-            listOf("pick-file:${naviampSettingsImportTitle()}", "read-file:/backup/naviamp-settings.json"),
+            listOf("pick-file:Fixture import", "read-file:/backup/naviamp-settings.json"),
             port.operations,
         )
         assertEquals(null, store.state.value.settingsSync.directoryPath)
