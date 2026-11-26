@@ -20,6 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
+APP = (Path(__file__).resolve().parents[1]/'APPLICATION_ID').read_text().strip() + '.tvos'
 MAIN_USER, MAIN_PASSWORD = 'primary590', 'Main!590'
 COMPANION_USER, COMPANION_PASSWORD = 'secondary590', 'Companion!590'
 COMPANION_TOKEN = 'synthetic-companion-session-590'
@@ -121,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def owned_probe(self, allow_missing=False):
         device = self.server.owned_device
-        result = subprocess.run(['xcrun','simctl','get_app_container',device,'app.naviamp.tvos','data'],
+        result = subprocess.run(['xcrun','simctl','get_app_container',device,APP,'data'],
                                 capture_output=True, text=True, timeout=10)
         if result.returncode:
             assert allow_missing and result.returncode == 2, 'App container must exist'
@@ -130,7 +131,7 @@ class Handler(BaseHTTPRequestHandler):
         parent = (Path.home()/'Library/Developer/CoreSimulator/Devices'/device/'data/Containers/Data/Application').resolve()
         assert container.parent == parent
         uuid.UUID(container.name)
-        preference = container/'Library/Preferences/app.naviamp.tvos.plist'
+        preference = container/f'Library/Preferences/{APP}.plist'
         values = plistlib.loads(preference.read_bytes()) if preference.exists() else {}
         return dict(databaseExists=(container/'Library/Caches/Naviamp/naviamp-storage.db').is_file(),
                     recoveryRecordExists='naviamp.recovery.v1' in values, installed=True, container=container.name), container
@@ -156,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
             assert acceptance['current'] == 'relaunch'
             before, container = self.owned_probe()
             assert before['databaseExists'] and before['recoveryRecordExists']
-            preference = container/'Library/Preferences/app.naviamp.tvos.plist'
+            preference = container/f'Library/Preferences/{APP}.plist'
             encoded = plistlib.loads(preference.read_bytes())['naviamp.recovery.v1']
             assert encoded.startswith('naviamp-keychain-aead-v1:')
             for secret in ('primary590','secondary590','Main!590','Companion!590','/companion'):

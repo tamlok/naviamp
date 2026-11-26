@@ -1,13 +1,36 @@
-# Naviamp Development Workflow
+# Navo Development Workflow
 
 ## Canonical repository
 
-GitHub became Naviamp's primary repository and source of truth on 2026-09-11. GitHub is canonical
+GitHub became upstream Naviamp's primary repository and source of truth on 2026-09-11. GitHub is canonical
 for source, issues, pull requests, checks, tags, and releases. Forgejo is a secondary mirror that the
 project owner updates manually after accepted GitHub changes and releases.
 
 Do not merge independent work, create canonical tags, or publish releases on Forgejo. A divergent
 Forgejo ref is an error to investigate, never a reason to force or delete remote history.
+
+## Fork identity and enabled platforms
+
+This fork's source, issues and releases live at `tamlok/naviamp`. `APPLICATION_ID` defines
+`cn.com.letalk.navo`; `RELEASE_REPOSITORY` selects its update and release channel. Upstream
+store records, publication keys and dated acceptance evidence do not establish this fork's availability.
+`APPLICATION_NAME` defines the Navo app/launcher/package name. The final ID creates fresh namespaces
+relative to earlier local `cn.com.letalk.naviamp` builds; settings and credentials are not migrated
+automatically. Future release titles are exactly `Navo vX.Y.Z`, with no subtitle or suffix.
+
+This is a new, unreleased app. Existing versioned Naviamp notes are upstream history, not ready-made
+Navo announcements. Prepare and review Navo's own versioned notes before tagging; the strict title
+gate intentionally rejects a historical Naviamp announcement even if its version matches `VERSION`.
+
+Only Windows and Android platform pipelines are enabled. Verify retains shared Kotlin checks,
+Android unit/emulator coverage and Windows native checks; aggregate JVM coverage runs on Windows.
+Linux-hosted Android emulators are Android verification, not a Linux product pipeline. The tag
+workflow builds signed Android APK/AAB support artifacts and Windows ZIP/MSI/EXE packages.
+
+Apple and Linux source/build configurations remain available. Their standalone workflow files use
+the `.yml.disabled` extension and their GitHub workflow registrations are disabled. Re-enablement
+requires an explicit scope decision and the appropriate native toolchains and signing/publication
+configuration. The announcement-only workflow remains independent of platform build selection.
 
 ## Work tracking
 
@@ -55,7 +78,7 @@ integration branch, large late merge conflicts, and fixes that exist only in one
 4. Limit that branch to release blockers, documentation, versioning, and packaging fixes. Review
    substantive fixes through pull requests, linking related issues when they exist.
 5. Merge each release fix back into `main` immediately, or fix `main` first and cherry-pick it.
-6. Run the complete release verification matrix against the release branch.
+6. Run the complete enabled Windows/Android verification matrix against the release branch.
 7. Create `.github/releases/vX.Y.Z.md` from `.github/RELEASE_TEMPLATE.md`. Audit `README.md`
    and the public Naviamp website (including feature, compatibility, download and installation
    pages) against the accepted source and live distribution status. Correct stale information and
@@ -63,14 +86,14 @@ integration branch, large late merge conflicts, and fixes that exist only in one
    document. This audit is required for every release before publication; pending releases must
    not be presented as already available. Update and render-verify the shared About changelog and
    run all changelog/About regression suites before tagging.
-8. Tag the accepted commit. The tag workflow builds all artifacts and creates a draft GitHub Release.
-9. Review the draft and verify its name is exactly `Naviamp vX.Y.Z`, with no descriptive suffix.
+8. Tag the accepted commit. The tag workflow builds Windows and Android artifacts and creates a draft GitHub Release.
+9. Review the draft and verify its name is exactly `Navo vX.Y.Z`, with no descriptive suffix.
    Publish it, verify the published name, then create an Announcements Discussion linking to the release.
 10. Close the milestone when its shipped state is accurate.
 11. Mirror the accepted commits and tags to Forgejo using the procedure below.
 
 The pull-request Verify workflow records immutable evidence for the exact Git tree that passed the
-complete cross-platform matrix. When a release tag points at that same tree, the tag workflow
+complete enabled Windows/Android matrix. When a release tag points at that same tree, the tag workflow
 validates the evidence and the successful originating workflow run before reusing it. If the tree or
 evidence does not match, the tag workflow runs the complete matrix again. Release packaging runs in
 parallel with this gate, but the draft release cannot be created unless reused or fresh verification
@@ -104,7 +127,7 @@ branch, and rerun the affected checks. Resolving a conflict must not silently br
 
 ## Release notes and Discord announcements
 
-GitHub release names must be exactly `Naviamp vX.Y.Z` (for example, `Naviamp v2.9.0`).
+GitHub release names must be exactly `Navo vX.Y.Z` (for example, `Navo v1.0.0`).
 Do not append subtitles, feature descriptions, codenames, or other suffixes. Put those details
 in the release body or announcement text.
 
@@ -233,7 +256,7 @@ policy applies to hotfixes.
 Verify classifies changed files rather than the PR author or title. Modifications confined to
 existing `core/ui/src/commonMain/composeResources/values-*/strings.xml` locale catalogs use a
 lightweight path; documentation may accompany them. New, deleted or renamed catalogs, source
-`values/strings.xml`, code, build scripts and workflow changes require the full matrix.
+`values/strings.xml`, code, build scripts and workflow changes require the full enabled matrix.
 
 The lightweight path checks the diff and validates the changed catalogs against the source:
 XML structure, duplicate/unknown keys, resource types, plural quantities, arrays and indexed
@@ -243,7 +266,7 @@ checks execute lightweight steps; native platform jobs report skipped checks und
 names. Invalid catalogs fail the required Shared and Android check, and classification errors fail
 closed. No workflow-level path filter or bot exemption is used.
 
-Reusable release verification always runs the full matrix. Only a successful full matrix can
+Reusable release verification always runs the full enabled Windows/Android matrix. Only a successful full run can
 publish verified-source evidence for release reuse; a successful translation-only run cannot.
 For local resource validation, run:
 

@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalUriHandler
 import app.naviamp.domain.network.KtorSharedHttpClient
+import app.naviamp.domain.network.NaviampReleaseRepository
 import app.naviamp.domain.network.SharedHttpClient
 import app.naviamp.domain.settings.ApplicationUpdateChannel
 import kotlinx.coroutines.delay
@@ -17,6 +18,9 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.update_available_title
+import org.jetbrains.compose.resources.stringResource
 
 data class NaviampAvailableUpdate(
     val version: String,
@@ -73,7 +77,7 @@ fun NaviampApplicationUpdateEffect(
         NaviampPopupPresence()
         NaviampAlertDialog(
             onDismissRequest = { availableUpdate = null },
-            title = { Text("Naviamp Update Available") },
+            title = { Text(stringResource(Res.string.update_available_title)) },
             text = {
                 Text("${update.name} is available. You are currently running $currentVersion.")
             },
@@ -199,6 +203,6 @@ private fun String.naviampVersion(): NaviampVersion? {
     return NaviampVersion(numbers, prerelease)
 }
 
-const val NaviampReleasesUrl = "https://github.com/tamlok/naviamp/releases"
-private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/tamlok/naviamp/releases?per_page=30"
+const val NaviampReleasesUrl = "https://github.com/$NaviampReleaseRepository/releases"
+private const val NaviampLatestReleaseApiUrl = "https://api.github.com/repos/$NaviampReleaseRepository/releases?per_page=30"
 private const val NaviampUpdateCheckIntervalMillis = 24L * 60L * 60L * 1_000L

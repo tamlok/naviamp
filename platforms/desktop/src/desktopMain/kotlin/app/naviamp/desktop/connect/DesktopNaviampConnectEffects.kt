@@ -14,6 +14,7 @@ import app.naviamp.app.NaviampConnectSessionCredentialStorageEffect
 import app.naviamp.app.NaviampConnectTrustStorageEffect
 import app.naviamp.desktop.security.DesktopCredentialProtector
 import app.naviamp.domain.connect.NaviampConnectServiceType
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.presentation.NaviampCoreMutableSettingsValueStore
 import java.net.InetAddress
 import java.security.KeyFactory
@@ -70,7 +71,7 @@ class DesktopNaviampConnectStorageEffects(
     override fun write(peerDeviceId: String, value: ByteArray) {
         val encoded = Base64.getEncoder().encodeToString(value)
         val protected = requireNotNull(protector.protect(encoded)) {
-            "Desktop could not protect the Naviamp Connect session credential."
+            "Desktop could not protect the $NaviampClientName Connect session credential."
         }
         values.write(credentialKey(peerDeviceId), protected)
     }
@@ -94,7 +95,7 @@ class DesktopNaviampConnectStorageEffects(
         values.write(
             IdentityPrivateKey,
             requireNotNull(protector.protect(privateValue)) {
-                "Desktop could not protect the Naviamp Connect identity."
+                "Desktop could not protect the $NaviampClientName Connect identity."
             },
         )
         values.write(IdentityPublicKey, Base64.getEncoder().encodeToString(generated.public.encoded))

@@ -1,5 +1,6 @@
 package app.naviamp.app
 
+import app.naviamp.domain.network.NaviampClientName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -130,7 +131,7 @@ class NaviampApplicationRuntime(
         } catch (cause: Throwable) {
             val error = NaviampRuntimeError(
                 operation = operation,
-                message = cause.message ?: "Naviamp runtime operation failed.",
+                message = cause.message ?: "$NaviampClientName runtime operation failed.",
             )
             mutableState.value = onFailure(state.value, error)
             applicationStatus.publish(

@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">وحدة تحكم Navo مقترنة</string>
+    <string name="connect_paired_target">جهاز Navo مستهدف مقترن</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - إحصاءات للخبراء</string>
+    <string name="bootstrap_preparing">جارٍ تجهيز Navo Core…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">البحث عن أجهزة Navo</string>
+    <string name="settings_updates_description">اختر ما إذا كان Navo يعلن عن الإصدارات المستقرة أو التجريبية</string>
+    <string name="settings_shortcuts_description">السماح بهذه الاختصارات أثناء تشغيل Navo، حتى عندما لا تكون نافذته في موضع التركيز</string>
+    <string name="shortcut_bring_to_front">إظهار Navo في المقدمة</string>
+    <string name="smart_playlist_token_help">تتطلب تغييرات قوائم التشغيل الذكية رمز API لـ Navidrome. أدخل كلمة مرورك مرة واحدة وسيحفظ Navo الرمز للتعديلات المستقبلية.</string>
+    <string name="smart_playlist_token_refresh_help">يتطلب تعديل قائمة التشغيل الذكية هذه رمز API مجددًا لـ Navidrome. أدخل كلمة مرورك مرة واحدة وسيحفظ Navo الرمز الجديد.</string>
+    <string name="update_available_title">يتوفر تحديث لـ Navo</string>
+    <string name="connection_unsupported_provider">نوع المزوّد المحفوظ هذا غير مدعوم في هذا الإصدار من Navo.</string>
+    <string name="settings_sync_newer_version">تم إنشاء ملف مزامنة الإعدادات بإصدار أحدث من Navo.</string>
+    <string name="settings_sync_setup_choice">اختر كيفية إعداد Navo.</string>
+    <string name="settings_sync_import_title">استيراد إعدادات Navo</string>
+    <string name="settings_sync_export_title">تصدير إعدادات Navo</string>
+    <string name="connect_incompatible_version">يتطلب هذا الجهاز إصدارًا مختلفًا من Navo.</string>
+    <string name="connect_pairing_start_failed">تعذّر بدء اقتران Navo Connect.</string>
+    <string name="connect_target_command_unsupported">لا يدعم هدف Navo هذا الأمر المطلوب بعد.</string>
+    <string name="connect_advertising_permission_required">يلزم إذن الشبكة المحلية للإعلان عن هدف Navo هذا.</string>
+    <string name="connect_request_failed">تعذّر على Navo Connect إكمال الطلب.</string>
     <string name="settings_resume_playlists">استئناف قوائم التشغيل</string>
     <string name="settings_resume_playlists_description">متابعة قوائم التشغيل من آخر مقطع وموضع توقف</string>
     <string name="common_back">رجوع</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">داكن</string>
     <string name="settings_themes_system">النظام</string>
     <string name="settings_themes_catalog">حزم السمات</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">الغابة</string>
     <string name="settings_player_background">خلفية المشغل</string>
     <string name="tv_aurora">الشفق القطبي</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">العنوان</string>
     <string name="tv_group_albums_by_release_type">تجميع الألبومات حسب نوع الإصدار</string>
     <string name="tv_group_albums_by_release_type_description">عرض الألبومات والأغاني المطولة والأغاني المنفردة والإصدارات الأخرى في أقسام منفصلة</string>
-    <string name="connect_setup_password_required">أدخل كلمة مرور المصدر لإكمال الإعداد. يتحقق Naviamp منها ويحفظها بأمان للاتصالات المستقبلية.</string>
+    <string name="connect_setup_password_required">أدخل كلمة مرور المصدر لإكمال الإعداد. يتحقق Navo منها ويحفظها بأمان للاتصالات المستقبلية.</string>
     <string name="connect_setup_code_consent">يسمح عرض الرمز للجهاز الذي يدخله بالاقتران وإعداد هذا الجهاز باستخدام مصدر الموسيقى والإعدادات الخاصة به.</string>
     <string name="connect_setup_new_code_required">اعرض رمزًا جديدًا على التلفزيون وأعد الاقتران لإكمال الإعداد.</string>
     <string name="settings_keep_screen_awake">إبقاء الشاشة مضاءة</string>
-    <string name="settings_keep_screen_awake_description">يمنع سكون الشاشة التلقائي أثناء ظهور Naviamp. قد يظل سكون النظام وقفل الشاشة ومؤقت طاقة التلفزيون فعالًا.</string>
+    <string name="settings_keep_screen_awake_description">يمنع سكون الشاشة التلقائي أثناء ظهور Navo. قد يظل سكون النظام وقفل الشاشة ومؤقت طاقة التلفزيون فعالًا.</string>
     <string name="settings_keep_screen_awake_failed">تعذر تغيير منع سكون الشاشة. أوقف هذا الإعداد ثم شغله لإعادة المحاولة.</string>
     <string name="now_playing_playback_device">جهاز التشغيل: %1$s</string>
     <string name="now_playing_from_playlist">تشغيل من قائمة التشغيل: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">اختياري. أمثلة: 12h أو 1d أو 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">استخدم مدة صالحة مثل 12h أو 1d أو 1w.</string>
     <string name="connect_pairing_code">رمز الاقتران</string>
-    <string name="connect_devices_description">تحكم في أجهزة Naviamp على هذه الشبكة واقترن بها</string>
+    <string name="connect_devices_description">تحكم في أجهزة Navo على هذه الشبكة واقترن بها</string>
     <string name="connect_setup_timed_out">انتهت مهلة إعداد الجهاز. تحقق من جهاز التشغيل ثم أعد المحاولة.</string>
     <string name="library_sort_title">ترتيب الألبومات: العنوان</string>
     <string name="library_sort_recently_added">ترتيب الألبومات: المضافة حديثًا</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">إرسال الاستماع</string>
     <string name="library_sources_choose">اختيار المكتبات</string>
     <string name="library_sources_title">المكتبات</string>
-    <string name="library_sources_description">اختر المكتبات التي تظهر في Naviamp</string>
+    <string name="library_sources_description">اختر المكتبات التي تظهر في Navo</string>
     <string name="library_sources_loading">جارٍ تحميل المكتبات…</string>
     <string name="library_sources_empty">لا يحتوي هذا الخادم على مكتبات قابلة للاختيار</string>
     <string name="library_sources_save">حفظ</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">صغير</string>
     <string name="settings_font_size_small_subtitle">يعرض محتوى أكثر على الشاشة</string>
     <string name="settings_font_size_standard">قياسي</string>
-    <string name="settings_font_size_standard_subtitle">يستخدم حجم النص الافتراضي في Naviamp</string>
+    <string name="settings_font_size_standard_subtitle">يستخدم حجم النص الافتراضي في Navo</string>
     <string name="settings_font_size_large">كبير</string>
     <string name="settings_font_size_large_subtitle">يحسن القراءة بنص أكبر</string>
     <string name="description_less">أقل</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">لا يدعم هذا الخادم هذا الإجراء.</string>
     <string name="discovery_action_uncertain">تعذر تأكيد النتيجة. تحقق في Aurral قبل إعادة المحاولة.</string>
     <string name="discovery_samples_loading">جارٍ تحميل المقاطع التجريبية…</string>
-    <string name="permission_local_network_usage">يتصل Naviamp بخوادم الموسيقى ويكتشف أجهزة التشغيل على شبكتك المحلية.</string>
+    <string name="permission_local_network_usage">يتصل Navo بخوادم الموسيقى ويكتشف أجهزة التشغيل على شبكتك المحلية.</string>
     <string name="now_playing_playback_position">موضع التشغيل</string>
     <string name="now_playing_volume">مستوى الصوت</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">استخدم هذه اللغة في Naviamp</string>
+    <string name="settings_language_use_subtitle">استخدم هذه اللغة في Navo</string>
     <string name="tv_keep_now_playing_controls_visible">إبقاء عناصر التحكم بالمشغّل ظاهرة</string>
     <string name="tv_keep_now_playing_controls_visible_description">عدم إخفاء عناصر التحكم بالتشغيل الحالي بعد بضع ثوانٍ</string>
     <string name="settings_square_album_artwork">أغلفة ألبومات مربعة</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">لوحة مفاتيح النظام</string>
     <string name="storage_location_app">تخزين التطبيق</string>
     <string name="storage_location_custom">مخصص</string>
-    <string name="connect_recovery_secure_storage">تعذّر على Naviamp فتح مخزن بيانات الاعتماد الآمن على هذا الجهاز. افتح قفل سلسلة مفاتيح النظام، ثم أعد المحاولة.</string>
+    <string name="connect_recovery_secure_storage">تعذّر على Navo فتح مخزن بيانات الاعتماد الآمن على هذا الجهاز. افتح قفل سلسلة مفاتيح النظام، ثم أعد المحاولة.</string>
     <string name="radio_server_title">راديو الخادم</string>
     <string name="radio_server_empty">لا توجد إذاعة متاحة على الخادم</string>
     <string name="generated_radio_saved">المحطات المحفوظة</string>

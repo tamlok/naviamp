@@ -1,5 +1,9 @@
 package app.naviamp.desktop.security
 
+import app.naviamp.desktop.settings.DesktopDevelopmentDataProfileProperty
+import app.naviamp.desktop.settings.defaultDesktopDataDirectory
+import app.naviamp.domain.app.naviampApplicationProfileId
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.storage.StorageCredentialProtector
 import java.nio.file.Files
 import java.nio.file.Path
@@ -108,7 +112,7 @@ private object MacOsKeychainValueStore : DesktopSecureValueStore {
 
 private object LinuxSecretServiceValueStore : DesktopSecureValueStore {
     override fun read(): String? = runCredentialCommand(
-        listOf("secret-tool", "lookup", "application", "app.naviamp", "purpose", "credential-key"),
+        listOf("secret-tool", "lookup", "application", CredentialProfileId, "purpose", "credential-key"),
         allowMissing = true,
     )
 
@@ -117,9 +121,9 @@ private object LinuxSecretServiceValueStore : DesktopSecureValueStore {
             listOf(
                 "secret-tool",
                 "store",
-                "--label=Naviamp credentials",
+                "--label=$NaviampClientName credentials",
                 "application",
-                "app.naviamp",
+                CredentialProfileId,
                 "purpose",
                 "credential-key",
             ),
@@ -204,19 +208,18 @@ private fun runCredentialCommand(
     )
 }
 
-private fun defaultWindowsCredentialKeyPath(): Path {
-    val home = Path.of(System.getProperty("user.home"))
-    return Path.of(System.getenv("APPDATA") ?: home.resolve("AppData/Roaming").toString())
-        .resolve("Naviamp")
-        .resolve("credential-key.dpapi")
-}
+private fun defaultWindowsCredentialKeyPath(): Path =
+    defaultDesktopDataDirectory().resolve("credential-key.dpapi")
 
 private const val CredentialCommandTimeoutSeconds = 120L
-private const val CredentialService = "app.naviamp.credentials.v1"
+private val CredentialProfileId = naviampApplicationProfileId(
+    System.getProperty(DesktopDevelopmentDataProfileProperty).toBoolean(),
+)
+private val CredentialService = "$CredentialProfileId.credentials.v1"
 private val CredentialAccount = System.getProperty("user.name").orEmpty().ifBlank { "Naviamp" }
 private const val CredentialPrefix = "naviamp-desktop-secure-v1:"
 private const val CipherTransformation = "AES/GCM/NoPadding"
 private const val CredentialKeyBytes = 32
 private const val GcmIvBytes = 12
 private const val GcmTagBits = 128
-private val CredentialAad = "app.naviamp.desktop.credentials.v1".encodeToByteArray()
+private val CredentialAad = "$CredentialProfileId.desktop.credentials.v1".encodeToByteArray()

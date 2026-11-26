@@ -1,6 +1,7 @@
 package app.naviamp.domain.settings
 
 import kotlinx.serialization.Serializable
+import app.naviamp.domain.network.NaviampClientName
 
 @Serializable
 enum class DesktopShortcutPlatform(val label: String) {
@@ -16,7 +17,7 @@ enum class GlobalShortcutAction(val label: String) {
     Previous("Previous"),
     VolumeUp("Volume up"),
     VolumeDown("Volume down"),
-    BringToFront("Bring Naviamp to front"),
+    BringToFront("Bring $NaviampClientName to front"),
 }
 
 @Serializable

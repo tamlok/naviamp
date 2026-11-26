@@ -11,18 +11,24 @@ import urllib.parse
 import urllib.request
 
 
-DISCORD_USER_AGENT = "DiscordBot (https://github.com/goosepod/naviamp, 1.0)"
+APPLICATION_NAME = (Path(__file__).resolve().parents[1] / "APPLICATION_NAME").read_text().strip()
+RELEASE_REPOSITORY = (Path(__file__).resolve().parents[1] / "RELEASE_REPOSITORY").read_text().strip()
+DISCORD_USER_AGENT = f"DiscordBot (https://github.com/{RELEASE_REPOSITORY}, 1.0)"
 ANNOUNCEMENTS_CHANNEL_ID = "1547608244099489852"
 
 
 def announcement_payload(notes, release_url):
     title, separator, body = notes.strip().partition("\n")
-    if not re.fullmatch(r"Naviamp v\d+\.\d+\.\d+", title):
-        raise ValueError("Announcement title must be exactly Naviamp vX.Y.Z")
+    match = re.fullmatch(
+        re.escape(APPLICATION_NAME) + r" (v(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))",
+        title,
+    )
+    if not match:
+        raise ValueError(f"Announcement title must be exactly {APPLICATION_NAME} vX.Y.Z")
     if not separator or not body.strip():
         raise ValueError("Announcement body is empty")
-    tag = title.removeprefix("Naviamp ")
-    expected_url = f"https://github.com/goosepod/naviamp/releases/tag/{tag}"
+    tag = match.group(1)
+    expected_url = f"https://github.com/{RELEASE_REPOSITORY}/releases/tag/{tag}"
     if release_url != expected_url:
         raise ValueError("Announcement version does not match the release URL")
     if re.search(r"https://github.com/[^\s)]+/(?:issues|pull|commit)/", body):

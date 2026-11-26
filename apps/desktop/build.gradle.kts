@@ -23,10 +23,12 @@ val desktopPackagingProcess = objects.newInstance<DesktopPackagingProcess>()
 
 val naviampVersionName = rootProject.file("VERSION").readText().trim()
 val naviampVersionCode = rootProject.file("VERSION_CODE").readText().trim().toInt()
+val naviampApplicationId = rootProject.file("APPLICATION_ID").readText().trim()
+val naviampApplicationName = rootProject.file("APPLICATION_NAME").readText().trim()
 val naviampNativePackageVersion = nativeDistributionPackageVersion(naviampVersionName)
 val naviampWindowsPackageVersion = windowsDistributionPackageVersion(naviampVersionName, naviampVersionCode)
 val naviampLinuxPackageVersion = linuxDistributionPackageVersion(naviampVersionName)
-val desktopExecutableDescription = "Naviamp"
+val desktopExecutableDescription = naviampApplicationName
 // CVE-2026-114938 is fixed in the OpenJDK 21.0.13.1 security update.
 val minimumDesktopPackagingJdk = Runtime.Version.parse("21.0.13.1+2")
 val verifyDesktopReleaseJdk by tasks.registering {
@@ -59,7 +61,7 @@ val desktopNativePlatform = providers.gradleProperty("naviamp.bass.platform")
 val generatedDesktopNativeAppResources =
     rootProject.layout.projectDirectory.dir("platforms/desktop/build/generated/desktopNativeAppResources")
 val desktopPackagedAppName = desktopNativePlatform.map { platform ->
-    if (platform.startsWith("macos-")) "Naviamp.app" else "Naviamp"
+    if (platform.startsWith("macos-")) "$naviampApplicationName.app" else naviampApplicationName
 }
 val desktopPackagedAppDir = desktopPackagedAppName.flatMap { appName ->
     layout.buildDirectory.dir("compose/binaries/main/app/$appName")
@@ -83,9 +85,8 @@ val macLocalNetworkPackagingInputs = files(
     rootProject.file("core/app/src/commonMain/kotlin/app/naviamp/app/NaviampCastDiscoveryController.kt"),
     rootProject.fileTree("core/ui/src/commonMain/composeResources") { include("values*/strings.xml") },
 )
-// Per-user packages use a distinct upgrade family so Windows never tries to remove a legacy
-// machine-wide installation (and request elevation) while installing the current-user package.
-val windowsInstallerUpgradeUuid = "75051da2-0b4b-4f67-81d9-56d2e36a6437"
+// Stable fork upgrade family: never match or replace an upstream Naviamp installation.
+val windowsInstallerUpgradeUuid = "1560d807-e123-4b05-b883-b9b8ef9fd46c"
 val windowsInstallerResourcesDir = layout.buildDirectory.dir("windows-installer-resources")
 val windowsInstallerIcon = rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.ico")
 
@@ -128,9 +129,9 @@ compose.desktop {
     application {
         mainClass = "app.naviamp.desktop.MainKt"
         jvmArgs += listOf(
-            "-Dcompose.application.name=Naviamp",
-            "-Dapple.awt.application.name=Naviamp",
-            "-Dsun.awt.application.name=Naviamp",
+            "-Dcompose.application.name=$naviampApplicationName",
+            "-Dapple.awt.application.name=$naviampApplicationName",
+            "-Dsun.awt.application.name=$naviampApplicationName",
             "-Xms64m",
             // Track transitions briefly overlap streaming/prefetch TLS buffers, artwork decoding,
             // and sidecar work. The retained heap remains small, but the old 320 MB ceiling could
@@ -172,12 +173,12 @@ compose.desktop {
         }
 
         nativeDistributions {
-            packageName = "Naviamp"
+            packageName = naviampApplicationName
             packageVersion = naviampNativePackageVersion
             // jpackage maps this value to the Windows executable's FileDescription, which is
             // what Task Manager displays as the application name.
             description = desktopExecutableDescription
-            vendor = "Naviamp"
+            vendor = "LeTalk"
             copyright = "Copyright 2026 Naviamp contributors"
             licenseFile.set(rootProject.file("LICENSE"))
             appResourcesRootDir.set(generatedDesktopNativeAppResources)
@@ -192,29 +193,28 @@ compose.desktop {
                 // Compose exposes Windows screen-reader semantics through Java Access Bridge.
                 modules("jdk.accessibility")
             }
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Exe, TargetFormat.Deb, TargetFormat.Rpm)
+            // Windows installers are owned by registerWindowsInstaller so their shortcuts
+            // carry the same explicit AppUserModel.ID as the running process.
+            targetFormats(TargetFormat.Dmg, TargetFormat.Deb, TargetFormat.Rpm)
 
             windows {
                 iconFile.set(windowsInstallerIcon)
-                upgradeUuid = windowsInstallerUpgradeUuid
-                msiPackageVersion = naviampWindowsPackageVersion
-                exePackageVersion = naviampWindowsPackageVersion
-                perUserInstall = true
-                menu = true
-                menuGroup = "Naviamp"
             }
             macOS {
+                bundleID = naviampApplicationId
                 iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.icns"))
             }
             linux {
                 iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.png"))
-                packageName = "naviamp"
+                packageName = naviampApplicationId
+                // jpackage appends the Linux package name: /opt/cn.com.letalk.navo.
+                installationPath = "/opt"
                 packageVersion = naviampLinuxPackageVersion
                 debPackageVersion = naviampLinuxPackageVersion
                 rpmPackageVersion = naviampLinuxPackageVersion
                 appRelease = "1"
                 shortcut = true
-                debMaintainer = "Naviamp Maintainers"
+                debMaintainer = "$naviampApplicationName Maintainers"
                 menuGroup = "AudioVideo"
                 appCategory = "AudioVideo"
                 rpmLicenseType = "MIT"
@@ -282,6 +282,8 @@ tasks.matching {
         sealMacAppBundle(appDirectory)
     }
     inputs.files(macLocalNetworkPackagingInputs)
+    inputs.file(rootProject.file("APPLICATION_ID"))
+    inputs.file(rootProject.file("APPLICATION_NAME"))
     inputs.property("naviampMacSigningIdentity", macSigningIdentity)
 }
 
@@ -316,7 +318,7 @@ fun Zip.packageDesktopApp(
     group = "distribution"
     dependsOn(if (release) "verifyDesktopReleaseRuntime" else "verifyDesktopDistributable")
     archiveFileName.set(
-        desktopNativePlatform.map { platform -> "Naviamp-$naviampVersionName-$platform-$archiveNameSuffix.zip" },
+        desktopNativePlatform.map { platform -> "$naviampApplicationName-$naviampVersionName-$platform-$archiveNameSuffix.zip" },
     )
     destinationDirectory.set(layout.buildDirectory.dir("compose/distributions"))
     val appDirectory = if (release) desktopReleasePackagedAppDir else desktopPackagedAppDir
@@ -392,12 +394,11 @@ tasks.register("verifyReleaseVersionMetadata") {
         check(linuxDistributionPackageVersion("v2.0.0-beta.1") == "2.0.0~beta.1")
         check(linuxDistributionPackageVersion("v2.0.0-beta.2") == "2.0.0~beta.2")
         check(nativeDistributionPackageVersion("v2.0.0-beta.1") == "2.0.0")
-        check(desktopExecutableDescription == "Naviamp")
         val launchEnabledWindowsTemplate = windowsMainWxsWithOptionalLaunch("<UIRef Id=\"JpUI\"/>")
         check(launchEnabledWindowsTemplate.contains("WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT"))
         check(launchEnabledWindowsTemplate.contains("Value=\"LaunchNaviamp\""))
-        check(launchEnabledWindowsTemplate.contains("[INSTALLDIR]Naviamp.exe"))
-        check("Naviamp-$naviampVersionName-${desktopNativePlatform.get()}.msi".contains(naviampVersionName))
+        check(launchEnabledWindowsTemplate.contains("[INSTALLDIR]$naviampApplicationName.exe"))
+        check("$naviampApplicationName-$naviampVersionName-${desktopNativePlatform.get()}.msi".contains(naviampVersionName))
         if (desktopNativePlatform.get().startsWith("linux-")) {
             val packageDependencies = tasks.withType<AbstractJPackageTask>()
                 .associate { it.targetFormat to it.freeArgs.get() }
@@ -459,7 +460,7 @@ tasks.register("verifyDesktopDistributable") {
             "Desktop package is missing native playback resources in ${bassResourcesDirectory.absolutePath}: ${missing.joinToString()}"
         }
         if (platform.startsWith("windows-")) {
-            val launcherConfig = appDirectory.resolve("app/Naviamp.cfg").readText()
+            val launcherConfig = appDirectory.resolve("app/$naviampApplicationName.cfg").readText()
             val expectedRenderer = windowsSkikoRenderApi.get()
             if (expectedRenderer.isNotBlank() && !expectedRenderer.equals("DEFAULT", ignoreCase = true)) {
                 check(launcherConfig.lineSequence().any { it == "java-options=-Dskiko.renderApi=$expectedRenderer" }) {
@@ -482,7 +483,7 @@ tasks.register("verifyDesktopDistributable") {
             check(applicationIcon.isFile && applicationIcon.length() > 0L) {
                 "Desktop package is missing its macOS JVM application icon: ${applicationIcon.absolutePath}"
             }
-            val launcherConfig = appDirectory.resolve("Contents/app/Naviamp.cfg")
+            val launcherConfig = appDirectory.resolve("Contents/app/$naviampApplicationName.cfg")
             check(launcherConfig.readText().contains("-Xdock:icon=\$APPDIR/resources/icons/naviamp.png")) {
                 "Desktop package does not configure the macOS JVM application icon."
             }
@@ -513,10 +514,12 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
     dependsOn(verifyDesktopReleaseRuntime)
 
     val outputDirectory = layout.buildDirectory.dir("compose/binaries/main-release/$format")
-    val outputFile = outputDirectory.map { it.file("Naviamp-$naviampWindowsPackageVersion.$format") }
+    val outputFile = outputDirectory.map { it.file("$naviampApplicationName-$naviampWindowsPackageVersion.$format") }
     inputs.dir(desktopReleasePackagedAppDir)
     inputs.file(rootProject.file("LICENSE"))
     inputs.file(windowsInstallerIcon)
+    inputs.file(rootProject.file("APPLICATION_ID"))
+    inputs.file(rootProject.file("APPLICATION_NAME"))
     outputs.file(outputFile)
 
     doLast {
@@ -554,6 +557,7 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         resourcesDirectory.resolve("main.wxs").writeText(
             windowsMainWxsWithOptionalLaunch(defaultMainWxs.readText()),
         )
+        resourcesDirectory.resolve("$naviampApplicationName-post-image.wsf").writeText(windowsShortcutIdentityScript())
 
         val destination = outputDirectory.get().asFile
         delete(destination)
@@ -562,19 +566,20 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
             commandLine(
                 jpackageTool.absolutePath,
                 "--type", format,
-                "--name", "Naviamp",
+                "--name", naviampApplicationName,
                 "--app-version", naviampWindowsPackageVersion,
                 "--app-image", desktopReleasePackagedAppDir.get().asFile.absolutePath,
                 "--dest", destination.absolutePath,
                 "--description", desktopExecutableDescription,
-                "--vendor", "Naviamp",
+                "--vendor", "LeTalk",
                 "--copyright", "Copyright 2026 Naviamp contributors",
                 "--license-file", rootProject.file("LICENSE").absolutePath,
                 "--icon", windowsInstallerIcon.absolutePath,
                 "--resource-dir", resourcesDirectory.absolutePath,
+                "--install-dir", naviampApplicationId,
                 "--win-per-user-install",
                 "--win-menu",
-                "--win-menu-group", "Naviamp",
+                "--win-menu-group", "LeTalk",
                 "--win-upgrade-uuid", windowsInstallerUpgradeUuid,
             )
         }.assertNormalExitValue()
@@ -583,6 +588,33 @@ fun registerWindowsInstaller(format: String) = tasks.register("packageReleaseWin
         }
     }
 }
+
+// JDK 21's generated shortcuts lack AppUserModel.ID. Its post-image hook runs after
+// bundle.wxf is generated and before WiX compiles it, so the installed shortcut and process agree.
+// WSH requires the XML declaration to interpret CDATA instead of compiling its delimiters as JScript.
+fun windowsShortcutIdentityScript(): String = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <job><script language="JScript"><![CDATA[
+    var files = new ActiveXObject("Scripting.FileSystemObject");
+    var path = files.BuildPath(files.GetParentFolderName(WScript.ScriptFullName), "bundle.wxf");
+    var document = new ActiveXObject("Msxml2.DOMDocument.6.0");
+    document.async = false;
+    document.preserveWhiteSpace = true;
+    if (!document.load(path)) throw new Error(document.parseError.reason);
+    var namespace = "http://schemas.microsoft.com/wix/2006/wi";
+    document.setProperty("SelectionNamespaces", "xmlns:w='" + namespace + "'");
+    var shortcuts = document.selectNodes("//w:Shortcut[@Name='$naviampApplicationName']");
+    if (shortcuts.length == 0) throw new Error("jpackage did not generate the $naviampApplicationName shortcut");
+    for (var i = 0; i < shortcuts.length; i++) {
+        var property = document.createNode(1, "ShortcutProperty", namespace);
+        property.setAttribute("Id", "NaviampAppUserModelID" + i);
+        property.setAttribute("Key", "System.AppUserModel.ID");
+        property.setAttribute("Value", "$naviampApplicationId");
+        shortcuts.item(i).appendChild(property);
+    }
+    document.save(path);
+    ]]></script></job>
+""".trimIndent()
 
 val packageReleaseWindowsMsi = registerWindowsInstaller("msi")
 val packageReleaseWindowsExe = registerWindowsInstaller("exe")
@@ -613,7 +645,7 @@ tasks.register("stageReleaseArtifacts") {
         destination.mkdirs()
 
         val zip = layout.buildDirectory
-            .file("compose/distributions/Naviamp-$naviampVersionName-$platform-release.zip")
+            .file("compose/distributions/$naviampApplicationName-$naviampVersionName-$platform-release.zip")
             .get()
             .asFile
         check(zip.isFile) { "Versioned Desktop release zip was not produced: ${zip.absolutePath}" }
@@ -634,7 +666,7 @@ tasks.register("stageReleaseArtifacts") {
             copy {
                 from(source)
                 into(destination)
-                rename { "Naviamp-$naviampVersionName-$platform.$extension" }
+                rename { "$naviampApplicationName-$naviampVersionName-$platform.$extension" }
             }
         }
     }
@@ -705,9 +737,9 @@ fun markDesktopVisualizerMetalExecutable(appDirectory: File) {
 fun configureDesktopDataProfile(appDirectory: File, releaseArtifact: Boolean) {
     val platform = desktopNativePlatform.get()
     val launcherConfig = when {
-        platform.startsWith("macos-") -> appDirectory.resolve("Contents/app/Naviamp.cfg")
-        platform.startsWith("linux-") -> appDirectory.resolve("lib/app/Naviamp.cfg")
-        else -> appDirectory.resolve("app/Naviamp.cfg")
+        platform.startsWith("macos-") -> appDirectory.resolve("Contents/app/$naviampApplicationName.cfg")
+        platform.startsWith("linux-") -> appDirectory.resolve("lib/app/$naviampApplicationName.cfg")
+        else -> appDirectory.resolve("app/$naviampApplicationName.cfg")
     }
     check(launcherConfig.isFile) {
         "Desktop launcher configuration is missing: ${launcherConfig.absolutePath}"
@@ -800,9 +832,9 @@ fun windowsMainWxsWithOptionalLaunch(defaultMainWxs: String): String {
     return defaultMainWxs.replace(
         uiReference,
         """
-        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Naviamp" />
+        <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch $naviampApplicationName" />
         <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
-        <Property Id="WixShellExecTarget" Value="[INSTALLDIR]Naviamp.exe" />
+        <Property Id="WixShellExecTarget" Value="[INSTALLDIR]$naviampApplicationName.exe" />
         <CustomAction
           Id="LaunchNaviamp"
           BinaryKey="WixCA"

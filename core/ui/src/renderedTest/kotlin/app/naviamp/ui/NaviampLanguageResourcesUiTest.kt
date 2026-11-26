@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.LayoutDirection
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.settings_language_use_subtitle
@@ -21,23 +22,23 @@ import org.jetbrains.compose.resources.stringResource
 class NaviampLanguageResourcesUiTest {
     // Check actual localized output, including Android's legacy Indonesian locale code.
     private val expected = mapOf(
-        "en" to "Use this language for Naviamp",
-        "ar" to "استخدم هذه اللغة في Naviamp",
-        "de" to "Diese Sprache für Naviamp verwenden",
-        "es" to "Usar este idioma en Naviamp",
-        "fr" to "Utiliser cette langue pour Naviamp",
-        "hi" to "Naviamp के लिए इस भाषा का उपयोग करें",
-        "id" to "Gunakan bahasa ini untuk Naviamp",
-        "it" to "Usa questa lingua per Naviamp",
-        "ja" to "Naviamp でこの言語を使用します",
-        "ko" to "Naviamp에 이 언어를 사용합니다",
-        "nl" to "Gebruik deze taal voor Naviamp",
-        "pl" to "Używaj tego języka w Naviamp",
-        "pt-BR" to "Usar este idioma no Naviamp",
-        "ru" to "Использовать этот язык в Naviamp",
-        "tr" to "Naviamp için bu dili kullan",
-        "uk" to "Використовувати цю мову в Naviamp",
-        "zh-CN" to "在 Naviamp 中使用此语言",
+        "en" to "Use this language for $NaviampClientName",
+        "ar" to "استخدم هذه اللغة في $NaviampClientName",
+        "de" to "Diese Sprache für $NaviampClientName verwenden",
+        "es" to "Usar este idioma en $NaviampClientName",
+        "fr" to "Utiliser cette langue pour $NaviampClientName",
+        "hi" to "$NaviampClientName के लिए इस भाषा का उपयोग करें",
+        "id" to "Gunakan bahasa ini untuk $NaviampClientName",
+        "it" to "Usa questa lingua per $NaviampClientName",
+        "ja" to "$NaviampClientName でこの言語を使用します",
+        "ko" to "${NaviampClientName}에 이 언어를 사용합니다",
+        "nl" to "Gebruik deze taal voor $NaviampClientName",
+        "pl" to "Używaj tego języka w $NaviampClientName",
+        "pt-BR" to "Usar este idioma no $NaviampClientName",
+        "ru" to "Использовать этот язык в $NaviampClientName",
+        "tr" to "$NaviampClientName için bu dili kullan",
+        "uk" to "Використовувати цю мову в $NaviampClientName",
+        "zh-CN" to "在 $NaviampClientName 中使用此语言",
     )
 
     @Test fun everyLanguageResolvesItsCatalogWithoutRecreatingUiOrLosingFocus() = runComposeUiTest {

@@ -7,6 +7,7 @@ import android.content.Context
 import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.ui.androidPlatformCoverArtFile
 import java.io.FileNotFoundException
 import java.security.MessageDigest
@@ -19,13 +20,13 @@ class AndroidNaviampArtworkProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
 
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-        if (mode != "r") throw FileNotFoundException("Naviamp artwork is read-only.")
+        if (mode != "r") throw FileNotFoundException("$NaviampClientName artwork is read-only.")
         val artworkUrl = ArtworkRegistry.url(uri.lastPathSegment)
-            ?: throw FileNotFoundException("Unknown Naviamp artwork URI.")
-        val providerContext = context ?: throw FileNotFoundException("Naviamp context is unavailable.")
+            ?: throw FileNotFoundException("Unknown $NaviampClientName artwork URI.")
+        val providerContext = context ?: throw FileNotFoundException("$NaviampClientName context is unavailable.")
         val file = runBlocking(Dispatchers.IO) {
             androidPlatformCoverArtFile(providerContext, artworkUrl)
-        } ?: throw FileNotFoundException("Naviamp artwork is unavailable.")
+        } ?: throw FileNotFoundException("$NaviampClientName artwork is unavailable.")
         return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     }
 

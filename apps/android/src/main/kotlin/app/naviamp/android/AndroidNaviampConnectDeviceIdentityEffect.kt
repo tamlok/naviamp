@@ -4,6 +4,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import app.naviamp.app.NaviampConnectDeviceIdentity
 import app.naviamp.app.NaviampConnectDeviceIdentityEffect
+import app.naviamp.domain.network.NaviampClientName
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -17,7 +18,7 @@ class AndroidNaviampConnectDeviceIdentityEffect : NaviampConnectDeviceIdentityEf
         val publicKey = keyStore().let { store ->
             if (!store.containsAlias(KeyAlias)) createKeyPair()
             requireNotNull(store.getCertificate(KeyAlias)?.publicKey) {
-                "Android Keystore did not return the Naviamp Connect identity public key."
+                "Android Keystore did not return the $NaviampClientName Connect identity public key."
             }
         }
         val encoded = publicKey.encoded
@@ -33,7 +34,7 @@ class AndroidNaviampConnectDeviceIdentityEffect : NaviampConnectDeviceIdentityEf
         val store = keyStore()
         if (!store.containsAlias(KeyAlias)) loadOrCreate()
         val privateKey = requireNotNull(store.getKey(KeyAlias, null)) {
-            "Android Keystore did not return the Naviamp Connect identity private key."
+            "Android Keystore did not return the $NaviampClientName Connect identity private key."
         }
         return Signature.getInstance(SignatureAlgorithm).run {
             initSign(privateKey as java.security.PrivateKey)

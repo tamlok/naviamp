@@ -92,8 +92,8 @@ fun settingsSyncReconciliationStatus(result: SettingsSyncOperationResult): Strin
         SettingsSyncOperationKind.Exported -> "Settings sync exported local settings."
         SettingsSyncOperationKind.NoOp -> "Settings sync is up to date."
         SettingsSyncOperationKind.UnsupportedSyncFile ->
-            "Settings sync file was created by a newer Naviamp version."
-        SettingsSyncOperationKind.NeedsSetupChoice -> "Choose how to set up Naviamp."
+            "settings_sync_newer_version"
+        SettingsSyncOperationKind.NeedsSetupChoice -> "settings_sync_setup_choice"
         SettingsSyncOperationKind.MissingSyncLocation -> "Choose a settings sync folder first."
     }
 

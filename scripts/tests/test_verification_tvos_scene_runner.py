@@ -23,6 +23,7 @@ class FailedSceneEvidenceTest(unittest.TestCase):
             root.mkdir()
             for name in ('apps', 'core', 'platforms', 'scripts'):
                 (root/name).symlink_to(ROOT/name, target_is_directory=True)
+            (root/'APPLICATION_NAME').write_bytes((ROOT/'APPLICATION_NAME').read_bytes())
             (root/'build').mkdir()
             (root/'build/full-ui-probe-variants.json').write_text('{}')
             out = Path(temporary)/'evidence'

@@ -1,4 +1,12 @@
-# TestFlight preparation
+# Historical UPSTREAM TestFlight preparation
+
+> **Historical UPSTREAM reference — not LeTalk distribution instructions.** This packet records
+> `goosepod/naviamp` operations and Apple app records, not registrations for `tamlok/naviamp`.
+> Do not reuse the upstream app records, groups, signing identities or public links for LeTalk.
+> This fork uses `cn.com.letalk.navo` for iOS and has no established Apple store/TestFlight
+> distribution or automated unsigned IPA. Apple pipelines are disabled; only Windows and Android
+> pipelines are enabled. Use [iOS source-build instructions](../ios-sideloading.md) instead.
+> The dated observations, provenance and original operator runbook below are retained as history.
 
 Tracking: [#355](https://github.com/goosepod/naviamp/issues/355). Prepared October 27, 2026.
 This packet covers iOS and macOS separately and preserves the pending public App Store submissions.
@@ -7,13 +15,13 @@ Its original operations applied to v2.9.0/build 57.
 The owner accepted the Windows v2.10.0/build 60 candidate on October 31. The
 [v2.10.0 distribution handoff](../releases/v2.10.0-readiness.md) now selects that version
 for release preparation. This older packet and its console observations remain historical;
-they do not establish v2.10.0 upload, review, enrollment or installation. Reuse the existing
-app records and groups after checking their live status.
+they do not establish v2.10.0 upload, review, enrollment or installation. The original upstream
+handoff concerned its existing app records and groups; none are LeTalk app records.
 
 ## Historical evidence
 
 Live browser verification resumed October 27 through native Firefox control. See the
-[current operations checkpoint](status-2026-10-27.md) for completed changes and remaining gates.
+[historical operations checkpoint](status-2026-10-27.md) for completed changes and remaining gates.
 
 | Platform | Live verified record | Remaining |
 | --- | --- | --- |
@@ -30,7 +38,7 @@ reported accepting it; no agreement was accepted by the agent. Apple nevertheles
 existing Mac build's beta-review submission. Do not infer all future upload/submission operations are
 unblocked. Chrome browser-channel creation still failed; native Firefox supplied the working path.
 
-## Owner choices and private inputs
+## Historical upstream owner choices and private inputs
 
 - Distribution: public TestFlight link, with separate Mac/iOS cohorts for platform-specific feedback.
 - Feedback email: supplied by the owner; keep the actual value in the local private preparation file
@@ -48,7 +56,7 @@ unblocked. Chrome browser-channel creation still failed; native Firefox supplied
 The local private file is `build/testflight-prep-355/private-config.json` in the owner's original
 workspace. It is ignored and restricted to the owner. Public templates deliberately omit its values.
 
-## Ready-to-paste material
+## Historical upstream prepared material
 
 - [Beta description](beta-description.txt): shared English description without unreleased claims.
 - [iOS What to Test](what-to-test-ios.txt).
@@ -59,7 +67,7 @@ These drafts apply to the initial 2.9.0/build 57 plan only after confirming the 
 Update them for another explicitly selected build. Do not advertise handoff expansion, Easy Fade,
 new Android Auto features or v2.10.0-only changes as available in these uploads.
 
-## App Store Connect runbook
+## Original upstream App Store Connect runbook (historical)
 
 1. Open each app's TestFlight tab. Record app ID, platform, bundle ID, version/build, upload date,
    processing/compliance state, internal/external beta state and expiry. Distinguish public App Review
@@ -84,7 +92,7 @@ new Android Auto features or v2.10.0-only changes as available in these uploads.
 8. Track crashes/feedback by platform/build. Record build expiry and replacement plan; notify testers
    deliberately when switching builds. Do not assume a later version is automatically accepted.
 
-## Installation acceptance matrix
+## Historical upstream installation acceptance matrix
 
 Installation rows remain pending; successful metadata/group/link setup does not prove an install.
 Earlier development-signed or simulator checks are not TestFlight installs.

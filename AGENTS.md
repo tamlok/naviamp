@@ -45,12 +45,12 @@ of imported values. Keep only genuinely device-specific settings local.
 
 ## Release Announcements
 
-GitHub release names must be exactly `Naviamp vX.Y.Z` (for example, `Naviamp v2.9.0`).
+GitHub release names must be exactly `Navo vX.Y.Z` (for example, `Navo v1.0.0`).
 Never append a subtitle, feature description, codename, colon, or other suffix. Put feature
 highlights in the release body and announcement text. Verify the exact release name before
 publishing and after publication. This is an explicit owner requirement.
 
-Whenever a new Naviamp release is pushed, create a GitHub Discussion in the **Announcements**
+Whenever a new Navo release is pushed, create a GitHub Discussion in the **Announcements**
 category that explains what is new, what changed, important fixes, and any upgrade or compatibility
 notes. Feature branches and other unreleased work do not receive release announcements.
 

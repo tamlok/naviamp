@@ -4,8 +4,9 @@ set -euo pipefail
 repo=$(realpath "${1:?signed repository}")
 work=$(realpath -m "${2:?fresh evidence directory}")
 root=$(cd "$(dirname "$0")/../.." && pwd)
-public_key=${3:-"$root/packaging/flatpak/naviamp.asc"}
-app=io.github.goosepod.Naviamp
+public_key=$(realpath "${3:?explicit accepted public signing key}")
+app=$(tr -d '\r\n' < "$root/APPLICATION_ID")
+app_name=$(tr -d '\r\n' < "$root/APPLICATION_NAME")
 if flatpak info --user "$app" >/dev/null 2>&1 || [[ -e "$HOME/.var/app/$app" ]]; then
   echo 'Use a fresh test user: refusing to touch an existing Flatpak profile' >&2
   exit 1
@@ -33,14 +34,14 @@ flatpak run --command=sh "$app" -c '
   printf test-only | secret-tool store --label=Flatpak-test naviamp-flatpak test
   test "$(secret-tool lookup naviamp-flatpak test)" = test-only
   secret-tool clear naviamp-flatpak test
-  test -x /app/lib/naviamp/bin/Naviamp
+  test -x "/app/lib/naviamp/bin/$1"
   test -d /app/lib/naviamp/lib/runtime
-' > "$work/runtime-check.txt" 2>&1
+' sh "$app_name" > "$work/runtime-check.txt" 2>&1
 flatpak run "$app" > "$work/application.log" 2>&1 &
 app_pid=$!
 window=
 for ((attempt=0; attempt<120; attempt++)); do
-  window=$(xdotool search --onlyvisible --name '^Naviamp$' 2>/dev/null | head -n 1 || true)
+  window=$(xdotool search --onlyvisible --name "^${app_name}$" 2>/dev/null | head -n 1 || true)
   if [[ -n "$window" ]]; then break; fi
   kill -0 "$app_pid"
   sleep .25
@@ -65,7 +66,7 @@ if [[ "$painted" != true ]]; then
   cat "$work/paint-readiness.txt" >&2
   exit 1
 fi
-gdbus call --session --dest org.mpris.MediaPlayer2.naviamp --object-path /org/mpris/MediaPlayer2 \
+gdbus call --session --dest "org.mpris.MediaPlayer2.$app" --object-path /org/mpris/MediaPlayer2 \
   --method org.freedesktop.DBus.Properties.Get org.mpris.MediaPlayer2.Player PlaybackStatus \
   > "$work/mpris.txt"
 cp "$root/scripts/flatpak/audio-probe.c" "$work/audio-probe.c"

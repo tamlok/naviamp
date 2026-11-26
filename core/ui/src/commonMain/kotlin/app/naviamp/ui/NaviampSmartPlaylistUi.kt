@@ -509,7 +509,7 @@ fun SmartPlaylistBuilderDialog(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        "Smart playlist changes need a Navidrome API token. Enter your password once and Naviamp will save the token for future edits.",
+                        stringResource(Res.string.smart_playlist_token_help),
                         color = colors.secondaryText,
                         fontSize = 12.sp,
                     )
@@ -612,7 +612,7 @@ internal fun SmartPlaylistLoadPasswordDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Editing this smart playlist needs a refreshed Navidrome API token. Enter your password once and Naviamp will save the new token.",
+                    stringResource(Res.string.smart_playlist_token_refresh_help),
                     color = colors.secondaryText,
                     fontSize = 12.sp,
                 )

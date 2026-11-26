@@ -73,7 +73,7 @@ to `app.classpath`, and set these JVM properties to absolute paths:
 
 ```text
 -Dnaviamp.probe.directory=<disposable-app-directory>
--Dnaviamp.probe.launcher=<disposable-app-directory>/Naviamp.exe
+-Dnaviamp.probe.launcher=<disposable-app-directory>/Navo.exe
 -Dnaviamp.probe.observe=true
 -Dnaviamp.probe.capture=false
 ```
@@ -93,7 +93,7 @@ reset; terminating the verified task-owned helper removed the traffic and the sa
 CPU fell from 4.53% to 0.47%. Therefore, do not treat reset alone as proof of an idle observer.
 Verify zero request traffic/helper exit for the installed tool version. Resource cleanup must
 identify the exact task-owned PID, creation time and parent/child relationships; never terminate
-arbitrary accessibility clients or disable accessibility in Naviamp. Reconnect afterward to
+arbitrary accessibility clients or disable accessibility in Navo. Reconnect afterward to
 verify retained paint and motion, then release the new observation session before timing again.
 Keep contaminated readings as diagnostics and do not subtract their presumed overhead.
 
@@ -118,13 +118,13 @@ an exact partition of the observer interval. Keep high samples even when compila
 Native WPR is under `Windows/Sysnative` from a 32-bit shell and `Windows/System32` from a
 64-bit shell. A missing PATH command does not establish that WPR is unavailable. If Windows
 rejects kernel profiling with `0xc5585011`, an administrator must run the capture. Keep the
-disposable Naviamp application unelevated, visible and at the measured size, then use:
+disposable Navo application unelevated, visible and at the measured size, then use:
 
 ```powershell
 scripts/animation-probe/capture-windows-native-cpu.ps1 -ApplicationProcessId <child-JVM-PID>
 ```
 
-The helper requires an administrator shell, validates a disposable Naviamp build in this checkout,
+The helper requires an administrator shell, validates a disposable Navo build in this checkout,
 records for twelve seconds, and saves under ignored `build/windows-native-cpu`. It creates a unique
 WPR instance and only stops/cancels that instance. It does not elevate the app, change OS policy,
 or control the UI. The owner successfully ran its administrator capture on October 29 (30 seconds).
@@ -184,7 +184,7 @@ dotnet run --project scripts/animation-probe/native-cpu-analysis -- `
   --uia-summary build/native-uia/example.etl <disposable-child-JVM-PID>
 ```
 
-The capture accepts only Naviamp executables under this checkout's build directories, refuses an
+The capture accepts only Navo executables under this checkout's build directories, refuses an
 existing output, preserves the target identity, and stops only its own unique session. It enables
 UIAutomationCore performance keyword `0x10000` with PID filtering and event IDs 523/524/545/546.
 The receive/response events carry `PeerProcessId`; execution events supply method identifiers.
@@ -202,7 +202,7 @@ A first global provider attempt lost events; use the narrow filters and check `E
 ## Windows native diagnostic control
 
 `windows-native-sampler/` contains the October 29 investigation helper and a plain Swing control.
-Neither is linked to or packaged with Naviamp. Use only disposable processes with verified PID/TID
+Neither is linked to or packaged with Navo. Use only disposable processes with verified PID/TID
 identities. The sampler rejects a thread belonging to another process, limits collection to 30
 seconds, and immediately resumes the target before allocation, symbol lookup or stack unwinding.
 It copies a bounded stack region while suspended. Do not use it during acceptance measurements.
@@ -231,4 +231,4 @@ rebuilt afterward, in accordance with the owner's stop instruction.
 Keep the control and application foreground, unobscured, equally sized, and under the same display,
 power and input conditions. Without those conditions, a low control reading cannot establish an
 application or runtime regression. Record window/capture approval failures rather than bypassing
-them. A plain Java control's CPU cost does not waive Naviamp's application performance budget.
+them. A plain Java control's CPU cost does not waive Navo's application performance budget.

@@ -16,6 +16,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
+import app.naviamp.domain.network.NaviampClientName
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
@@ -58,7 +59,7 @@ class NaviampChangelogRenderedUiTest {
         val about = NaviampAboutUi()
         setContent { TelevisionAboutSettings(NaviampAppShellUiState(general = NaviampGeneralSettingsUi(about = about)),
             NaviampColors.Dark, FocusRequester()) }
-        onNodeWithText("Naviamp").performSemanticsAction(SemanticsActions.RequestFocus)
+        onNodeWithText(NaviampClientName).performSemanticsAction(SemanticsActions.RequestFocus)
         about.changelog.flatMap { it.entries }.forEach { entry ->
             onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
             onNodeWithText(entry).assertIsFocused().assertIsDisplayed()

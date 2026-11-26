@@ -1,5 +1,6 @@
 package app.naviamp.provider.jellyfin
 
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.source.SavedMediaSource
 import app.naviamp.domain.source.ConnectionHeaderDefinition
 import kotlinx.coroutines.test.runTest
@@ -48,7 +49,7 @@ class JellyfinSessionServiceTest {
         assertEquals("alice", body.getValue("Username").jsonPrimitive.content)
         assertEquals("secret", body.getValue("Pw").jsonPrimitive.content)
         assertEquals(
-            "MediaBrowser Client=\"Naviamp\", Device=\"Mac\", DeviceId=\"device-id\", Version=\"1.0\"",
+            "MediaBrowser Client=\"$NaviampClientName\", Device=\"Mac\", DeviceId=\"device-id\", Version=\"1.0\"",
             http.postHeaders.getValue("Authorization"),
         )
         assertEquals("allowed", http.postHeaders["X-Reverse-Proxy"])

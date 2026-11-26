@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">Сполучений контролер Navo</string>
+    <string name="connect_paired_target">Сполучений цільовий пристрій Navo</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - Статистика для знавців</string>
+    <string name="bootstrap_preparing">Підготовка Navo Core…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Знайти пристрої Navo</string>
+    <string name="settings_updates_description">Виберіть, про які випуски Navo повідомлятиме: стабільні чи бета</string>
+    <string name="settings_shortcuts_description">Дозволити ці сполучення клавіш під час роботи Navo, навіть коли його вікно не у фокусі</string>
+    <string name="shortcut_bring_to_front">Вивести Navo на передній план</string>
+    <string name="smart_playlist_token_help">Для зміни розумних списків відтворення потрібен токен API Navidrome. Введіть пароль один раз, і Navo збереже токен для майбутніх змін.</string>
+    <string name="smart_playlist_token_refresh_help">Для редагування цього розумного списку відтворення потрібен оновлений токен API Navidrome. Введіть пароль один раз, і Navo збереже новий токен.</string>
+    <string name="update_available_title">Доступне оновлення Navo</string>
+    <string name="connection_unsupported_provider">Цей збережений тип постачальника не підтримується цією версією Navo.</string>
+    <string name="settings_sync_newer_version">Файл синхронізації налаштувань створено новішою версією Navo.</string>
+    <string name="settings_sync_setup_choice">Виберіть спосіб налаштування Navo.</string>
+    <string name="settings_sync_import_title">Імпортувати налаштування Navo</string>
+    <string name="settings_sync_export_title">Експортувати налаштування Navo</string>
+    <string name="connect_incompatible_version">Цей пристрій потребує іншої версії Navo.</string>
+    <string name="connect_pairing_start_failed">Не вдалося почати створення пари Navo Connect.</string>
+    <string name="connect_target_command_unsupported">Цей цільовий пристрій Navo ще не підтримує запитану команду.</string>
+    <string name="connect_advertising_permission_required">Для оголошення цього цільового пристрою Navo потрібен дозвіл на доступ до локальної мережі.</string>
+    <string name="connect_request_failed">Navo Connect не вдалося виконати запит.</string>
     <string name="settings_resume_playlists">Відновлювати списки відтворення</string>
     <string name="settings_resume_playlists_description">Продовжувати списки відтворення з останнього треку та позиції відтворення</string>
     <string name="common_back">Назад</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">Темний</string>
     <string name="settings_themes_system">Системний</string>
     <string name="settings_themes_catalog">Пакети тем</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">Ліс</string>
     <string name="settings_player_background">Тло програвача</string>
     <string name="tv_aurora">Сяйво</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">Назва</string>
     <string name="tv_group_albums_by_release_type">Групувати альбоми за типом релізу</string>
     <string name="tv_group_albums_by_release_type_description">Показувати альбоми, EP, сингли та інші релізи в окремих розділах</string>
-    <string name="connect_setup_password_required">Введіть пароль джерела, щоб завершити налаштування. Naviamp перевірить його та безпечно збереже для майбутніх підключень.</string>
+    <string name="connect_setup_password_required">Введіть пароль джерела, щоб завершити налаштування. Navo перевірить його та безпечно збереже для майбутніх підключень.</string>
     <string name="connect_setup_code_consent">Показ коду дозволяє пристрою, на якому його введуть, створити пару та налаштувати цей пристрій зі своїм джерелом музики й налаштуваннями.</string>
     <string name="connect_setup_new_code_required">Покажіть новий код на телевізорі та повторіть створення пари, щоб завершити налаштування.</string>
     <string name="settings_keep_screen_awake">Не вимикати екран</string>
-    <string name="settings_keep_screen_awake_description">Запобігає автоматичному вимкненню екрана, поки Naviamp видимий. Сон системи, блокування екрана й таймери телевізора можуть діяти й надалі.</string>
+    <string name="settings_keep_screen_awake_description">Запобігає автоматичному вимкненню екрана, поки Navo видимий. Сон системи, блокування екрана й таймери телевізора можуть діяти й надалі.</string>
     <string name="settings_keep_screen_awake_failed">Не вдалося змінити запобігання вимкненню екрана. Вимкніть і знову ввімкніть цей параметр, щоб повторити спробу.</string>
     <string name="now_playing_playback_device">Пристрій відтворення: %1$s</string>
     <string name="now_playing_from_playlist">З плейлиста: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">Необов’язково. Приклади: 12h, 1d або 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">Вкажіть дійсну тривалість, наприклад 12h, 1d або 1w.</string>
     <string name="connect_pairing_code">Код сполучення</string>
-    <string name="connect_devices_description">Керуйте пристроями Naviamp у цій мережі та створюйте пари</string>
+    <string name="connect_devices_description">Керуйте пристроями Navo у цій мережі та створюйте пари</string>
     <string name="connect_setup_timed_out">Час налаштування пристрою минув. Перевірте пристрій відтворення та спробуйте знову.</string>
     <string name="library_sort_title">Сортування альбомів: за назвою</string>
     <string name="library_sort_recently_added">Сортування альбомів: нещодавно додані</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">Надіслати прослуховування</string>
     <string name="library_sources_choose">Вибрати бібліотеки</string>
     <string name="library_sources_title">Бібліотеки</string>
-    <string name="library_sources_description">Виберіть бібліотеки, які відображатимуться в Naviamp</string>
+    <string name="library_sources_description">Виберіть бібліотеки, які відображатимуться в Navo</string>
     <string name="library_sources_loading">Завантаження бібліотек…</string>
     <string name="library_sources_empty">На цьому сервері немає бібліотек, які можна вибрати</string>
     <string name="library_sources_save">Зберегти</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">Малий</string>
     <string name="settings_font_size_small_subtitle">Показує більше вмісту на екрані</string>
     <string name="settings_font_size_standard">Стандартний</string>
-    <string name="settings_font_size_standard_subtitle">Використовує стандартний розмір тексту Naviamp</string>
+    <string name="settings_font_size_standard_subtitle">Використовує стандартний розмір тексту Navo</string>
     <string name="settings_font_size_large">Великий</string>
     <string name="settings_font_size_large_subtitle">Покращує читабельність завдяки більшому тексту</string>
     <string name="description_less">Згорнути</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">Цей сервер не підтримує цю дію.</string>
     <string name="discovery_action_uncertain">Не вдалося підтвердити результат. Перевірте Aurral перед повторною спробою.</string>
     <string name="discovery_samples_loading">Завантаження уривків…</string>
-    <string name="permission_local_network_usage">Naviamp підключається до ваших музичних серверів і знаходить пристрої відтворення в локальній мережі.</string>
+    <string name="permission_local_network_usage">Navo підключається до ваших музичних серверів і знаходить пристрої відтворення в локальній мережі.</string>
     <string name="now_playing_playback_position">Позиція відтворення</string>
     <string name="now_playing_volume">Гучність</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Використовувати цю мову в Naviamp</string>
+    <string name="settings_language_use_subtitle">Використовувати цю мову в Navo</string>
     <string name="tv_keep_now_playing_controls_visible">Залишати елементи керування програвачем видимими</string>
     <string name="tv_keep_now_playing_controls_visible_description">Не приховувати елементи керування поточним відтворенням через кілька секунд</string>
     <string name="settings_square_album_artwork">Обкладинки з прямими кутами</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">Системна клавіатура</string>
     <string name="storage_location_app">Сховище застосунку</string>
     <string name="storage_location_custom">Власне</string>
-    <string name="connect_recovery_secure_storage">Naviamp не вдалося відкрити захищене сховище облікових даних цього пристрою. Розблокуйте системну в’язку ключів і спробуйте ще раз.</string>
+    <string name="connect_recovery_secure_storage">Navo не вдалося відкрити захищене сховище облікових даних цього пристрою. Розблокуйте системну в’язку ключів і спробуйте ще раз.</string>
     <string name="radio_server_title">Радіо сервера</string>
     <string name="radio_server_empty">Радіо сервера недоступне</string>
     <string name="generated_radio_saved">Збережені станції</string>

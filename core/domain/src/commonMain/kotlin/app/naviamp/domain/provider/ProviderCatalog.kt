@@ -94,7 +94,7 @@ fun providerDescriptor(providerId: String?): ProviderDescriptor {
             protocolFamily = ProviderProtocolFamily.Unknown,
             icon = ProviderConnectionIcon.Subsonic,
             availability = ProviderAvailability.ComingSoon,
-            connectionGuidance = "This saved provider type is not supported by this version of Naviamp.",
+            connectionGuidance = "connection_unsupported_provider",
         )
 }
 

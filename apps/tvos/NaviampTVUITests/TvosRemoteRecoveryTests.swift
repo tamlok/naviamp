@@ -3,7 +3,7 @@ import XCTest
 /// Drives the shipped scene through the tvOS remote and system keyboard, without a test-only app entry point.
 @MainActor
 final class TvosRemoteRecoveryTests: XCTestCase {
-    private let app = XCUIApplication(bundleIdentifier: "app.naviamp.tvos")
+    private let app = XCUIApplication(bundleIdentifier: "cn.com.letalk.navo.tvos")
     private let remote = XCUIRemote.shared
 
     private var recommendationsCard: XCUIElement {
@@ -124,7 +124,7 @@ final class TvosRemoteRecoveryTests: XCTestCase {
     }
 
     private func createAccountsThroughRemote() {
-        XCTAssertTrue(app.staticTexts["Set up Naviamp"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Set up Navo"].waitForExistence(timeout: 20))
         record("initial")
         remote.press(.right)
         remote.press(.right)

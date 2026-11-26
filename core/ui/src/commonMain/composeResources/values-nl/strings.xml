@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="connect_paired_controller">Gekoppelde Navo-controller</string>
+    <string name="connect_paired_target">Gekoppeld Navo-doelapparaat</string>
+    <string name="app_name">Navo</string>
+    <string name="stats_window_title">Navo - Statistieken voor nerds</string>
+    <string name="bootstrap_preparing">Navo Core voorbereiden…</string>
+    <string name="connect_title">Navo Connect</string>
+    <string name="connect_find_devices">Navo-apparaten zoeken</string>
+    <string name="settings_updates_description">Kies of Navo stabiele of bètaversies aankondigt</string>
+    <string name="settings_shortcuts_description">Sta deze sneltoetsen toe terwijl Navo actief is, ook als het venster geen focus heeft</string>
+    <string name="shortcut_bring_to_front">Navo naar de voorgrond brengen</string>
+    <string name="smart_playlist_token_help">Voor wijzigingen aan slimme afspeellijsten is een Navidrome-API-token nodig. Voer je wachtwoord eenmaal in en Navo slaat het token op voor toekomstige wijzigingen.</string>
+    <string name="smart_playlist_token_refresh_help">Voor het bewerken van deze slimme afspeellijst is een vernieuwd Navidrome-API-token nodig. Voer je wachtwoord eenmaal in en Navo slaat het nieuwe token op.</string>
+    <string name="update_available_title">Navo-update beschikbaar</string>
+    <string name="connection_unsupported_provider">Dit opgeslagen providertype wordt niet ondersteund door deze versie van Navo.</string>
+    <string name="settings_sync_newer_version">Het bestand voor instellingensynchronisatie is gemaakt met een nieuwere versie van Navo.</string>
+    <string name="settings_sync_setup_choice">Kies hoe je Navo wilt instellen.</string>
+    <string name="settings_sync_import_title">Navo-instellingen importeren</string>
+    <string name="settings_sync_export_title">Navo-instellingen exporteren</string>
+    <string name="connect_incompatible_version">Dit apparaat vereist een andere versie van Navo.</string>
+    <string name="connect_pairing_start_failed">Koppelen met Navo Connect kon niet worden gestart.</string>
+    <string name="connect_target_command_unsupported">Dit Navo-doel ondersteunt de gevraagde opdracht nog niet.</string>
+    <string name="connect_advertising_permission_required">Toestemming voor het lokale netwerk is vereist om dit Navo-doel bekend te maken.</string>
+    <string name="connect_request_failed">Navo Connect kon het verzoek niet voltooien.</string>
     <string name="settings_resume_playlists">Afspeellijsten hervatten</string>
     <string name="settings_resume_playlists_description">Afspeellijsten hervatten vanaf het laatste nummer en de laatste positie</string>
     <string name="common_back">Terug</string>
@@ -13,7 +36,7 @@
     <string name="settings_themes_dark">Donker</string>
     <string name="settings_themes_system">Systeem</string>
     <string name="settings_themes_catalog">Themapakketten</string>
-    <string name="settings_themes_builtin">Naviamp</string>
+    <string name="settings_themes_builtin">Navo</string>
     <string name="settings_themes_forest">Bos</string>
     <string name="settings_player_background">Spelerachtergrond</string>
     <string name="tv_aurora">Aurora</string>
@@ -50,11 +73,11 @@
     <string name="tv_album_sort_title">Titel</string>
     <string name="tv_group_albums_by_release_type">Albums groeperen op releasetype</string>
     <string name="tv_group_albums_by_release_type_description">Albums, EP’s, singles en andere releases in aparte secties tonen</string>
-    <string name="connect_setup_password_required">Voer het wachtwoord van je bron in om de installatie te voltooien. Naviamp controleert het en slaat het veilig op voor toekomstige verbindingen.</string>
+    <string name="connect_setup_password_required">Voer het wachtwoord van je bron in om de installatie te voltooien. Navo controleert het en slaat het veilig op voor toekomstige verbindingen.</string>
     <string name="connect_setup_code_consent">Door een code te tonen, mag het apparaat dat deze invoert koppelen en dit apparaat instellen met zijn muziekbron en instellingen.</string>
     <string name="connect_setup_new_code_required">Toon een nieuwe code op de tv en koppel opnieuw om de installatie te voltooien.</string>
     <string name="settings_keep_screen_awake">Scherm aanhouden</string>
-    <string name="settings_keep_screen_awake_description">Voorkomt automatische schermslaap zolang Naviamp zichtbaar is. Systeemslaap, schermvergrendeling en tv-timers kunnen nog steeds actief zijn.</string>
+    <string name="settings_keep_screen_awake_description">Voorkomt automatische schermslaap zolang Navo zichtbaar is. Systeemslaap, schermvergrendeling en tv-timers kunnen nog steeds actief zijn.</string>
     <string name="settings_keep_screen_awake_failed">Het voorkomen van schermslaap kon niet worden gewijzigd. Zet deze instelling uit en weer aan om opnieuw te proberen.</string>
     <string name="now_playing_playback_device">Afspeelapparaat: %1$s</string>
     <string name="now_playing_from_playlist">Uit afspeellijst: %1$s</string>
@@ -71,7 +94,7 @@
     <string name="smart_playlist_refresh_delay_hint">Optioneel. Voorbeelden: 12h, 1d of 1w.</string>
     <string name="smart_playlist_refresh_delay_invalid">Gebruik een geldige duur zoals 12h, 1d of 1w.</string>
     <string name="connect_pairing_code">Koppelingscode</string>
-    <string name="connect_devices_description">Naviamp-apparaten op dit netwerk bedienen en koppelen</string>
+    <string name="connect_devices_description">Navo-apparaten op dit netwerk bedienen en koppelen</string>
     <string name="connect_setup_timed_out">De apparaatconfiguratie duurde te lang. Controleer het afspeelapparaat en probeer het opnieuw.</string>
     <string name="library_sort_title">Albums sorteren: Titel</string>
     <string name="library_sort_recently_added">Albums sorteren: Onlangs toegevoegd</string>
@@ -89,7 +112,7 @@
     <string name="diagnostics_failure_listen_submission">Luisterbeurt indienen</string>
     <string name="library_sources_choose">Bibliotheken kiezen</string>
     <string name="library_sources_title">Bibliotheken</string>
-    <string name="library_sources_description">Kies welke bibliotheken in Naviamp verschijnen</string>
+    <string name="library_sources_description">Kies welke bibliotheken in Navo verschijnen</string>
     <string name="library_sources_loading">Bibliotheken laden…</string>
     <string name="library_sources_empty">Deze server heeft geen bibliotheken die je kunt selecteren</string>
     <string name="library_sources_save">Opslaan</string>
@@ -106,7 +129,7 @@
     <string name="settings_font_size_small">Klein</string>
     <string name="settings_font_size_small_subtitle">Toont meer inhoud op het scherm</string>
     <string name="settings_font_size_standard">Standaard</string>
-    <string name="settings_font_size_standard_subtitle">Gebruikt de standaardtekstgrootte van Naviamp</string>
+    <string name="settings_font_size_standard_subtitle">Gebruikt de standaardtekstgrootte van Navo</string>
     <string name="settings_font_size_large">Groot</string>
     <string name="settings_font_size_large_subtitle">Verbetert de leesbaarheid met grotere tekst</string>
     <string name="description_less">Minder</string>
@@ -419,7 +442,7 @@
     <string name="discovery_action_unsupported">Deze server ondersteunt deze actie niet.</string>
     <string name="discovery_action_uncertain">Het resultaat kon niet worden bevestigd. Controleer Aurral voordat je het opnieuw probeert.</string>
     <string name="discovery_samples_loading">Fragmenten laden…</string>
-    <string name="permission_local_network_usage">Naviamp maakt verbinding met je muziekservers en zoekt afspeelapparaten op je lokale netwerk.</string>
+    <string name="permission_local_network_usage">Navo maakt verbinding met je muziekservers en zoekt afspeelapparaten op je lokale netwerk.</string>
     <string name="now_playing_playback_position">Afspeelpositie</string>
     <string name="now_playing_volume">Volume</string>
     <string name="settings_language_arabic_title">العربية</string>
@@ -437,7 +460,7 @@
     <string name="settings_language_russian_title">Русский</string>
     <string name="settings_language_turkish_title">Türkçe</string>
     <string name="settings_language_ukrainian_title">Українська</string>
-    <string name="settings_language_use_subtitle">Gebruik deze taal voor Naviamp</string>
+    <string name="settings_language_use_subtitle">Gebruik deze taal voor Navo</string>
     <string name="tv_keep_now_playing_controls_visible">Spelerbediening zichtbaar houden</string>
     <string name="tv_keep_now_playing_controls_visible_description">Verberg de bediening van Nu afspelen niet na enkele seconden</string>
     <string name="settings_square_album_artwork">Albumhoezen met rechte hoeken</string>
@@ -580,7 +603,7 @@
     <string name="tv_search_system_keyboard">Systeemtoetsenbord</string>
     <string name="storage_location_app">App-opslag</string>
     <string name="storage_location_custom">Aangepast</string>
-    <string name="connect_recovery_secure_storage">Naviamp kon de beveiligde opslag voor inloggegevens van dit apparaat niet openen. Ontgrendel de sleutelbos van het systeem en probeer het opnieuw.</string>
+    <string name="connect_recovery_secure_storage">Navo kon de beveiligde opslag voor inloggegevens van dit apparaat niet openen. Ontgrendel de sleutelbos van het systeem en probeer het opnieuw.</string>
     <string name="radio_server_title">Serverradio</string>
     <string name="radio_server_empty">Geen serverradio beschikbaar</string>
     <string name="generated_radio_saved">Opgeslagen stations</string>

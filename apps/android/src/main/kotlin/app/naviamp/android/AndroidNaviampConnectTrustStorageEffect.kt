@@ -2,6 +2,7 @@ package app.naviamp.android
 
 import android.content.Context
 import app.naviamp.app.NaviampConnectTrustStorageEffect
+import app.naviamp.domain.network.NaviampClientName
 
 /** Android durable-string adapter; the trust schema and mutation policy remain in Core. */
 class AndroidNaviampConnectTrustStorageEffect(context: Context) : NaviampConnectTrustStorageEffect {
@@ -14,7 +15,7 @@ class AndroidNaviampConnectTrustStorageEffect(context: Context) : NaviampConnect
 
     override fun write(value: String) {
         check(preferences.edit().putString(TrustKey, value).commit()) {
-            "Android could not persist Naviamp Connect trust."
+            "Android could not persist $NaviampClientName Connect trust."
         }
     }
 

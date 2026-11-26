@@ -300,7 +300,7 @@ open until the real app meets its documented budget.
   verify actual About rendering. Outdated/unverified in-app notes block tagging. Audit README and
   the public website's feature/compatibility/download/install pages against accepted source and actual
   distribution; correct stale claims and record evidence in release readiness. Submission is not availability.
-- Name every GitHub release exactly `Naviamp vX.Y.Z`, with no subtitle; verify before and after
+- Name every GitHub release exactly `Navo vX.Y.Z`, with no subtitle; verify before and after
   publication. Publish an **Announcements** Discussion for each new pushed release, covering new
   capabilities, changes, fixes and upgrade/compatibility notes; never announce unreleased branches.
 - GitHub release entries credit each community contributor's accurate role and link originating

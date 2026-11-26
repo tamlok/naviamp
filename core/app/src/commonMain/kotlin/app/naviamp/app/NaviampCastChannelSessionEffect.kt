@@ -1,5 +1,6 @@
 package app.naviamp.app
 
+import app.naviamp.domain.network.NaviampClientName
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -109,7 +110,7 @@ class NaviampCastChannelSessionEffect(
                 candidate.reader = scope.launch { read(candidate) }
                 json(candidate, Receiver, Connection, buildJsonObject {
                     put("type", "CONNECT"); put("connType", 0); put("origin", JsonObject(emptyMap()))
-                    put("userAgent", "Naviamp"); put("senderInfo", buildJsonObject { put("sdkType", 2) })
+                    put("userAgent", NaviampClientName); put("senderInfo", buildJsonObject { put("sdkType", 2) })
                 })
                 val launched = request(candidate, Receiver, ReceiverNamespace, buildJsonObject {
                     put("type", "LAUNCH"); put("appId", receiverApplicationId)
@@ -119,7 +120,7 @@ class NaviampCastChannelSessionEffect(
                 json(candidate, checkNotNull(candidate.applicationTransport), Connection,
                     buildJsonObject {
                         put("type", "CONNECT"); put("connType", 0); put("origin", JsonObject(emptyMap()))
-                        put("userAgent", "Naviamp"); put("senderInfo", buildJsonObject { put("sdkType", 2) })
+                        put("userAgent", NaviampClientName); put("senderInfo", buildJsonObject { put("sdkType", 2) })
                     })
                 candidate.heartbeat = scope.launch {
                     while (isActive && session === candidate) {

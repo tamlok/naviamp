@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Naviamp
+Name=Navo
 Comment=Music player for Navidrome and other music libraries
 Exec=naviamp
-Icon=io.github.goosepod.Naviamp
+Icon=cn.com.letalk.navo
 Terminal=false
 Categories=AudioVideo;Audio;Player;
 StartupWMClass=app-naviamp-desktop-MainKt

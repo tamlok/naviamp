@@ -22,6 +22,7 @@ import app.naviamp.desktop.platform.configureDesktopWindowIcon
 import app.naviamp.ui.NaviampWindowController
 import app.naviamp.ui.NaviampWindowSnapshot
 import app.naviamp.ui.naviampAppIconPainter
+import app.naviamp.ui.naviampApplicationName
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -64,7 +65,7 @@ fun main() {
         Window(
             state = windowState,
             onCloseRequest = { lifecycle.requestClose(::exitApplication) },
-            title = "Naviamp",
+            title = naviampApplicationName(),
             icon = naviampAppIconPainter(),
         ) {
             DisposableEffect(window, windowEffect, windowController) {

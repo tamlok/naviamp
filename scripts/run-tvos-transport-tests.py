@@ -162,7 +162,7 @@ def execute(args):
             'com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K', args.runtime], text=True, timeout=30).strip()
         uuid.UUID(device)
         report['device'] = device
-        (out/'ownership.json').write_text(json.dumps({'device': device, 'application': 'app.naviamp.tvos'})+'\n')
+        (out/'ownership.json').write_text(json.dumps({'device': device, 'application': (root/'APPLICATION_ID').read_text().strip() + '.tvos'})+'\n')
         run(['xcrun', 'simctl', 'boot', device], 'boot', 120)
         run(['xcrun', 'simctl', 'bootstatus', device, '-b'], 'boot-ready', 300)
         run([sys.executable, str(root/'scripts/mobile-mtls-fixture.py'), 'await-ready', str(bootstrap),

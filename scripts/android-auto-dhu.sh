@@ -9,7 +9,7 @@ fi
 ADB="${ADB:-$ANDROID_HOME/platform-tools/adb}"
 DHU="${DHU:-$ANDROID_HOME/extras/google/auto/desktop-head-unit}"
 DEVICE="${DEVICE:-}"
-APP_ID="${APP_ID:-app.naviamp.android}"
+APP_ID="${APP_ID:-$(tr -d '[:space:]' < "$ROOT_DIR/APPLICATION_ID")}"
 GEARHEAD_ID="${GEARHEAD_ID:-com.google.android.projection.gearhead}"
 GEARHEAD_SERVICE="${GEARHEAD_SERVICE:-com.google.android.projection.gearhead/.companion.DeveloperHeadUnitNetworkService}"
 GEARHEAD_SERVICE_CLASS="${GEARHEAD_SERVICE#*/}"

@@ -24,6 +24,7 @@ import app.naviamp.desktop.playback.bass.loadDesktopBassAudioBackend
 import app.naviamp.desktop.settings.DesktopCoreSettingsSyncPort
 import app.naviamp.desktop.settings.DesktopCoreSettingsValueStore
 import app.naviamp.desktop.settings.defaultDesktopDataDirectory
+import app.naviamp.domain.app.NaviampDefaultDesktopDeviceName
 import app.naviamp.domain.cache.CachedLyricsSidecarRepository
 import app.naviamp.domain.cache.LyricsSidecarCacheService
 import app.naviamp.domain.cache.SidecarStatusService
@@ -103,7 +104,7 @@ internal class DesktopComposition private constructor(
             val connectNetwork = DesktopNaviampConnectNetwork()
             val connectServices = NaviampCoreConnectServices(
                 deviceCapabilities = NaviampCoreBidirectionalConnectCapabilities,
-                displayName = "Naviamp Desktop",
+                displayName = NaviampDefaultDesktopDeviceName,
                 identity = connectStorage,
                 identityVerifier = JvmNaviampConnectIdentityVerifier,
                 transport = connectTransport,

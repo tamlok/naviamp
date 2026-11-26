@@ -3,6 +3,7 @@ package app.naviamp.android
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.settings.SettingsSyncDocument
 import app.naviamp.domain.settings.SettingsSyncFileName
 import app.naviamp.domain.settings.SettingsSyncJson
@@ -17,7 +18,7 @@ object AndroidSettingsSyncFile {
         return runCatching {
             SettingsSyncJson.decode(text)
         }.getOrElse {
-            error("Settings sync file is not valid Naviamp settings JSON.")
+            error("Settings sync file is not valid $NaviampClientName settings JSON.")
         }
     }
 
@@ -69,7 +70,7 @@ object AndroidSettingsSyncFile {
             DocumentsContract.getTreeDocumentId(treeUri),
         )
         if (!syncFolderSupportsCreate(context, parentUri)) {
-            error("Selected sync folder does not allow Naviamp to create naviamp-settings.json.")
+            error("Selected sync folder does not allow $NaviampClientName to create naviamp-settings.json.")
         }
         return DocumentsContract.createDocument(
             context.contentResolver,

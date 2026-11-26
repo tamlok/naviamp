@@ -59,6 +59,11 @@ enum class NaviampConnectStatusText(val resource: StringResource) {
     GeneratedStationUpgradeRequired(Res.string.generated_radio_connect_upgrade),
     GeneratedStationRecipeUnavailable(Res.string.generated_radio_connect_recipe),
     GeneratedStationProvenanceUnavailable(Res.string.generated_radio_connect_provenance),
+    IncompatibleVersion(Res.string.connect_incompatible_version),
+    PairingStartFailed(Res.string.connect_pairing_start_failed),
+    TargetCommandUnsupported(Res.string.connect_target_command_unsupported),
+    AdvertisingPermissionRequired(Res.string.connect_advertising_permission_required),
+    RequestFailed(Res.string.connect_request_failed),
 }
 
 @Composable

@@ -2,22 +2,6 @@ name: Verify
 
 on:
   workflow_dispatch:
-    inputs:
-      macos_runner_label:
-        description: Unique temporary local ARM64 runner label (blank uses GitHub-hosted macOS)
-        type: string
-        required: false
-        default: ''
-      ios_fixture_lifetime_diagnostic:
-        description: Also run a matched aged/fresh iOS fixture experiment (does not replace verification)
-        type: boolean
-        required: false
-        default: false
-      ios_fixture_packet_diagnostic:
-        description: Observe owned loopback packet metadata in the ordinary iOS job only
-        type: boolean
-        required: false
-        default: false
   workflow_call:
     inputs:
       source_ref:
@@ -45,7 +29,6 @@ jobs:
     outputs:
       run_full: ${{ steps.classify.outputs.run_full }}
       run_translations: ${{ steps.classify.outputs.run_translations }}
-      macos_runner: ${{ steps.classify.outputs.macos_runner }}
     steps:
       - name: Check out repository history
         uses: actions/checkout@v7
@@ -58,18 +41,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          MACOS_RUNNER_LABEL: ${{ inputs.macos_runner_label || (github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'verify:local-macos') && vars[format('NAVIAMP_LOCAL_MACOS_{0}', github.event.pull_request.number)]) || '' }}
-          LOCAL_PR_AUTHORIZED: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.labels.*.name, 'verify:local-macos') }}
-          SOURCE_REF: ${{ inputs.source_ref }}
         run: |
-          if [ -f scripts/select-verification-macos-runner.py ]; then
-            python3 scripts/select-verification-macos-runner.py >> "$GITHUB_OUTPUT"
-          elif [ -z "$MACOS_RUNNER_LABEL" ] && [ "$LOCAL_PR_AUTHORIZED" != true ] && { [ "$GITHUB_EVENT_NAME" != workflow_dispatch ] || [ -n "$SOURCE_REF" ]; }; then
-            # Release recovery can check out a public source that predates this helper.
-            printf '%s\n' 'macos_runner="macos-latest"' >> "$GITHUB_OUTPUT"
-          else
-            exit 1
-          fi
           if [ -f scripts/classify-verification-scope.sh ]; then
             scripts/classify-verification-scope.sh >> "$GITHUB_OUTPUT"
           elif [ "$GITHUB_EVENT_NAME" != pull_request ]; then
@@ -128,12 +100,6 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Linux desktop headers
-        if: needs.changes.outputs.run_full == 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libx11-dev libxrender-dev pulseaudio libasound2-plugins
-
       - name: Install Android build packages
         if: needs.changes.outputs.run_full == 'true'
         run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
@@ -145,7 +111,6 @@ jobs:
           -Pkotlin.native.enableKlibsCrossCompilation=false
           verifyCoreFirstArchitecture
           verifySharedAndroidSourceGraph
-          jvmTest
           :apps:android:testDebugUnitTest
           :apps:android:testReleaseUnitTest
           :apps:android:lintRelease
@@ -153,19 +118,7 @@ jobs:
           :apps:android:verifyReleaseOptimization
           :apps:android:bundleDebug
 
-      - name: Configure clocked headless audio for coverage aggregation
-        if: needs.changes.outputs.run_full == 'true'
-        run: scripts/configure-linux-test-audio.sh start
-
-      - name: Verify and publish JVM coverage reports
-        if: needs.changes.outputs.run_full == 'true'
-        run: ./gradlew -Pkotlin.native.enableKlibsCrossCompilation=false :koverVerify :koverHtmlReport :koverXmlReport
-
-      - name: Stop owned coverage audio sink
-        if: always() && needs.changes.outputs.run_full == 'true'
-        run: scripts/configure-linux-test-audio.sh stop
-
-      - name: Upload test and coverage reports
+      - name: Upload test reports
         if: always() && needs.changes.result == 'success' && needs.changes.outputs.run_full == 'true'
         uses: actions/upload-artifact@v7
         with:
@@ -173,70 +126,6 @@ jobs:
           if-no-files-found: warn
           path: |
             **/build/reports/tests/**
-            build/reports/kover/**
-
-  desktop-macos:
-    name: Desktop native tests (macOS)
-    needs: changes
-    if: needs.changes.outputs.run_full == 'true'
-    runs-on: ${{ fromJSON(needs.changes.outputs.macos_runner) }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.source_ref || github.sha }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Run Desktop tests with macOS native libraries
-        env:
-          NAVIAMP_NATIVE_CLOCK_DIAGNOSTICS: "true"
-        run: ./gradlew -Pnaviamp.bass.platform=macos-arm64 -Pcompose.desktop.packaging.checkJdkVendor=false desktopTest
-
-      - name: Require independent macOS native clock executions
-        if: contains(github.event.pull_request.labels.*.name, 'verify:macos-native-clock-repeat')
-        timeout-minutes: 15
-        env:
-          NAVIAMP_NATIVE_CLOCK_DIAGNOSTICS: "true"
-        run: |
-          set -o pipefail
-          evidence="$PWD/build/macos-clock-replays"
-          mkdir -p "$evidence/initial"
-          cp -R platforms/desktop/build/test-results/desktopTest "$evidence/initial/results"
-          cp -R platforms/desktop/build/reports/tests/desktopTest "$evidence/initial/report"
-          for attempt in $(seq 1 10); do
-            status=0
-            ./gradlew -Pnaviamp.bass.platform=macos-arm64 \
-              -Pcompose.desktop.packaging.checkJdkVendor=false \
-              :platforms:desktop:desktopTest --rerun \
-              --tests '*DesktopPreviewPlaybackIntegrationTest' \
-              --tests '*DesktopDiscoveryPreviewCoreIntegrationTest' \
-              2>&1 | tee "$evidence/run-$attempt.log" || status=$?
-            mkdir -p "$evidence/run-$attempt"
-            cp -R platforms/desktop/build/test-results/desktopTest "$evidence/run-$attempt/results"
-            cp -R platforms/desktop/build/reports/tests/desktopTest "$evidence/run-$attempt/report"
-            if [ "$status" -ne 0 ]; then exit "$status"; fi
-          done
-
-      - name: Verify macOS native popup ownership and stacking
-        run: |
-          cmake --build platforms/desktop/build/generated/DesktopVisualizerMetalBuild/macos-arm64 --target naviamp_owned_window_test
-          ctest --test-dir platforms/desktop/build/generated/DesktopVisualizerMetalBuild/macos-arm64 -R macos_owned_window --output-on-failure
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-macos-test-reports
-          if-no-files-found: error
-          path: |
-            **/build/reports/tests/desktopTest/**
-            platforms/desktop/build/test-results/desktopTest/**
-            build/macos-clock-replays/**
 
   android-device:
     name: Android emulator native tests (API ${{ matrix.api-level }})
@@ -408,7 +297,7 @@ jobs:
             echo "DNS-SD repeat $attempt of 3"
             adb shell am instrument -w \
               -e class app.naviamp.android.AndroidNaviampConnectDiscoveryInstrumentedTest \
-              app.naviamp.android.v2test.test/androidx.test.runner.AndroidJUnitRunner \
+              cn.com.letalk.navo.v2test.test/androidx.test.runner.AndroidJUnitRunner \
               | tee "/tmp/naviamp-dnssd-repeat-$attempt.txt"
             grep -q '^OK (5 tests)' "/tmp/naviamp-dnssd-repeat-$attempt.txt"
           done
@@ -467,9 +356,22 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up Android SDK for shared tests and coverage
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      - name: Install Android build packages
+        shell: powershell
+        run: sdkmanager "platforms;android-37.0" "build-tools;36.0.0" "cmake;3.22.1" "ndk;27.0.12077973"
+
       - name: Run Desktop tests with Windows native libraries
         shell: powershell
-        run: .\gradlew.bat "-Pkotlin.native.enableKlibsCrossCompilation=false" "-Pnaviamp.bass.platform=windows-x64" "-Pnaviamp.bass.test.outputDevice=0" desktopTest :providers:navidrome:jvmTest
+        run: .\gradlew.bat "-Pkotlin.native.enableKlibsCrossCompilation=false" "-Pnaviamp.bass.platform=windows-x64" "-Pnaviamp.bass.test.outputDevice=0" desktopTest jvmTest
+
+      - name: Verify and publish JVM coverage reports
+        shell: powershell
+        run: .\gradlew.bat "-Pkotlin.native.enableKlibsCrossCompilation=false" "-Pnaviamp.bass.platform=windows-x64" "-Pnaviamp.bass.test.outputDevice=0" :koverVerify :koverHtmlReport :koverXmlReport
 
       - name: Test Windows process ownership
         shell: powershell
@@ -512,352 +414,33 @@ jobs:
           .\gradlew.bat "-Pnaviamp.bass.platform=windows-x64" :core:ui:playerAnimationProbe --console=plain |
             Tee-Object -FilePath build/windows-menu-hover-probe.txt
 
-      - name: Upload test reports
+      - name: Upload test and coverage reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: desktop-windows-test-reports
           if-no-files-found: error
           path: |
-            **/build/reports/tests/desktopTest/**
-            providers/navidrome/build/reports/tests/jvmTest/**
+            **/build/reports/tests/**
+            build/reports/kover/**
             build/windows-animation-probe.txt
             build/windows-menu-hover-probe.txt
             core/ui/build/animation-probe/menu-hover-0-1-*.png
-
-  desktop-linux:
-    name: Desktop native tests (Linux)
-    needs: changes
-    if: needs.changes.outputs.run_full == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.source_ref || github.sha }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libxrender-dev libsecret-tools xcompmgr xvfb dbus-daemon playerctl pulseaudio libasound2-plugins
-
-      - name: Configure clocked headless audio
-        run: scripts/configure-linux-test-audio.sh start
-
-      - name: Run Desktop tests with Linux native libraries
-        env:
-          NAVIAMP_MPRIS_INTEGRATION: "true"
-          NAVIAMP_PLAYERCTL: /usr/bin/playerctl
-        run: dbus-run-session -- ./gradlew -Pkotlin.native.enableKlibsCrossCompilation=false -Pnaviamp.bass.platform=linux-x64 desktopTest
-
-      - name: Verify Linux packaged runtime and native resources
-        run: ./gradlew -Pkotlin.native.enableKlibsCrossCompilation=false -Pnaviamp.bass.platform=linux-x64 :apps:desktop:verifyDesktopDistributable
-
-      - name: Verify X11 integer geometry timing
-        run: ctest --test-dir platforms/desktop/build/generated/DesktopRasterX11Build/linux-x64 --output-on-failure
-
-      - name: Measure isolated Linux animation surfaces
-        run: |
-          mkdir -p build
-          xvfb-run -a bash -c '
-            xcompmgr -a &
-            compositor_pid=$!
-            trap "kill $compositor_pid" EXIT
-            env NAVIAMP_PROBE_INTEGRATED=true NAVIAMP_PROBE_VERIFY=true \
-              ./gradlew -Pnaviamp.bass.platform=linux-x64 :core:ui:playerAnimationProbe --console=plain
-          ' | tee build/linux-animation-probe.txt
-
-      - name: Stop owned Linux audio sink
-        if: always()
-        run: scripts/configure-linux-test-audio.sh stop
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: desktop-linux-test-reports
-          if-no-files-found: error
-          path: |
-            **/build/reports/tests/desktopTest/**
-            build/linux-animation-probe.txt
-
-  ios:
-    name: iOS simulator tests
-    needs: changes
-    if: needs.changes.outputs.run_full == 'true'
-    runs-on: ${{ fromJSON(needs.changes.outputs.macos_runner) }}
-    env:
-      NAVIAMP_MTLS_FIXTURE_JFR: ${{ github.event_name == 'workflow_dispatch' && (inputs.ios_fixture_lifetime_diagnostic || inputs.ios_fixture_packet_diagnostic) }}
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.source_ref || github.sha }}
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Restore compatible compiler caches (read only)
-        if: hashFiles('.github/actions/ios-cache/action.yml') != ''
-        uses: ./.github/actions/ios-cache
-
-      - name: Restore legacy source dependencies (read only)
-        if: inputs.source_ref != '' && hashFiles('.github/actions/ios-cache/action.yml') == ''
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-read-only: true
-
-      - name: Set up Android SDK for Gradle configuration
-        uses: android-actions/setup-android@v4
-        with:
-          packages: platform-tools
-
-      - name: Compile both targets and run common simulator tests
-        env:
-          NAVIAMP_VERIFY_SOURCE_REF: ${{ inputs.source_ref }}
-        run: |
-          mkdir -p build/ci-timings
-          started_at="$(date +%s)"
-          cache_flags=()
-          if [ -f scripts/ios-ci-cache.init.gradle.kts ]; then
-            cache_flags=(--build-cache --init-script scripts/ios-ci-cache.init.gradle.kts "-Pkonan.data.dir=$NAVIAMP_KONAN_HOME")
-          elif [ -z "$NAVIAMP_VERIFY_SOURCE_REF" ]; then
-            echo 'Required native test-cache policy is missing from this source.'
-            exit 1
-          fi
-          ./gradlew \
-            --parallel \
-            --max-workers=2 \
-            --profile \
-            "${cache_flags[@]}" \
-            verifyCoreFirstArchitecture \
-            iosSimulatorArm64Test \
-            -x :platforms:ios:iosSimulatorArm64Test \
-            -x :apps:ios:iosSimulatorArm64Test \
-            -x :platforms:apple-media:iosSimulatorArm64Test \
-            :platforms:ios:linkDebugTestIosSimulatorArm64 \
-            :platforms:apple-media:linkDebugTestIosSimulatorArm64 \
-            :platforms:ios:stageIosSimulatorTestBassFrameworks \
-            :apps:ios:linkDebugTestIosSimulatorArm64 \
-            :apps:ios:compileKotlinIosArm64
-
-          # Application and system-media tests load native audio frameworks and need a booted
-          # simulator. Run them before starting the separate time-sensitive TLS fixture.
-          if [ -d apps/ios/src/iosTest ] || [ -d platforms/apple-media/src/appleTest ]; then
-            template_id="$(xcrun simctl list devices available --json | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')"
-            app_test_device="$(xcrun simctl clone "$template_id" 'Naviamp Application Verification')"
-            cleanup_app_test_device() {
-              xcrun simctl shutdown "$app_test_device" 2>/dev/null || true
-              xcrun simctl delete "$app_test_device"
-            }
-            trap cleanup_app_test_device EXIT
-            xcrun simctl boot "$app_test_device"
-            xcrun simctl bootstatus "$app_test_device" -b
-            ./gradlew --max-workers=2 "${cache_flags[@]}" \
-              "-Pnaviamp.ios.testDevice=$app_test_device" :apps:ios:iosSimulatorArm64Test \
-              :platforms:apple-media:iosSimulatorArm64Test
-            cleanup_app_test_device
-            trap - EXIT
-          fi
-          elapsed_seconds="$(($(date +%s) - started_at))"
-          printf 'stage\tseconds\nGradle simulator tests and device compile\t%s\n' \
-            "$elapsed_seconds" > build/ci-timings/ios.tsv
-          {
-            echo '### iOS verification timing'
-            echo '| Stage | Duration |'
-            echo '| --- | ---: |'
-            echo "| Gradle simulator tests and device compile | ${elapsed_seconds}s |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # Generate the disposable certificate chains before cold simulator boot, but only
-      # after compilation. The fixture stays fresh without competing with boot services.
-      - name: Start disposable mobile mTLS fixture
-        run: bash scripts/start-mobile-mtls-fixture.sh
-
-      - name: Boot a dedicated simulator for native TLS services
-        run: |
-          template_id="$(xcrun simctl list devices available --json | python3 -c 'import json,sys; print(next(d["udid"] for devices in json.load(sys.stdin)["devices"].values() for d in devices if d["name"].startswith("iPhone")))')"
-          device_id="$(xcrun simctl clone "$template_id" 'Naviamp TLS Verification')"
-          echo "NAVIAMP_IOS_TLS_TEST_DEVICE=$device_id" >> "$GITHUB_ENV"
-          xcrun simctl boot "$device_id"
-          xcrun simctl bootstatus "$device_id" -b
-
-      - name: Require fixture health after simulator boot
-        timeout-minutes: 4
-        run: |
-          python3 scripts/mobile-mtls-fixture.py await-ready "$NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE" \
-            --readiness-report "$(dirname "$NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE")/post-boot-readiness.json"
-
-      - name: Exercise native TLS and BASS on the booted simulator
-        timeout-minutes: 5
-        env:
-          NAVIAMP_VERIFY_SOURCE_REF: ${{ inputs.source_ref }}
-        run: |
-          # The earlier compile stage builds this binary; this required step executes it
-          # with real Apple trust services after the common standalone tests finish.
-          # The generated bootstrap identifies this run's fixture. The shared contract
-          # verifies its live control endpoint through native HTTP before authentication.
-          fixture_bootstrap="$(cat "$NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE")"
-          test -n "$fixture_bootstrap"
-          export SIMCTL_CHILD_NAVIAMP_MTLS_FIXTURE_BOOTSTRAP="$fixture_bootstrap"
-          started_at="$(date +%s)"
-          if [ -f scripts/run-prebuilt-ios-native-tests.py ]; then
-            native_test=(python3 scripts/run-prebuilt-ios-native-tests.py \
-              --device "$NAVIAMP_IOS_TLS_TEST_DEVICE" \
-              --executable platforms/ios/build/bin/iosSimulatorArm64/debugTest/test.kexe \
-              --output build/ios-native-execution)
-            native_results=build/ios-native-execution/results
-          elif [ -n "$NAVIAMP_VERIFY_SOURCE_REF" ]; then
-            # Recovery of a public source from before the prebuilt runner keeps its own tests.
-            native_test=(./gradlew --max-workers=2 --console=plain --profile \
-              -Pnaviamp.ios.testDevice="$NAVIAMP_IOS_TLS_TEST_DEVICE" \
-              :platforms:ios:iosSimulatorArm64Test)
-            native_results=platforms/ios/build/test-results/iosSimulatorArm64Test
-          else
-            echo 'Required prebuilt native runner is missing from this source.'
-            exit 1
-          fi
-          packet_capture=()
-          if [ "${{ (github.event_name == 'workflow_dispatch' && (inputs.ios_fixture_lifetime_diagnostic || inputs.ios_fixture_packet_diagnostic)) || contains(github.event.pull_request.labels.*.name, 'verify:ios-native-cold') }}" = true ]; then
-            packet_capture=(--capture-loopback)
-          fi
-          if [ -f scripts/ios-native-test-diagnostics.py ]; then
-            python3 scripts/ios-native-test-diagnostics.py \
-              "${packet_capture[@]}" \
-              --executable platforms/ios/build/bin/iosSimulatorArm64/debugTest/test.kexe \
-              --fixture-bootstrap "$NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE" \
-              --output build/ios-native-diagnostics -- "${native_test[@]}"
-          else
-            # Recovery may verify an older public source that predates the observer.
-            "${native_test[@]}"
-          fi
-          grep -q 'mTLS runner bootstrap supplied' \
-            "$native_results/TEST-app.naviamp.ios.playback.IosMutualTlsPlaybackIntegrationTest.xml"
-          elapsed_seconds="$(($(date +%s) - started_at))"
-          printf 'Native TLS and BASS tests\t%s\n' "$elapsed_seconds" >> build/ci-timings/ios.tsv
-          echo "| Native TLS and BASS tests | ${elapsed_seconds}s |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Collect native TLS diagnostics and stop its simulator
-        if: always() && env.NAVIAMP_IOS_TLS_TEST_DEVICE != ''
-        run: |
-          xcrun simctl spawn "$NAVIAMP_IOS_TLS_TEST_DEVICE" log show --style compact --last 5m \
-            --predicate 'process == "trustd" OR process == "test.kexe" OR subsystem == "com.apple.CFNetwork"' \
-            > build/ios-tls-services.log 2>&1 || true
-          xcrun simctl shutdown "$NAVIAMP_IOS_TLS_TEST_DEVICE" || true
-          xcrun simctl delete "$NAVIAMP_IOS_TLS_TEST_DEVICE" || true
-
-      - name: Stop disposable mobile mTLS fixture
-        if: always()
-        run: |
-          if [ -n "${NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE:-}" ]; then
-            python3 scripts/mobile-mtls-fixture.py stop "$NAVIAMP_MTLS_FIXTURE_BOOTSTRAP_FILE"
-          fi
-
-      - name: Require independent cold native TLS replays
-        if: contains(github.event.pull_request.labels.*.name, 'verify:ios-native-cold')
-        timeout-minutes: 25
-        run: python3 scripts/replay-ios-native-tls.py --runs 2 --output build/ios-native-replays
-
-      - name: Clean up owned cold replay resources
-        if: always() && contains(github.event.pull_request.labels.*.name, 'verify:ios-native-cold')
-        run: python3 scripts/replay-ios-native-tls.py --cleanup-only --output build/ios-native-replays
-
-      - name: Build the production iOS app
-        run: |
-          started_at="$(date +%s)"
-          destination_id="$(xcodebuild -project apps/ios/Naviamp.xcodeproj -scheme Naviamp -showdestinations | awk -F'id:' '/platform:iOS Simulator/ && /name:iPhone/ { split($2, fields, ","); gsub(/[[:space:]]/, "", fields[1]); print fields[1]; exit }')"
-          test -n "$destination_id"
-          echo "NAVIAMP_IOS_TEST_DESTINATION=$destination_id" >> "$GITHUB_ENV"
-          xcodebuild build -quiet \
-            -showBuildTimingSummary \
-            -project apps/ios/Naviamp.xcodeproj \
-            -scheme Naviamp \
-            -configuration Debug \
-            -destination "id=$destination_id"
-          elapsed_seconds="$(($(date +%s) - started_at))"
-          printf 'Xcode production app build\t%s\n' "$elapsed_seconds" >> build/ci-timings/ios.tsv
-          echo "| Xcode production app build | ${elapsed_seconds}s |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Exercise the Apple Keychain boundary
-        run: |
-          started_at="$(date +%s)"
-          # Reuse the device that built the production app. Xcode can omit concrete
-          # destinations from a subsequent query after the build has completed.
-          destination_id="$NAVIAMP_IOS_TEST_DESTINATION"
-          test -n "$destination_id"
-          xcodebuild test -quiet \
-            -showBuildTimingSummary \
-            -project apps/ios/Naviamp.xcodeproj \
-            -scheme NaviampTests \
-            -configuration Debug \
-            -destination "id=$destination_id" \
-            -resultBundlePath build/ios-keychain-tests.xcresult
-          elapsed_seconds="$(($(date +%s) - started_at))"
-          printf 'Keychain boundary test\t%s\n' "$elapsed_seconds" >> build/ci-timings/ios.tsv
-          echo "| Keychain boundary test | ${elapsed_seconds}s |" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ios-test-reports
-          if-no-files-found: error
-          path: |
-            **/build/reports/tests/iosSimulatorArm64Test/**
-            build/ios-native-execution/**
-            build/ios-native-diagnostics/**
-            build/ios-native-replays/plan.json
-            build/ios-native-replays/initial/**
-            build/ios-native-replays/run-*/summary.json
-            build/ios-native-replays/run-*/native.log
-            build/ios-native-replays/run-*/fixture.log
-            build/ios-native-replays/run-*/fixture-startup.json
-            build/ios-native-replays/run-*/post-boot-readiness.json
-            build/ios-native-replays/run-*/post-boot-readiness.log
-            build/ios-native-replays/run-*/fixture-readiness.log
-            build/ios-native-replays/run-*/fixture.jfr
-            build/ios-native-replays/run-*/cleanup-complete
-            build/ios-native-replays/run-*/boot.log
-            build/ios-native-replays/run-*/services.log
-            build/ios-native-replays/run-*/diagnostics/**
-            build/ios-native-replays/run-*/native-execution/**
-            build/ios-native-replays/run-*/results/**
-            build/ios-native-replays/run-*/report/**
-            build/reports/profile/**
-            build/ci-timings/ios.tsv
-            build/mobile-mtls-run.*/fixture.log
-            build/mobile-mtls-run.*/fixture.jfr
-            build/mobile-mtls-run.*/post-boot-readiness.json
-            build/ios-keychain-tests.xcresult
-            build/ios-tls-services.log
 
   evidence:
     name: Record verified source tree
     needs:
       - changes
       - shared-android
-      - desktop-macos
       - android-device
       - desktop-windows
-      - desktop-linux
-      - ios
     if: >-
       always() &&
       (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch') &&
       needs.changes.outputs.run_full == 'true' &&
       needs.shared-android.result == 'success' &&
-      needs.desktop-macos.result == 'success' &&
       needs.android-device.result == 'success' &&
-      needs.desktop-windows.result == 'success' &&
-      needs.desktop-linux.result == 'success' &&
-      needs.ios.result == 'success'
+      needs.desktop-windows.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Check out the verified event commit
@@ -883,46 +466,3 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           path: ${{ runner.temp }}/naviamp-verification/evidence.txt
-
-  ios-fixture-lifetime-diagnostic:
-    name: iOS fixture diagnosis (daemon=${{ matrix.daemon }}, diagnostic only)
-    if: github.event_name == 'workflow_dispatch' && inputs.ios_fixture_lifetime_diagnostic
-    runs-on: macos-latest
-    timeout-minutes: 75
-    strategy:
-      fail-fast: false
-      matrix:
-        daemon: [true, false]
-    env:
-      GRADLE_OPTS: -Dorg.gradle.daemon=${{ matrix.daemon }} -Dorg.gradle.jvmargs=-Xmx4g
-      NAVIAMP_MTLS_FIXTURE_JFR: 'true'
-      TZ: America/Los_Angeles
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '21'
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-read-only: true
-      - uses: android-actions/setup-android@v4
-        with:
-          packages: platform-tools
-      - name: Compare aged and fresh fixtures with the same native binary
-        run: |
-          python3 scripts/diagnose-ios-fixture-lifetime.py \
-            --compile-full --minimum-age-seconds 0 --pairs 2 \
-            --output build/ios-fixture-lifetime
-      - name: Preserve diagnostic evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ios-fixture-lifetime-diagnostics-daemon-${{ matrix.daemon }}
-          if-no-files-found: error
-          path: |
-            build/ios-fixture-lifetime/**/*.log
-            build/ios-fixture-lifetime/**/*.json
-            build/ios-fixture-lifetime/**/*.jfr
-            build/ios-fixture-lifetime/**/results/**
-            build/ios-fixture-lifetime/**/report/**

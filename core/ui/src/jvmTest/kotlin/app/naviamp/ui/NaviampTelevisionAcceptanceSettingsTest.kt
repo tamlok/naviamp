@@ -6,6 +6,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.settings.PlaybackSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,7 +50,7 @@ class NaviampTelevisionAcceptanceSettingsTest {
             (1..8).map { "Release entry $it: " + "Readable complete content. ".repeat(8) })))
         setContent { TelevisionAboutSettings(NaviampAppShellUiState(general = NaviampGeneralSettingsUi(about = about)),
             NaviampColors.Dark, FocusRequester()) }
-        onNodeWithText("Naviamp").performSemanticsAction(SemanticsActions.RequestFocus)
+        onNodeWithText(NaviampClientName).performSemanticsAction(SemanticsActions.RequestFocus)
         onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }
         onNodeWithText(about.changelog.single().entries.first()).assertIsFocused().assertIsDisplayed()
         repeat(7) { onNode(isFocused()).performKeyInput { pressKey(Key.DirectionDown) }; waitForIdle() }

@@ -1,15 +1,24 @@
 # One Android app for phone, tablet, and TV
 
-Naviamp uses one Android application module (`:apps:android`) and one release package ID
-(`app.naviamp.android`). There are no phone/TV product flavors. Android's UI-mode configuration
+Navo uses one Android application module (`:apps:android`) and one release package ID
+(`cn.com.letalk.navo`, from `APPLICATION_ID`). There are no phone/TV product flavors. Android's UI-mode configuration
 selects the shared Standard or Television surface at runtime. Both launcher entries, the TV banner,
 and optional leanback/touchscreen declarations live in the same manifest.
 
 The former “Naviamp TV” setup/restoration text was product copy inside that shared app, not a
-separate application. The shared translated setup copy calls it Naviamp. Debug builds still use
-`app.naviamp.android.v2test` and “Naviamp v2 Test” so they can coexist with the installed release;
+separate application. The shared translated setup copy now calls it Navo. Debug builds use
+`cn.com.letalk.navo.v2test` and “Navo v2 Test” so they can coexist with the installed release;
 that distinction applies equally to phone and TV. Benchmark/profileable variants are development
 tools, not device-specific distributions.
+
+This LeTalk fork has a new signing and installation identity. It does not update upstream
+`app.naviamp.android` installations or inherit their app data or Google Play listing. Existing
+data stays untouched; import shared settings and reconnect accounts deliberately. Historical
+verification below describes upstream artifacts, not acceptance of this fork's packages.
+The final `APPLICATION_ID` also creates fresh app-data and credential namespaces rather than updating
+previous local `cn.com.letalk.naviamp` builds (including their `.v2test` variant). No previous local
+settings or credentials are read or automatically migrated. The existing fork signing key is retained;
+`APPLICATION_NAME` remains Navo. This is an installation-ID change, not only a display-name change.
 
 For the accepted v2.10.0 scope and the distinction between package readiness, deferred device
 testing and store review, see the [distribution handoff](releases/v2.10.0-readiness.md).
@@ -46,12 +55,12 @@ or tablet emulator can run the latter, but cannot verify a vehicle's AAOS cluste
 Run `./gradlew :apps:android:stageReleaseArtifacts` to produce the installable formats and their
 diagnostic artifacts from the same release:
 
-- `apps/android/build/release-artifacts/Naviamp-<version>-android.apk` for direct installation on
+- `apps/android/build/release-artifacts/Navo-<version>-android.apk` for direct installation on
   phones, tablets, and TVs.
-- `apps/android/build/release-artifacts/Naviamp-<version>-android.aab` for Google Play.
-- `apps/android/build/release-artifacts/Naviamp-<version>-android-mapping.txt` for retracing
+- `apps/android/build/release-artifacts/Navo-<version>-android.aab` for Google Play.
+- `apps/android/build/release-artifacts/Navo-<version>-android-mapping.txt` for retracing
   obfuscated JVM/Kotlin crash reports.
-- `apps/android/build/release-artifacts/Naviamp-<version>-android-native-debug-symbols.zip` for
+- `apps/android/build/release-artifacts/Navo-<version>-android-native-debug-symbols.zip` for
   symbolizing native crash reports.
 
 Release APKs and bundles use R8 full-mode code optimization, obfuscation, and optimized resource
@@ -66,7 +75,7 @@ requires the existing signing environment, builds both formats in one Android jo
 both artifacts to the draft release. Local outputs without configured release signing are not
 publishable signed releases. No Play upload or publication is performed by this change.
 
-## Android Gradle Plugin 9 evaluation
+## Historical Android Gradle Plugin 9 evaluation
 
 Naviamp remains on AGP 8.13 for this release. [AGP 9 enables built-in Kotlin and replaces the legacy
 Kotlin Multiplatform Android integration](https://developer.android.com/build/releases/agp-9-0-0-release-notes).

@@ -9,6 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.bootstrap_preparing
+import org.jetbrains.compose.resources.stringResource
 
 /** Shared transitional surface shown while a thin host assembles the real Core environment. */
 @Composable
@@ -19,7 +22,7 @@ fun NaviampBootstrapScreen(modifier: Modifier = Modifier) {
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Preparing Naviamp Core…")
+                Text(stringResource(Res.string.bootstrap_preparing))
             }
         }
     }

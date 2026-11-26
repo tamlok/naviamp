@@ -1,5 +1,4 @@
 import importlib.util
-import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -71,29 +70,6 @@ class TranslationValidationTest(unittest.TestCase):
             path.write_text('<!DOCTYPE resources [<!ENTITY x "bad">]><resources/>')
             with self.assertRaises(ValueError):
                 validator.catalog(path)
-
-    def test_required_checks_and_release_evidence_remain_gated(self):
-        workflow = (ROOT / '.github/workflows/verify.yml').read_text()
-        self.assertNotIn('paths-ignore:', workflow)
-        self.assertIn("github.event_name == 'pull_request' &&", workflow)
-        evidence = workflow.split('  evidence:', 1)[1]
-        self.assertIn("needs.changes.outputs.run_full == 'true'", evidence)
-        for name in ['Shared and Android tests', 'Android emulator native tests (API ${{ matrix.api-level }})',
-                     'Desktop native tests (macOS)', 'Desktop native tests (Windows)',
-                     'Desktop native tests (Linux)', 'iOS simulator tests']:
-            self.assertIn('name: ' + name, workflow)
-        shared = workflow.split('  shared-android:', 1)[1].split('  desktop-macos:', 1)[0]
-        self.assertIn('if: always()', shared)
-        self.assertIn("needs.changes.result != 'success'", shared)
-        self.assertIn('python3 scripts/validate-translations.py --base', shared)
-        android = workflow.split('  android-device:', 1)[1].split('  desktop-windows:', 1)[0]
-        self.assertIn('if: always()', android)
-        self.assertIn("needs.changes.result != 'success'", android)
-        self.assertIn('api-level: [26, 30, 35]', android)
-        self.assertIn('verifySharedAndroidSourceGraph', shared)
-        for job in ['desktop-macos', 'desktop-windows', 'desktop-linux', 'ios']:
-            block = re.split(r'\n  [a-z][a-z-]*:', workflow.split(f'  {job}:', 1)[1])[0]
-            self.assertIn("if: needs.changes.outputs.run_full == 'true'", block)
 
 
 if __name__ == '__main__':

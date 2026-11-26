@@ -53,7 +53,7 @@ def cleanup(scene):
         owner = json.loads(record.read_text())
         device = owner['device']
         uuid.UUID(device)
-        if owner.get('application') != 'app.naviamp.tvos':
+        if owner.get('application') != (ROOT/'APPLICATION_ID').read_text().strip() + '.tvos':
             raise ValueError('Not a Naviamp scene ownership record')
         devices = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', '--json'], text=True, timeout=30))['devices']
         match = next((d for rows in devices.values() for d in rows if d['udid'] == device), None)

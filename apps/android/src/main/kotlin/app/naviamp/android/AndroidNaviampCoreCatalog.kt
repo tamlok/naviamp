@@ -11,6 +11,7 @@ import app.naviamp.app.JvmNaviampConnectAuthenticatedCipherFactory
 import app.naviamp.app.JvmNaviampConnectIdentityVerifier
 import app.naviamp.app.JvmNaviampConnectTcpTransportFactory
 import app.naviamp.app.NaviampConnectTrustRepository
+import app.naviamp.domain.app.NaviampDefaultAndroidDeviceName
 import app.naviamp.domain.home.HomeDate
 import app.naviamp.domain.playback.PlaybackEngine
 import app.naviamp.domain.waveform.AudioWaveformAnalyzer
@@ -228,7 +229,7 @@ class AndroidNaviampCoreCatalog private constructor(
             }
             val connectServices = NaviampCoreConnectServices(
                 deviceCapabilities = connectDeviceCapabilities,
-                displayName = Build.MODEL?.takeIf(String::isNotBlank) ?: "Android Naviamp",
+                displayName = Build.MODEL?.takeIf(String::isNotBlank) ?: NaviampDefaultAndroidDeviceName,
                 identity = AndroidNaviampConnectDeviceIdentityEffect(),
                 identityVerifier = JvmNaviampConnectIdentityVerifier,
                 transport = connectTransport,

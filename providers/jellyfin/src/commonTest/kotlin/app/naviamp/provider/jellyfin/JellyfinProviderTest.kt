@@ -23,6 +23,16 @@ import kotlin.test.assertTrue
 import kotlin.test.assertFailsWith
 
 class JellyfinProviderTest {
+    @Test
+    fun defaultClientNameChangesWithoutChangingTheDeviceOrToken() {
+        val header = JellyfinClientIdentity("stable-device", "Desktop", clientVersion = "1.0")
+            .authorizationHeader("saved-token")
+
+        assertTrue(header.startsWith("MediaBrowser Client=\"Navo\", "))
+        assertTrue(header.contains("DeviceId=\"stable-device\""))
+        assertTrue(header.contains("Token=\"saved-token\""))
+    }
+
     @Test fun generatedRadioCatalogPagesProveEachSelectedLibraryRoot() = runTest {
         val fixture = fixture(responses = linkedMapOf(
             "parentId=empty" to """{"Items":[],"TotalRecordCount":0}""",

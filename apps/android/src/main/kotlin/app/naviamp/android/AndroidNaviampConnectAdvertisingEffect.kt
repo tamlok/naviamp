@@ -8,6 +8,7 @@ import app.naviamp.app.NaviampConnectAdvertisingListener
 import app.naviamp.app.NaviampConnectAdvertisingStartResult
 import app.naviamp.app.NaviampConnectRegistrationService
 import app.naviamp.domain.connect.NaviampConnectServiceType
+import app.naviamp.domain.network.NaviampClientName
 
 /** Android DNS-SD registration adapter. Pairing lifetime and advertised metadata remain in Core. */
 class AndroidNaviampConnectAdvertisingEffect(context: Context) : NaviampConnectAdvertisingEffect {
@@ -35,7 +36,7 @@ class AndroidNaviampConnectAdvertisingEffect(context: Context) : NaviampConnectA
                 synchronized(this@AndroidNaviampConnectAdvertisingEffect) {
                     if (registration !== this) return
                     registration = null
-                    listener.onRegistrationFailed("Android could not advertise this Naviamp target (error $errorCode).")
+                    listener.onRegistrationFailed("Android could not advertise this $NaviampClientName target (error $errorCode).")
                 }
             }
 
@@ -43,7 +44,7 @@ class AndroidNaviampConnectAdvertisingEffect(context: Context) : NaviampConnectA
 
             override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
                 // This callback belongs to this native handle, even after a replacement starts.
-                listener.onRegistrationFailed("Android could not stop advertising this Naviamp target (error $errorCode).")
+                listener.onRegistrationFailed("Android could not stop advertising this $NaviampClientName target (error $errorCode).")
             }
         }
         registration = request

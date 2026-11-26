@@ -4,7 +4,7 @@ import Security
 /// Irreducible Apple Security-framework effect used by the shared credential contract adapter.
 final class IosKeychainVault {
     private let referencePrefix = "keychain:"
-    private let service = "app.naviamp.ios.provider-credentials"
+    private let service = Bundle.main.bundleIdentifier! + ".provider-credentials"
 
     func isReference(_ value: String?) -> Bool {
         value?.hasPrefix(referencePrefix) == true

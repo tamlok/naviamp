@@ -49,7 +49,7 @@ class ReleaseArchiveEvidenceTest(unittest.TestCase):
                 ARCHIVE.compare_hosted_toolchain(ROOT, baseline, candidate, jobs)
 
     def test_cold_benchmark_cannot_read_or_write_production_compiler_caches(self):
-        workflow = (ROOT / '.github/workflows/ios-cache.yml').read_text()
+        workflow = (ROOT / '.github/workflows/ios-cache.yml.disabled').read_text()
         benchmark = workflow.split('  cold-compiler:', 1)[1].split('  populate:', 1)[0]
         self.assertNotIn('actions/cache/', benchmark)
         self.assertNotIn('uses: ./.github/actions/ios-cache', benchmark)
@@ -171,7 +171,7 @@ class ReleaseArchiveEvidenceTest(unittest.TestCase):
             root = Path(directory).resolve()
             env = ARCHIVE.prepare(ROOT, root / 'cache', root / 'report')
             home = Path(env['GRADLE_USER_HOME'])
-            self.assertEqual('konan.data.dir=' + str(root / 'cache/konan') + '\norg.gradle.caching=true\n' +
+            self.assertEqual('konan.data.dir=' + str(root / 'cache/konan').replace('\\', '\\\\') + '\norg.gradle.caching=true\n' +
                              'kotlin.build.report.output=file\n' +
                              'kotlin.build.report.file.output_dir=' + str(root / 'report/kotlin-build') + '\n' +
                              'kotlin.build.report.include_compiler_arguments=false\n',

@@ -35,16 +35,17 @@ static class UiaRequestTrace
             throw new ArgumentException("Run from the checkout root; output must be under its ignored build directory");
         if (File.Exists(trace) || File.Exists(trace + ".target.json"))
             throw new IOException("Refusing to overwrite an existing capture");
+        string applicationName = File.ReadAllText("APPLICATION_NAME").Trim();
         using (var target = Process.GetProcessById(pid))
         {
             // Retain the process identity throughout capture. The app itself stays unelevated.
             var handle = target.Handle;
             string executable = target.MainModule.FileName;
             string desktopBuild = Path.GetFullPath("apps/desktop/build") + Path.DirectorySeparatorChar;
-            if (target.ProcessName != "Naviamp" ||
+            if (target.ProcessName != applicationName ||
                 !(executable.StartsWith(build, StringComparison.OrdinalIgnoreCase) ||
                   executable.StartsWith(desktopBuild, StringComparison.OrdinalIgnoreCase)))
-                throw new ArgumentException("Target must be a disposable Naviamp build in this checkout");
+                throw new ArgumentException($"Target must be a disposable {applicationName} build in this checkout");
             Directory.CreateDirectory(Path.GetDirectoryName(trace));
             string instance = "NaviampUIA-" + Guid.NewGuid().ToString("N");
             File.WriteAllText(trace + ".target.json", JsonSerializer.Serialize(new {

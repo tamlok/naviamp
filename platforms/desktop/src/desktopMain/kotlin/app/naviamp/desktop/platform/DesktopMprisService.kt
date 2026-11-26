@@ -1,5 +1,8 @@
 package app.naviamp.desktop.platform
 
+import app.naviamp.domain.app.naviampLinuxDesktopEntryId
+import app.naviamp.domain.network.NaviampApplicationId
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.presentation.NaviampCore
 import app.naviamp.presentation.NaviampExternalArtworkFileWriter
 import app.naviamp.presentation.localArtworkExternalPlayback
@@ -247,8 +250,8 @@ internal fun rootProperties(): Map<String, Variant<*>> = linkedMapOf(
     "CanSetFullscreen" to Variant(false),
     "CanRaise" to Variant(false),
     "HasTrackList" to Variant(false),
-    "Identity" to Variant("Naviamp"),
-    "DesktopEntry" to Variant("naviamp"),
+    "Identity" to Variant(NaviampClientName),
+    "DesktopEntry" to Variant(MprisDesktopEntryId),
     "SupportedUriSchemes" to Variant(emptyList<String>(), "as"),
     "SupportedMimeTypes" to Variant(emptyList<String>(), "as"),
 )
@@ -300,7 +303,8 @@ internal fun trackObjectPath(mediaId: String?): String = mediaId?.let { id ->
     MprisTrackPathPrefix + digest.joinToString("") { byte -> "%02x".format(byte) }
 } ?: NoTrackObjectPath
 
-internal const val MprisBusName = "org.mpris.MediaPlayer2.naviamp"
+internal const val MprisBusName = "org.mpris.MediaPlayer2.$NaviampApplicationId"
+private val MprisDesktopEntryId = naviampLinuxDesktopEntryId(System.getenv("FLATPAK_ID"))
 internal const val MprisObjectPath = "/org/mpris/MediaPlayer2"
 internal const val MprisRootInterface = "org.mpris.MediaPlayer2"
 internal const val MprisPlayerInterface = "org.mpris.MediaPlayer2.Player"

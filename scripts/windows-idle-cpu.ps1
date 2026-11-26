@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+$applicationName = (Get-Content -LiteralPath (Join-Path $repositoryRoot 'APPLICATION_NAME') -Raw).Trim()
 $profileRoot = Join-Path $repositoryRoot "build/performance/windows-idle-$([guid]::NewGuid().ToString('N'))"
 $roamingProfile = Join-Path $profileRoot 'roaming'
 $localProfile = Join-Path $profileRoot 'local'
@@ -44,7 +45,7 @@ try {
     $env:LOCALAPPDATA = $localProfile
     Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue
 
-    $executable = Resolve-Path 'apps/desktop/build/compose/binaries/main/app/Naviamp/Naviamp.exe'
+    $executable = Resolve-Path "apps/desktop/build/compose/binaries/main/app/$applicationName/$applicationName.exe"
     $applicationProcess = Start-Process `
         -FilePath $executable `
         -WorkingDirectory (Split-Path $executable) `
@@ -55,7 +56,7 @@ try {
     Start-Sleep -Seconds $StartupSeconds
     $applicationProcess.Refresh()
     if ($applicationProcess.HasExited) {
-        throw "Naviamp exited during startup with code $($applicationProcess.ExitCode)."
+        throw "$applicationName exited during startup with code $($applicationProcess.ExitCode)."
     }
 
     Start-Sleep -Seconds $SettleSeconds

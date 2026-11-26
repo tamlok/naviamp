@@ -13,6 +13,7 @@ import app.naviamp.ui.LocalNaviampTheme
 import app.naviamp.ui.NaviampStatsForNerdsWindowContent
 import app.naviamp.ui.NaviampDiagnosticsUi
 import app.naviamp.ui.naviampAppIconPainter
+import app.naviamp.ui.naviampStatsWindowTitle
 
 /** Desktop window shell around the authoritative Core diagnostics model and shared content. */
 @Composable
@@ -23,7 +24,7 @@ internal fun DesktopStatsForNerdsWindow(
     val theme = LocalNaviampTheme.current
     Window(
         state = rememberWindowState(size = DpSize(760.dp, 780.dp)),
-        title = "Naviamp - Stats for Nerds",
+        title = naviampStatsWindowTitle(),
         onCloseRequest = onClose,
         icon = naviampAppIconPainter(),
     ) {

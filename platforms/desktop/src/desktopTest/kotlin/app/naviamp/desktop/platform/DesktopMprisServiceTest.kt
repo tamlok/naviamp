@@ -1,5 +1,6 @@
 package app.naviamp.desktop.platform
 
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.presentation.NaviampExternalMediaItem
 import app.naviamp.presentation.NaviampExternalPlaybackControl
 import app.naviamp.presentation.NaviampExternalPlaybackSnapshot
@@ -27,6 +28,19 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class DesktopMprisServiceTest {
+    @Test
+    fun advertisesForkDesktopIdentityWithoutChangingTheMprisProtocol() {
+        assertEquals("org.mpris.MediaPlayer2.cn.com.letalk.navo", MprisBusName)
+        assertEquals(
+            System.getenv("FLATPAK_ID") ?: "cn.com.letalk.navo-$NaviampClientName",
+            rootProperties().getValue("DesktopEntry").value,
+        )
+        assertEquals(NaviampClientName, rootProperties().getValue("Identity").value)
+        assertEquals("/org/mpris/MediaPlayer2", MprisObjectPath)
+        assertEquals("org.mpris.MediaPlayer2", MprisRootInterface)
+        assertEquals("org.mpris.MediaPlayer2.Player", MprisPlayerInterface)
+    }
+
     @Test
     fun malformedPropertiesAreRejectedAndFixedRateCanBeWritten() {
         val control = RecordingExternalPlaybackControl()

@@ -1,5 +1,6 @@
 package app.naviamp.app
 
+import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.connect.NaviampConnectAdvertisement
 import app.naviamp.domain.connect.NaviampConnectDiscoveryMetadata
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,7 +66,7 @@ class NaviampConnectAdvertisingController(
         if (mutableState.value !is NaviampConnectAdvertisingStatus.Idle) stop()
         mutableState.value = NaviampConnectAdvertisingStatus.Starting(advertisement)
         val service = NaviampConnectRegistrationService(
-            serviceName = "Naviamp ${advertisement.displayName}",
+            serviceName = "$NaviampClientName ${advertisement.displayName}",
             port = advertisement.port,
             textAttributes = NaviampConnectDiscoveryMetadata.encode(advertisement),
         )
@@ -73,7 +74,7 @@ class NaviampConnectAdvertisingController(
             NaviampConnectAdvertisingStartResult.Started -> Unit
             NaviampConnectAdvertisingStartResult.PermissionDenied -> {
                 mutableState.value = NaviampConnectAdvertisingStatus.Failed(
-                    "Local-network permission is required to advertise this Naviamp target.",
+                    "connect_advertising_permission_required",
                     permissionDenied = true,
                 )
             }
@@ -115,7 +116,7 @@ class NaviampConnectAdvertisingController(
 
     override fun onPermissionDenied() {
         effect.stop()
-        mutableState.value = NaviampConnectAdvertisingStatus.Failed("Permission denied", permissionDenied = true)
+        mutableState.value = NaviampConnectAdvertisingStatus.Failed("connect_advertising_permission_required", permissionDenied = true)
     }
 
     override fun onRegistrationFailed(message: String) {

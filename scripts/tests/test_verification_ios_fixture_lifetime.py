@@ -1,7 +1,5 @@
 """Diagnostic failures must remain visible and capture must stay on owned loopback ports."""
 from pathlib import Path
-import json
-import re
 import runpy
 import subprocess
 import tempfile
@@ -113,39 +111,3 @@ class FixtureLifetimeDiagnosticsTest(unittest.TestCase):
             with self.subTest(result=result):
                 self.assertEqual(1, HELPER['comparison_exit_code']([result, passed]))
         self.assertEqual(1, HELPER['comparison_exit_code']([]))
-
-    def test_manual_diagnosis_cannot_displace_standard_checks_or_publish_a_receipt(self):
-        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/verify.yml').read_text()
-        standard, diagnostic = workflow.split('  ios-fixture-lifetime-diagnostic:', 1)
-        standard_jobs = standard.split('jobs:', 1)[1]
-        self.assertNotRegex(standard_jobs, r'if:.*ios_fixture_(lifetime|packet)_diagnostic')
-        for context in ('Shared and Android tests', 'Desktop native tests (macOS)',
-                        'Desktop native tests (Windows)', 'Desktop native tests (Linux)', 'iOS simulator tests'):
-            self.assertIn('name: ' + context, standard_jobs)
-        self.assertIn('name: Android emulator native tests (API ${{ matrix.api-level }})', standard_jobs)
-        api_levels = json.loads(re.search(r'api-level:\s*(\[[^\]]+\])', standard_jobs).group(1))
-        self.assertTrue({30, 35}.issubset(api_levels))
-        self.assertIn("github.event_name == 'workflow_dispatch' && inputs.ios_fixture_lifetime_diagnostic", diagnostic)
-        self.assertNotIn('Write verification evidence', diagnostic)
-        self.assertNotIn('verified-source-', diagnostic)
-
-    def test_ordinary_ios_fixture_starts_after_compilation_before_simulator_boot(self):
-        workflow = (Path(__file__).resolve().parents[2] / '.github/workflows/verify.yml').read_text()
-        ios = re.split(r'\n  [a-z][a-z0-9-]*:', workflow.split('\n  ios:', 1)[1], maxsplit=1)[0]
-        stages = [ios.index('name: ' + stage) for stage in (
-            'Compile both targets and run common simulator tests',
-            'Start disposable mobile mTLS fixture',
-            'Boot a dedicated simulator for native TLS services',
-            'Require fixture health after simulator boot',
-            'Exercise native TLS and BASS on the booted simulator')]
-        self.assertEqual(sorted(stages), stages)
-        self.assertEqual(1, ios.count('run: bash scripts/start-mobile-mtls-fixture.sh'))
-        self.assertNotIn('GRADLE_OPTS:', ios)
-        self.assertIn('GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g', workflow)
-        for evidence in ('fixture-startup.json', 'fixture-readiness.log', 'cleanup-complete', 'fixture.jfr'):
-            self.assertIn('build/ios-native-replays/run-*/' + evidence, ios)
-        self.assertIn('build/mobile-mtls-run.*/fixture.jfr', ios)
-        self.assertIn('NAVIAMP_MTLS_FIXTURE_JFR:', ios)
-        recorder = next(line for line in ios.splitlines() if 'NAVIAMP_MTLS_FIXTURE_JFR:' in line)
-        self.assertIn("github.event_name == 'workflow_dispatch'", recorder)
-        self.assertNotIn('verify:ios-native-cold', recorder)

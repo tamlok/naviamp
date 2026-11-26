@@ -1,6 +1,7 @@
 package app.naviamp.domain.settings
 
 import kotlinx.serialization.Serializable
+import app.naviamp.domain.network.NaviampClientName
 
 @Serializable
 enum class NaviampThemeMode { Light, Dark, System }
@@ -97,7 +98,7 @@ fun resolveNaviampTheme(
 val NaviampBuiltinTheme = NaviampThemePack(
     schemaVersion = 1,
     id = "naviamp",
-    name = "Naviamp",
+    name = NaviampClientName,
     light = NaviampThemePalette(
         background = "#F8F9FB",
         backgroundWarm = "#EAE1DC",
