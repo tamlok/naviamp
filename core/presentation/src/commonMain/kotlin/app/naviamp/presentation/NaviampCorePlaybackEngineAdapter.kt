@@ -95,6 +95,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 
 /**
  * The one playback-engine adapter used by every Naviamp host.
@@ -142,6 +144,7 @@ class NaviampCorePlaybackEngineAdapter(
     // Native polling can deliver Playing after an explicit pause. Preserve the user's intent
     // independently of reported state, including when seeking restarts the native execution.
     private val pauseRequested = AtomicBoolean(false)
+    private val progressPublicationLock = SynchronizedObject()
 
     override val capabilities = NaviampCorePlaybackCapabilities(
         engineName = engine.name,
@@ -266,11 +269,18 @@ class NaviampCorePlaybackEngineAdapter(
     }
 
     private fun deferSeekUntilResume(positionSeconds: Double): Boolean {
-        if (!deferredStart) {
-            if (!pauseRequested.load() && playbackState != PlaybackState.Paused) return false
-            // Reopening now would start audio before the Playing callback could pause it again.
-            // Invalidate callbacks before stop so its Stopped/Unknown cannot clear the seek.
-            generation++
+        val retirePlayback = synchronized(progressPublicationLock) {
+            if (deferredStart) false else {
+                if (!pauseRequested.load() && playbackState != PlaybackState.Paused) return false
+                // Retire callbacks atomically with their final progress publication, not only
+                // their entry check. Native cleanup must run outside this barrier.
+                generation++
+                deferredStart = true
+                pauseRequested.store(true)
+                true
+            }
+        }
+        if (retirePlayback) {
             resolutionJob?.cancel()
             resolutionJob = null
             unstreamableRecoveryJob?.cancel()
@@ -281,14 +291,14 @@ class NaviampCorePlaybackEngineAdapter(
             clearPreparedTransition()
             authenticatedStreams?.clearCurrent()
             (engine as? DownloadFallbackAwarePlaybackEngine)?.setDownloadFallbackListener(null)
-            deferredStart = true
-            pauseRequested.store(true)
             engine.stop()
             playbackState = PlaybackState.Paused
             observer?.onStateChanged(playbackState)
         }
-        resumePositionSeconds = positionSeconds
-        observer?.onProgressChanged(PlaybackProgress(positionSeconds, queue.current?.durationSeconds?.toDouble()))
+        synchronized(progressPublicationLock) {
+            resumePositionSeconds = positionSeconds
+            observer?.onProgressChanged(PlaybackProgress(positionSeconds, queue.current?.durationSeconds?.toDouble()))
+        }
         return true
     }
 
@@ -705,12 +715,19 @@ class NaviampCorePlaybackEngineAdapter(
                         val currentTransitionSettings = effectivePlaybackSettingsForTransition()
                         applyProfileEngineSettings(currentPlaybackSettings, currentTransitionSettings)
                         invalidatePreparedNextWhenTransitionSettingsChange(currentTransitionSettings)
-                        if (playbackState == PlaybackState.Playing || playbackState == PlaybackState.Paused) {
-                            timelineProgress.positionSeconds?.takeIf { it.isFinite() && it >= 0.0 }
-                                ?.let { resumePositionSeconds = it }
+                        synchronized(progressPublicationLock) {
+                            // Settings/native effects above can overlap a paused seek. Recheck
+                            // while holding the same barrier that invalidates and publishes it.
+                            if (requestGeneration != generation || deferredStart || executionFinished.load() ||
+                                playbackState is PlaybackState.Error) return@play
+                            if (playbackState == PlaybackState.Playing || playbackState == PlaybackState.Paused) {
+                                timelineProgress.positionSeconds?.takeIf { it.isFinite() && it >= 0.0 }
+                                    ?.let { resumePositionSeconds = it }
+                            }
+                            observer?.onProgressChanged(timelineProgress)
                         }
-                        observer?.onProgressChanged(timelineProgress)
                         if (
+                            requestGeneration == generation && !deferredStart &&
                             playbackState == PlaybackState.Playing &&
                             provider != null &&
                             preparedForGeneration != requestGeneration &&

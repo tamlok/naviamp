@@ -30,6 +30,7 @@ kotlin {
             api(project(":core:domain"))
             api(project(":core:ui"))
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.androidx.lifecycle.runtime.compose)
             implementation(compose.runtime)

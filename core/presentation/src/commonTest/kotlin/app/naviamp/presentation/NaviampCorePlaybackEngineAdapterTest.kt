@@ -328,6 +328,39 @@ class NaviampCorePlaybackEngineAdapterTest {
         }
     }
 
+    @Test fun pausedSeekRejectsProgressAlreadyInsideTheSettingsCallback() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        var duringSettings: (() -> Unit)? = null
+        val adapter = NaviampCorePlaybackEngineAdapter(this, engine,
+            NaviampCoreMediaProviderSource { provider }, settings = {
+                val action = duringSettings
+                duringSettings = null
+                action?.invoke()
+                PlaybackSettings()
+            })
+        val progress = mutableListOf<PlaybackProgress>()
+        adapter.attach(object : NaviampCorePlaybackObserver {
+            override fun onStateChanged(state: PlaybackState) = Unit
+            override fun onMetadataChanged(metadata: PlaybackStreamMetadata) = Unit
+            override fun onProgressChanged(value: PlaybackProgress) { progress += value }
+        })
+        try {
+            adapter.playQueueSelection(PlaybackQueue(listOf(provider.track), 0), 0)
+            runCurrent()
+            progress.clear()
+            duringSettings = {
+                adapter.pause()
+                adapter.seek(90.0)
+            }
+            engine.emitProgress(PlaybackProgress(0.0, 180.0, decodedPositionSeconds = 0.2))
+            assertEquals(listOf(PlaybackProgress(90.0, provider.track.durationSeconds?.toDouble())), progress)
+            adapter.resume()
+            runCurrent()
+            assertEquals(90.0, engine.request?.startPositionSeconds)
+        } finally { adapter.stop() }
+    }
+
     @Test
     fun pausedSeekCancelsPendingResolutionAndResumesAtTheLatestPosition() = runTest {
         val base = FakeCoreMediaProvider()
