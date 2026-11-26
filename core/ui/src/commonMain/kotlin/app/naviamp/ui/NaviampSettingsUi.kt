@@ -183,8 +183,6 @@ import app.naviamp.domain.settings.normalizedLyricsSearchOrder
 import app.naviamp.domain.settings.normalized
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.*
-import app.naviamp.ui.generated.resources.naviamp
-import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -2397,7 +2395,7 @@ fun NaviampAboutSettingsSection(
         modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 18.dp),
     ) {
         Image(
-            painter = painterResource(Res.drawable.naviamp),
+            painter = naviampAppIconPainter(),
             contentDescription = null,
             modifier = Modifier.size(78.dp),
         )

@@ -88,7 +88,7 @@ val macLocalNetworkPackagingInputs = files(
 // Stable fork upgrade family: never match or replace an upstream Naviamp installation.
 val windowsInstallerUpgradeUuid = "1560d807-e123-4b05-b883-b9b8ef9fd46c"
 val windowsInstallerResourcesDir = layout.buildDirectory.dir("windows-installer-resources")
-val windowsInstallerIcon = rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.ico")
+val windowsInstallerIcon = rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.ico")
 
 kotlin {
     jvm("desktop") {
@@ -160,7 +160,7 @@ compose.desktop {
                 jvmArgs += macOsFullscreenJvmArgs
                 jvmArgs += "-Dskiko.renderApi=METAL"
                 jvmArgs += "-Dnaviamp.visualizer.macosMetal=true"
-                jvmArgs += "-Xdock:icon=\$APPDIR/resources/icons/naviamp.png"
+                jvmArgs += "-Xdock:icon=\$APPDIR/resources/icons/navo.png"
             }
         }
 
@@ -202,10 +202,10 @@ compose.desktop {
             }
             macOS {
                 bundleID = naviampApplicationId
-                iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.icns"))
+                iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.icns"))
             }
             linux {
-                iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.png"))
+                iconFile.set(rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.png"))
                 packageName = naviampApplicationId
                 // jpackage appends the Linux package name: /opt/cn.com.letalk.navo.
                 installationPath = "/opt"
@@ -373,9 +373,9 @@ tasks.register("verifyDesktopPackagingInputs") {
 
     doLast {
         val icons = listOf(
-            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.icns"),
-            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.ico"),
-            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/naviamp.png"),
+            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.icns"),
+            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.ico"),
+            rootProject.file("platforms/desktop/src/desktopMain/resources/icons/navo.png"),
         )
         check(icons.all { it.isFile && it.length() > 0L }) {
             "Desktop packaging icons are missing: ${icons.filterNot { it.isFile && it.length() > 0L }.joinToString()}"
@@ -479,12 +479,12 @@ tasks.register("verifyDesktopDistributable") {
         }
         if (platform.startsWith("macos-")) {
             val applicationIcon = desktopPackagedResourcesDir(platform, appDirectory)
-                .resolve("icons/naviamp.png")
+                .resolve("icons/navo.png")
             check(applicationIcon.isFile && applicationIcon.length() > 0L) {
                 "Desktop package is missing its macOS JVM application icon: ${applicationIcon.absolutePath}"
             }
             val launcherConfig = appDirectory.resolve("Contents/app/$naviampApplicationName.cfg")
-            check(launcherConfig.readText().contains("-Xdock:icon=\$APPDIR/resources/icons/naviamp.png")) {
+            check(launcherConfig.readText().contains("-Xdock:icon=\$APPDIR/resources/icons/navo.png")) {
                 "Desktop package does not configure the macOS JVM application icon."
             }
             val visualizer = bassResourcesDirectory.resolve(desktopLibraryName("naviamp_visualizer_metal", platform))

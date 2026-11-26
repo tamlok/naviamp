@@ -6,6 +6,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Features
 
+- Replace the original app artwork with the Navo blue-arrow logo across shared screens, launchers, notifications, and desktop packages.
 - Preview generated radio before playing, save station recipes in Radio, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
 - Move Mix Builders, Stations, and Saved stations from Home into Radio's Server Radio tab, alongside a separate Internet Radio tab. Keep section actions, source-scoped tab selection, and Back navigation consistent across shared app surfaces. Place each tab's controls beside the Radio title, with Refresh directly available instead of a refresh-only menu.
 - Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
