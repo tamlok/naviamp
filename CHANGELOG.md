@@ -60,6 +60,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Center full-player rating stars with the track details and playback controls, keeping audio format and quality labels balanced on either side.
 - Publish canonical album names to Android media-session consumers, including AAOS media hosts, and refresh playback position when a track is replaced at the same queue position. Instrument-cluster display remains dependent on the vehicle.
 - Allow Radio, Radio Autoplay, and similarity diagnostics up to 30 seconds for slow server recommendations. Show a localized, non-blocking “Generating radio…” toast immediately when starting track Radio, and clear it when the request finishes or is cancelled.
 - Fix Home playlists showing stale artwork or “playlist not found” after a Navidrome upgrade. Refresh playlist metadata on connection and Home refresh, and repair cached responses for connections whose identifier migration already ran without changing downloaded files.
