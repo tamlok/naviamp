@@ -35,7 +35,7 @@ val copyDesktopBassAppResources by tasks.registering(Copy::class) {
 }
 
 val copyDesktopApplicationIconAppResource by tasks.registering(Copy::class) {
-    from(layout.projectDirectory.file("src/desktopMain/resources/icons/naviamp.png"))
+    from(layout.projectDirectory.file("src/desktopMain/resources/icons/navo.png"))
     into(generatedDesktopNativeAppResources.zip(desktopNativePlatform) { resources, platform ->
         resources.dir("$platform/icons")
     })

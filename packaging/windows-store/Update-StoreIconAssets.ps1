@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory)]
     [string] $Layout,
 
-    [string] $Icon = (Join-Path $PSScriptRoot '../../platforms/desktop/src/desktopMain/resources/icons/naviamp.png'),
+    [string] $Icon = (Join-Path $PSScriptRoot '../../platforms/desktop/src/desktopMain/resources/icons/navo.png'),
 
     [string] $MakePri = 'makepri.exe'
 )

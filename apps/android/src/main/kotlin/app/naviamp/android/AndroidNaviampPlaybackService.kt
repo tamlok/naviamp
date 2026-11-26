@@ -292,7 +292,7 @@ class AndroidNaviampPlaybackService : MediaBrowserServiceCompat() {
             .setContentTitle(current?.title ?: getString(R.string.app_name))
             .setContentText(current?.subtitle ?: labels?.playback.orEmpty())
             .setSubText(current?.description?.takeIf(String::isNotBlank))
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(R.drawable.navo_notification)
             .setContentIntent(contentIntent())
             .setDeleteIntent(servicePendingIntent(ActionStop, 5))
             .addAction(notificationAction(ActionPrevious, android.R.drawable.ic_media_previous, transportLabel(NaviampExternalTransportLabel.Previous)))

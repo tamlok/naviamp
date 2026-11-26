@@ -18,10 +18,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.graphics.toAwtImage
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.NaviampBuiltinTheme
 import app.naviamp.domain.settings.NaviampForestTheme
@@ -33,6 +37,74 @@ import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampNowPlayingLayoutTest {
+    @Test fun compactRatingStaysCenteredBetweenAudioFields() {
+        for ((width, height, fontScale) in listOf(
+            Triple(1000, 680, 1f), Triple(780, 680, 1.4f), Triple(320, 500, 1f),
+        )) for (direction in LayoutDirection.entries) runDesktopComposeUiTest(width, height) {
+            val playing = mutableStateOf(NowPlayingUi(
+                id = "song", title = "Song", subtitle = "Artist", albumTitle = "Album", stateLabel = "Paused",
+                isPaused = true, canPlayPause = true, canRate = true, audioInfo = "FLAC 44.1 / 16",
+            ))
+            val showAudio = mutableStateOf(true)
+            val requests = mutableListOf<NowPlayingCurrentTrackUiActionRequest>()
+            setContent {
+                CompositionLocalProvider(
+                    LocalDensity provides Density(LocalDensity.current.density, fontScale),
+                    LocalLayoutDirection provides direction,
+                ) {
+                    NaviampNowPlayingPanel(
+                        playing.value, colors = NaviampColors.Dark,
+                        actions = NaviampNowPlayingActions({}, {}, {
+                            requests += it
+                            playing.value = playing.value.copy(userRating = it.rating)
+                        }, {}, {}, {}, {}),
+                        displaySettings = app.naviamp.domain.settings.NowPlayingDisplaySettings(showAudioInfo = showAudio.value),
+                    )
+                }
+            }
+            val label = "${width}x$height scale=$fontScale $direction"
+            onNodeWithContentDescription("3 star rating").performScrollTo()
+            val stars = (1..5).map {
+                onNodeWithContentDescription("$it star rating").assertIsDisplayed()
+                    .assertWidthIsEqualTo(28.dp).fetchSemanticsNode().boundsInRoot
+            }
+            val starsLeft = stars.minOf { it.left }
+            val starsRight = stars.maxOf { it.right }
+            val starsCenter = (starsLeft + starsRight) / 2
+            val controller = onNodeWithTag("now-playing-controller").fetchSemanticsNode().boundsInRoot
+            val play = onNodeWithContentDescription("Play").fetchSemanticsNode().boundsInRoot
+            val format = onNodeWithText("FLAC").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val quality = onNodeWithText("44.1 / 16").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            // Separate flanking labels prove this exercises the compact row, not the stacked layout.
+            val (leftAudio, rightAudio) = if (direction == LayoutDirection.Ltr) format to quality else quality to format
+            assertTrue(leftAudio.right <= starsLeft && rightAudio.left >= starsRight, "$label audio avoids stars")
+            assertTrue(leftAudio.left >= controller.left && rightAudio.right <= controller.right, "$label audio fits card")
+            assertEquals(stars[2].center.y, format.center.y, 1f, "$label format baseline")
+            assertEquals(stars[2].center.y, quality.center.y, 1f, "$label quality baseline")
+            assertEquals(controller.center.x, starsCenter, 1f, "$label rating centered in card")
+            assertEquals(play.center.x, starsCenter, 1f, "$label rating aligned with Play")
+            onNodeWithContentDescription("5 star rating").performMouseInput { click() }
+            onNodeWithContentDescription("5 star rating").performMouseInput { click() }
+            assertEquals(listOf(5, null), requests.map { it.rating }, "$label rating sets and clears")
+            assertTrue(requests.all { it.action == NowPlayingCurrentTrackAction.SetRating })
+            System.getenv("NAVIAMP_ARTWORK_CAPTURE")?.let { directory ->
+                val image = java.io.File(directory, "rating-$width-$height-$direction.png")
+                image.parentFile.mkdirs()
+                javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", image)
+            }
+            runOnIdle { showAudio.value = false }
+            onNodeWithText("FLAC").assertDoesNotExist()
+            onNodeWithText("44.1 / 16").assertDoesNotExist()
+            assertEquals(controller.center.x,
+                onNodeWithContentDescription("3 star rating").fetchSemanticsNode().boundsInRoot.center.x,
+                1f, "$label rating remains centered without audio")
+            runOnIdle { showAudio.value = true; playing.value = playing.value.copy(canRate = false) }
+            (1..5).forEach { onNodeWithContentDescription("$it star rating").assertDoesNotExist() }
+            onNodeWithText("FLAC").assertIsDisplayed()
+            onNodeWithText("44.1 / 16").assertIsDisplayed()
+        }
+    }
+
     @Test fun stationFlameOpensDetailsWithoutMovingPlayerContent() {
         for ((width, height) in listOf(320 to 720, 1000 to 720)) runDesktopComposeUiTest(width, height) {
             val station = app.naviamp.domain.radio.GeneratedRadioStation("station-id", "A long station name that must not resize the player controls",

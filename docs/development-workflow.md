@@ -32,6 +32,27 @@ the `.yml.disabled` extension and their GitHub workflow registrations are disabl
 requires an explicit scope decision and the appropriate native toolchains and signing/publication
 configuration. The announcement-only workflow remains independent of platform build selection.
 
+## App icon resources
+
+`design/navo.png` is the original Navo artwork. Regenerate the shared UI, README, Android
+launcher/adaptive/themed/notification/TV, desktop PNG/ICO/ICNS, iOS, and tvOS resources from it:
+
+```shell
+python -m pip install Pillow==12.3.0
+python scripts/generate-icons.py
+```
+
+Run from the repository root. Main assets are named `navo.*`; native layers and density/scale
+variants keep their platform qualifiers. Color icons preserve the black background. Android
+themed/notification icons use white alpha masks, while iOS requires an opaque 1024px RGB PNG.
+TV artwork uses the bundled Nunito Sans font and `APPLICATION_NAME`, with no system-font dependency.
+Apple and Linux resources remain maintained without enabling their disabled release pipelines.
+
+After renaming resources in an existing checkout, clean the affected modules' generated assets
+and staged app images before packaging: Compose's Android resource-copy outputs and desktop
+native-resource `Copy` outputs can retain removed filenames. Check the entire built package,
+including loose app resources as well as jars, for obsolete artwork.
+
 ## Work tracking
 
 - GitHub issues are optional, not a prerequisite for implementation. Use existing relevant issues

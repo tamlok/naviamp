@@ -6,6 +6,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Features
 
+- Replace the original app artwork with the Navo blue-arrow logo across shared screens, launchers, notifications, and desktop packages.
 - Preview generated radio before playing, save station recipes in Radio, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
 - Move Mix Builders, Stations, and Saved stations from Home into Radio's Server Radio tab, alongside a separate Internet Radio tab. Keep section actions, source-scoped tab selection, and Back navigation consistent across shared app surfaces. Place each tab's controls beside the Radio title, with Refresh directly available instead of a refresh-only menu.
 - Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
@@ -60,6 +61,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Bug fixes
 
 - Keep context menus attached at Android window edges and preserve the parent interface's scaling and text direction inside popup windows.
+- Center full-player rating stars with the track details and playback controls, keeping audio format and quality labels balanced on either side.
 - Publish canonical album names to Android media-session consumers, including AAOS media hosts, and refresh playback position when a track is replaced at the same queue position. Instrument-cluster display remains dependent on the vehicle.
 - Allow Radio, Radio Autoplay, and similarity diagnostics up to 30 seconds for slow server recommendations. Show a localized, non-blocking “Generating radio…” toast immediately when starting track Radio, and clear it when the request finishes or is cancelled.
 - Fix Home playlists showing stale artwork or “playlist not found” after a Navidrome upgrade. Refresh playlist metadata on connection and Home refresh, and repair cached responses for connections whose identifier migration already ran without changing downloaded files.

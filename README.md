@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="readme-assets/naviamp-icon.png" alt="Navo icon" width="144">
+  <img src="readme-assets/navo.png" alt="Navo icon" width="144">
 </p>
 
 # Navo

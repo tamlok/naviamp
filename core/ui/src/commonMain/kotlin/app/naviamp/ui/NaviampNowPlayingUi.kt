@@ -1779,7 +1779,7 @@ private fun CompactMetadataRow(
                 textAlign = TextAlign.End,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(36.dp),
+                modifier = Modifier.weight(1f),
             )
         }
         if (showRatingControls) {
@@ -1804,7 +1804,7 @@ private fun CompactMetadataRow(
                 textAlign = TextAlign.Start,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.width(58.dp),
+                modifier = Modifier.weight(1f),
             )
         }
     }

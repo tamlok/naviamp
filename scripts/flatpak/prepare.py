@@ -48,7 +48,7 @@ def prepare(release, output):
     for name in ("naviamp", f"{APP_ID}.desktop", "libsecret-COPYING", "THIRD-PARTY.txt"):
         shutil.copyfile(PACKAGING / name, output / name)
     shutil.copyfile(ROOT / "LICENSE", output / "LICENSE")
-    shutil.copyfile(ROOT / "platforms/desktop/src/desktopMain/resources/icons/naviamp.png",
+    shutil.copyfile(ROOT / "platforms/desktop/src/desktopMain/resources/icons/navo.png",
                     output / f"{APP_ID}.png")
     metadata = ET.parse(PACKAGING / f"{APP_ID}.metainfo.xml")
     ET.SubElement(metadata.getroot().find("releases"), "release", version=version, date=date)

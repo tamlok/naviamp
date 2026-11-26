@@ -1467,8 +1467,8 @@ The emulator and automated checks below do not close those physical-device findi
   not close contrast acceptance across arbitrary artwork backdrops or physical-TV accessibility.
 - Packaging audit found a missing launcher banner despite the existing Leanback launcher entry.
   Added `android:banner` and a 320x180 xhdpi banner using the existing Naviamp mark and brand name.
-  The name is identical in both maintained languages. Editable source: `design/naviamp-tv-banner.svg`;
-  regenerate with `rsvg-convert design/naviamp-tv-banner.svg -o apps/android/src/main/res/drawable-xhdpi/naviamp_tv_banner.png`.
+  The name is identical in both maintained languages. Current Navo source: `design/navo.png`;
+  regenerate `apps/android/src/main/res/drawable-xhdpi/navo_tv_banner.png` with `python scripts/generate-icons.py`.
   Reference: https://developer.android.com/training/tv/get-started/create and
   https://developer.android.com/docs/quality-guidelines/tv-app-quality.
   No Android/Desktop/iOS production Kotlin changed; the Android manifest/resource change is native

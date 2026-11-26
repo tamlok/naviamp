@@ -1,7 +1,8 @@
 # Repository Guidelines
 
 Supplementary guidance for this checkout. Read together with [AGENTS.md](AGENTS.md);
-upstream rules in that file take precedence if repeated guidance here diverges.
+upstream rules in that file take precedence if repeated guidance here diverges, except for the
+explicit fork branch and pull-request override under Repository workflow below.
 
 ## Project Overview
 
@@ -202,12 +203,20 @@ migrations solely for experimental local history or alter unrelated user data to
 
 ### Repository workflow
 
-Follow [development workflow](docs/development-workflow.md): GitHub is canonical; Forgejo is a manual
-secondary mirror, never a merge/release source. Issues are optional, not a prerequisite for
-implementation. Use existing relevant issues when helpful; do not create upstream issues solely
-to track local or fork-only work. Merge complete work through a PR to `main`, linking
-related issues when they exist. Use milestones for release scope and short-lived release branches
-from accepted `main`. Do not treat unreleased work as available in public documentation.
+Follow [development workflow](docs/development-workflow.md), subject to the fork override below:
+GitHub is canonical; Forgejo is a manual secondary mirror, never a merge/release source. Issues
+are optional, not a prerequisite for implementation. Use existing relevant issues when helpful;
+do not create upstream issues solely to track local or fork-only work. Use milestones for release
+scope and short-lived release branches from accepted `main`. Do not treat unreleased work as
+available in public documentation.
+
+**Fork branch and pull-request override:** This takes precedence over conflicting branch/PR
+requirements in `AGENTS.md` and `docs/development-workflow.md`. Work and commit directly on `main`
+by default. Do not create or require a feature branch or pull request unless the user explicitly
+asks for one. When asked to push without a specified target, push directly to `origin/main`;
+do not substitute a feature-branch push or PR. Honor explicitly requested branches and targets.
+Push only when requested, rebase onto the target when necessary, and never force-push without
+explicit authorization.
 
 ### Rapidly changing upstream
 

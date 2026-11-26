@@ -21,7 +21,7 @@ fun configureDesktopWindowIcon(window: Window) {
 
 internal fun desktopApplicationIcon() = runCatching {
     val iconUrl = DesktopApplicationIconResource::class.java.classLoader
-        .getResource("icons/naviamp.png")
+        .getResource("icons/navo.png")
         ?: return@runCatching null
     ImageIO.read(iconUrl)
 }.getOrNull()
