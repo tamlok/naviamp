@@ -13,7 +13,7 @@ concurrency:
 jobs:
   build:
     name: Build and qualify a new candidate
-    if: github.repository == 'tamlok/naviamp' && github.ref == 'refs/heads/main'
+    if: github.repository == 'tamlok/navo' && github.ref == 'refs/heads/main'
     runs-on: macos-latest
     timeout-minutes: 300
     outputs:
@@ -35,7 +35,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import os, platform
-          assert os.environ['GITHUB_REPOSITORY'] == 'tamlok/naviamp'
+          assert os.environ['GITHUB_REPOSITORY'] == 'tamlok/navo'
           assert os.environ['GITHUB_REF'] == 'refs/heads/main'
           assert os.environ['GITHUB_SHA'] == os.environ['GITHUB_WORKFLOW_SHA']
           assert os.environ['RUNNER_ENVIRONMENT'] == 'github-hosted'
@@ -146,7 +146,7 @@ jobs:
   attest:
     name: Attest the qualified immutable candidate
     needs: build
-    if: github.repository == 'tamlok/naviamp' && github.ref == 'refs/heads/main'
+    if: github.repository == 'tamlok/navo' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
