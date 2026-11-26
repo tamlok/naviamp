@@ -284,6 +284,9 @@ locally. Resolve semantic conflicts before accepting an automatic merge as compl
 - Prepare real local artwork fixtures through the existing decoder/cache before timing a rendered
   presentation contract. Keep cold-load, delayed-load, and cancellation coverage in their dedicated
   suites; do not replace fixtures with mocked colors or extend UI deadlines to hide setup latency.
+- Coverage gates can also run Android host-test targets, which use stubbed framework classes even
+  on Windows. Inject native-backed text/resource effects into shared controllers with real shared
+  resource defaults; keep orchestration tests headless instead of mocking the entire framework.
 - Record verification limits precisely: JVM tests do not prove Android notifications, native audio,
   Apple compilation, packaging, or real-window behavior. Keep upstream release history distinct
   from the fork's Unreleased notes; an upstream merge is not a fork release.

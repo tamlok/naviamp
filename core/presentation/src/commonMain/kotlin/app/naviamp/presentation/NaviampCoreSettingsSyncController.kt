@@ -115,6 +115,8 @@ data class NaviampCoreSettingsSyncServices(
 class NaviampCoreSettingsSyncController(
     private val stateStore: NaviampCoreStateStore,
     private val services: NaviampCoreSettingsSyncServices,
+    private val loadImportTitle: suspend () -> String = ::naviampSettingsImportTitle,
+    private val loadExportTitle: suspend () -> String = ::naviampSettingsExportTitle,
     // Receives the saved connection the document's first server profile resolved to, if any.
     private val onDocumentApplied: suspend (SettingsSyncLocalSnapshot, SavedMediaSource?) -> Unit = { _, _ -> },
 ) : NaviampCoreCommandController {
@@ -188,14 +190,14 @@ class NaviampCoreSettingsSyncController(
     }
 
     private suspend fun selectAndImport() {
-        val selected = pickDirectory(naviampSettingsImportTitle()) ?: return
+        val selected = pickDirectory(loadImportTitle()) ?: return
         selectImportDirectory(selected)
     }
 
     private suspend fun selectAndImportFile() {
         val selected = services.port.chooseDocument(
             currentPath = configuredDirectory() ?: services.port.defaultDirectory(),
-            title = naviampSettingsImportTitle(),
+            title = loadImportTitle(),
         ) ?: return
         importFile(selected)
     }
@@ -208,7 +210,7 @@ class NaviampCoreSettingsSyncController(
     }
 
     private suspend fun exportFolder() {
-        val selected = pickDirectory(naviampSettingsExportTitle()) ?: return
+        val selected = pickDirectory(loadExportTitle()) ?: return
         save(configuration().copy(directoryPath = selected))
         export()
     }
