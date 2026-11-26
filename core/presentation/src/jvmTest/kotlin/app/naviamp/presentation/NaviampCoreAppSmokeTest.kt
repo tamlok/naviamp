@@ -150,6 +150,7 @@ class NaviampCoreAppSmokeTest {
         val fallback = NaviampPlayerColors.fallback(NaviampColors.Dark)
         var loadedPalette = fallback
         try {
+            preloadJvmPlatformCoverArt(listOf(redArtwork, blueArtwork))
             setContent {
                 val palette = rememberNaviampCoverArtPlayerColors(ui.value.nowPlaying?.coverArtUrl, NaviampColors.Dark)
                 SideEffect { loadedPalette = palette }
