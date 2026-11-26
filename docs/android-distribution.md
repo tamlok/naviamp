@@ -20,8 +20,8 @@ previous local `cn.com.letalk.naviamp` builds (including their `.v2test` variant
 settings or credentials are read or automatically migrated. The existing fork signing key is retained;
 `APPLICATION_NAME` remains Navo. This is an installation-ID change, not only a display-name change.
 
-For the accepted v2.10.0 scope and the distinction between package readiness, deferred device
-testing and store review, see the [distribution handoff](releases/v2.10.0-readiness.md).
+For Navo 1.0.0 release gates and distribution status, see the [readiness record](releases/v1.0.0-readiness.md).
+The dated verification sections below describe upstream builds, not this fork's release acceptance.
 
 ## Now-playing publication for Android Automotive OS
 
@@ -71,9 +71,10 @@ diagnostics. Keep the mapping and native-symbol files with the exact APK/AAB tha
 
 `make android-release` uses this same task. `make android-play-release` additionally requires the
 release signing environment before invoking it. `stageReleaseApk` remains a compatibility alias. The tag release workflow
-requires the existing signing environment, builds both formats in one Android job, and attaches
-both artifacts to the draft release. Local outputs without configured release signing are not
-publishable signed releases. No Play upload or publication is performed by this change.
+requires the existing signing environment and builds both formats in one Android job. Only the APK
+is attached to the public draft release; the AAB, mapping and native symbols are retained in the
+`android-publishing-support` Actions artifact. Local outputs without configured release signing are
+not publishable signed releases. The workflow does not upload to or publish on Google Play.
 
 ## Historical Android Gradle Plugin 9 evaluation
 

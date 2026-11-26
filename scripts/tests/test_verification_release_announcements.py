@@ -11,7 +11,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "send-release-announcement.py"
 spec = importlib.util.spec_from_file_location("release_announcements", SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-URL = "https://github.com/tamlok/naviamp/releases/tag/v3.0.0"
+URL = "https://github.com/tamlok/navo/releases/tag/v3.0.0"
 PLAIN_LIST_NOTES = (
     "Navo v3.0.0\n\n"
     "- Browse library albums and tracks.\n"
@@ -61,8 +61,8 @@ class ReleaseAnnouncementTest(unittest.TestCase):
     def test_rejects_mismatched_version_detailed_notes_and_oversized_copy(self):
         for notes in ("Navo v3.0.1\n- A change",
                       "Navo v3.0.0\n- See https://github.com/goosepod/naviamp/issues/586",
-                      "Navo v3.0.0\n- See https://github.com/tamlok/naviamp/pull/456",
-                      "Navo v3.0.0\n- See https://github.com/tamlok/naviamp/commit/abcdef",
+                      "Navo v3.0.0\n- See https://github.com/tamlok/navo/pull/456",
+                      "Navo v3.0.0\n- See https://github.com/tamlok/navo/commit/abcdef",
                       "Navo v3.0.0\n" + "a" * 4097, "Navo v3.0.0\n"):
             with self.subTest(notes=notes[:60]), self.assertRaises(ValueError):
                 module.announcement_payload(notes, URL)
@@ -90,7 +90,7 @@ class ReleaseAnnouncementTest(unittest.TestCase):
         sent = request.call_args.args[0]
         self.assertEqual("POST", sent.get_method())
         self.assertEqual(FAKE_WEBHOOK + "?wait=true", sent.full_url)
-        self.assertEqual("DiscordBot (https://github.com/tamlok/naviamp, 1.0)", sent.get_header("User-agent"))
+        self.assertEqual("DiscordBot (https://github.com/tamlok/navo, 1.0)", sent.get_header("User-agent"))
         self.assertEqual("application/json", sent.get_header("Content-type"))
         self.assertEqual(payload, json.loads(sent.data))
         report.assert_called_once_with("Delivered release announcement; Discord message ID 12345")

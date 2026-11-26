@@ -48,7 +48,7 @@ class NaviampChangelogRenderedUiTest {
         System.getenv("NAVIAMP_CHANGELOG_CAPTURE")?.let { directory ->
             java.io.File(directory).mkdirs()
             javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", java.io.File(directory, "about-changelog-end.png"))
-            onNodeWithText(entries.single { it.startsWith("Apple CarPlay (beta)") }).performScrollTo().assertIsDisplayed()
+            onNodeWithText(entries.single { it.startsWith("Browse Home, Playlists, Library, Radio, and My") }).performScrollTo().assertIsDisplayed()
             javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", java.io.File(directory, "about-changelog-playback.png"))
             onNodeWithText(entries.first()).performScrollTo()
             javax.imageio.ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", java.io.File(directory, "about-changelog-start.png"))

@@ -5,33 +5,31 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NaviampChangelogTest {
-    @Test fun release2120LeadsWithTheCompanionAndCarPlayAndNotesTheAurralRequirement() {
+    @Test fun release100DescribesTheFirstNavoReleaseAndItsCompatibilityLimits() {
         val about = NaviampAboutUi()
-        assertEquals("v2.12.0", about.version)
-        assertEquals("65", about.buildNumber)
-        assertEquals(listOf("Features", "Improvements", "Bug fixes", "Upgrade notes", "Known issues"),
+        assertEquals("v1.0.0", about.version)
+        assertEquals("66", about.buildNumber)
+        assertEquals(listOf("Features", "Upgrade notes", "Known issues", "Thanks"),
             about.changelog.map { it.title })
         val sections = about.changelog.associate { it.title to it.entries }
         val features = sections.getValue("Features")
-        assertTrue(features[0].contains("Aurral account as a companion") && features[0].contains("without switching servers"))
-        assertTrue(features[1].startsWith("Apple CarPlay (beta)") && features[1].contains("Up Next"))
-        assertTrue(features[2].startsWith("Apple TV (beta)") && features[2].contains("No Apple TV download is published"))
-        val improvements = sections.getValue("Improvements")
-        assertTrue(improvements.first().startsWith("Android Auto") && improvements.first().contains("Start Radio"))
-        assertEquals("Android TV and Google TV are no longer beta.", improvements[1])
-        val fixes = sections.getValue("Bug fixes")
-        assertTrue(fixes.first().startsWith("Linux media controls") && fixes.first().contains("private local file"))
-        assertTrue(fixes.any { it.startsWith("Mixes for you start a radio station") && it.contains("instead of playing the seed album") })
-        assertTrue(fixes.any { it.contains("queues the album or playlist from that track") })
-        assertTrue(fixes.any { it.startsWith("Elapsed time keeps advancing") && it.contains("0:00") })
-        assertTrue(fixes.any { it.startsWith("On Linux, the first launch") && it.contains("Retry") })
-        assertTrue(fixes.any { it.contains("importing settings") && it.contains("duplicate-connection") })
-        assertTrue(fixes.any { it.contains("Importing settings keeps this device's volume") })
-        assertEquals("Aurral connections now require Aurral 3.x. Aurral 2.x servers are no longer supported.",
-            sections.getValue("Upgrade notes").first())
-        assertTrue(sections.getValue("Known issues").first().contains("beta") &&
-            sections.getValue("Known issues").first().contains("physical CarPlay or Apple TV hardware"))
-        val entries = about.changelog.flatMap { it.entries }
-        assertTrue(entries.none { it.contains("http") || it.contains("@") || it.contains("#") || it.contains("white bands") })
+        assertTrue(features.first().contains("Windows and Android"))
+        assertTrue(features.any { it.contains("station recipes") && it.contains("exact order") })
+        assertTrue(features.any { it.contains("Home, Playlists, Library, Radio, and My") })
+        assertTrue(features.any { it.contains("Resume playlists") && it.contains("Quick Access") })
+        assertTrue(features.any { it.contains("lyrics") && it.contains("Forest") })
+        val upgrades = sections.getValue("Upgrade notes")
+        assertTrue(upgrades.any { it.contains("does not automatically migrate") })
+        assertTrue(upgrades.any { it.contains("uninstall") && it.contains("update checker") })
+        assertTrue(upgrades.any { it.contains("Aurral requires version 3.x") })
+        assertTrue(upgrades.any { it.contains("sync schema 2") })
+        val limitations = sections.getValue("Known issues")
+        assertTrue(limitations.any { it.contains("not publisher-signed") })
+        assertTrue(limitations.any { it.contains("Only Windows x64 and Android") })
+        val thanks = sections.getValue("Thanks")
+        assertTrue(thanks.any { it.contains("@ursasmar") && it.contains("upstream") })
+        assertTrue(thanks.any { it.contains("@crsthn-slv") && it.contains("translation") })
+        assertTrue(thanks.any { it.contains("@sewnie") && it.contains("reporting") })
+        assertTrue(about.changelog.flatMap { it.entries }.none { it.contains("https://") })
     }
 }

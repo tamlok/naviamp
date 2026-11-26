@@ -16,13 +16,13 @@ class NaviampUpdateCheckerTest {
             currentVersion = "v0.17.0",
             channel = ApplicationUpdateChannel.Stable,
             client = FakeUpdateHttpClient(
-                """[{"tag_name":"v0.18.0","name":"Naviamp 0.18.0","html_url":"https://github.com/tamlok/naviamp/releases/tag/v0.18.0","draft":false,"prerelease":false}]""",
+                """[{"tag_name":"v0.18.0","name":"Navo v0.18.0","html_url":"https://github.com/tamlok/navo/releases/tag/v0.18.0","draft":false,"prerelease":false}]""",
             ),
         )
 
         assertNotNull(update)
         assertTrue(update.version == "v0.18.0")
-        assertEquals("https://github.com/tamlok/naviamp/releases/tag/v0.18.0", update.releaseUrl)
+        assertEquals("https://github.com/tamlok/navo/releases/tag/v0.18.0", update.releaseUrl)
     }
 
     @Test
@@ -36,7 +36,7 @@ class NaviampUpdateCheckerTest {
         val update = checker.latestUpdate("v0.17.0", ApplicationUpdateChannel.Stable)
 
         assertNotNull(update)
-        assertEquals("https://github.com/tamlok/naviamp/releases", update.releaseUrl)
+        assertEquals("https://github.com/tamlok/navo/releases", update.releaseUrl)
     }
 
     @Test
@@ -99,7 +99,7 @@ class NaviampUpdateCheckerTest {
 
 private class FakeUpdateHttpClient(private val response: String) : SharedHttpClient {
     override suspend fun get(url: String, headers: Map<String, String>): String {
-        assertEquals("https://api.github.com/repos/tamlok/naviamp/releases?per_page=30", url)
+        assertEquals("https://api.github.com/repos/tamlok/navo/releases?per_page=30", url)
         return response
     }
     override suspend fun getBytes(url: String, headers: Map<String, String>): ByteArray = response.encodeToByteArray()

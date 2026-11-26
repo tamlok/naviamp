@@ -11,16 +11,16 @@ Forgejo ref is an error to investigate, never a reason to force or delete remote
 
 ## Fork identity and enabled platforms
 
-This fork's source, issues and releases live at `tamlok/naviamp`. `APPLICATION_ID` defines
+This fork's source, issues and releases live at `tamlok/navo`. `APPLICATION_ID` defines
 `cn.com.letalk.navo`; `RELEASE_REPOSITORY` selects its update and release channel. Upstream
 store records, publication keys and dated acceptance evidence do not establish this fork's availability.
 `APPLICATION_NAME` defines the Navo app/launcher/package name. The final ID creates fresh namespaces
 relative to earlier local `cn.com.letalk.naviamp` builds; settings and credentials are not migrated
 automatically. Future release titles are exactly `Navo vX.Y.Z`, with no subtitle or suffix.
 
-This is a new, unreleased app. Existing versioned Naviamp notes are upstream history, not ready-made
-Navo announcements. Prepare and review Navo's own versioned notes before tagging; the strict title
-gate intentionally rejects a historical Naviamp announcement even if its version matches `VERSION`.
+Navo's first release is 1.0.0; see its [readiness record](releases/v1.0.0-readiness.md) for publication
+status. Existing versioned Naviamp notes are upstream history, not ready-made Navo announcements.
+Prepare Navo's own versioned notes before tagging; the strict title gate rejects Naviamp titles.
 
 Only Windows and Android platform pipelines are enabled. Verify retains shared Kotlin checks,
 Android unit/emulator coverage and Windows native checks; aggregate JVM coverage runs on Windows.

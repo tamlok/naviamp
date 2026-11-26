@@ -2893,47 +2893,39 @@ private val DefaultNaviampChangelog = listOf(
     NaviampChangelogSectionUi(
         title = "Features",
         entries = listOf(
-            "Add an Aurral account as a companion to your primary music server. Aurral recommendations, catalog search, samples, monitoring, and requests open alongside your library without switching servers or interrupting playback. Standalone Aurral connections remain available.",
-            "Apple CarPlay (beta): browse your library, playlists, downloads, and radio, search on supported iOS versions, switch saved sources, and control playback and Up Next. CarPlay shares the iPhone's playback session.",
-            "Apple TV (beta): build Naviamp for Apple TV from source with the shared TV interface, connection setup including Aurral companions, remote and media keys, system Now Playing, and background playback. No Apple TV download is published with this release.",
-        ),
-    ),
-    NaviampChangelogSectionUi(
-        title = "Improvements",
-        entries = listOf(
-            "Android Auto leads with Playlists, Recently Played, and Radio, offers the full saved Internet Radio catalog, and adds Start Radio for the current song. Live stations hide unsupported track controls, Repeat shows distinct Off, Queue, and Track states, and current-track artwork is sharper.",
-            "Android TV and Google TV are no longer beta.",
-            "Show recently played tracks on Home and in Android Auto as soon as you listen to them.",
-            "Hide or reorder the Aurral section on Home like other Home sections.",
-            "Setting up Android TV from your phone also transfers an attached Aurral account.",
-            "Show a recovery screen with Retry on iPhone and iPad if Naviamp cannot start, instead of closing.",
-        ),
-    ),
-    NaviampChangelogSectionUi(
-        title = "Bug fixes",
-        entries = listOf(
-            "Linux media controls show album artwork from a private local file instead of a server link that contained your sign-in details.",
-            "Mixes for you start a radio station seeded from the mix instead of playing the seed album.",
-            "Choosing a track in an album or playlist while controlling another device with Naviamp Connect queues the album or playlist from that track instead of sending only that track.",
-            "Elapsed time keeps advancing while you control another device with Naviamp Connect instead of staying at 0:00.",
-            "On Linux, the first launch opens its window without waiting for the system keyring. If secure storage is unavailable, Naviamp Connect settings show the problem with Retry instead of the app closing.",
-            "Reconnect after importing settings restores the imported server instead of failing with a duplicate-connection error.",
-            "Importing settings keeps this device's volume, output device, debug logging, and mobile-download settings.",
+            "Navo launches on Windows and Android, including Android TV and Google TV, with its own blue-arrow artwork and independent release channel.",
+            "Connect Navidrome, Subsonic/OpenSubsonic, Jellyfin, Bandcamp, or Aurral. Browse your library, manage playlists, download music, and listen with native BASS playback, gapless transitions, ReplayGain, and crossfade where supported.",
+            "Build generated radio from artists, albums, genres, or songs. Preview and save station recipes, refresh a batch, replay its exact order, or save it as a playlist. Stations retain their seeds and tuning as playback continues.",
+            "Explore personalized Home mixes and a dedicated Radio destination with Server Radio and Internet Radio tabs. Sonic discovery follows the similarity capabilities of your server.",
+            "Browse Home, Playlists, Library, Radio, and My with adaptive navigation. Open one expanded player, control playback from the mini-player, and keep Queue in a drawer or pinned beside lyrics.",
+            "Resume playlists from their saved track and position, pin playlists, albums, and artists to Quick Access, filter Library favorites, and pull down to refresh browsing pages.",
+            "Follow synchronized or plain lyrics with online fallback, cached results, next-track prefetch, adjustable text size, and timed scrolling for untimed lyrics. Choose Naviamp or Forest themes, Light/Dark/System mode, and artwork-inspired player backgrounds.",
+            "Use Android Auto, Android TV remote navigation, Google Cast, and Navo Connect remote control (beta). Settings backup and folder sync carry supported preferences between devices.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Upgrade notes",
         entries = listOf(
-            "Aurral connections now require Aurral 3.x. Aurral 2.x servers are no longer supported.",
-            "The local database upgrades automatically to store Aurral companion accounts. Existing connections and settings are retained.",
+            "This is the first public Navo release, not an update to upstream Naviamp. The cn.com.letalk.navo application identity does not automatically migrate upstream or earlier cn.com.letalk.naviamp data or credentials. Export and import shared settings deliberately, reconnect accounts, and select download storage.",
+            "For local Navo 2.12.x development installations, download 1.0.0 manually: the update checker will not offer a lower version. On Windows, back up settings and uninstall the development installer before installing 1.0.0. Android build 66 can update build 65 when signed with the same key.",
+            "Aurral requires version 3.x. Server-backed features depend on provider capabilities and account permissions; sonic discovery requires compatible similarity data.",
+            "Generated-station settings use sync schema 2. Use Navo 1.0.0 on devices sharing those settings or transferring stations. Older settings imports remain readable; removed split-view and player-layout preferences are ignored.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Known issues",
         entries = listOf(
-            "Apple CarPlay and Apple TV are beta and were not verified on physical CarPlay or Apple TV hardware for this release.",
-            "On desktop windows of about 1280×800 or smaller, the full player can hide some of its controls.",
-            "Direct GitHub Windows and macOS downloads are not publisher-signed; the iOS IPA requires signing for sideloading.",
+            "Windows downloads are not publisher-signed and may show an operating-system security warning.",
+            "Only Windows x64 and Android packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included; retained platform sources do not establish release support.",
+            "Navo Connect remains beta. Google Cast requires compatible online media and a reachable receiver. Vehicle displays and Android Auto availability depend on the head unit; physical vehicle acceptance is not established by emulator checks.",
+        ),
+    ),
+    NaviampChangelogSectionUi(
+        title = "Thanks",
+        entries = listOf(
+            "Thanks to @ursasmar and the upstream Naviamp community for the shared application that Navo builds on.",
+            "Thanks to @crsthn-slv for inherited upstream radio, TV, playback, lyrics, testing, and Brazilian Portuguese translation contributions.",
+            "Thanks to @sewnie for reporting the inherited upstream Android startup failure when the Cast module is unavailable.",
         ),
     ),
 )

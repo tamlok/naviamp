@@ -2,102 +2,46 @@
 
 Release changes are grouped into user-facing Features, Bug Fixes, and deployment or infrastructure-related System Settings. Internal task-tracking notes are intentionally not included.
 
-## Unreleased
+## v1.0.0
+
+Navo’s first public release brings its shared music player to Windows and Android.
 
 ### Features
 
-- Replace the original app artwork with the Navo blue-arrow logo across shared screens, launchers, notifications, and desktop packages.
-- Preview generated radio before playing, save station recipes in Radio, refresh a batch, or replay its exact track order. Save the displayed batch as a playlist without replacing playback.
-- Move Mix Builders, Stations, and Saved stations from Home into Radio's Server Radio tab, alongside a separate Internet Radio tab. Keep section actions, source-scoped tab selection, and Back navigation consistent across shared app surfaces. Place each tab's controls beside the Radio title, with Refresh directly available instead of a refresh-only menu.
-- Keep explicit radio supplied before the queue ends, retaining its original seeds and DJ tuning independently of ordinary autoplay. Refreshing a playing station preserves manual queue entries, duplicates, current position and pause state.
-- Replace the full player's generated-station text row with a Flame status icon immediately after DJs. Active stations open their details, and narrow bottom controls wrap without reducing touch targets or changing the player's outer padding.
-- Give generated stations a playlist-style detail page with a pinned Back arrow and the same compact action toolbar. Show station actions directly beside the artwork, using toolbar overflow only in narrow windows. Keep fresh-batch generation and application controls adjacent. Organize recipe details into aligned tuning fields and separate artist, album, and song seed lists.
-- Personalize Home mixes using listening activity and favorites, with exploration and stable daily selections. Explicit refresh rotates recommendations without replacing saved stations.
-- Balance multi-seed mixes, apply artist and album spacing across batches, use actual recency for Sonic Mix, and offer a recent-listening exclusion window. Keep strict artist and decade constraints instead of silently broadening empty results.
-- Preserve complete generated stations and finite batch playback across supported Connect peers and sender-owned Cast playback. Station settings use sync schema 2; upgrade devices sharing the settings file before exporting from older builds.
-- Use five main destinations—Home, Playlists, Library, Radio, and My—with left navigation in landscape, bottom navigation in portrait, and an edge-accessible drawer in constrained windows.
-- Pin or unpin playlists, albums, and artists with the toggle at the end of their artwork toolbar. It matches the other tool buttons and appears with them after details load, staying visible when other tools overflow. Quick Access buttons open under Playlists or Library, scroll with navigation, and are preserved per connection in settings backup and sync.
-- Pull down at the top of Home, Playlists, Library Artists/Albums/Songs, and Radio to refresh, using touch or a primary-button mouse drag. Pull feedback and empty-list gesture areas are shared across platforms; normal mouse-wheel scrolling is unchanged.
-- Show only connection setup before a connection exists, without navigation or the mini-player. Saved profiles and active remote playback retain the normal shell. Expanded Now Playing hides application navigation and the mini-player; its pinned Back arrow restores the preceding screen and navigation without interrupting playback.
-- Seek through tracks and adjust volume directly from the mini-player, with controls that adapt to narrow windows and respect playback capabilities and the volume-bar preference.
-- Open Queue as a drawer using the mini-player button immediately after Next, without leaving the current screen or entering the full player.
-- Close the mini-player and full-player Queue drawers from their headers; the full player's Pin control remains available.
-- Favorite or unfavorite the current track from the mini-player heart before Previous. Below 480dp, keep only Heart, Play/Pause, and Queue buttons while retaining track details.
-- Show the mini-player progress bar and elapsed/total playback time, such as `01:01/05:38`, only when they fit inline. Hide both instead of wrapping them onto a second row.
-- Keep volume sliders hidden until the speaker icon is clicked, then show a vertical slider in a popup in both full and mini players. Clicking the speaker no longer mutes or unmutes playback.
-- Move the full-player volume speaker to the bottom immediately before Cast, and enlarge transport, favorite/rating, and bottom-action controls while keeping narrow layouts usable.
-- Place the full-player favorite heart at the artwork card’s bottom-left corner, independent of the centered image, matching the Next button and icon sizes. Keep rating stars with track details; filled artwork places the heart above the controls without covering them.
-- Right-click list items on Desktop to open their action menu at the mouse pointer without starting playback or changing the selection. The three-dot button keeps its button-anchored menu.
-- Play a playlist directly from its detail artwork using a centered, 30%-opaque play button; empty playlists keep the button disabled.
-- Default the Playlists page to Recently played, while keeping A–Z sorting available.
-- Resume each playlist from its last track and position, independently across playlists and connections. Turn off Resume playlists in Playback settings to start from the beginning; Shuffle and explicit track selection always start fresh.
-- Use the heart in Library’s top-right header to filter Artists, Albums, and Songs to favorites, with one toggle retained across all three tabs and independent of the optional Home section.
-- Show Favorite Songs first, followed by favorite artists and albums, in Home’s Recommendations section. Open Favorite Songs as a playlist-like page with the title beside Back, icon-only Play and Shuffle controls, and a centered artwork Play overlay above the complete track list, replacing the Home header heart shortcut. Keep existing Home section visibility, ordering, and layout preferences.
-- Organize My into Accounts, supported Downloads, and Settings tabs, with account details inside Accounts, the server address shown only once, and a View Accounts action to choose or add an account.
-- Keep navigation and browsing content theme-solid, while applying the selected Player Background to both expanded Now Playing and the mini-player bar. Aurora, Album Blur and Single Color controls live directly in Settings → Appearance.
-- Choose Single Color backgrounds from a 6×6 palette covering all seven rainbow colors in dark, vivid, and light shades, plus white-to-black neutrals, teal, pink, and brown. The selected color is highlighted in place, replacing the hue, saturation, brightness, and separate color preview controls. Existing custom colors remain unchanged until a palette color is chosen.
-- Make Naviamp’s full-player controller and queue backgrounds transparent while retaining existing text colors and selection highlights. Forest keeps its solid player panels.
-- Open Queue as a full-height drawer over the lyrics, or pin it as a separate card below lyrics aligned with the playback controls. Queue reopens drawer mode when pinned; outside clicks dismiss the drawer without activating controls underneath. Wide players share height equally between artwork and controls, with matching card styling and outer padding; narrow layouts stack pinned cards below the controls.
-- Show a concise lyrics card with matching circular font-size (Lucide a-large-small) and refresh controls at the bottom right. Cycle through 14, 20, 24, 48, and 64 text sizes, saved with shared settings; refresh clears only the current track’s lyrics cache and reloads configured sources while preserving saved timing offsets and audio downloads.
-- Default lyrics text to size 24 and enable Online Lyrics by default, while preserving saved preferences.
-- Scroll untimed lyrics steadily from top to bottom over the song’s duration, following pauses, resumes, and seeks. Manual scrolling remains available, and lyrics stay manually scrollable when the duration is unknown.
-- Use LrcAPI as an additional fallback for plain and synchronized lyrics when Online Lyrics is enabled, with track matching and the same persistent lyrics cache as other online sources.
-- Prefetch lyrics for the next queued song without downloading its audio. Follow queue and repeat changes, reuse cached lyrics at the transition, and keep background requests from blocking current lyrics or gapless playback.
-- Retain plausible lyrics candidates and choose the best match after all configured sources have been tried without a validated match. Mark best-effort cache entries so they never prevent later exact matches from being used.
-- Choose Light, Dark, or System mode and the Naviamp or Forest theme directly in Settings → Appearance. Theme definitions are self-contained and shared across platforms; appearance preferences travel with general settings backup and sync.
-- Cycle the current theme through Light, Dark, and System using the mode button before More actions in Home’s top-right header, without changing the selected theme or other appearance preferences.
-- Lighten the Naviamp dark theme’s app background to charcoal (`#2D353B`).
-- Use Lucide list-music for Playlists, palette for Appearance, and layers-2 for Playlist bulk tools, and clarify Experience settings with “Behave the way you want”.
-- Use Lucide database-arrow-down for Keep downloaded on album and artist details, distinct from the regular Download action.
-- Use an Add icon button in Radio to open the New station dialog, with a localized tooltip and accessibility label.
-- Give Home, Playlists, Library, Radio, and My consistent page titles and header actions, with 24dp icons, 48dp targets, matching tooltips and colors, and wrapping controls in narrow windows. Keep My’s title above its scrolling content.
-- Use list and grid icons for page layout toggles, with a highlighted active layout, localized tooltips and accessibility labels, and consistent 48dp targets.
-- Use consistent punctuation for short labels, settings captions, empty states, and status messages across pages and translations, while retaining sentence punctuation in detailed help and recovery messages.
-- Show album, playlist, and Favorite Songs track totals in one compact format, such as `12 tracks • 51m` or `1030 tracks • 74h 30m`, with album totals directly below the release year.
-- Give playlist, album, and artist detail headers their own artwork-based Aurora background, including playlist collages. Preserve artwork colors while adjusting brightness for readable text, instead of washing them into gray. These headers are independent of Appearance’s Player Background and Aurora controls; scrolling content keeps its normal theme background.
-- Check for updates from tamlok/naviamp releases instead of the upstream repository.
-- Complete Simplified Chinese translations across settings, browsing, playback, connection setup, and TV controls, including count labels.
-
-### Bug fixes
-
-- Keep context menus attached at Android window edges and preserve the parent interface's scaling and text direction inside popup windows.
-- Center full-player rating stars with the track details and playback controls, keeping audio format and quality labels balanced on either side.
-- Publish canonical album names to Android media-session consumers, including AAOS media hosts, and refresh playback position when a track is replaced at the same queue position. Instrument-cluster display remains dependent on the vehicle.
-- Allow Radio, Radio Autoplay, and similarity diagnostics up to 30 seconds for slow server recommendations. Show a localized, non-blocking “Generating radio…” toast immediately when starting track Radio, and clear it when the request finishes or is cancelled.
-- Fix Home playlists showing stale artwork or “playlist not found” after a Navidrome upgrade. Refresh playlist metadata on connection and Home refresh, and repair cached responses for connections whose identifier migration already ran without changing downloaded files.
-- Show cached lyrics immediately when returning to a track, including best-effort matches, while checking for an upgrade in the background. Keep cached lyrics visible if that check fails; explicit Refresh still reloads from scratch.
-- Keep the lyrics area blank while a song's lyrics are pending or loading, instead of briefly showing an unavailable message between tracks. Show an unavailable result only after lookup completes or when lyrics are unsupported.
-- Limit each lyrics source lookup to 30 seconds, continue to the next configured source after timeout or failure, and show a concise unavailable status instead of authenticated request URLs when no source succeeds.
-- Find online lyrics through LRCLIB search when a direct lookup misses, including tracks with missing album or duration metadata. Validate recording identity and timing, accept duplicate lyrics that differ only in formatting, and avoid immediate search requests after rate-limit or server errors.
-- Apply Recommendations sorting to favorite albums as well as artists, using favorite dates and source-scoped album-radio history, and keep recent-radio ordering current across Home refreshes.
-- Automatically retry previously failed empty pages when revisiting them, without repeatedly refreshing successful empty results or dropping cached Home sections when another fetch fails.
-- Use standard back-arrow controls on mix-builder pages, retaining localized accessibility labels and existing Back navigation.
-- Improve text-action readability across dialogs with theme-specific action colors, including brighter blue in Naviamp dark, without changing filled-button accents or disabled behavior.
-- Let Playlist bulk tools scroll through every destination playlist and the final create action while keeping Close visible in short windows.
-- Return to the page that opened an album, artist, or playlist when pressing Back, including playlists opened from Home. Preserve nested media and Home collection navigation, add Back controls to Search and mix builders, and prevent delayed loads from reopening pages after leaving them.
-- Keep the refresh indicator hidden when mouse-wheel scrolling back to the top of a page; touch pulls and primary-button mouse drags still refresh.
-- Keep playback paused when seeking, without briefly restarting audio; resume from the last selected position only after Play.
-- Prevent Windows playback crashes when the JVM bundles an older Visual C++ runtime than the native playback bridge.
-- Keep connection-form Cancel reachable beside Connect in bounded layouts.
-- Let browsing content use the available width with small left, top, and right padding, without a centered width cap or an extra bottom gap. System-bar safe insets remain.
-- Keep the current Aurora colors when opening or closing the full player, including while new artwork loads or a track-color transition is in progress.
-- Keep full-player cards inset from the app edges, including bottom outer padding matching the side insets, with consistent inner padding so progress, track details, and actions stay clear of the card edges.
+- Navo launches on Windows and Android, including Android TV and Google TV, with its own blue-arrow artwork and independent release channel.
+- Connect Navidrome, Subsonic/OpenSubsonic, Jellyfin, Bandcamp, or Aurral. Browse your library, manage playlists, download music, and listen with native BASS playback, gapless transitions, ReplayGain, and crossfade where supported.
+- Build generated radio from artists, albums, genres, or songs. Preview and save station recipes, refresh a batch, replay its exact order, or save it as a playlist. Stations retain their seeds and tuning as playback continues.
+- Explore personalized Home mixes and a dedicated Radio destination with Server Radio and Internet Radio tabs. Sonic discovery follows the similarity capabilities of your server.
+- Browse Home, Playlists, Library, Radio, and My with adaptive navigation. Open one expanded player, control playback from the mini-player, and keep Queue in a drawer or pinned beside lyrics.
+- Resume playlists from their saved track and position, pin playlists, albums, and artists to Quick Access, filter Library favorites, and pull down to refresh browsing pages.
+- Follow synchronized or plain lyrics with online fallback, cached results, next-track prefetch, adjustable text size, and timed scrolling for untimed lyrics. Choose Naviamp or Forest themes, Light/Dark/System mode, and artwork-inspired player backgrounds.
+- Use Android Auto, Android TV remote navigation, Google Cast, and Navo Connect remote control (beta). Settings backup and folder sync carry supported preferences between devices.
 
 ### Upgrade notes
 
-- Full player and Split view modes are replaced by one adaptive player-details view. Tap the mini-player to open it and use Back to close it. Player collapse and fullscreen buttons are removed; native window fullscreen keyboard shortcuts remain available.
-- Search and Queue are no longer primary navigation entries. Existing internal search and player queue controls remain available; TV navigation is unchanged.
-- Older settings imports still load, but the removed player layout and split-view opacity preferences are ignored and omitted from new exports.
-- Turn Waveforms off by default when no preference is saved; explicitly saved choices remain unchanged.
-- Use `cn.com.letalk.navo` as the final application identity across platforms. Upstream apps and earlier local `cn.com.letalk.naviamp` builds have separate data and credential namespaces; there is no automatic migration. Import shared settings deliberately and reconnect accounts.
-- Display the application as Navo and name future releases exactly `Navo vX.Y.Z`. Existing signing keys remain usable; executables and public package filenames use Navo. Replace old application bundles and re-pin outdated desktop launchers if needed.
+- This is the first public Navo release, not an update to upstream Naviamp. The cn.com.letalk.navo application identity does not automatically migrate upstream or earlier cn.com.letalk.naviamp data or credentials. Export and import shared settings deliberately, reconnect accounts, and select download storage.
+- For local Navo 2.12.x development installations, download 1.0.0 manually: the update checker will not offer a lower version. On Windows, back up settings and uninstall the development installer before installing 1.0.0. Android build 66 can update build 65 when signed with the same key.
+- Aurral requires version 3.x. Server-backed features depend on provider capabilities and account permissions; sonic discovery requires compatible similarity data.
+- Generated-station settings use sync schema 2. Use Navo 1.0.0 on devices sharing those settings or transferring stations. Older settings imports remain readable; removed split-view and player-layout preferences are ignored.
 
-### System settings
+### Known issues
 
-- Keep Android 8.0 theme resources compatible with API 26, applying newer navigation-bar icon options only on supported Android versions.
-- Limit enabled platform verification and release packaging to Windows and Android; retain other platform sources with their workflows disabled. Update discovery uses this fork's release channel.
+- Windows downloads are not publisher-signed and may show an operating-system security warning.
+- Only Windows x64 and Android packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included; retained platform sources do not establish release support.
+- Navo Connect remains beta. Google Cast requires compatible online media and a reachable receiver. Vehicle displays and Android Auto availability depend on the head unit; physical vehicle acceptance is not established by emulator checks.
 
-## v2.12.0
+### Thanks
+
+- Thanks to @ursasmar and the upstream Naviamp community for the shared application that Navo builds on.
+- Thanks to @crsthn-slv for inherited upstream radio, TV, playback, lyrics, testing, and Brazilian Portuguese translation contributions.
+- Thanks to @sewnie for reporting the inherited upstream Android startup failure when the Cast module is unavailable.
+
+## Upstream Naviamp history
+
+The entries below describe upstream Naviamp releases, not earlier Navo releases.
+
+
+## Naviamp v2.12.0
 
 Naviamp 2.12.0 lets you add an Aurral account to your music server, brings Apple CarPlay as a beta, and puts playlists, recent listening, and radio first in Android Auto. Apple TV support is available as a beta for builds from source. Aurral connections now require Aurral 3.
 
@@ -143,7 +87,7 @@ Naviamp 2.12.0 lets you add an Aurral account to your music server, brings Apple
 - On desktop windows of about 1280×800 or smaller, the full player can hide some of its controls.
 - Direct GitHub Windows and macOS downloads are not publisher-signed; the iOS IPA requires signing for sideloading.
 
-## v2.11.3
+## Naviamp v2.11.3
 
 Naviamp 2.11.3 fixes Java4Shell on Windows and Linux and corrects the Microsoft Store taskbar icon.
 
@@ -161,7 +105,7 @@ Naviamp 2.11.3 fixes Java4Shell on Windows and Linux and corrects the Microsoft 
 
 - No new known issues.
 
-## v2.11.2
+## Naviamp v2.11.2
 
 Naviamp 2.11.2 fixes white bands at the top and bottom of the Android app.
 
@@ -177,7 +121,7 @@ Naviamp 2.11.2 fixes white bands at the top and bottom of the Android app.
 
 - No new known issues. Existing playback, presentation, performance, and platform acceptance investigations continue.
 
-## v2.11.1
+## Naviamp v2.11.1
 
 Naviamp 2.11.1 adds live Stream Details and improves internet-radio artwork, station editing, and audio information. It also fixes repeated shuffle orders and duplicate generated stations in Recently Played Radio.
 
@@ -221,7 +165,7 @@ Naviamp 2.11.1 adds live Stream Details and improves internet-radio artwork, sta
 - [See every change since v2.11.0](https://github.com/goosepod/naviamp/compare/v2.11.0...v2.11.1)
 - [View the release milestone](https://github.com/goosepod/naviamp/milestone/11?closed=1)
 
-## v2.11.0
+## Naviamp v2.11.0
 
 Naviamp 2.11.0 expands Aurral discovery into a complete browsing and request hub, adds signed Flatpak installation and updates for Linux, and improves playback, internet radio and Android TV controls.
 
@@ -291,7 +235,7 @@ Naviamp 2.11.0 expands Aurral discovery into a complete browsing and request hub
 - Welcome first-time contributor @crsthn-slv for radio, TV, playback and lyrics improvements, testing, and the Brazilian Portuguese translation.
 - Welcome first-time contributor @sewnie for reporting the Android startup failure when the Cast module is unavailable.
 
-## v2.10.0
+## Naviamp v2.10.0
 
 Naviamp 2.10.0 adds dedicated Aurral connections with native music discovery, sample playback and library requests, and completes certificate-protected server connections across Android, iOS, Windows, macOS and Linux. Artist pages, smart playlists, Library search and playback recovery receive improvements throughout the shared application.
 
@@ -355,7 +299,7 @@ Naviamp 2.10.0 adds dedicated Aurral connections with native music discovery, sa
 - Further Linux popup performance and accessibility checks remain open, including the full-app CPU budget. ([Issue #220](https://github.com/goosepod/naviamp/issues/220), [Issue #203](https://github.com/goosepod/naviamp/issues/203))
 - Android TV and Naviamp Connect remain beta. Direct GitHub Windows and macOS downloads are not publisher-signed; the iOS IPA requires signing for sideloading. ([Signing follow-up](https://github.com/goosepod/naviamp/issues/128), [iOS sideloading guide](https://github.com/goosepod/naviamp/blob/main/docs/ios-sideloading.md))
 
-## v2.9.0
+## Naviamp v2.9.0
 
 Naviamp 2.9.0 brings Google Cast to desktop, extends Keep downloaded to albums and artists,
 and adds desktop fullscreen, Linux media controls and an Android TV account switcher.
@@ -408,7 +352,7 @@ and adds desktop fullscreen, Linux media controls and an Android TV account swit
 
 See [release notes](.github/releases/v2.9.0.md) for issue links and compatibility details.
 
-## v2.8.0
+## Naviamp v2.8.0
 
 Naviamp 2.8.0 adds Android Google Cast playback, manual Naviamp Connect pairing across Tailnets,
 and API-key connections for compatible OpenSubsonic servers.
@@ -446,11 +390,11 @@ and API-key connections for compatible OpenSubsonic servers.
 
 See [full release notes](.github/releases/v2.8.0.md) for compatibility and download details.
 
-## v2.7.1
+## Naviamp v2.7.1
 
 - Fixed popup menus and dialogs jumping, flickering, and responding to clicks in the wrong location.
 
-## v2.7.0
+## Naviamp v2.7.0
 
 Naviamp 2.7.0 adds independent text-size controls for Now Playing and the rest of the interface. It
 also makes player animations substantially lighter and smoother across Android, iOS, macOS,
@@ -487,7 +431,7 @@ Windows, and Linux, with improvements to library browsing, playback reporting, l
 
 See [full release notes](.github/releases/v2.7.0.md) for compatibility and download details.
 
-## v2.6.0
+## Naviamp v2.6.0
 
 Android TV and Naviamp Connect launch as **beta** features.
 
@@ -515,7 +459,7 @@ Android TV and Naviamp Connect launch as **beta** features.
 
 See [full release notes](.github/releases/v2.6.0.md) for compatibility and download details.
 
-## v2.4.1
+## Naviamp v2.4.1
 
 This urgent patch stops the Windows app from consuming a full logical CPU core while its window is
 visible and idle. It also restores the intended Windows equalizer behavior and completes missing
@@ -529,7 +473,7 @@ Spanish discovery labels.
   across hosts.
 - Complete the missing Spanish genre and seed-track discovery labels.
 
-## v2.4.0
+## Naviamp v2.4.0
 
 This release expands library browsing and artist discovery, adds playlist membership tools and
 Favorite Artists, and introduces a player workspace for wide windows.
@@ -576,7 +520,7 @@ Favorite Artists, and introduces a player workspace for wide windows.
   unavailable. Windows and macOS packages are not publisher-signed and may show operating-system
   warnings. Screen-reader usability remains unverified.
 
-## v2.3.1
+## Naviamp v2.3.1
 
 This patch prevents Android keyboards from rewriting technical values while a music-server
 connection is being configured.
@@ -595,7 +539,7 @@ connection is being configured.
 - The iOS artifact remains an unsigned preview. Windows and macOS packages are not publisher-signed
   and may show operating-system warnings.
 
-## v2.3.0
+## Naviamp v2.3.0
 
 This release makes Play Next aware of album and playlist playback groups, adds an optional stereo
 downmix for multichannel audio, and prevents waveform work from stalling on long remote tracks.
@@ -627,7 +571,7 @@ downmix for multichannel audio, and prevents waveform work from stalling on long
 - Stereo downmix is supported on Android, macOS, Windows, Linux, and iOS. Native surround output remains unverified and is not claimed by this release.
 - The iOS artifact remains an unsigned preview. Windows and macOS packages are not publisher-signed and may show operating-system warnings.
 
-## v2.2.0
+## Naviamp v2.2.0
 
 This release adds playback profiles for albums and playlists, preserves those preferences through
 explicit queue groups, and makes waveform seeking more accurate and dependable.
@@ -662,7 +606,7 @@ explicit queue groups, and makes waveform seeking more accurate and dependable.
 - Work-profile launches and group-aware Play next behavior remain follow-up work.
 - The iOS artifact remains an unsigned preview. Windows and macOS packages are not publisher-signed and may show operating-system warnings.
 
-## v2.1.0
+## Naviamp v2.1.0
 
 This release makes genres substantially easier to explore and use, gives Navidrome smart playlists
 immediate feedback, and adds finer control over the artwork and release year shown in Now Playing.
@@ -696,7 +640,7 @@ immediate feedback, and adds finer control over the artwork and release year sho
 - Smart-playlist creation and editing remain Navidrome-specific. A local preview is unavailable for rules that use fields not present in the synced library index.
 - The iOS artifact remains an unsigned preview. Windows and macOS packages are not publisher-signed and may show operating-system warnings.
 
-## v2.0.1
+## Naviamp v2.0.1
 
 This update makes radio easier to start and revisit, while giving album and playlist lists a clearer,
 more consistent look.
@@ -715,7 +659,7 @@ more consistent look.
 - The Now Playing scrub bar now seeks to the position you select.
 - Includes additional fixes and polish for radio playback and Home screen behavior.
 
-## v2.0.0
+## Naviamp v2.0.0
 
 Naviamp 2.0 is a complete cross-platform rebuild around one shared application, with thin Android,
 Desktop, and iOS hosts. Android, macOS, Windows, and Linux are release targets. iOS is provided as
@@ -757,7 +701,7 @@ an unsigned preview for people who can sign and sideload it themselves.
 - Windows and macOS packages are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 - Linux secure credential storage requires Secret Service and `secret-tool`; packaged DEB and RPM installers declare the required runtime integration.
 
-## v2.0.0-beta.4
+## Naviamp v2.0.0-beta.4
 
 This fourth beta polishes shared navigation and Home interactions, adds selectable update channels, and completes portable settings synchronization for multi-library providers.
 
@@ -789,7 +733,7 @@ This fourth beta polishes shared navigation and Home interactions, adds selectab
 - Bandcamp's Subsonic beta currently serves collection audio as MP3 256 kbps and does not reliably apply playlist track reordering; Naviamp blocks unsupported reorder mutations.
 - Windows and macOS packages are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 
-## v2.0.0-beta.3
+## Naviamp v2.0.0-beta.3
 
 This third beta restores the selected waveform detail, corrects Desktop process identity, and modernizes release automation.
 
@@ -812,7 +756,7 @@ This third beta restores the selected waveform detail, corrects Desktop process 
 - Bandcamp's Subsonic beta currently serves collection audio as MP3 256 kbps and does not reliably apply playlist track reordering; Naviamp blocks unsupported reorder mutations.
 - Windows and macOS packages are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 
-## v2.0.0-beta.2
+## Naviamp v2.0.0-beta.2
 
 This second beta focuses on playback efficiency, accurate shared Now Playing behavior, platform packaging, and issues found during Android, Desktop, iOS, Jellyfin, Bandcamp, and Subsonic acceptance testing.
 
@@ -844,7 +788,7 @@ This second beta focuses on playback efficiency, accurate shared Now Playing beh
 - Bandcamp's Subsonic beta currently serves collection audio as MP3 256 kbps and does not reliably apply playlist track reordering; Naviamp blocks unsupported reorder mutations.
 - Windows and macOS packages are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 
-## v2.0.0-beta.1
+## Naviamp v2.0.0-beta.1
 
 This first beta begins the Naviamp 2.0 feature freeze. It combines the shared cross-platform product with the final discovery, playback-continuity, Home customization, media-detail, and Desktop keyboard work completed after Alpha 4.
 
@@ -882,7 +826,7 @@ This first beta begins the Naviamp 2.0 feature freeze. It combines the shared cr
 - Windows and macOS packages are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 - LRCMUse aggregates results from upstream lyric sources. Availability, attribution, and lyric rights remain source-dependent; Naviamp does not claim ownership of returned lyrics.
 
-## v2.0.0-alpha.4
+## Naviamp v2.0.0-alpha.4
 
 This alpha expands Naviamp beyond Navidrome with shared Subsonic, Jellyfin, and Bandcamp connections across desktop, Android, and iOS.
 
@@ -920,7 +864,7 @@ This alpha expands Naviamp beyond Navidrome with shared Subsonic, Jellyfin, and 
 - Windows and macOS builds are not yet distributed with trusted publisher signing, so their operating systems may display security warnings.
 - The iOS IPA is unsigned and requires testers to sign it with their own Apple identity before sideloading.
 
-## v2.0.0-alpha.3
+## Naviamp v2.0.0-alpha.3
 
 This alpha adds word-by-word lyrics and gives users independent control over the lyric timing Naviamp downloads and displays.
 
@@ -951,7 +895,7 @@ This alpha adds word-by-word lyrics and gives users independent control over the
 - The iOS IPA is unsigned and requires testers to sign it with their own Apple identity before sideloading.
 - Windows, Linux, and physical-iPhone release testing remains limited.
 
-## v2.0.0-alpha.2
+## Naviamp v2.0.0-alpha.2
 
 This alpha focuses on tightening Naviamp's native audio packaging and correcting mobile settings capability presentation.
 
@@ -980,7 +924,7 @@ This alpha focuses on tightening Naviamp's native audio packaging and correcting
 - Android Auto remains available for testing; report any first-track advancement or reconnection problems with the surrounding playback details.
 - Windows, Linux, and physical-iPhone release testing remains limited.
 
-## v2.0.0-alpha.1
+## Naviamp v2.0.0-alpha.1
 
 Naviamp 2.0 is a major cross-platform rebuild. Android, macOS, Windows, Linux, and iOS now share the same application core, interface, playback behavior, provider integration, storage model, and settings wherever the operating systems allow it.
 
@@ -1034,7 +978,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Linux secure credential storage requires `secret-tool` and an available Secret Service implementation such as GNOME Keyring or KDE Wallet.
 - Additional performance and long-running playback testing is still underway across all platforms.
 
-## v1.5.0
+## Naviamp v1.5.0
 
 ### Features
 
@@ -1050,7 +994,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Prevented Aurora backgrounds and cover art from flashing through empty fallback states between tracks by retaining the current visuals until preloaded replacements are ready.
 - Prevented first-track waveforms from being lost when startup navigation cancels the original shared analysis request.
 
-## v1.4.0
+## Naviamp v1.4.0
 
 ### Features
 
@@ -1065,7 +1009,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Fixed desktop and Android playback transitions so a final stopped report is sent before moving to another track.
 - Removed the legacy `scrobble.view` reporting path and obsolete client-side played/scrobble timing setting.
 
-## v1.3.0
+## Naviamp v1.3.0
 
 ### Features
 
@@ -1093,7 +1037,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Bounded persistent artwork caching to appropriately sized 512 px browsing images and 1024 px Now Playing images.
 - Added cross-platform coverage for paging, release sections, download jobs, keep-downloaded policies, playback source selection, migrations, and settings persistence.
 
-## v1.2.0
+## Naviamp v1.2.0
 
 ### Features
 
@@ -1115,7 +1059,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Upgraded Compose Material 3 to 1.9.0 through the shared version catalog and validated Android API 36 compatibility.
 - Added automated coverage for playlist editing, Smart Playlist library scoping and authentication, waveform validation, responsive action rows, and settings persistence.
 
-## v1.1.1
+## Naviamp v1.1.1
 
 ### Features
 
@@ -1134,7 +1078,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Added automated coverage for prepared-next invalidation, Android Auto selection cancellation, playback-command authorization, credential protection, and backup rules.
 - Replaced the unbounded Android playback wake lock with a renewable bounded lease and cleaned up obsolete Android SDK checks.
 
-## v1.1.0
+## Naviamp v1.1.0
 
 ### Features
 
@@ -1157,7 +1101,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Added automated coverage for swipe gestures, queue occurrences, player colors, waveform validation, and Android playback-session restoration.
 - Updated release automation to publish only Features and Bug Fixes while retaining deployment and infrastructure changes in this changelog.
 
-## v1.0.0
+## Naviamp v1.0.0
 
 - First full public release of Naviamp.
 - Presents Naviamp as a polished music player for Navidrome and OpenSubsonic-compatible servers across desktop and Android.
@@ -1165,7 +1109,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Cleans up the public repository for open-source use with a focused README, contributing guide, code of conduct, security policy, issue templates, and GPLv3 licensing.
 - Moves internal planning notes out of the tracked repository while keeping user-facing project information in top-level files.
 
-## v0.19.0
+## Naviamp v0.19.0
 
 - Added Now Playing display customization for album year, bitrate info, volume bar, and long title, artist, and album scrolling.
 - Added opt-in Start Playing on Start behavior to resume playback automatically from the previous session.
@@ -1173,7 +1117,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Added strict sample-rate and crossfade safety prompts so incompatible playback settings are handled explicitly.
 - Improved waveform rendering dynamics and added a scroll affordance to the Add to Playlist dialog.
 
-## v0.18.0
+## Naviamp v0.18.0
 
 - Added first-pass update checking on startup and every 24 hours, with a default-on Experience setting and a prompt linking to the newest GitHub release.
 - Reworked Back To, Up Next, and Sonic queue menus to replace Track Details with Go to Artist and Go to Album, and made the Now Playing album name open album details.
@@ -1181,7 +1125,7 @@ This is the first public alpha. It is intended for testing and may still contain
 - Refined compact Now Playing layouts with stable small typography, tighter spacing, and vertically balanced favorites, rating, bitrate, and volume controls.
 - Fixed Settings scrolling in small windows and moved portable Windows SQLite data to writable local app storage with migration from the previous roaming path.
 
-## v0.17.0
+## Naviamp v0.17.0
 
 - Added audio output device selection for desktop playback.
 - Improved artist and popular-track behavior across shared app surfaces.
