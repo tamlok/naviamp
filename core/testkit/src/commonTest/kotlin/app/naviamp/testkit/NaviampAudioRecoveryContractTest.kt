@@ -80,7 +80,7 @@ private class ClockEngine(private val now: () -> Double) : ReleasablePlaybackEng
     fun position() = base + if (paused) 0.0 else now() - started
     override fun play(scope: CoroutineScope, request: PlaybackRequest, onStateChanged: (PlaybackState) -> Unit,
                       onProgressChanged: (PlaybackProgress) -> Unit, onMetadataChanged: (PlaybackStreamMetadata) -> Unit) {
-        job?.cancel(); state = onStateChanged; base = 0.0; started = now(); paused = false
+        job?.cancel(); state = onStateChanged; base = request.startPositionSeconds ?: 0.0; started = now(); paused = false
         state(PlaybackState.Playing)
         job = scope.launch { while (isActive) { onProgressChanged(PlaybackProgress(position(), 90.0)); delay(50) } }
     }

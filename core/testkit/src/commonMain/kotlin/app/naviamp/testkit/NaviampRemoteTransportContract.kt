@@ -87,10 +87,21 @@ suspend fun <Artwork> verifyNaviampRemoteTransport(host: NaviampAudioRecoveryHos
         check(!send(NaviampExternalPlaybackSurfaceCommand.Previous)) { "Queue-start Previous was accepted" }
         passed("next-previous-boundaries")
 
+        val nativeBeforePausedSeek = host.nativePositionSeconds()
         command(NaviampExternalPlaybackSurfaceCommand.Seek(12.5))
-        await("paused seek reaches native output") { abs((host.nativePositionSeconds() ?: -1.0) - 12.5) < 0.12 }
-        paused()
+        await("paused seek publishes its pending position") {
+            bridge.snapshot().let { it.state == NaviampExternalPlaybackState.Paused && it.positionMillis == 12_500L }
+        }
+        repeat(5) {
+            delay(100)
+            check(bridge.snapshot().let { it.state == NaviampExternalPlaybackState.Paused && it.positionMillis == 12_500L })
+            val nativePosition = host.nativePositionSeconds()
+            check(nativePosition == null || (nativeBeforePausedSeek != null && abs(nativePosition - nativeBeforePausedSeek) < 0.08)) {
+                "Deferred paused seek advanced native output"
+            }
+        }
         command(NaviampExternalPlaybackSurfaceCommand.Play); playing(0)
+        await("resumed paused seek reaches native output") { (host.nativePositionSeconds() ?: -1.0) in 12.5..14.5 }
         command(NaviampExternalPlaybackSurfaceCommand.Seek(30.25))
         await("playing seek reaches native output") { (host.nativePositionSeconds() ?: 0.0) in 30.20..32.0 }
         command(NaviampExternalPlaybackSurfaceCommand.Pause); paused()

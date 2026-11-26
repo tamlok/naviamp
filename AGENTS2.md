@@ -270,6 +270,17 @@ locally. Resolve semantic conflicts before accepting an automatic merge as compl
 - When both branches change cache refresh, retain one coherent revalidation path. Do not invalidate
   the last good snapshot before a fetch that promises offline fallback. Returning cached content
   must preserve failed-refresh provenance so recovery actions still know which section needs work.
+- Include shared `core:testkit` contracts when validating changes to native playback behavior.
+  A paused seek can publish a pending position while retiring the native playback lease; verify
+  that position and silence while paused, then the native cursor after Play. Test engines must
+  honor `PlaybackRequest.startPositionSeconds`, not silently restart every request at zero.
+- Native popup roots can reset composition locals and measure a smaller visible display frame.
+  Capture the parent viewport, density, and direction before crossing that boundary. Rendered
+  tests must retain strict attachment where it fits and an independent flip/clamp expectation
+  where it does not; never normalize a clipped popup viewport into the expected result.
+- Put Android resource attributes newer than `minSdk` in version-qualified resources that inherit
+  the common base theme. Do not suppress `NewApi`, raise `minSdk`, or duplicate all theme items
+  merely to make lint pass.
 - Record verification limits precisely: JVM tests do not prove Android notifications, native audio,
   Apple compilation, packaging, or real-window behavior. Keep upstream release history distinct
   from the fork's Unreleased notes; an upstream merge is not a fork release.

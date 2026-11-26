@@ -59,6 +59,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### Bug fixes
 
+- Keep context menus attached at Android window edges and preserve the parent interface's scaling and text direction inside popup windows.
 - Publish canonical album names to Android media-session consumers, including AAOS media hosts, and refresh playback position when a track is replaced at the same queue position. Instrument-cluster display remains dependent on the vehicle.
 - Allow Radio, Radio Autoplay, and similarity diagnostics up to 30 seconds for slow server recommendations. Show a localized, non-blocking “Generating radio…” toast immediately when starting track Radio, and clear it when the request finishes or is cancelled.
 - Fix Home playlists showing stale artwork or “playlist not found” after a Navidrome upgrade. Refresh playlist metadata on connection and Home refresh, and repair cached responses for connections whose identifier migration already ran without changing downloaded files.
@@ -91,6 +92,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 ### System settings
 
+- Keep Android 8.0 theme resources compatible with API 26, applying newer navigation-bar icon options only on supported Android versions.
 - Limit enabled platform verification and release packaging to Windows and Android; retain other platform sources with their workflows disabled. Update discovery uses this fork's release channel.
 
 ## v2.12.0

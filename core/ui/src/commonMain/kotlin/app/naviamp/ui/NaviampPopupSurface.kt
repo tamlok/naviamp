@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.dialog
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.*
@@ -68,6 +69,7 @@ private fun NaviampViewportPopup(onDismissRequest: () -> Unit, properties: Popup
     val nativeSurface = LocalNaviampOwnedDialogSurface.current
     val viewport = androidx.compose.ui.platform.LocalWindowInfo.current.containerSize
     val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
     val size = with(density) { DpSize(viewport.width.toDp(), viewport.height.toDp()) }
     val body: @Composable () -> Unit = {
         NaviampOwnedWindowFocusScope {
@@ -99,10 +101,25 @@ private fun NaviampViewportPopup(onDismissRequest: () -> Unit, properties: Popup
         }
     }
     if (nativeSurface == null) {
+        val viewportProperties = remember(properties) {
+            PopupProperties(
+                focusable = properties.focusable,
+                dismissOnBackPress = properties.dismissOnBackPress,
+                dismissOnClickOutside = properties.dismissOnClickOutside,
+                clippingEnabled = false,
+            )
+        }
         Popup(popupPositionProvider = WindowOrigin, onDismissRequest = onDismissRequest,
-            properties = properties, content = body)
+            properties = viewportProperties) {
+            CompositionLocalProvider(LocalDensity provides density, LocalLayoutDirection provides direction) {
+                // Native popup roots may reset locals and otherwise subtract window insets twice.
+                Box(Modifier.requiredSize(size), propagateMinConstraints = true) { body() }
+            }
+        }
     } else {
-        nativeSurface.Render(size, properties, { if (properties.dismissOnBackPress) onDismissRequest() }, body)
+        nativeSurface.Render(size, properties, { if (properties.dismissOnBackPress) onDismissRequest() }) {
+            CompositionLocalProvider(LocalDensity provides density, LocalLayoutDirection provides direction, content = body)
+        }
     }
 }
 
