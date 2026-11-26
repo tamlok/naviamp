@@ -8,6 +8,10 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 
 - Update the About page attribution to “A LeTalk Production Based on Naviamp”, including existing translations.
 - Localize previously hardcoded pages, menus, dialogs, player controls, and accessibility labels in Simplified Chinese, preserving live language switching and user-provided names. Controller-generated status/error messages and Android notification-channel labels remain unchanged.
+- Show translated action outcomes in the shared bottom notice stack, with accessible timing and dismissal.
+- Re-prepare the next track after transition settings change while respecting the active album or playlist profile.
+- Apply playback profiles to Connect and in-playlist starts without overriding an explicitly selected track with a playlist bookmark.
+- Preserve playback-profile groups when Radio replaces upcoming tracks, alongside generated-radio occurrence tracking.
 
 ## v1.0.0
 

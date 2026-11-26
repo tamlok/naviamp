@@ -16,6 +16,7 @@ import app.naviamp.domain.settings.nextCompactLyricsFontSize
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import app.naviamp.ui.NaviampStatusMessage
 import app.naviamp.ui.NaviampVisualizer
 import app.naviamp.ui.cycleNaviampVisualizer
 import app.naviamp.ui.NowPlayingCurrentTrackAction
@@ -186,13 +187,10 @@ class NaviampCoreNowPlayingMediaController(
             NowPlayingDisplayAction.ChangeLyricsOffset -> {
                 val track = currentTrackOrPublish() ?: return
                 request.lyricsOffsetMillis?.let { sidecars.changeLyricsOffset(track, it) }
-                    ?: publishStatus("Lyrics offset is missing.")
             }
             NowPlayingDisplayAction.SelectLyricsDisplayTiming -> {
                 val preference = request.lyricsDisplayPreference
-                if (preference == null || preference == LyricsDisplayPreference.MatchDownload) {
-                    publishStatus("Lyrics display timing is missing.")
-                } else {
+                if (preference != null && preference != LyricsDisplayPreference.MatchDownload) {
                     val current = stateStore.state.value.shell.playback.settings
                     val updated = settings.apply(
                         current.copy(lyricsDisplayPreference = preference),
@@ -208,9 +206,7 @@ class NaviampCoreNowPlayingMediaController(
                 playbackController.updateDisplay { it.copy(visualizerVisible = !it.visualizerVisible) }
             NowPlayingDisplayAction.SelectVisualizer -> {
                 val visualizer = request.visualizer
-                if (visualizer == null) {
-                    publishStatus("Visualizer selection is missing.")
-                } else {
+                if (visualizer != null) {
                     selectVisualizer(visualizer)
                     if (visualizer == NaviampVisualizer.LyricMirrorTunnel) currentTrack()?.let { loadLyrics(it) }
                 }
@@ -263,7 +259,7 @@ class NaviampCoreNowPlayingMediaController(
             NowPlayingSelectionAction.SelectQueueItem -> {
                 val index = nowPlayingQueueIndex(request.item)
                 if (index == null || index !in playback.state.value.queue.tracks.indices) {
-                    publishStatus("Queue item is no longer available.")
+                    publishStatus(NaviampStatusMessage.TrackUnavailable)
                 } else {
                     val update = queue.selectIndex(index)
                     if (update.changed) {
@@ -275,7 +271,7 @@ class NaviampCoreNowPlayingMediaController(
             NowPlayingSelectionAction.SelectRelatedItem -> {
                 val related = sidecars.snapshot().relatedTracks
                 val action = app.naviamp.ui.nowPlayingRelatedIndex(request.item)
-                if (action == null || action !in related.indices) publishStatus("Related track is no longer available.")
+                if (action == null || action !in related.indices) publishStatus(NaviampStatusMessage.TrackUnavailable)
                 else startQueue(related, action)
             }
             NowPlayingSelectionAction.SelectRadioStation ->
@@ -340,7 +336,7 @@ class NaviampCoreNowPlayingMediaController(
         val current = stateStore.state.value.shell.playback.settings
         val selected = id?.let { requested -> current.radioDjs.firstOrNull { it.id == requested } }
         if (id != null && selected == null) {
-            publishStatus("Radio DJ is no longer available.")
+            publishStatus(NaviampStatusMessage.RadioDjUnavailable)
             return
         }
         val updated = current.copy(
@@ -350,7 +346,6 @@ class NaviampCoreNowPlayingMediaController(
         settings.apply(updated, redownload = false)
         stateStore.updateShell { shell -> shell.copy(playback = shell.playback.copy(settings = updated)) }
         generatedRadio.applyRadioTuning(updated.radioTuning)
-        publishStatus(selected?.let { "Selected ${it.name} DJ." } ?: "Default radio selected.")
     }
 
     private fun selectVisualizer(visualizer: NaviampVisualizer) {
@@ -361,27 +356,27 @@ class NaviampCoreNowPlayingMediaController(
     private suspend fun addToPlaylist(track: Track, playlistId: String?) {
         val provider = providerOrPublish() ?: return
         if (playlistId.isNullOrBlank()) {
-            publishPlaylistStatus("Choose a playlist first.")
+            publishPlaylistStatus(NaviampStatusMessage.ChoosePlaylist, "Choose a playlist first.")
             return
         }
         runCatching { provider.addTracksToPlaylist(playlistId, listOf(track.id)) }
             .onSuccess {
                 downloads.playlistTracksChanged(playlistId)
-                publishPlaylistStatus("Added ${track.title} to playlist")
+                publishPlaylistStatus(NaviampStatusMessage.AddedToAPlaylist, "Added ${track.title} to playlist")
             }
-            .onFailure { publishPlaylistStatus(it.message ?: "Could not add track to playlist.") }
+            .onFailure { publishPlaylistStatus(NaviampStatusMessage.PlaylistFailed, it.message ?: "Could not add track to playlist.") }
     }
 
     private suspend fun createPlaylist(track: Track, requestedName: String?) {
         val provider = providerOrPublish() ?: return
         val name = requestedName?.trim().orEmpty()
         if (name.isEmpty()) {
-            publishPlaylistStatus("Playlist name cannot be blank.")
+            publishPlaylistStatus(NaviampStatusMessage.PlaylistNameBlank, "Playlist name cannot be blank.")
             return
         }
         runCatching { provider.createPlaylist(name, listOf(track.id)) }
-            .onSuccess { publishPlaylistStatus("Created $name") }
-            .onFailure { publishPlaylistStatus(it.message ?: "Could not create playlist.") }
+            .onSuccess { publishPlaylistStatus(NaviampStatusMessage.PlaylistCreated(name), "Created $name") }
+            .onFailure { publishPlaylistStatus(NaviampStatusMessage.PlaylistFailed, it.message ?: "Could not create playlist.") }
     }
 
     private suspend fun toggleFavorite(track: Track): Boolean {
@@ -392,7 +387,7 @@ class NaviampCoreNowPlayingMediaController(
             currentCoroutineContext().ensureActive()
             if (source != stateStore.state.value.vehicleSourceKey() || !providerSource.isCurrent(provider)) return false
             if (updated == null) {
-                publishStatus("Track favorites are not supported.")
+                publishStatus(NaviampStatusMessage.FavoritesUnsupported)
                 return false
             }
             mediaRegistry.updateTrack(updated)
@@ -406,7 +401,7 @@ class NaviampCoreNowPlayingMediaController(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            if (source == stateStore.state.value.vehicleSourceKey()) publishStatus(error.message ?: "Could not update favorite.")
+            if (source == stateStore.state.value.vehicleSourceKey()) publishStatus(NaviampStatusMessage.FavoriteFailed)
             return false
         }
     }
@@ -416,13 +411,13 @@ class NaviampCoreNowPlayingMediaController(
         val normalized = rating?.coerceIn(1, 5)
         runCatching { ratedTrackUpdate(provider, track, normalized) }
             .onSuccess { updated ->
-                if (updated == null) publishStatus("Track ratings are not supported.") else replaceTrack(updated)
+                if (updated == null) publishStatus(NaviampStatusMessage.RatingsUnsupported) else replaceTrack(updated)
             }
-            .onFailure { publishStatus(it.message ?: "Could not update rating.") }
+            .onFailure { publishStatus(NaviampStatusMessage.RatingFailed) }
     }
 
     private suspend fun openAlbum(track: Track) {
-        val albumId = track.albumId ?: run { publishStatus("Album is not available for this track."); return }
+        val albumId = track.albumId ?: run { publishStatus(NaviampStatusMessage.AlbumUnavailable); return }
         mediaDetails.execute(
             NaviampCoreCommand.Media.ItemAction(
                 app.naviamp.ui.NaviampMediaItemActionRequest(
@@ -438,7 +433,7 @@ class NaviampCoreNowPlayingMediaController(
             providerSource.current()?.search(query, limit)?.artists.orEmpty()
         }
         if (artist == null) {
-            publishStatus("Artist is not available for this track.")
+            publishStatus(NaviampStatusMessage.ArtistUnavailable)
             return
         }
         mediaDetails.execute(
@@ -470,28 +465,27 @@ class NaviampCoreNowPlayingMediaController(
     }
 
     private fun applyQueueUpdate(update: app.naviamp.domain.playback.PlaybackQueueUpdate) {
-        publishStatus(update.status)
+        update.outcome?.let { publishStatus(it.statusMessage()) }
         if (update.tracksChanged) effects.applyQueue(update.queue, clearPreparedNext = true)
     }
 
     private fun currentTrack(): Track? = playback.state.value.currentTrack ?: playback.state.value.queue.current
 
     private fun currentTrackOrPublish(): Track? = currentTrack().also {
-        if (it == null) publishStatus("No track is currently selected.")
+        if (it == null) publishStatus(NaviampStatusMessage.TrackUnavailable)
     }
 
     private fun providerOrPublish() = providerSource.current().also {
-        if (it == null) publishStatus("Connect to Navidrome to use this action.")
+        if (it == null) publishStatus(NaviampStatusMessage.ConnectionRequired)
     }
 
-    private fun staleTrack() = publishStatus("Track is no longer available.")
+    private fun staleTrack() = publishStatus(NaviampStatusMessage.TrackUnavailable)
 
-    private fun publishPlaylistStatus(message: String) {
-        playbackController.updateDisplay { it.copy(playlistActionStatus = message) }
+    /** [dialogText] keeps the playlist dialog's existing in-place line; the notice is the translated outcome. */
+    private fun publishPlaylistStatus(message: NaviampStatusMessage, dialogText: String) {
+        playbackController.updateDisplay { it.copy(playlistActionStatus = dialogText) }
         publishStatus(message)
     }
 
-    private fun publishStatus(message: String) {
-        stateStore.update { state -> state.copy(overlays = state.overlays.copy(status = message)) }
-    }
+    private fun publishStatus(message: NaviampStatusMessage) = stateStore.publishStatus(message)
 }

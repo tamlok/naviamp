@@ -1338,6 +1338,106 @@ class NaviampCoreConnectControllerTest {
         controller.close()
     }
 
+    @Test
+    fun remoteAlbumAndPlaylistStartsCarryTheControllersSavedPlaybackProfile() = runTest {
+        val sent = mutableListOf<app.naviamp.domain.connect.NaviampConnectEnvelope>()
+        val gapless = app.naviamp.domain.playback.PlaybackProfile(app.naviamp.domain.playback.PlaybackTransitionMode.Gapless)
+        val saved = mapOf(
+            app.naviamp.domain.playback.PlaybackProfileTarget(app.naviamp.domain.playback.PlaybackProfileTargetType.Album, "album") to gapless,
+            app.naviamp.domain.playback.PlaybackProfileTarget(app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist, "mix") to gapless,
+            app.naviamp.domain.playback.PlaybackProfileTarget(app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist, "inherited") to
+                app.naviamp.domain.playback.PlaybackProfile(),
+        )
+        val identity = app.naviamp.domain.connect.NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val (controller, _, _) = remoteFixture(sourceIdentity = { identity }, savedPlaybackProfile = { saved[it] }) { sent += it }
+        fun starts() = sent.map { it.message }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectCommandRequest>()
+            .map { it.command }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectStartMedia>()
+
+        assertTrue(controller.routeProductCommand(NaviampCoreCommand.Detail.Album(app.naviamp.ui.NaviampAlbumDetailActionRequest(
+            app.naviamp.ui.SharedMediaItemUi("album", "Album", "Artist"), app.naviamp.ui.NaviampAlbumDetailCommand.Play(shuffle = false)))))
+        assertFalse(controller.routeProductCommand(NaviampCoreCommand.Detail.Album(app.naviamp.ui.NaviampAlbumDetailActionRequest(
+            app.naviamp.ui.SharedMediaItemUi("album", "Album", "Artist"), app.naviamp.ui.NaviampAlbumDetailCommand.StartRadio))),
+            "Radio defers to Core's complete generated-station recipe")
+        assertTrue(controller.routeProductCommand(NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
+            app.naviamp.ui.SharedMediaItemUi("mix", "Mix", ""), app.naviamp.ui.NaviampPlaylistDetailCommand.Play(shuffle = false)))))
+        assertTrue(controller.routeProductCommand(NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
+            app.naviamp.ui.SharedMediaItemUi("inherited", "Inherited", ""), app.naviamp.ui.NaviampPlaylistDetailCommand.Play(shuffle = false)))))
+        runCurrent()
+
+        val (album, playlist, inherited) = starts()
+        assertEquals(gapless, album.playbackProfile?.toPlaybackProfile())
+        assertEquals(gapless, playlist.playbackProfile?.toPlaybackProfile())
+        assertEquals(null, inherited.playbackProfile, "An inherited profile is not sent, so the target keeps its own")
+        controller.close()
+    }
+
+    @Test
+    fun remoteTracksChosenInsideCollectionsCarryTheirProfiles() = runTest {
+        val gapless = app.naviamp.domain.playback.PlaybackProfile(app.naviamp.domain.playback.PlaybackTransitionMode.Gapless)
+        val identity = app.naviamp.domain.connect.NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        for ((type, targetType) in listOf(
+            app.naviamp.domain.connect.NaviampConnectMediaType.Album to app.naviamp.domain.playback.PlaybackProfileTargetType.Album,
+            app.naviamp.domain.connect.NaviampConnectMediaType.Playlist to app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist,
+        )) {
+            val sent = mutableListOf<app.naviamp.domain.connect.NaviampConnectEnvelope>()
+            val target = app.naviamp.domain.playback.PlaybackProfileTarget(targetType, "collection")
+            val (controller, _, _) = remoteFixture(
+                sourceIdentity = { identity },
+                trackSelectionContext = { app.naviamp.domain.connect.NaviampConnectPlaybackContext(type, "collection") },
+                savedPlaybackProfile = { gapless.takeIf { _ -> it == target } },
+            ) { sent += it }
+            val request = app.naviamp.ui.SharedTrackRowActionRequest(
+                app.naviamp.ui.SharedTrackRowUi("track-3", "Track 3", "Artist"), app.naviamp.ui.SharedTrackRowAction.Select)
+            val command = if (type == app.naviamp.domain.connect.NaviampConnectMediaType.Album)
+                NaviampCoreCommand.Detail.AlbumTrack(request) else NaviampCoreCommand.Detail.PlaylistTrack(request)
+            assertTrue(controller.routeProductCommand(command))
+            runCurrent()
+
+            val start = sent.map { it.message }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectCommandRequest>()
+                .map { it.command }.filterIsInstance<app.naviamp.domain.connect.NaviampConnectStartMedia>().single()
+            assertEquals(gapless, start.playbackProfile?.toPlaybackProfile(), "A selected track carries its $type profile")
+            controller.close()
+        }
+    }
+
+    @Test
+    fun remoteQueueAddsCarryTheControllersCollectionProfileAfterPlaybackAuthorityIsActive() = runTest {
+        val gapless = app.naviamp.domain.playback.PlaybackProfile(app.naviamp.domain.playback.PlaybackTransitionMode.Gapless)
+        val identity = NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        val sent = mutableListOf<app.naviamp.domain.connect.NaviampConnectCommand>()
+        lateinit var activeSession: NaviampConnectControllerSession
+        var revision = 0L
+        val (controller, store, session) = remoteFixture(
+            sourceIdentity = { identity },
+            savedPlaybackProfile = { if (it.id == "inherited") app.naviamp.domain.playback.PlaybackProfile() else gapless },
+            extraCapabilities = setOf(NaviampConnectCapability.QueueEdit),
+        ) { envelope ->
+            sent += (envelope.message as NaviampConnectCommandRequest).command
+            revision++
+            activeSession.receive(NaviampConnectEnvelope(1, "session", revision,
+                responseToRequestId = envelope.requestId,
+                message = app.naviamp.domain.connect.NaviampConnectAcknowledgement(revision)))
+        }
+        activeSession = session
+        assertTrue(controller.routeProductCommand(NaviampCoreCommand.Media.TrackAction(
+            app.naviamp.ui.SharedTrackRowActionRequest(app.naviamp.ui.SharedTrackRowUi("track", "Track", "Artist"),
+                app.naviamp.ui.SharedTrackRowAction.Select))))
+        runCurrent()
+        assertTrue(store.state.value.shell.connect.remotePlaybackAuthorityActive)
+
+        assertTrue(controller.routeProductCommand(NaviampCoreCommand.Detail.Album(app.naviamp.ui.NaviampAlbumDetailActionRequest(
+            app.naviamp.ui.SharedMediaItemUi("album", "Album", "Artist"), app.naviamp.ui.NaviampAlbumDetailCommand.AddToQueue))))
+        for (id in listOf("mix", "inherited")) {
+            assertTrue(controller.routeProductCommand(NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
+                app.naviamp.ui.SharedMediaItemUi(id, id, ""), app.naviamp.ui.NaviampPlaylistDetailCommand.AddToQueue))))
+        }
+        runCurrent()
+
+        val queued = sent.filterIsInstance<app.naviamp.domain.connect.NaviampConnectQueueMedia>()
+        assertEquals(listOf("album", "mix", "inherited"), queued.map { it.mediaId })
+        assertEquals(listOf(gapless, gapless, null), queued.map { it.playbackProfile?.toPlaybackProfile() })
+        controller.close()
+    }
 
     @Test
     fun anIdlePeerThatStopsRespondingTriggersReconnect() = runTest {
@@ -1555,6 +1655,7 @@ class NaviampCoreConnectControllerTest {
         localPlayback: NaviampLivePlaybackController? = null,
         sourceIdentity: () -> app.naviamp.domain.connect.NaviampConnectSourceIdentity? = { null },
         trackSelectionContext: (NaviampCoreCommand) -> app.naviamp.domain.connect.NaviampConnectPlaybackContext? = { null },
+        savedPlaybackProfile: (app.naviamp.domain.playback.PlaybackProfileTarget) -> app.naviamp.domain.playback.PlaybackProfile? = { null },
         extraCapabilities: Set<app.naviamp.domain.connect.NaviampConnectCapability> = emptySet(),
         stationSessionVersion: Int = 0,
         generatedRadio: NaviampCoreConnectGeneratedRadioPort? = null,
@@ -1594,7 +1695,8 @@ class NaviampCoreConnectControllerTest {
             discovery = discovery, permissionSettings = permissionSettings,
             newOpaqueId = { "unused" }, newPairingCode = { "123456" }, nowEpochMillis = { testScheduler.currentTime },
         ), providerSessions = providerSessions, sourceIdentity = sourceIdentity, localPlayback = playback,
-            trackSelectionContext = trackSelectionContext, generatedRadio = generatedRadio)
+            trackSelectionContext = trackSelectionContext, generatedRadio = generatedRadio,
+            savedPlaybackProfile = savedPlaybackProfile)
         if (discovery != null) controller.actions.onRefreshTargets()
         var next = 0
         val session = NaviampConnectControllerSession(NaviampConnectSessionTransport(send),

@@ -33,7 +33,8 @@ class NaviampCoreConnectCatalogController(
                 NaviampConnectMediaType.Album -> {
                     val details = provider.album(AlbumId(command.mediaId))
                     if (command.startRadio) media.startAlbumRadio(details.album)
-                    else media.playAlbum(details.album, details.tracks, shuffle = command.shuffle)
+                    else media.playAlbum(details.album, details.tracks, shuffle = command.shuffle,
+                        profile = command.playbackProfile?.toPlaybackProfile())
                 }
                 NaviampConnectMediaType.Artist -> {
                     val details = provider.artist(ArtistId(command.mediaId))
@@ -46,9 +47,13 @@ class NaviampCoreConnectCatalogController(
                         media.play(tracks, shuffle = command.shuffle)
                     }
                 }
-                NaviampConnectMediaType.Playlist ->
-                    media.playPlaylist(command.mediaId, registry.playlist(command.mediaId)?.name.orEmpty(),
-                        provider.playlistTracks(command.mediaId), shuffle = command.shuffle)
+                NaviampConnectMediaType.Playlist -> media.playPlaylist(
+                    playlistId = command.mediaId,
+                    playlistName = playlistName(command.mediaId),
+                    tracks = provider.playlistTracks(command.mediaId),
+                    shuffle = command.shuffle,
+                    profile = command.playbackProfile?.toPlaybackProfile(),
+                )
                 NaviampConnectMediaType.InternetRadioStation -> error("Handled above")
             }
             true
@@ -71,20 +76,25 @@ class NaviampCoreConnectCatalogController(
                 val tracks = details.tracks.inAlbumOrder()
                 val index = tracks.indexOfFirst { it.id.value == command.mediaId }
                 if (index < 0) return false
-                media.playAlbum(details.album, tracks, shuffle = command.shuffle, index = index)
+                media.playAlbum(details.album, tracks, shuffle = command.shuffle, index = index,
+                    profile = command.playbackProfile?.toPlaybackProfile())
                 true
             }
             NaviampConnectMediaType.Playlist -> {
                 val tracks = provider.playlistTracks(context.mediaId)
                 val index = tracks.indexOfFirst { it.id.value == command.mediaId }
                 if (index < 0) return false
-                media.playPlaylist(context.mediaId, registry.playlist(context.mediaId)?.name.orEmpty(),
-                    tracks, index = index, shuffle = command.shuffle, resumePlaylist = false)
+                media.playPlaylist(context.mediaId, playlistName(context.mediaId), tracks,
+                    shuffle = command.shuffle, index = index, resumePlaylist = false,
+                    profile = command.playbackProfile?.toPlaybackProfile())
                 true
             }
             else -> false
         }
     }
+
+    /** A blank label hides the "Playing from" line rather than showing an untranslated placeholder. */
+    private fun playlistName(id: String): String = registry.playlist(id)?.name.orEmpty()
 
     suspend fun queue(command: NaviampConnectQueueMedia): Boolean {
         val provider = providerSource.current() ?: return false
@@ -94,7 +104,8 @@ class NaviampCoreConnectCatalogController(
                     NaviampConnectMediaType.Album -> {
                         val details = provider.album(AlbumId(command.mediaId))
                         if (details.tracks.isEmpty()) return false
-                        media.addAlbumToQueue(details.album, details.tracks)
+                        media.addAlbumToQueue(details.album, details.tracks,
+                            profile = command.playbackProfile?.toPlaybackProfile())
                         return true
                     }
                     NaviampConnectMediaType.Playlist -> {
@@ -104,6 +115,7 @@ class NaviampCoreConnectCatalogController(
                             playlistId = command.mediaId,
                             playlistName = registry.playlist(command.mediaId)?.name ?: "Playlist",
                             tracks = tracks,
+                            profile = command.playbackProfile?.toPlaybackProfile(),
                         )
                         return true
                     }

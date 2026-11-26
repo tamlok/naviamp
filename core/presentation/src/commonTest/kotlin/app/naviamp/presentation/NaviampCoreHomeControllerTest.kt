@@ -52,6 +52,33 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NaviampCoreHomeControllerTest {
+    @Test fun refreshingHomeClearsOnlyItsTypedFailureAndKeepsOtherOutcomes() = runTest {
+        var fail = true
+        val store = NaviampCoreStateStore()
+        val provider = RecoveryHomeProvider { emptyList() }
+        val home = NaviampCoreHomeController(store, { provider },
+            NaviampCoreNavigationController(NaviampNavigationController(), store, {}),
+            NaviampCoreHomeDateSource {
+                if (fail) error("Home date unavailable")
+                HomeDate(2026, 100)
+            })
+
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertEquals(app.naviamp.ui.NaviampStatusMessage.HomeFailed, store.state.value.overlays.status?.message)
+        assertFalse(store.state.value.shell.home.refreshing)
+        fail = false
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertEquals(null, store.state.value.overlays.status)
+
+        fail = true
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        store.publishStatus(app.naviamp.ui.NaviampStatusMessage.AddedToQueue)
+        val newer = store.state.value.overlays.status
+        fail = false
+        home.execute(NaviampCoreCommand.Home.Refresh)
+        assertEquals(newer, store.state.value.overlays.status)
+    }
+
     @Test fun serverCollectionsStayVisibleAndOpenAcrossSettingsAndCatalogUpdates() = runTest {
         val provider = HomeTestProvider(supportsTrackRadio = true)
         val store = NaviampCoreStateStore()
@@ -1171,7 +1198,7 @@ class NaviampCoreHomeControllerTest {
         controller.execute(NaviampCoreCommand.Home.Refresh)
 
         assertFalse(store.state.value.shell.home.refreshing)
-        assertEquals("Connect to Navidrome to load Home.", store.state.value.overlays.status)
+        assertEquals(null, store.state.value.overlays.status)
     }
 
     @Test

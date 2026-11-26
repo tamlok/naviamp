@@ -19,6 +19,33 @@ import kotlin.test.assertNull
 
 class NaviampCoreConnectCommandRoutingTest {
     @Test
+    fun onlyWholeAlbumAndPlaylistQueueAddsCarryACollectionProfile() {
+        val album = NaviampCoreCommand.Detail.Album(NaviampAlbumDetailActionRequest(
+            SharedMediaItemUi("album", "Album", "Artist"), NaviampAlbumDetailCommand.AddToQueue))
+            .connectQueueSelectionOrNull()!!
+        assertEquals(app.naviamp.domain.playback.PlaybackProfileTarget(
+            app.naviamp.domain.playback.PlaybackProfileTargetType.Album, "album"), album.playbackProfileTarget())
+        val gapless = app.naviamp.domain.playback.PlaybackProfile(app.naviamp.domain.playback.PlaybackTransitionMode.Gapless)
+        val identity = app.naviamp.domain.connect.NaviampConnectSourceIdentity("navidrome", "https://music.example", "listener")
+        assertEquals(gapless, album.toCommand(identity, gapless).playbackProfile?.toPlaybackProfile())
+        assertNull(album.toCommand(identity).playbackProfile)
+
+        val playlist = NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
+            SharedMediaItemUi("mix", "Mix", ""), app.naviamp.ui.NaviampPlaylistDetailCommand.AddToQueue))
+            .connectQueueSelectionOrNull()!!
+        assertEquals(app.naviamp.domain.playback.PlaybackProfileTarget(
+            app.naviamp.domain.playback.PlaybackProfileTargetType.Playlist, "mix"), playlist.playbackProfileTarget())
+        assertEquals(gapless, playlist.toCommand(identity, gapless).playbackProfile?.toPlaybackProfile())
+
+        // Single tracks join the queue without a group, so no profile applies to them.
+        for (action in listOf(SharedTrackRowAction.AddToQueue, SharedTrackRowAction.PlayNext)) {
+            val track = NaviampCoreCommand.Media.TrackAction(SharedTrackRowActionRequest(SharedTrackRowUi("t", "T", "A"), action))
+                .connectQueueSelectionOrNull()!!
+            assertNull(track.playbackProfileTarget(), action.name)
+        }
+    }
+
+    @Test
     fun mainPlaybackCommandsStopSamplesBeforeRoutingButSampleInitiatedPauseDoesNot() = kotlinx.coroutines.test.runTest {
         val events = mutableListOf<String>()
         val delegate = object : NaviampCoreCommandHandler {

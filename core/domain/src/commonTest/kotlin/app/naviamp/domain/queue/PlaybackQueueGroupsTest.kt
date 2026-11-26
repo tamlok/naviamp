@@ -6,12 +6,154 @@ import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
 import app.naviamp.domain.playback.PlaybackTransitionMode
+import app.naviamp.domain.radio.RadioQueueOccurrence
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PlaybackQueueGroupsTest {
+    @Test
+    fun radioRegenerationKeepsTheGroupOnTheCurrentAndRetainedTracks() {
+        // History "one", current "two", album group over one..four; Radio replaces "three", "four".
+        val queue = PlaybackQueue(
+            tracks = listOf(track("one"), track("two"), track("three"), track("four")),
+            currentIndex = 1,
+            groups = listOf(albumGroup(start = 0, end = 4)),
+        )
+
+        val regenerated = queue.replaceUpcomingTracks(track("two"), listOf(track("radio-a"), track("radio-b")))
+
+        assertEquals(listOf("one", "two", "radio-a", "radio-b"), regenerated.tracks.map { it.id.value })
+        val group = regenerated.groupAt()
+        assertEquals("album", group?.id, "The current track keeps its album group")
+        assertEquals(PlaybackTransitionMode.Gapless, group?.profile?.transitionMode)
+        assertEquals(0 until 2, group!!.startIndex until group.endIndexExclusive, "Only retained tracks stay in it")
+        assertNull(regenerated.groupForTransition(toIndex = 2), "Radio tracks leave the album, so its profile ends")
+    }
+
+    @Test
+    fun radioRegenerationKeepsPlayNextGroupsAndPrunesHistoryLikeOtherEdits() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("old"), track("current"), track("next-1"), track("next-2"), track("ctx")),
+            currentIndex = 1,
+            playNextCount = 2,
+            groups = listOf(albumGroup(id = "queued", start = 2, end = 4), albumGroup(id = "context", start = 4, end = 5)),
+        )
+
+        val regenerated = queue.replaceUpcomingTracks(track("current"), listOf(track("radio")), maxHistory = 0)
+
+        assertEquals(listOf("current", "next-1", "next-2", "radio"), regenerated.tracks.map { it.id.value })
+        assertEquals(listOf("queued" to (1 until 3)),
+            regenerated.normalizedGroups().map { it.id to (it.startIndex until it.endIndexExclusive) },
+            "The play-next album survives; the replaced context track's group is dropped")
+    }
+
+    @Test
+    fun radioRegenerationOfAnUngroupedQueueStaysUngrouped() {
+        val queue = PlaybackQueue(listOf(track("one"), track("two"), track("three")), currentIndex = 0)
+        val regenerated = queue.replaceUpcomingTracks(track("one"), listOf(track("radio")))
+        assertEquals(listOf("one", "radio"), regenerated.tracks.map { it.id.value })
+        assertTrue(regenerated.groups.isEmpty())
+    }
+
+    @Test
+    fun radioRegenerationRemapsGroupsAndDuplicateOccurrencesTogetherWhenPruningHistory() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("old"), track("same"), track("history"), track("same"),
+                track("same"), track("priority"), track("context")),
+            currentIndex = 3,
+            playNextCount = 2,
+            groups = listOf(
+                albumGroup(id = "old", start = 0, end = 2),
+                albumGroup(id = "active", start = 2, end = 4),
+                albumGroup(id = "queued", start = 4, end = 6),
+                albumGroup(id = "context", start = 6, end = 7),
+            ),
+            occurrences = listOf(
+                RadioQueueOccurrence("old", "station", "old"),
+                RadioQueueOccurrence("earlier-copy", "station", "old"),
+                RadioQueueOccurrence("history", "station", "old"),
+                RadioQueueOccurrence("current-copy", "station", "old"),
+                RadioQueueOccurrence("priority-copy"),
+                RadioQueueOccurrence("priority"),
+                RadioQueueOccurrence("context", "station", "old"),
+            ),
+        )
+
+        val regenerated = queue.replaceUpcomingTracks(
+            track("same"), listOf(track("same"), track("history"), track("context"), track("radio")), maxHistory = 1,
+        )
+
+        assertEquals(listOf("history", "same", "same", "priority", "context", "radio"),
+            regenerated.tracks.map { it.id.value })
+        assertEquals(1, regenerated.currentIndex)
+        assertEquals(2, regenerated.playNextCount)
+        assertEquals(queue.occurrences.subList(2, 6), regenerated.occurrences.take(4))
+        assertEquals(listOf(
+            queue.groups[1].copy(startIndex = 0, endIndexExclusive = 2),
+            queue.groups[2].copy(startIndex = 2, endIndexExclusive = 4),
+        ), regenerated.groups)
+        assertEquals("active", regenerated.groupAt()?.id)
+        assertEquals("queued", regenerated.groupForTransition(fromIndex = 2, toIndex = 3)?.id)
+        assertNull(regenerated.groupForTransition(fromIndex = 3, toIndex = 4))
+        assertNull(regenerated.groupAt(4), "A replacement with the same track ID must not inherit the old group")
+        assertTrue(regenerated.occurrences.drop(4).all { fresh ->
+            !fresh.generated && fresh.batchId == null && queue.occurrences.none { it.id == fresh.id }
+        })
+        assertEquals(regenerated.tracks.size, regenerated.occurrences.size)
+        assertEquals(regenerated.occurrences.size, regenerated.occurrences.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun generatedRegenerationKeepsManualDuplicateGroupsAndOccurrenceAttributionTogether() {
+        val queue = PlaybackQueue(
+            tracks = listOf(track("history"), track("current"), track("priority"),
+                track("same"), track("same"), track("old")),
+            currentIndex = 1,
+            playNextCount = 1,
+            groups = listOf(
+                albumGroup(id = "active", start = 0, end = 2),
+                albumGroup(id = "queued", start = 2, end = 3),
+                albumGroup(id = "generated", start = 3, end = 4),
+                albumGroup(id = "manual", start = 4, end = 5),
+                albumGroup(id = "old", start = 5, end = 6),
+            ),
+            occurrences = listOf(
+                RadioQueueOccurrence("history", "station", "old"),
+                RadioQueueOccurrence("current", "station", "old"),
+                RadioQueueOccurrence("priority", "station", "old"),
+                RadioQueueOccurrence("generated-copy", "station", "old"),
+                RadioQueueOccurrence("manual-copy"),
+                RadioQueueOccurrence("old", "station", "old"),
+            ),
+        )
+
+        val regenerated = queue.replaceGeneratedUpcomingOccurrences(
+            listOf(track("same"), track("new"), track("new")), "station", "fresh",
+        )
+
+        assertEquals(listOf("history", "current", "priority", "same", "new"),
+            regenerated.tracks.map { it.id.value })
+        assertEquals(1, regenerated.currentIndex)
+        assertEquals(1, regenerated.playNextCount)
+        assertEquals(queue.occurrences.take(3) + queue.occurrences[4], regenerated.occurrences.take(4))
+        assertEquals(listOf(queue.groups[0], queue.groups[1],
+            queue.groups[3].copy(startIndex = 3, endIndexExclusive = 4)), regenerated.groups)
+        assertEquals("manual", regenerated.groupAt(3)?.id)
+        assertNull(regenerated.groupAt(4))
+        val fresh = regenerated.occurrences.last()
+        assertEquals("station", fresh.stationId)
+        assertEquals("fresh", fresh.batchId)
+        assertTrue(queue.occurrences.none { it.id == fresh.id })
+        assertEquals(regenerated.tracks.size, regenerated.occurrences.size)
+        assertEquals(regenerated.occurrences.size, regenerated.occurrences.map { it.id }.toSet().size)
+
+        val emptied = queue.replaceGeneratedUpcomingOccurrences(emptyList(), "station", "empty")
+        assertEquals(regenerated.groups, emptied.groups)
+        assertEquals(regenerated.occurrences.dropLast(1), emptied.occurrences)
+    }
+
     @Test
     fun resolvesTheGroupContainingTheCurrentOccurrence() {
         val queue = PlaybackQueue(

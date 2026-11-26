@@ -905,6 +905,10 @@ class NaviampCorePlaybackEngineAdapter(
         ).shouldPrepare
     }
 
+    override fun globalTransitionSettingsChanged(global: PlaybackSettings) {
+        invalidatePreparedNextWhenTransitionSettingsChange(effectivePlaybackSettingsForTransition(global))
+    }
+
     private fun invalidatePreparedNextWhenTransitionSettingsChange(settings: PlaybackSettings) {
         val current = settings.transitionSettings()
         val previous = observedTransitionSettings
@@ -1047,8 +1051,14 @@ data class NaviampCoreActiveEngineSettings(
 )
 
 /** Resolves global settings against the playback profile of the queue the engine is playing. */
-fun interface NaviampCoreActivePlaybackProfile {
+interface NaviampCoreActivePlaybackProfile {
     fun resolve(global: PlaybackSettings): NaviampCoreActiveEngineSettings
+
+    /**
+     * Global transition settings changed. The owner of next-track preparation decides whether the
+     * prepared transition is still valid under the queue's profile, and re-prepares it if not.
+     */
+    fun globalTransitionSettingsChanged(global: PlaybackSettings)
 }
 
 /** Shared playback-settings owner and complete engine application policy. */
@@ -1080,7 +1090,9 @@ class NaviampCorePlaybackEngineSettings(
         persist(normalized)
         current = normalized
         if (transitionChanged) {
-            (engine as? QueueAwarePlaybackEngine)?.clearPreparedNext()
+            // Clearing the engine behind the adapter's back left its preparation bookkeeping saying
+            // "already prepared", so nothing prepared the next track again (#665).
+            activeProfile?.globalTransitionSettingsChanged(current)
         }
         applyToEngine(effective)
         onChanged()

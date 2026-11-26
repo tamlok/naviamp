@@ -199,6 +199,14 @@ fun NaviampCoreApp(
                             app.naviamp.ui.NaviampQueueUndoNotice(app.naviamp.ui.LocalNaviampTheme.current.colors, undo,
                                 onAction = { core.dispatch(NaviampCoreCommand.NowPlaying.QueueUndo(it)) })
                         }
+                        state.overlays.status?.let { notice ->
+                            app.naviamp.ui.NaviampStatusNoticeBar(
+                                app.naviamp.ui.LocalNaviampTheme.current.colors, notice,
+                                onDismiss = { core.dispatch(NaviampCoreCommand.Home.DismissStatusNotice(notice.id)) },
+                                onLifetime = { action, timeout -> core.dispatch(NaviampCoreCommand.Home.NoticeLifetime(
+                                    app.naviamp.ui.NaviampTimedNoticeRequest(app.naviamp.ui.NaviampTimedNotice.Status, action, timeout))) },
+                            )
+                        }
                     }
                     if (state.overlays.trackRadioGenerating) {
                         app.naviamp.ui.NaviampRadioGeneratingNotice(

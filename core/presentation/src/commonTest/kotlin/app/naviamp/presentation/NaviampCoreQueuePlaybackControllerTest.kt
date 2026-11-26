@@ -124,6 +124,46 @@ class NaviampCoreQueuePlaybackControllerTest {
     }
 
     @Test
+    fun controllerProfileOverridesSavedProfileWithoutChangingBookmarkResumeOrExplicitSelection() {
+        val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "playlist-1")
+        val saved = PlaybackProfile(PlaybackTransitionMode.Crossfade, crossfadeDurationSeconds = 4)
+        val remote = PlaybackProfile(PlaybackTransitionMode.Gapless, crossfadeDurationSeconds = 8)
+        val fixture = fixture(mapOf(target to saved))
+        fixture.bookmarks.saveBookmark("source-1", target.id, PlaylistPlaybackBookmark(TrackId("two"), 0, 51.0))
+
+        assertTrue(fixture.controller.play(testTracks(), groupTarget = target, resumePlaylist = true, groupProfile = remote))
+        assertEquals(TrackId("two"), fixture.effects.startedTrack)
+        assertEquals(51.0, fixture.effects.startPosition)
+        assertEquals(remote.normalized(), fixture.live.state.value.queue.groups.single().profile)
+
+        assertTrue(fixture.controller.play(testTracks(), index = 0, groupTarget = target, resumePlaylist = false,
+            groupProfile = remote))
+        assertEquals(TrackId("one"), fixture.effects.startedTrack)
+        assertEquals(0.0, fixture.effects.startPosition)
+        assertEquals(remote.normalized(), fixture.live.state.value.queue.groups.single().profile)
+
+        assertTrue(fixture.controller.play(testTracks(), shuffle = true, groupTarget = target, resumePlaylist = true,
+            groupProfile = remote))
+        assertEquals(0.0, fixture.effects.startPosition)
+        assertEquals(PlaybackProfile(), fixture.live.state.value.queue.groups.single().profile)
+    }
+
+    @Test
+    fun controllerQueueAddProfileOverridesSavedProfileForAlbumsAndPlaylists() {
+        for (type in listOf(PlaybackProfileTargetType.Album, PlaybackProfileTargetType.Playlist)) {
+            val target = PlaybackProfileTarget(type, "collection")
+            val saved = PlaybackProfile(PlaybackTransitionMode.Crossfade, crossfadeDurationSeconds = 4)
+            val remote = PlaybackProfile(PlaybackTransitionMode.Gapless)
+            val fixture = fixture(mapOf(target to saved))
+
+            val update = fixture.controller.addToQueue(testTracks(), target, "Collection", groupProfile = remote)
+
+            assertEquals(target, update.queue.groups.single().target)
+            assertEquals(remote, update.queue.groups.single().profile)
+        }
+    }
+
+    @Test
     fun unconfiguredPlaylistAndShuffledLaunchRetainContextWithoutApplyingProfile() {
         val target = PlaybackProfileTarget(PlaybackProfileTargetType.Playlist, "playlist-1")
         val fixture = fixture()

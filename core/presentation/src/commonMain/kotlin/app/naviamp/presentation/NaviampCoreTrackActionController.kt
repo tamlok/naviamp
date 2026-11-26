@@ -73,14 +73,16 @@ class NaviampCoreTrackActionController(
         if (track == null) {
             // The playlist page renders its own status line; other surfaces keep the shared notice.
             if (playlistContext != null) publishPlaylistNotice("Track is no longer available.")
-            else media.publish("Track is no longer available.")
+            else media.publish(app.naviamp.ui.NaviampStatusMessage.TrackUnavailable)
             return
         }
         when (request.action) {
             app.naviamp.ui.SharedTrackRowAction.Select -> if (albumContext != null) {
                 media.playAlbum(albumContext.album, tracks, index = index)
             } else if (playlistContext != null) {
-                media.playPlaylist(playlistContext.id, playlistContext.name, tracks, index = index, resumePlaylist = false)
+                // Prefer the refreshed list's name while the open playlist still carries its old copy.
+                media.playPlaylist(playlistContext.id, registry.playlist(playlistContext.id)?.name ?: playlistContext.name,
+                    tracks, index = index, resumePlaylist = false)
             } else {
                 media.play(tracks, index)
             }
@@ -94,7 +96,7 @@ class NaviampCoreTrackActionController(
             app.naviamp.ui.SharedTrackRowAction.AddToPlaylist -> request.playlistChoice?.let { media.addToPlaylist(listOf(track), it) }
                 ?: openPlaylistMembership(track)
             app.naviamp.ui.SharedTrackRowAction.CreatePlaylistAndAdd -> request.playlistName?.let { media.createPlaylist(listOf(track), it) }
-                ?: media.publish("Playlist name is missing.")
+                ?: media.publish(app.naviamp.ui.NaviampStatusMessage.PlaylistNameBlank)
             app.naviamp.ui.SharedTrackRowAction.ToggleFavorite -> media.toggleFavorite(track)
             app.naviamp.ui.SharedTrackRowAction.GoToAlbum -> media.openAlbum(track)
             app.naviamp.ui.SharedTrackRowAction.GoToArtist -> media.openArtist(track, request.artistId, request.artistName)

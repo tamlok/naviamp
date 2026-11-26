@@ -42,6 +42,7 @@ class PlaybackQueueMutationManager(
                 label = label,
                 deduplicateExisting = deduplicateExisting,
             ),
+            outcome = playbackQueueAddOutcome(tracksToAdd, tracks, deduplicateExisting, playNext = false),
         )
     }
 
@@ -94,6 +95,7 @@ class PlaybackQueueMutationManager(
                 label = label,
                 deduplicateExisting = deduplicateExisting,
             ),
+            outcome = playbackQueueAddOutcome(tracksToAdd, tracks, deduplicateExisting, playNext = true),
         )
     }
 
@@ -107,6 +109,7 @@ class PlaybackQueueMutationManager(
             queue = nextQueue,
             tracksChanged = true,
             status = "Added 1 track to play next",
+            outcome = PlaybackQueueAddOutcome.AddedToPlayNext,
         )
     }
 

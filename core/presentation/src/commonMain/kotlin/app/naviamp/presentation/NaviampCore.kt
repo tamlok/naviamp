@@ -970,6 +970,7 @@ class NaviampCore private constructor(
                     playbackOutputs = playbackOutputs,
                     trackSelectionContext = mediaRegistry::connectTrackSelectionContext,
                     generatedRadio = generatedPort,
+                    savedPlaybackProfile = playbackProfiles::profile,
                 )
             }
             routeFavoriteSongs = { tracks, index -> connect?.playTracksOnSelectedDevice(tracks, index) == true }

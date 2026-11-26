@@ -1133,6 +1133,7 @@ class NaviampCorePlaybackControllerTest {
         assertEquals(listOf("one", "two", "three", "four"), fixture.live.state.value.queue.tracks.map { it.id.value })
         assertEquals(listOf("Queue Save:one,two,three,four"), fixture.provider.created)
         assertEquals("Saved Queue Save", fixture.store.state.value.shell.nowPlaying?.playlistActionStatus)
+        assertEquals(app.naviamp.ui.NaviampStatusMessage.QueueSaved("Queue Save"), fixture.store.state.value.overlays.status?.message)
 
         fixture.controller.execute(
             NaviampCoreCommand.NowPlaying.Queue(
@@ -1195,7 +1196,7 @@ class NaviampCorePlaybackControllerTest {
         fixture.controller.expireSleepTimer()
         assertEquals(1, fixture.effects.stops)
         assertEquals(PlaybackState.Stopped, fixture.live.state.value.playbackState)
-        assertEquals("Sleep timer stopped playback.", fixture.store.state.value.overlays.status)
+        assertEquals(app.naviamp.ui.NaviampStatusMessage.SleepTimerStoppedPlayback, fixture.store.state.value.overlays.status?.message)
     }
 
 
@@ -1354,7 +1355,7 @@ class NaviampCorePlaybackControllerTest {
         assertEquals(0, fixture.effects.pauses)
         assertTrue(fixture.effects.fades.isEmpty())
         assertEquals(PlaybackState.Stopped, fixture.live.state.value.playbackState)
-        assertEquals("Sleep timer stopped playback.", fixture.store.state.value.overlays.status)
+        assertEquals(app.naviamp.ui.NaviampStatusMessage.SleepTimerStoppedPlayback, fixture.store.state.value.overlays.status?.message)
     }
 
 
@@ -1377,7 +1378,7 @@ class NaviampCorePlaybackControllerTest {
         assertEquals("a2", fixture.live.state.value.currentTrack?.id?.value)
         assertFalse(fixture.store.state.value.shell.nowPlaying?.sleepTimer?.active == true)
         assertEquals(false, fixture.effects.stopAfterCurrent.last())
-        assertEquals("Sleep timer stopped playback.", fixture.store.state.value.overlays.status)
+        assertEquals(app.naviamp.ui.NaviampStatusMessage.SleepTimerStoppedPlayback, fixture.store.state.value.overlays.status?.message)
         assertTrue(fixture.effects.fades.isEmpty())
     }
 
