@@ -15,6 +15,100 @@ import kotlinx.coroutines.test.*
 import kotlin.test.*
 
 class NaviampCoreGeneratedRadioControllerTest {
+    @Test fun seededRadioUndoSurvivesItsInitialRefillAndRestoresOrdinaryPlayback() = runTest {
+        val fixture = Fixture(backgroundScope)
+        val old = PlaybackQueue(listOf(fixture.track("old"), fixture.track("next")), currentIndex = 0)
+        fixture.live.replace(fixture.live.state.value.copy(queue = old, currentTrack = old.current,
+            progress = PlaybackProgress(37.0, 180.0), playbackState = PlaybackState.Playing))
+        assertTrue(fixture.controller.startStation(fixture.station))
+        assertEquals(11, fixture.live.state.value.queue.tracks.size)
+        assertNotNull(fixture.store.state.value.overlays.queueUndo)
+        fixture.undoLastEdit()
+        assertEquals(old, fixture.live.state.value.queue)
+        assertEquals(37.0, fixture.live.state.value.progress.positionSeconds)
+        assertEquals("old", fixture.live.state.value.currentTrack?.id?.value)
+        assertNull(fixture.controller.checkpoint())
+        assertNull(fixture.store.state.value.overlays.queueUndo)
+    }
+
+    @Test fun undoDuringSeedBuildCancelsTheStationBeforeItsLateResult() = runTest {
+        val fixture = Fixture(backgroundScope)
+        val old = PlaybackQueue(listOf(fixture.track("old"), fixture.track("next")), currentIndex = 0)
+        fixture.live.replace(fixture.live.state.value.copy(queue = old, currentTrack = old.current,
+            playbackState = PlaybackState.Playing))
+        fixture.gate = CompletableDeferred()
+        val start = async { fixture.controller.startStation(fixture.station) }
+        runCurrent()
+        assertEquals("seed", fixture.live.state.value.queue.current?.id?.value)
+        fixture.undoLastEdit()
+        fixture.gate!!.complete(Unit)
+        runCurrent()
+        assertFalse(start.await())
+        assertEquals(old, fixture.live.state.value.queue)
+        assertEquals("old", fixture.live.state.value.currentTrack?.id?.value)
+        assertNull(fixture.controller.checkpoint())
+    }
+
+    @Test fun finiteBatchUndoRestoresThePausedStationRecipeAndOccurrences() = runTest {
+        val fixture = Fixture(backgroundScope)
+        fixture.controller.startStation(fixture.station)
+        fixture.live.updatePlaybackState(PlaybackState.Paused)
+        fixture.controller.onPlaybackChanged()
+        val oldQueue = fixture.live.state.value.queue
+        val oldCheckpoint = fixture.controller.checkpoint()
+        fixture.controller.playFinite(listOf(fixture.track("finite")))
+        fixture.undoLastEdit()
+        assertEquals(oldQueue, fixture.live.state.value.queue)
+        assertEquals(oldCheckpoint, fixture.controller.checkpoint())
+        assertEquals(PlaybackState.Paused, fixture.live.state.value.playbackState)
+        assertEquals("station", fixture.store.state.value.shell.generatedRadio.activeStationId)
+        fixture.moveNearEnd()
+        fixture.controller.onPlaybackChanged()
+        runCurrent()
+        assertEquals(listOf("seed", "seed"), fixture.seeds)
+        assertEquals(21, fixture.live.state.value.queue.tracks.size)
+    }
+
+    @Test fun clearingThenUndoingTheQueueDoesNotRestartCancelledStationWork() = runTest {
+        val fixture = Fixture(backgroundScope)
+        fixture.controller.startStation(fixture.station)
+        fixture.gate = CompletableDeferred()
+        fixture.moveNearEnd()
+        fixture.controller.onPlaybackChanged()
+        runCurrent()
+        val old = fixture.live.state.value.queue
+        val checkpoint = fixture.controller.checkpoint()
+        val capture = fixture.undo.capture()
+        fixture.controller.onQueueCleared()
+        val update = fixture.queue.retainCurrentOnly()
+        fixture.undo.record(capture, NaviampQueueUndoKind.ClearedQueue, update.queue)
+        fixture.undoLastEdit()
+        fixture.gate!!.complete(Unit)
+        fixture.controller.onPlaybackChanged(force = true)
+        runCurrent()
+        assertEquals(old, fixture.live.state.value.queue)
+        assertEquals(checkpoint, fixture.controller.checkpoint())
+        assertEquals(2, fixture.seeds.size)
+    }
+
+    @Test fun undoRestoresTerminalStationWithoutRetryingItsFailedContinuation() = runTest {
+        val fixture = Fixture(backgroundScope)
+        fixture.controller.startStation(fixture.station)
+        fixture.radioFailure = IllegalStateException("offline")
+        fixture.moveNearEnd()
+        fixture.controller.onPlaybackChanged()
+        runCurrent()
+        val old = fixture.live.state.value.queue
+        val checkpoint = fixture.controller.checkpoint()
+        fixture.controller.playFinite(listOf(fixture.track("finite")))
+        fixture.undoLastEdit()
+        fixture.controller.onPlaybackChanged(force = true)
+        runCurrent()
+        assertEquals(old, fixture.live.state.value.queue)
+        assertEquals(checkpoint, fixture.controller.checkpoint())
+        assertEquals(2, fixture.seeds.size)
+    }
+
     @Test fun anOrdinaryUnscopedTrackPageCannotProveSelectedLibraryMembership() = runTest {
         val fixture = Fixture(backgroundScope, folderScoped = true, proveFolderScope = false)
         assertFalse(fixture.controller.startStation(fixture.station))
@@ -263,14 +357,19 @@ class NaviampCoreGeneratedRadioControllerTest {
             }
         }
         val effects = Effects(live)
+        val undo = NaviampCoreQueueUndoController(scope, store, live, queue, effects)
         val station = GeneratedRadioStation("station", "Seed station", GeneratedRadioKind.Track,
             sourceId = "source", libraryScope = provider.cacheNamespace,
             seedTracks = listOf(SavedTrack.fromTrack(track("seed"))))
         val controller = NaviampCoreGeneratedRadioController(scope, store, { provider }, live, queue, effects,
             repository, NaviampRecentRadioStreamController({ emptyList() }, {}), null, { null }, { 10_000L },
-            {}, {}, {}, {}, {}, {}, { null })
+            {}, {}, {}, {}, {}, {}, { null }, queueUndo = undo).also { undo.generatedRadio = it }
         fun track(id: String) = Track(TrackId(id), id, artistName = "artist-$id", albumTitle = null,
             durationSeconds = 180, coverArtId = null, audioInfo = null, replayGain = null)
+        fun undoLastEdit() {
+            val notice = assertNotNull(store.state.value.overlays.queueUndo)
+            undo.dispatch(NaviampCoreCommand.NowPlaying.QueueUndo(NaviampQueueUndoActionRequest(notice.id, NaviampQueueUndoAction.Undo)))
+        }
         fun moveNearEnd() {
             val changed = live.state.value.queue.copy(currentIndex = 8)
             live.replace(live.state.value.copy(queue = changed, currentTrack = changed.current, playbackState = PlaybackState.Playing))

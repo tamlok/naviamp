@@ -3,11 +3,15 @@ package app.naviamp.presentation
 import app.naviamp.domain.Track
 import app.naviamp.domain.media.inAlbumOrder
 import app.naviamp.ui.SharedTrackRowActionRequest
+import app.naviamp.ui.offlinePlaylistTrackNotDownloadedMessage
 
 /** Routes every non-Now-Playing track row through the same Core-owned transaction policy. */
 class NaviampCoreTrackActionController(
     private val registry: NaviampCoreMediaRegistry,
     private val media: NaviampCoreMediaTransactions,
+    private val isUnavailableOfflinePlaylistTrack: (String) -> Boolean = { false },
+    private val notDownloadedMessage: suspend () -> String = ::offlinePlaylistTrackNotDownloadedMessage,
+    private val publishPlaylistNotice: (String) -> Unit = {},
     private val openPlaylistMembership: suspend (Track) -> Unit,
     private val generatedRadio: NaviampCoreGeneratedRadioController? = null,
 ) : NaviampCoreCommandController {
@@ -62,8 +66,14 @@ class NaviampCoreTrackActionController(
     ) {
         val index = tracks.indexOfFirst { it.id.value == request.track.id }
         val track = tracks.getOrNull(index)
+        if (track == null && playlistContext != null && isUnavailableOfflinePlaylistTrack(request.track.id)) {
+            publishPlaylistNotice(notDownloadedMessage())
+            return
+        }
         if (track == null) {
-            media.publish("Track is no longer available.")
+            // The playlist page renders its own status line; other surfaces keep the shared notice.
+            if (playlistContext != null) publishPlaylistNotice("Track is no longer available.")
+            else media.publish("Track is no longer available.")
             return
         }
         when (request.action) {

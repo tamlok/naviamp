@@ -101,7 +101,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
                             groupLabel = playlist.name, resumePlaylist = !mix)
                     },
                     queue = NaviampCorePlaylistQueuePort { _, _ -> error("Unexpected append") },
-                    downloads = NaviampCorePlaylistDownloadPort { _, _, _ -> error("Unexpected download") },
+                    downloads = NaviampCorePlaylistDownloadPort { _, _, _, _ -> error("Unexpected download") },
                     sessionPort = fakeCoreServices(fixture.provider).connection,
                 )
                 playlists.execute(NaviampCoreCommand.Playlists.Detail(app.naviamp.ui.NaviampPlaylistDetailActionRequest(
@@ -128,7 +128,8 @@ class NaviampCoreNowPlayingMediaControllerTest {
                 tracks.map(app.naviamp.domain.settings.SavedTrack::fromTrack)))
         fixture.store.updateShell { it.copy(generatedRadio = preview) }
         val registry = NaviampCoreMediaRegistry()
-        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, {}, fixture.generatedStations)
+        val controller = NaviampCoreTrackActionController(registry, fixture.transactions,
+            openPlaylistMembership = {}, generatedRadio = fixture.generatedStations)
         val request = app.naviamp.ui.SharedTrackRowActionRequest(app.naviamp.ui.SharedTrackRowUi("middle", "Middle", "Artist"),
             app.naviamp.ui.SharedTrackRowAction.Select)
         controller.execute(NaviampCoreCommand.Media.TrackAction(request))
@@ -280,7 +281,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
             history.toSharedHomeUi(coverArtUrl = { null }))) }
         val commands = mutableListOf<NaviampCoreCommand>()
         val bridge = NaviampCoreExternalPlaybackBridge(fixture.store.state, commands::add)
-        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, {})
+        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, openPlaylistMembership = {})
         assertTrue(registry.search.tracks.isEmpty())
         assertTrue(bridge.playMediaId(bridge.browseChildren(NaviampExternalRecentTracksId)[1].mediaId))
         controller.execute(commands.removeAt(0))
@@ -360,7 +361,7 @@ class NaviampCoreNowPlayingMediaControllerTest {
             { fixture.provider }, { fixture.store.state.value.shell.playlistMembership },
             { editor -> fixture.store.updateShell { it.copy(playlistMembership = editor) } },
         )
-        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, coordinator::open)
+        val controller = NaviampCoreTrackActionController(registry, fixture.transactions, openPlaylistMembership = coordinator::open)
         val request = app.naviamp.ui.SharedTrackRowActionRequest(
             app.naviamp.ui.SharedTrackRowUi("current", "Current", "Artist"),
             app.naviamp.ui.SharedTrackRowAction.AddToPlaylist,

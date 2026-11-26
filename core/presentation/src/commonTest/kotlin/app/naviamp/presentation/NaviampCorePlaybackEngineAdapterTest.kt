@@ -1,5 +1,7 @@
 package app.naviamp.presentation
 
+import app.naviamp.domain.network.NetworkMetering
+import app.naviamp.domain.network.NetworkMeteringSource
 import app.naviamp.domain.playback.PlaybackEngine
 import app.naviamp.domain.playback.DownloadFallbackAwarePlaybackEngine
 import app.naviamp.domain.playback.PlaybackProgress
@@ -82,7 +84,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         val adapter = NaviampCorePlaybackEngineAdapter(this, engine, NaviampCoreMediaProviderSource { provider },
             { PlaybackSettings(downloadedTrackPlayback = DownloadedTrackPlayback.PreferServer, gaplessEnabled = true) },
             activeSourceId = { "source" }, audioAssets = localAssets(tracks.map { it.id.value }.toSet()),
-            cacheSettings = { CacheSettings(audioCachingEnabled = caching, audioPrefetchDepth = 4) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = caching, unmeteredAudioPrefetchDepth = 4, meteredAudioPrefetchDepth = 4) },
             cacheAudio = { _, _, _, _ -> error("Downloaded-only queue started network prefetch") })
         adapter.playDownloadedQueueSelection(PlaybackQueue(tracks, 0), 0)
         runCurrent()
@@ -262,7 +264,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         var writes = 0
         val adapter = NaviampCorePlaybackEngineAdapter(scope = this, engine = engine,
             providerSource = NaviampCoreMediaProviderSource { provider }, settings = { PlaybackSettings() },
-            activeSourceId = { "source" }, cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 2) },
+            activeSourceId = { "source" }, cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 2) },
             cacheAudio = { _, _, _, _ -> writes++; error("Samples must not be cached as owned tracks") })
         adapter.playQueueSelection(PlaybackQueue(listOf(preview), 0), 0)
         advanceUntilIdle()
@@ -476,7 +478,7 @@ class NaviampCorePlaybackEngineAdapterTest {
                     engine = engine,
                     providerSource = NaviampCoreMediaProviderSource { provider },
                     settings = { PlaybackSettings() },
-                    cacheSettings = { CacheSettings(audioCachingEnabled = false, audioPrefetchDepth = 0) },
+                    cacheSettings = { CacheSettings(audioCachingEnabled = false, unmeteredAudioPrefetchDepth = 0, meteredAudioPrefetchDepth = 0) },
                     cacheAudio = { _, _, _, _ -> error("Authenticated playback must not wait for a full download") },
                 )
                 adapter.attach(object : NaviampCorePlaybackObserver {
@@ -520,7 +522,7 @@ class NaviampCorePlaybackEngineAdapterTest {
             providerSource = NaviampCoreMediaProviderSource { provider },
             settings = { PlaybackSettings(upgradeCachedAudioOnWifi = true) },
             activeSourceId = { "source" }, isMobileData = { mobile }, audioAssets = assets,
-            cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 2) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 2) },
             cacheAudio = { _, _, _, quality -> writes += quality; error("Upgrade interrupted") },
         )
         val next = provider.track.copy(id = TrackId("next"))
@@ -978,7 +980,7 @@ class NaviampCorePlaybackEngineAdapterTest {
         val requested = mutableListOf<String>()
         val adapter = NaviampCorePlaybackEngineAdapter(
             this, RecordingPlaybackEngine(), NaviampCoreMediaProviderSource { provider }, { PlaybackSettings() },
-            cacheSettings = { CacheSettings(audioCachingEnabled = false, audioPrefetchDepth = 0) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = false, unmeteredAudioPrefetchDepth = 0, meteredAudioPrefetchDepth = 0) },
             cacheAudio = { _, _, _, _ -> error("Lyrics must not download audio") },
             preparePrefetchedLyrics = { _, _, track, _, _ ->
                 requested += track.id.value
@@ -1272,7 +1274,7 @@ class NaviampCorePlaybackEngineAdapterTest {
             providerSource = NaviampCoreMediaProviderSource { provider },
             settings = { PlaybackSettings() },
             activeSourceId = { "source" },
-            cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 2) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 2) },
             cacheAudio = { _, _, track, _ ->
                 cachedTrackIds += track.id.value
                 PlaybackLocalAudio("/cache/${track.id.value}", "file:///cache/${track.id.value}")
@@ -1294,6 +1296,109 @@ class NaviampCorePlaybackEngineAdapterTest {
     }
 
     @Test
+    fun prefetchDepthFollowsTheNetworkAndSwitchesWhenTheNetworkChanges() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        val cachedTrackIds = mutableListOf<String>()
+        var network = NetworkMetering.Unmetered
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            scope = this,
+            engine = engine,
+            providerSource = NaviampCoreMediaProviderSource { provider },
+            settings = { PlaybackSettings() },
+            networkMetering = NetworkMeteringSource { network },
+            activeSourceId = { "source" },
+            cacheSettings = { CacheSettings(unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 0) },
+            cacheAudio = { _, _, track, _ ->
+                cachedTrackIds += track.id.value
+                PlaybackLocalAudio("/cache/${track.id.value}", "file:///cache/${track.id.value}")
+            },
+        )
+        val queue = PlaybackQueue(
+            listOf(provider.track) + (1..3).map { provider.track.copy(id = TrackId("next-$it")) },
+            0,
+        )
+
+        adapter.playQueueSelection(queue, 0)
+        advanceUntilIdle()
+        assertEquals(listOf("next-1", "next-2"), cachedTrackIds)
+
+        network = NetworkMetering.Metered
+        adapter.applyAutomaticNavigation(PlaybackQueueNavigationCommand.Next)
+        advanceUntilIdle()
+        assertEquals(listOf("next-1", "next-2"), cachedTrackIds, "Mobile depth 0 starts no new prefetch work")
+        assertEquals("next-1", engine.request?.mediaId, "Playback continues after leaving Wi-Fi")
+        assertEquals(0, engine.stopCalls)
+
+        network = NetworkMetering.Unmetered
+        adapter.applyAutomaticNavigation(PlaybackQueueNavigationCommand.Next)
+        advanceUntilIdle()
+        assertEquals(listOf("next-1", "next-2", "next-3"), cachedTrackIds)
+    }
+
+    @Test
+    fun hostWithoutMeteringUsesTheWifiDepthAndObservedUnknownUsesTheMobileDepth() = runTest {
+        suspend fun cachedWith(source: NetworkMeteringSource?): List<String> {
+            val provider = FakeCoreMediaProvider()
+            val cached = mutableListOf<String>()
+            val adapter = NaviampCorePlaybackEngineAdapter(
+                scope = this,
+                engine = RecordingPlaybackEngine(),
+                providerSource = NaviampCoreMediaProviderSource { provider },
+                settings = { PlaybackSettings() },
+                networkMetering = source,
+                activeSourceId = { "source" },
+                cacheSettings = { CacheSettings(unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 1) },
+                cacheAudio = { _, _, track, _ ->
+                    cached += track.id.value
+                    PlaybackLocalAudio("/cache/${track.id.value}", "file:///cache/${track.id.value}")
+                },
+            )
+            adapter.playQueueSelection(
+                PlaybackQueue(listOf(provider.track) + (1..3).map { provider.track.copy(id = TrackId("next-$it")) }, 0),
+                0,
+            )
+            advanceUntilIdle()
+            return cached
+        }
+
+        assertEquals(listOf("next-1", "next-2"), cachedWith(null))
+        assertEquals(listOf("next-1"), cachedWith(NetworkMeteringSource { NetworkMetering.Unknown }))
+    }
+
+    @Test
+    fun leavingWifiDuringPrefetchKeepsTheInFlightTrackAndStopsWorkBeyondTheMobileDepth() = runTest {
+        val provider = FakeCoreMediaProvider()
+        val engine = RecordingPlaybackEngine()
+        val cachedTrackIds = mutableListOf<String>()
+        var network = NetworkMetering.Unmetered
+        val adapter = NaviampCorePlaybackEngineAdapter(
+            scope = this,
+            engine = engine,
+            providerSource = NaviampCoreMediaProviderSource { provider },
+            settings = { PlaybackSettings() },
+            networkMetering = NetworkMeteringSource { network },
+            activeSourceId = { "source" },
+            cacheSettings = { CacheSettings(unmeteredAudioPrefetchDepth = 10, meteredAudioPrefetchDepth = 1) },
+            cacheAudio = { _, _, track, _ ->
+                network = NetworkMetering.Metered
+                cachedTrackIds += track.id.value
+                PlaybackLocalAudio("/cache/${track.id.value}", "file:///cache/${track.id.value}")
+            },
+        )
+        val queue = PlaybackQueue(
+            listOf(provider.track) + (1..3).map { provider.track.copy(id = TrackId("next-$it")) },
+            0,
+        )
+
+        adapter.playQueueSelection(queue, 0)
+        advanceUntilIdle()
+
+        assertEquals(listOf("next-1"), cachedTrackIds)
+        assertEquals(provider.track.id.value, engine.request?.mediaId)
+    }
+
+    @Test
     fun automaticTransitionsReusePrefetchedAudioAndAdvanceTheSidecarHorizon() = runTest {
         val provider = FakeCoreMediaProvider()
         val engine = RecordingPlaybackEngine()
@@ -1305,7 +1410,7 @@ class NaviampCorePlaybackEngineAdapterTest {
             providerSource = NaviampCoreMediaProviderSource { provider },
             settings = { PlaybackSettings() },
             activeSourceId = { "source" },
-            cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 2) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 2, meteredAudioPrefetchDepth = 2) },
             cacheAudio = { _, _, track, _ ->
                 cachedTrackIds += track.id.value
                 PlaybackLocalAudio("/cache/${track.id.value}", "file:///cache/${track.id.value}")
@@ -1342,7 +1447,7 @@ class NaviampCorePlaybackEngineAdapterTest {
             providerSource = NaviampCoreMediaProviderSource { provider },
             settings = { PlaybackSettings(gaplessEnabled = true) },
             activeSourceId = { "source" },
-            cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 1) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 1, meteredAudioPrefetchDepth = 1) },
             cacheAudio = { _, _, _, _ ->
                 prefetchStarted = true
                 try {
@@ -1384,7 +1489,7 @@ class NaviampCorePlaybackEngineAdapterTest {
             providerSource = NaviampCoreMediaProviderSource { provider },
             settings = { PlaybackSettings() },
             activeSourceId = { "source" },
-            cacheSettings = { CacheSettings(audioCachingEnabled = true, audioPrefetchDepth = 1) },
+            cacheSettings = { CacheSettings(audioCachingEnabled = true, unmeteredAudioPrefetchDepth = 1, meteredAudioPrefetchDepth = 1) },
             cacheAudio = { _, _, track, _ ->
                 cachedTrackIds += track.id.value
                 if (track.id.value == "obsolete-next") awaitCancellation()
@@ -1715,6 +1820,39 @@ class NaviampCorePlaybackEngineAdapterTest {
         advanceUntilIdle()
         assertEquals(2, engine.requests.size)
         assertEquals(194.5, engine.request?.startPositionSeconds)
+    }
+
+    @Test
+    fun stopAfterCurrentPreventsGaplessAndCrossfadeIntoTheNextTrack() = runTest {
+        for (settings in listOf(
+            PlaybackSettings(gaplessEnabled = true),
+            PlaybackSettings(gaplessEnabled = false, crossfadeDurationSeconds = 8),
+        )) {
+            val provider = FakeCoreMediaProvider()
+            val engine = RecordingPlaybackEngine().apply { emittedProgress = PlaybackProgress(173.0, 180.0) }
+            val adapter = NaviampCorePlaybackEngineAdapter(
+                scope = this,
+                engine = engine,
+                providerSource = NaviampCoreMediaProviderSource { provider },
+                settings = { settings },
+            )
+            val next = provider.track.copy(id = TrackId("next"), title = "Next")
+            adapter.playQueueSelection(PlaybackQueue(listOf(provider.track, next), 0), 0)
+            advanceUntilIdle()
+            assertEquals("next", engine.preparedRequest?.mediaId)
+
+            adapter.setStopAfterCurrent(true)
+            advanceUntilIdle()
+            assertEquals(null, engine.preparedRequest)
+            engine.emitProgress(PlaybackProgress(176.0, 180.0))
+            advanceUntilIdle()
+            assertEquals(null, engine.preparedRequest)
+
+            adapter.setStopAfterCurrent(false)
+            engine.emitProgress(PlaybackProgress(177.0, 180.0))
+            advanceUntilIdle()
+            assertEquals("next", engine.preparedRequest?.mediaId)
+        }
     }
 
     @Test
@@ -2425,7 +2563,7 @@ private class LyricsPrefetchCatalogFixture(scope: CoroutineScope) {
     val waveformReads = mutableListOf<TrackId>()
     var audioDownloads = 0
     var localAudioEnabled = false
-    var cache = CacheSettings(audioCachingEnabled = false, audioPrefetchDepth = 0, waveformsEnabled = true)
+    var cache = CacheSettings(audioCachingEnabled = false, unmeteredAudioPrefetchDepth = 0, meteredAudioPrefetchDepth = 0, waveformsEnabled = true)
     var readTags: suspend (PlaybackLocalAudio) -> List<AudioTag> = { emptyList() }
     val repository = RefreshLyricsRepository { _, id -> lyricsRequests += id; lyrics(id) }
     private val assets = object : PlaybackAudioAssetRepository {

@@ -147,6 +147,123 @@ class StorageDatabaseInitializerTest {
     }
 
     @Test
+    fun mainBaselineAddsThePendingAudioJournalWithoutChangingDownloads() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            driver.createReleasedSchema()
+            driver.execute(null, "PRAGMA user_version = 31", 0)
+            driver.execute(null, """
+                INSERT INTO media_source(id, provider_id, cache_namespace, display_name, base_url,
+                    username, token, salt, created_at_epoch_millis, authentication_mode)
+                VALUES ('source', 'navidrome', 'cache', 'Server', 'https://example.test',
+                    'user', 'token', 'salt', 1, 'token')
+            """.trimIndent(), 0)
+            driver.execute(null, """
+                INSERT INTO downloaded_audio(source_id, remote_track_id, quality_key, file_path, size_bytes,
+                    content_type, title, artist_name, downloaded_at_epoch_millis)
+                VALUES ('source', 'track', 'original', '/downloads/old.flac', 10, 'audio/flac', 'Track', 'Artist', 1)
+            """.trimIndent(), 0)
+
+            val database = initializeNaviampStorageDatabase(driver)
+
+            assertEquals(NaviampStorageSchema.version, driver.userVersion())
+            assertEquals("/downloads/old.flac", database.naviampStorageQueries.selectAllDownloadedAudio().executeAsOne().file_path)
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM pending_audio_file"))
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist"))
+        } finally {
+            driver.close()
+        }
+    }
+
+    @Test
+    fun forkVersionThirtyTwoAddsCheckpointAndUpstreamTablesAndKeepsDownloads() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            driver.createVersionThirtyTwoSchema()
+            driver.execute(null, "PRAGMA user_version = 32", 0)
+            driver.execute(null, """
+                INSERT INTO media_source(id, provider_id, cache_namespace, display_name, base_url,
+                    username, token, salt, created_at_epoch_millis)
+                VALUES ('source', 'navidrome', 'cache', 'Server', 'https://example.test', 'user', '', '', 1)
+            """.trimIndent(), 0)
+            driver.execute(null, """
+                INSERT INTO downloaded_audio(source_id, remote_track_id, quality_key, file_path, size_bytes,
+                    title, artist_name, downloaded_at_epoch_millis)
+                VALUES ('source', 'one', 'original', '/fixture/one.flac', 100, 'One', 'Artist', 1)
+            """.trimIndent(), 0)
+
+            repeat(2) {
+                val database = initializeNaviampStorageDatabase(driver)
+                assertEquals(NaviampStorageSchema.version, driver.userVersion())
+                assertEquals(1, database.naviampStorageQueries.selectDownloadedAudio("source").executeAsList().size)
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist"))
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist_entry"))
+            }
+        } finally {
+            driver.close()
+        }
+    }
+
+    @Test
+    fun forkVersionThirtyThreePreservesBookmarksRadioCheckpointsAndDownloadsAtVersionThirtyFour() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        try {
+            driver.createForkVersionThirtyThreeSchema()
+            driver.execute(null, "PRAGMA user_version = 33", 0)
+            driver.execute(null, """
+                INSERT INTO media_source(id, provider_id, cache_namespace, display_name, base_url,
+                    username, token, salt, password, created_at_epoch_millis)
+                VALUES ('source', 'navidrome', 'cache', 'Server', 'https://example.test',
+                    'user', 'token', 'salt', 'saved-password', 1)
+            """.trimIndent(), 0)
+            driver.execute(null, """
+                INSERT INTO library_track(source_id, remote_track_id, title, artist_name,
+                    search_title, search_artist_name, updated_at_epoch_millis, music_folder_id)
+                VALUES ('source', 'track', 'Track', 'Artist', 'track', 'artist', 1, 'folder')
+            """.trimIndent(), 0)
+            driver.execute(null, """
+                INSERT INTO downloaded_audio(source_id, remote_track_id, quality_key, file_path,
+                    size_bytes, title, artist_name, downloaded_at_epoch_millis)
+                VALUES ('source', 'track', 'original', '/downloads/kept.flac', 123, 'Track', 'Artist', 1)
+            """.trimIndent(), 0)
+            val queries = NaviampStorageDatabase(driver).naviampStorageQueries
+            val checkpoint = """{"schemaVersion":1,"wasPaused":true,"seenTrackIds":["track"]}"""
+            val trackPayload = """{"id":"track","title":"Track","artistName":"Artist"}"""
+            queries.upsertPlaybackSessionState("source", 1L, 0L, "[]", 37.0, null, 1L, 1L, checkpoint)
+            queries.insertPlaybackSessionQueueTrack("source", 0L, "track", trackPayload)
+            queries.insertPlaybackSessionQueueTrack("source", 1L, "track", trackPayload)
+            queries.upsertPlaylistPlaybackBookmark("source", "playlist", "track", 1L, 37.0)
+            val sourceBefore = queries.selectMediaSourceById("source").executeAsOne()
+            val downloadsBefore = queries.selectAllDownloadedAudio().executeAsList()
+            val sessionBefore = queries.selectPlaybackSessionState("source").executeAsOne()
+            val queueBefore = queries.selectPlaybackSessionQueue("source").executeAsList()
+            val bookmarkBefore = queries.selectPlaylistPlaybackBookmark("source", "playlist").executeAsOne()
+
+            repeat(2) {
+                val migrated = initializeNaviampStorageDatabase(driver).naviampStorageQueries
+
+                assertEquals(34L, driver.userVersion())
+                assertEquals(sourceBefore, migrated.selectMediaSourceById("source").executeAsOne())
+                assertEquals(downloadsBefore, migrated.selectAllDownloadedAudio().executeAsList())
+                assertEquals(sessionBefore, migrated.selectPlaybackSessionState("source").executeAsOne())
+                assertEquals(queueBefore, migrated.selectPlaybackSessionQueue("source").executeAsList())
+                assertEquals(bookmarkBefore, migrated.selectPlaylistPlaybackBookmark("source", "playlist").executeAsOne())
+                assertEquals(listOf("track"), migrated.selectGeneratedRadioCatalogTrackIds(
+                    sourceId = "source", trackIds = listOf("track"), allMusicFolders = 0L,
+                    selectedMusicFolderIds = listOf("folder"),
+                ).executeAsList())
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM pending_audio_file"))
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist"))
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist_entry"))
+                assertEquals(1L, driver.queryLong("SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'offline_playlist_entry_track'"))
+                assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM pragma_foreign_key_check"))
+            }
+        } finally {
+            driver.close()
+        }
+    }
+
+    @Test
     fun createsAndVersionsAFreshDatabase() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         try {
@@ -155,6 +272,12 @@ class StorageDatabaseInitializerTest {
             assertEquals(0L, database.naviampStorageQueries.storageStats().executeAsOne().media_source_count)
             assertEquals(NaviampStorageDatabase.Schema.version, driver.userVersion())
             assertEquals(1L, driver.foreignKeysEnabled())
+            assertEquals(34L, driver.userVersion())
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM playlist_playback_bookmark"))
+            assertTrue("generated_radio_checkpoint_payload" in driver.tableColumns("playback_session_state"))
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM pending_audio_file"))
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist"))
+            assertEquals(0L, driver.queryLong("SELECT COUNT(*) FROM offline_playlist_entry"))
         } finally {
             driver.close()
         }
@@ -385,9 +508,27 @@ private fun JdbcSqliteDriver.removeDiscMetadataColumns() {
 }
 /** Rewind later schema additions before assigning a historical user_version to a fixture. */
 private fun JdbcSqliteDriver.createSchemaWithoutAcquisitions() {
-    NaviampStorageDatabase.Schema.create(this)
+    createReleasedSchema()
     execute(null, "DROP TABLE discovery_acquisition", 0)
     execute(null, "ALTER TABLE media_source DROP COLUMN aurral_companion", 0)
+}
+
+/** Database version 31, before fork bookmarks/checkpoints and the incoming upstream tables. */
+private fun JdbcSqliteDriver.createReleasedSchema() {
+    createVersionThirtyTwoSchema()
     execute(null, "DROP TABLE playlist_playback_bookmark", 0)
+}
+
+/** Fork database version 32 has bookmarks, but no generated-radio checkpoint yet. */
+private fun JdbcSqliteDriver.createVersionThirtyTwoSchema() {
+    createForkVersionThirtyThreeSchema()
     execute(null, "ALTER TABLE playback_session_state DROP COLUMN generated_radio_checkpoint_payload", 0)
+}
+
+/** Fork main's version 33 already has bookmarks and checkpoints, but none of migration 33. */
+private fun JdbcSqliteDriver.createForkVersionThirtyThreeSchema() {
+    NaviampStorageDatabase.Schema.create(this)
+    execute(null, "DROP TABLE offline_playlist_entry", 0)
+    execute(null, "DROP TABLE offline_playlist", 0)
+    execute(null, "DROP TABLE pending_audio_file", 0)
 }

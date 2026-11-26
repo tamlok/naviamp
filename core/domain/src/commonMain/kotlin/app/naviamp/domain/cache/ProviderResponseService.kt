@@ -18,6 +18,7 @@ import app.naviamp.domain.TrackId
 import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.AlbumListType
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -42,15 +43,38 @@ class ProviderResponseService(
     suspend fun playlists(
         provider: MediaProvider,
         limit: Int,
-    ): List<Playlist> =
-        cacheRepository.cachedProviderResponse(
+        maxAgeMillis: Long? = null,
+        onRevalidationFailure: (() -> Unit)? = null,
+    ): List<Playlist> {
+        val decode: (String) -> List<Playlist> = { json.decodeFromString<List<PlaylistDto>>(it).map { dto -> dto.toPlaylist() } }
+        val encode: (List<Playlist>) -> String = { json.encodeToString(it.map { playlist -> PlaylistDto.fromPlaylist(playlist) }) }
+        val fetch: suspend () -> List<Playlist> = {
+            try {
+                provider.playlists(limit)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (cause: Exception) {
+                if (maxAgeMillis != null) onRevalidationFailure?.invoke()
+                throw cause
+            }
+        }
+        return if (maxAgeMillis == null) cacheRepository.cachedProviderResponse(
             provider = provider,
             resourceType = PlaylistsResourceType,
             resourceId = limitedResourceId(limit),
-            decode = { json.decodeFromString<List<PlaylistDto>>(it).map { dto -> dto.toPlaylist() } },
-            encode = { json.encodeToString(it.map { playlist -> PlaylistDto.fromPlaylist(playlist) }) },
-            fetch = { provider.playlists(limit) },
+            decode = decode,
+            encode = encode,
+            fetch = fetch,
+        ) else cacheRepository.revalidatedProviderResponse(
+            provider = provider,
+            resourceType = PlaylistsResourceType,
+            resourceId = limitedResourceId(limit),
+            maxAgeMillis = maxAgeMillis,
+            decode = decode,
+            encode = encode,
+            fetch = fetch,
         )
+    }
 
     suspend fun internetRadioStations(provider: MediaProvider): List<InternetRadioStation> =
         cacheRepository.cachedProviderResponse(

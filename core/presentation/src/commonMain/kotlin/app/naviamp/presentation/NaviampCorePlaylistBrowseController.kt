@@ -63,6 +63,7 @@ class NaviampCorePlaylistBrowseController(
     private val mediaRegistry: NaviampCoreMediaRegistry = NaviampCoreMediaRegistry(),
     private val playbackProfiles: NaviampCorePlaybackProfileController =
         NaviampCorePlaybackProfileController(stateStore),
+    private val offlinePlaylists: NaviampCoreOfflinePlaylistSource = NaviampCoreOfflinePlaylistSource(),
 ) : NaviampCoreCommandController {
     // Mutations capture this separately from ordinary list/detail refresh generations.
     internal var sourceGeneration = 0L
@@ -103,6 +104,11 @@ class NaviampCorePlaylistBrowseController(
 
     private fun PreparedSelection.isCurrent(): Boolean =
         generation == detailGeneration && navigationEpoch == navigationController.epoch
+    // Playlists currently presented from saved snapshots; their actions use only local audio.
+    private var offlinePlaylistIds = emptySet<String>()
+    private var offlineUnavailableTrackIds = emptySet<String>()
+    // The last failed download per playlist; opening its page must show it, not a generic status.
+    private var downloadFailures = emptyMap<String, String>()
 
     override fun dispatch(command: NaviampCoreCommand): NaviampCoreImmediateCommandResult = when (command) {
         NaviampCoreCommand.Playlists.Refresh -> {
@@ -151,16 +157,19 @@ class NaviampCorePlaylistBrowseController(
     private suspend fun refresh(finalStatus: String? = null) {
         recoveryScheduled = false
         val provider = providerSource.current()
-        if (provider == null) {
-            publishListFailure("Connect to Navidrome to load playlists.")
-            return
-        }
         val generation = ++listGeneration
+        val supplement = supplementSource.current()
+        if (provider == null || connectionOffline()) {
+            if (publishOfflineList(generation, provider, supplement)) return
+            if (provider == null) {
+                publishListFailure("Connect to Navidrome to load playlists.")
+                return
+            }
+        }
         val sourceId = currentSourceId()
         fun current() = generation == listGeneration && providerSource.isCurrent(provider) && sourceId == currentSourceId()
         listLoadingGeneration = generation
         try {
-            val supplement = supplementSource.current()
             stateStore.updateShell { shell -> shell.copy(playlists = shell.playlists.copy(
                 refreshing = true, status = "Loading playlists...", genreCatalog = supplement.genreCatalog,
             )) }
@@ -170,6 +179,8 @@ class NaviampCorePlaylistBrowseController(
             if (!current()) return
             failedListProvider = null
             playlistsById = playlists.associateBy(Playlist::id)
+            offlinePlaylistIds = emptySet()
+            sourceId?.let { runCatching { offlinePlaylists.refreshDetails(it, playlists) } }
             mediaRegistry.updatePlaylists(playlists)
             val visiblePlaylists = playlists.filter { it.navibeatMixOrNull() == null }
             stateStore.updateShell { shell ->
@@ -195,7 +206,9 @@ class NaviampCorePlaylistBrowseController(
             if (current()) {
                 failedListProvider = provider
                 failedListSourceId = sourceId
-                publishListFailure(cause.message ?: "Could not load playlists.")
+                if (!publishOfflineList(generation, provider, supplement)) {
+                    publishListFailure(cause.message ?: "Could not load playlists.")
+                }
             }
         } finally {
             if (listLoadingGeneration == generation) listLoadingGeneration = null
@@ -209,6 +222,115 @@ class NaviampCorePlaylistBrowseController(
         detailGeneration++
     }
 
+    internal fun isPresentedOffline(playlistId: String): Boolean = playlistId in offlinePlaylistIds
+
+    /** Records how the latest download of [playlistId] ended; null clears an earlier failure. */
+    internal fun recordDownloadFailure(playlistId: String, failure: String?) {
+        downloadFailures = if (failure == null) downloadFailures - playlistId else downloadFailures + (playlistId to failure)
+    }
+
+    /** Shows a notice on the open playlist page, whose status line is rendered and announced. */
+    internal fun publishDetailNotice(message: String) {
+        stateStore.updateShell { shell -> shell.copy(playlistDetail = shell.playlistDetail.copy(status = message)) }
+    }
+
+    /** True for a row of the open saved copy whose audio is not on this device. */
+    internal fun isUnavailableOffline(trackId: String): Boolean = trackId in offlineUnavailableTrackIds
+
+    /** Re-reads availability so a file removed since the page opened is never queued. */
+    internal suspend fun offlinePlayableTracks(playlistId: String): List<app.naviamp.domain.Track> {
+        val sourceId = currentSourceId() ?: return emptyList()
+        return offlinePlaylists.playlist(sourceId, playlistId)?.availability?.playableTracks.orEmpty()
+    }
+
+    private fun connectionOffline(): Boolean = stateStore.state.value.shell.connectionSettings.connection.offline
+
+    private fun offlineCoverArtUrl(provider: app.naviamp.domain.provider.MediaProvider?): (String?) -> String? =
+        { id -> id?.let { provider?.coverArtUrl(it) } }
+
+    /** Returns false when nothing is saved, so the caller keeps its ordinary failure. */
+    private suspend fun publishOfflineList(
+        generation: Long,
+        provider: app.naviamp.domain.provider.MediaProvider?,
+        supplement: NaviampCorePlaylistBrowseSupplement,
+    ): Boolean {
+        val sourceId = currentSourceId() ?: return false
+        val listed = runCatching { offlinePlaylists.playlists(sourceId) }.getOrNull().orEmpty()
+        if (listed.isEmpty()) return false
+        if (generation != listGeneration || currentSourceId() != sourceId) return true
+        val coverArtUrl = offlineCoverArtUrl(provider)
+        val playlists = listed.map { it.playlist }
+        playlistsById = playlists.associateBy(Playlist::id)
+        offlinePlaylistIds = playlistsById.keys
+        mediaRegistry.updatePlaylists(playlists)
+        stateStore.updateShell { shell ->
+            shell.copy(
+                playlists = shell.playlists.copy(
+                    playlists = listed.filter { it.playlist.navibeatMixOrNull() == null }.map { listing ->
+                        listing.playlist.toSharedMediaItemUi(
+                            coverArtUrl = coverArtUrl,
+                            keepDownloadedActive = listing.playlist.id in supplement.keepDownloadedPlaylistIds,
+                        ).copy(offlineAvailability = app.naviamp.ui.NaviampOfflineAvailabilityUi(
+                            listing.availableCount, listing.summary.trackIds.size))
+                    },
+                    recentPlaylistIds = supplement.recentPlaylistIds,
+                    status = null,
+                    refreshing = false,
+                ),
+                playlistChoices = emptyList(),
+            )
+        }
+        return true
+    }
+
+    private suspend fun publishOfflineDetail(
+        selection: PreparedSelection,
+        item: SharedMediaItemUi,
+        provider: app.naviamp.domain.provider.MediaProvider?,
+    ): Boolean {
+        val sourceId = currentSourceId() ?: return false
+        val saved = runCatching { offlinePlaylists.playlist(sourceId, item.id) }.getOrNull() ?: return false
+        if (!selection.isCurrent() || currentSourceId() != sourceId) return true
+        if (stateStore.state.value.shell.playlistDetail.selectedPlaylist?.id != item.id) return true
+        val playlist = saved.playlist
+        val availability = saved.availability
+        val coverArtUrl = offlineCoverArtUrl(provider)
+        playlistsById = playlistsById + (playlist.id to playlist)
+        offlinePlaylistIds = offlinePlaylistIds + playlist.id
+        offlineUnavailableTrackIds = availability.entries.filterNot { it.available }.mapTo(mutableSetOf()) { it.track.id.value }
+        mediaRegistry.updateSelectedPlaylist(playlist, availability.playableTracks)
+        val mapped = playlist.toSharedMediaItemUi(
+            coverArtUrl = coverArtUrl,
+            tracks = saved.snapshot.tracks,
+            keepDownloadedActive = playlist.id in supplementSource.current().keepDownloadedPlaylistIds,
+        ).copy(offlineAvailability = app.naviamp.ui.NaviampOfflineAvailabilityUi(
+            availability.availableCount, availability.totalCount))
+        stateStore.updateShell { shell ->
+            shell.copy(
+                playlistDetail = shell.playlistDetail.copy(
+                    trackCapabilities = app.naviamp.ui.PlaylistTrackCapabilities(canAddToQueue = true),
+                    selectedPlaylist = mapped,
+                    detail = SharedPlaylistDetailUi(
+                        playlist = mapped,
+                        tracks = availability.entries.map { entry ->
+                            entry.track.toSharedTrackRowUi(coverArtUrl).copy(
+                                canToggleFavorite = false,
+                                hasAlbum = false,
+                                hasArtist = false,
+                                canStartRadio = false,
+                                unavailableOffline = !entry.available,
+                            )
+                        },
+                    ),
+                    status = downloadFailures[playlist.id],
+                    playbackProfile = playbackProfiles.playlistProfile(playlist.id),
+                    playbackProfileStatus = null,
+                ),
+            )
+        }
+        return true
+    }
+
     fun resetForSourceChange() {
         sourceGeneration++
         listGeneration++
@@ -218,6 +340,9 @@ class NaviampCorePlaylistBrowseController(
         recoveryScheduled = false
         invalidateNavigation()
         playlistsById = emptyMap()
+        offlinePlaylistIds = emptySet()
+        offlineUnavailableTrackIds = emptySet()
+        downloadFailures = emptyMap()
         mediaRegistry.updatePlaylists(emptyList())
         mediaRegistry.updateSelectedPlaylist(null, emptyList())
         stateStore.updateShell { shell -> shell.copy(
@@ -359,9 +484,12 @@ class NaviampCorePlaylistBrowseController(
     private suspend fun open(item: SharedMediaItemUi, selection: PreparedSelection) {
         if (!selection.isCurrent()) return
         val provider = providerSource.current()
-        if (provider == null) {
-            publishDetailFailure(item, "Connect to Navidrome to load a playlist.")
-            return
+        if (provider == null || connectionOffline()) {
+            if (publishOfflineDetail(selection, item, provider)) return
+            if (provider == null) {
+                publishDetailFailure(item, "Connect to Navidrome to load a playlist.")
+                return
+            }
         }
         val playlist = resolvePlaylist(item)
         val coverArtUrl = { id: String? -> id?.let(provider::coverArtUrl) }
@@ -376,6 +504,8 @@ class NaviampCorePlaylistBrowseController(
                     playlistsById = playlistsById + (playlist.id to resolvedPlaylist)
                     mediaRegistry.updatePlaylists(playlistsById.values.toList())
                 }
+                offlinePlaylistIds = offlinePlaylistIds - playlist.id
+                offlineUnavailableTrackIds = emptySet()
                 mediaRegistry.updateSelectedPlaylist(resolvedPlaylist, tracks)
                 val mappedPlaylist = resolvedPlaylist.toSharedMediaItemUi(
                     coverArtUrl = coverArtUrl,
@@ -407,7 +537,7 @@ class NaviampCorePlaylistBrowseController(
                                 ) },
                                 totalDurationLabel = tracks.totalDurationLabel(),
                             ),
-                            status = "Connected",
+                            status = downloadFailures[playlist.id] ?: "Connected",
                             playbackProfile = playbackProfiles.playlistProfile(resolvedPlaylist.id),
                             playbackProfileStatus = null,
                         ),
@@ -415,7 +545,9 @@ class NaviampCorePlaylistBrowseController(
                 }
             }
             .onFailure { cause ->
-                if (selection.isCurrent() && providerSource.isCurrent(provider)) {
+                if (cause is CancellationException) throw cause
+                if (selection.isCurrent() && providerSource.isCurrent(provider) &&
+                    !publishOfflineDetail(selection, item, provider)) {
                     publishDetailFailure(item, cause.message ?: "Playlist failed to load.")
                 }
             }

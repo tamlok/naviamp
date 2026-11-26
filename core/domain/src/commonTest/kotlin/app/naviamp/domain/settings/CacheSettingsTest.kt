@@ -11,7 +11,8 @@ class CacheSettingsTest {
         val settings = Json.decodeFromString<CacheSettings>("""{"audioPrefetchDepth":4}""").normalized()
 
         assertFalse(settings.waveformsEnabled)
-        assertEquals(4, settings.audioPrefetchDepth)
+        assertEquals(4, settings.unmeteredAudioPrefetchDepth)
+        assertEquals(4, settings.meteredAudioPrefetchDepth)
     }
 
     @Test
@@ -32,7 +33,8 @@ class CacheSettingsTest {
     fun defaultsUseTheSmallestActiveCacheAndDownloadChoices() {
         val settings = CacheSettings()
 
-        assertEquals(2, settings.audioPrefetchDepth)
+        assertEquals(2, settings.unmeteredAudioPrefetchDepth)
+        assertEquals(2, settings.meteredAudioPrefetchDepth)
         assertEquals(256L * 1024L * 1024L, settings.maxAudioCacheBytes)
         assertEquals(512L * 1024L * 1024L, settings.maxDownloadBytes)
     }

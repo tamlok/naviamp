@@ -1,5 +1,6 @@
 package app.naviamp.presentation
 import app.naviamp.domain.radio.radioDiagnostics
+import app.naviamp.domain.radio.whileOffline
 import app.naviamp.domain.radio.radioSimilarityMethod
 
 import app.naviamp.app.NaviampPlaylistBookmarkController
@@ -15,7 +16,6 @@ import app.naviamp.domain.playback.PlaybackProfile
 import app.naviamp.domain.playback.PlaybackProfileRepository
 import app.naviamp.domain.playback.PlaybackProfileTarget
 import app.naviamp.domain.playback.PlaybackProfileTargetType
-import app.naviamp.domain.playback.PlaybackState
 import app.naviamp.domain.playback.PlaybackProgress
 import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
@@ -24,7 +24,6 @@ import app.naviamp.domain.media.favoriteArtistUpdate
 import app.naviamp.domain.media.favoriteTrackUpdate
 import app.naviamp.domain.media.resolveTrackArtistNavigation
 import app.naviamp.domain.radio.RadioService
-import app.naviamp.domain.radio.SeededRadioBuildResult
 import app.naviamp.domain.radio.SeededRadioRequest
 import app.naviamp.domain.radio.albumHomeMixSeededRadioRequest
 import app.naviamp.domain.radio.albumMixSeededRadioRequest
@@ -36,7 +35,6 @@ import app.naviamp.domain.radio.genreMixRadioRequest
 import app.naviamp.domain.radio.genreRecentRadioStream
 import app.naviamp.domain.radio.libraryRecentRadioStream
 import app.naviamp.domain.radio.popularTracksRadioRequest
-import app.naviamp.domain.radio.seededRadioBuildResult
 import app.naviamp.domain.radio.trackRadioRequest
 import app.naviamp.domain.radio.withRadioCoverArtIds
 import app.naviamp.domain.radio.sessionSubtitle
@@ -44,6 +42,7 @@ import app.naviamp.domain.Genre
 import app.naviamp.domain.settings.RecentRadioStream
 import app.naviamp.domain.settings.effectiveSonicSimilarityEnabled
 import app.naviamp.ui.NaviampPlaylistChoiceUi
+import app.naviamp.ui.NaviampQueueUndoKind
 import app.naviamp.ui.SharedMediaItemUi
 import app.naviamp.ui.withRecentRadioStreams
 import kotlinx.coroutines.CancellationException
@@ -66,6 +65,7 @@ class NaviampCoreQueuePlaybackController(
     private val playlistBookmarks: NaviampPlaylistBookmarkController,
     private val resumePlaylists: () -> Boolean = { true },
     private val beforePlayback: () -> Unit,
+    private val undo: NaviampCoreQueueUndoController? = null,
 ) {
     fun play(
         tracks: List<Track>,
@@ -105,6 +105,7 @@ class NaviampCoreQueuePlaybackController(
             currentIndex = resumed?.index ?: index.coerceIn(selected.indices),
             groups = listOfNotNull(group),
         )
+        val capture = undo?.capture()
         beforePlayback()
         val update = queue.replaceQueue(requestedQueue)
         playback.replace(playback.state.value.copy(
@@ -116,6 +117,7 @@ class NaviampCoreQueuePlaybackController(
                 seekGeneration = playback.state.value.progress.seekGeneration + 1L,
             ),
         ))
+        undo?.record(capture, NaviampQueueUndoKind.ReplacedQueue, update.queue, capture?.state?.queue?.current?.title)
         if (downloadedOnly) {
             effects.playDownloadedQueueSelection(update.queue, update.queue.currentIndex)
         } else {
@@ -621,10 +623,13 @@ class NaviampCoreMediaTransactions(
     }
 
     private fun recordRadioDiagnostics(result: app.naviamp.domain.radio.RadioBuildDiagnostics?) {
-        stateStore.update { state -> state.copy(
-            shell = state.shell.copy(playback = state.shell.playback.copy(radioDiagnostics = result)),
-            overlays = state.overlays.copy(radioNotice = result),
-        ) }
+        stateStore.update { state ->
+            val diagnostics = result?.whileOffline(state.shell.connectionSettings.connection.offline)
+            state.copy(
+                shell = state.shell.copy(playback = state.shell.playback.copy(radioDiagnostics = diagnostics)),
+                overlays = state.overlays.copy(radioNotice = diagnostics),
+            )
+        }
     }
 
     private suspend fun rememberRecentRadio(stream: RecentRadioStream?, tracks: List<Track>, sourceId: String?) {

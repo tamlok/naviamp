@@ -28,7 +28,7 @@ class NaviampRadioMethodSettingsTest {
         }
         onNodeWithText("Radio").performScrollTo().performClick()
         onNodeWithText("Sonic Similarity").assertIsNotEnabled()
-        onNodeWithText("Instant Mix").assertIsSelected().assertIsEnabled()
+        onNode(hasText("Instant Mix") and isSelectable()).assertIsSelected().assertIsEnabled()
         onNodeWithText("Radio Autoplay").performScrollTo().performClick()
         runOnIdle { assertTrue(settings.value.sonicAutoplayEnabled); assertFalse(settings.value.sonicSimilarityEnabled) }
         onNodeWithText("Autoplay batch size").assertIsDisplayed()

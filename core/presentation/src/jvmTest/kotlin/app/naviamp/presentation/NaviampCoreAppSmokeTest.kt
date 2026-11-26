@@ -690,7 +690,11 @@ class NaviampCoreAppSmokeTest {
                     assertEquals(provider.track.id.value, playing.id)
                     assertEquals(false, playing.isPaused)
                     fun assertExpandedViewport() {
-                        mainClock.advanceTimeBy(300)
+                        waitUntil(timeoutMillis = 5_000) {
+                            mainClock.advanceTimeByFrame()
+                            onAllNodesWithTag("mini-player").fetchSemanticsNodes().isEmpty() &&
+                                onAllNodesWithTag("now-playing-back").fetchSemanticsNodes().size == 1
+                        }
                         onNodeWithTag("now-playing-back").assertIsDisplayed()
                         for (tag in listOf("mini-player", "main-mini-player", "main-navigation-rail",
                             "main-navigation-bottom", "main-navigation-open", "main-navigation-drawer")) {
@@ -704,7 +708,11 @@ class NaviampCoreAppSmokeTest {
                             "$width x $height expanded player must reclaim the whole viewport")
                     }
                     fun assertRestored(route: SharedRoute) {
-                        mainClock.advanceTimeBy(300)
+                        waitUntil(timeoutMillis = 5_000) {
+                            mainClock.advanceTimeByFrame()
+                            onAllNodesWithTag("now-playing-back").fetchSemanticsNodes().isEmpty() &&
+                                onAllNodesWithTag("mini-player").fetchSemanticsNodes().size == 1
+                        }
                         onNodeWithTag("now-playing-back").assertDoesNotExist()
                         onNodeWithTag("mini-player").assertIsDisplayed()
                         onNodeWithTag(when {

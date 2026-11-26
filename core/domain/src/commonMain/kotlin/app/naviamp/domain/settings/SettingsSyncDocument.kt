@@ -121,11 +121,14 @@ data class SettingsSyncPreferences(
     val recentRadioStreams: List<RecentRadioStream> = emptyList(),
     val recentInternetRadioStations: List<SavedInternetRadioStation> = emptyList(),
     val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary? = null,
+    /** Absent in exports made before per-network prefetch depths; the importer keeps its own. */
+    val audioPrefetch: SettingsSyncAudioPrefetch? = null,
 ) {
     fun normalized(): SettingsSyncPreferences =
         copy(
             interfaceSettings = interfaceSettings.normalized(),
             playback = playback.normalized(),
+            audioPrefetch = audioPrefetch?.normalized(),
             recentRadioStreams = app.naviamp.domain.radio.reconciledRecentRadioStreams(recentRadioStreams, MaxSyncedRecentItems),
             recentInternetRadioStations = recentInternetRadioStations.take(MaxSyncedRecentItems),
             generatedRadio = generatedRadio?.normalized(),

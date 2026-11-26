@@ -67,7 +67,10 @@ class MediaUiMappersTest {
             ),
         )
         val initial = HomeContent(
-            mixAlbums = listOf(Album(AlbumId("mix"), "Mix", "Artist", null, null)),
+            generatedMixes = listOf(app.naviamp.domain.radio.GeneratedRadioStation(
+                "mix", "Mix", app.naviamp.domain.radio.GeneratedRadioKind.Album,
+                albums = listOf(app.naviamp.domain.settings.SavedAlbum("album", "Album", "Artist")),
+            )),
         ).toSharedHomeUi(
             coverArtUrl = { null },
             interfaceSettings = settings,

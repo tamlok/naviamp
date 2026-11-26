@@ -25,6 +25,8 @@ data class NaviampCoreOverlayState(
     val busyMessage: String? = null,
     val radioNotice: app.naviamp.domain.radio.RadioBuildDiagnostics? = null,
     val trackRadioGenerating: Boolean = false,
+    val queueUndo: app.naviamp.ui.NaviampQueueUndoUi? = null,
+    val somethingNewNotice: app.naviamp.ui.NaviampSomethingNewNotice? = null,
 )
 
 /**

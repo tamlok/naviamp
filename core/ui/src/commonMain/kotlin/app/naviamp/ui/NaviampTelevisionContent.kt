@@ -417,7 +417,7 @@ private fun TelevisionHomeCard(
             TelevisionHomeCardWidth,
             Modifier.televisionMediaArtworkFocusEffect(focused, colors, artworkShape),
         )
-        TelevisionCardLabels(item.localizedTitle(), item.localizedSubtitle(), colors)
+        TelevisionCardLabels(item.displayTitle(), item.displaySubtitle(), colors)
         if (onPreview != null) androidx.compose.material3.TextButton(onClick = onPreview) {
             Text(stringResource(Res.string.generated_radio_preview))
         }
@@ -952,7 +952,8 @@ internal fun TelevisionPlaylists(
                     TelevisionMediaGridItem(
                         key = "playlist:${playlist.id}",
                         title = playlist.title,
-                        subtitle = playlist.trackCount?.let { televisionTrackCountLabel(it) } ?: playlist.subtitle,
+                        subtitle = playlist.offlineAvailability?.let { offlineAvailabilityLabel(it) }
+                            ?: playlist.trackCount?.let { televisionTrackCountLabel(it) } ?: playlist.subtitle,
                         coverArtUrl = playlist.coverArtUrl ?: playlist.coverArtUrls.firstOrNull(),
                         mediaKind = SharedMediaItemKind.Playlist,
                         action = {

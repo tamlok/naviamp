@@ -21,6 +21,8 @@ import app.naviamp.domain.provider.ProviderCapabilities
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlinx.coroutines.CancellationException
 
 class ProviderResponseServiceTest {
     @Test
@@ -290,6 +292,38 @@ class ProviderResponseServiceTest {
 
         assertEquals(1, provider.playlistsCalls)
         assertEquals(listOf(playlist("playlist-50")), playlists)
+    }
+
+    @Test
+    fun playlistRevalidationReportsFailuresWithoutLosingCachedDataOrSwallowingCancellation() = runTest {
+        val store = MemoryProviderResponseStore()
+        var result = listOf(playlist("old"))
+        var failure: Exception? = null
+        var fetches = 0
+        var failures = 0
+        val provider = object : MediaProvider by FakeSearchProvider() {
+            override suspend fun playlists(limit: Int): List<Playlist> {
+                fetches++
+                failure?.let { throw it }
+                return result
+            }
+        }
+        val service = ProviderResponseService(ProviderResponseCacheService(store) { 1L })
+        assertEquals(result, service.playlists(provider, 50))
+        failure = IllegalStateException("offline")
+        assertEquals(result, service.playlists(provider, 50, maxAgeMillis = 0L, onRevalidationFailure = { failures++ }))
+        assertEquals(1, failures)
+        failure = CancellationException("cancelled")
+        assertFailsWith<CancellationException> {
+            service.playlists(provider, 50, maxAgeMillis = 0L, onRevalidationFailure = { failures++ })
+        }
+        assertEquals(1, failures)
+        failure = null
+        result = listOf(playlist("current"))
+        assertEquals(result, service.playlists(provider, 50, maxAgeMillis = 0L, onRevalidationFailure = { failures++ }))
+        assertEquals(1, failures)
+        assertEquals(result, service.playlists(provider, 50))
+        assertEquals(4, fetches)
     }
 
     @Test

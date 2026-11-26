@@ -131,6 +131,8 @@ data class SharedTrackRowUi(
     val detailSections: List<NaviampDetailSectionUi> = emptyList(),
     val trackNumber: Int? = null,
     val canStartRadio: Boolean = false,
+    /** A saved offline row whose audio is not currently playable on this device. */
+    val unavailableOffline: Boolean = false,
 )
 
 data class SharedArtistCreditUi(
@@ -275,7 +277,11 @@ data class SharedMediaItemUi(
     val keepDownloadedActive: Boolean = false,
     val favoriteActive: Boolean = false,
     val canFavorite: Boolean = false,
+    /** Present only while this item is shown from its saved offline copy. */
+    val offlineAvailability: NaviampOfflineAvailabilityUi? = null,
 )
+
+data class NaviampOfflineAvailabilityUi(val availableCount: Int, val totalCount: Int)
 
 enum class SharedMediaItemKind {
     Unknown,
@@ -833,6 +839,10 @@ data class NaviampLibraryCatalogUi(
     val supportsFavorites: Boolean = false,
     val favoritesLoading: Boolean = false,
     val favoritesFailed: Boolean = false,
+    /** Items index syncs added to a complete catalog that the viewer has not seen yet; never a guess. */
+    val addedItemIds: List<String> = emptyList(),
+    /** Changes whenever additions are reported, so an automatic sync never moves the viewport. */
+    val addedItemsGeneration: Long = 0L,
 )
 
 data class NaviampLibraryScreenUi(
@@ -889,6 +899,10 @@ data class NaviampLibraryActions(
     val onSaveSources: () -> Unit = {},
     val onCancelSources: () -> Unit = {},
     val onRetrySources: () -> Unit = {},
+    /** Show or dismiss: clears the report with this generation. */
+    val onAddedItemsDismissed: (NaviampLibraryView, Long) -> Unit = { _, _ -> },
+    /** Added items that have been on screen. */
+    val onAddedItemsSeen: (NaviampLibraryView, Set<String>) -> Unit = { _, _ -> },
 )
 
 data class SharedArtistMixBuilderUi(

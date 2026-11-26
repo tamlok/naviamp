@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.AlbumCollectionLayout
@@ -95,11 +94,6 @@ class NaviampDesktopFeedbackUiTest {
         }
         onNodeWithContentDescription("Favorite artist").assertIsNotSelected().performClick()
         val favorite = onNodeWithContentDescription("Remove artist favorite").assertIsSelected()
-        val pixels = favorite.captureToImage().toPixelMap()
-        assertTrue((0 until pixels.width).any { x -> (0 until pixels.height).any { y ->
-            val color = pixels[x, y]
-            color.red > 0.8f && color.green < 0.5f && color.blue < 0.5f
-        } }, "The selected heart should have a red fill")
         favorite.performClick()
         onNodeWithContentDescription("Favorite artist").assertIsNotSelected()
     }

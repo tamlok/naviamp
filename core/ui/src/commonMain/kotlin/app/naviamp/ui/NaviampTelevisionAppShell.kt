@@ -284,7 +284,7 @@ private fun NaviampTelevisionAppShellContent(
     ) {
     MaterialTheme(
         colorScheme = LocalNaviampTheme.current.colorScheme,
-        typography = rememberNaviampTypography(),
+        typography = rememberNaviampTypography(interfaceSettings),
     ) {
         Box(
             modifier = modifier.fillMaxSize(),

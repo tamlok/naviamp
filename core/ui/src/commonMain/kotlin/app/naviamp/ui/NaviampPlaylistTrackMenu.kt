@@ -11,7 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import org.jetbrains.compose.resources.stringResource
 
 suspend fun playlistStaleDraftMessage(): String =
-    org.jetbrains.compose.resources.getString(Res.string.playlist_item_stale_draft)
+    naviampString(Res.string.playlist_item_stale_draft)
 
 internal enum class PlaylistTrackEditAction { MoveToTop, MoveToBottom, MoveToPosition, Remove }
 

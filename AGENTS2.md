@@ -226,6 +226,54 @@ upstream implementations, move files cosmetically, or discard fork features to m
 Keep native adapters limited to platform effects and record any platform verification that cannot run
 locally. Resolve semantic conflicts before accepting an automatic merge as complete.
 
+### Upstream merge acceptance
+
+- Fetch and pin the canonical upstream commit before resolving anything. Record the merge base,
+  local HEAD, and initial index/worktree state; preview conflicts without changing the worktree.
+  Preserve both histories in an upstream merge, and never push merely because the local merge passed.
+- Inventory fork invariants before resolving conflicts: application identity and release channel,
+  enabled platforms, shared navigation/player layout, generated Radio, playlist bookmarks, themes,
+  quick access, lyrics preferences, and settings-sync schema. A conflict-free merge is not proof
+  that these contracts survived. Inspect new files and changed callers as well as conflict blocks.
+- Migration numbers belong to the fork's accepted history. When upstream reuses numbers already on
+  fork `main`, keep the fork migrations unchanged and put the incoming schema additions in the next
+  fork migration. Keep the canonical schema aligned; verify fresh creation and an upgrade from the
+  previous fork version with existing data preserved. Do not rewrite accepted migrations or touch
+  user databases to make integration tests pass.
+- Tests that simulate an old database by creating the current schema must remove **every** later
+  table, column, and index before migrating; drop child tables before their parents. Preserve the
+  historical starting version rather than moving it forward to avoid a migration failure.
+- Merge resource catalogs by key and history, not by choosing an entire conflict side. Preserve
+  fork identity and wording, incorporate upstream additions, and inspect ancestor-region entries
+  before deleting them. Remove intentionally obsolete keys only with their obsolete callers.
+  Run the resource validator **and** compare missing-key sets against the pre-merge baseline:
+  validation permits missing translations, so a pass alone does not prove no translations were lost.
+- Adopt upstream model replacements and their legacy serializers as one cutover; do not retain a
+  second enum, setting, or UI solely to avoid a conflict. Preserve fork fields, normalization,
+  defaults, and sync schema, and test fork and upstream preferences together through export/import.
+- New workflows can silently re-enable disabled platforms without conflicting. Check enabled job
+  definitions, runners, dependency lists, reusable workflows, and cache-population jobs. Ubuntu
+  hosting Android/shared checks is allowed; it must not restore a Linux Desktop product pipeline.
+- When upstream adds behavior to an owner that the fork replaced, integrate it into the current
+  shared owner and test the combined state. For example, queue Undo must restore generated-radio
+  checkpoints and invalidate superseded jobs, not merely restore tracks. Snapshot restoration must
+  retain current request generations and acknowledged notices instead of reviving stale state.
+  Do not resurrect deleted workspace implementations or their implementation-specific tests;
+  transplant meaningful behavior coverage into the current suite.
+- Serialize Gradle invocations that share a checkout, including tests and app staging. Compose
+  resource generation writes shared output directories; concurrent builds can invalidate another
+  task's inputs. Batch compatible tasks in one invocation instead of launching competing builds.
+- Distinguish source errors from Kotlin incremental-cache failures such as `DirtyData` or
+  `ClasspathChangesComputer` exceptions. Rebuild affected tasks with invocation-local
+  `-Pkotlin.incremental=false` when needed; do not change product code, wipe all caches, or commit
+  a permanent incremental-compilation disablement to mask a local compiler-cache failure.
+- When both branches change cache refresh, retain one coherent revalidation path. Do not invalidate
+  the last good snapshot before a fetch that promises offline fallback. Returning cached content
+  must preserve failed-refresh provenance so recovery actions still know which section needs work.
+- Record verification limits precisely: JVM tests do not prove Android notifications, native audio,
+  Apple compilation, packaging, or real-window behavior. Keep upstream release history distinct
+  from the fork's Unreleased notes; an upstream merge is not a fork release.
+
 ## Important Files
 
 - `settings.gradle.kts`: module graph; `build.gradle.kts`: architecture guard and aggregate Kover gate.

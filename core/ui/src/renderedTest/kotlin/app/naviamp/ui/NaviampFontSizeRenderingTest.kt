@@ -14,6 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.isPopup
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -43,6 +48,9 @@ class NaviampFontSizeRenderingTest {
         val nowPlaying = NowPlayingUi(
             id = "playing", title = "Player title", subtitle = "Artist", stateLabel = "Paused",
             upNext = listOf(NaviampNowPlayingItemUi("next", "Queue title", "Artist")),
+            lyricsAvailable = true,
+            lyricsLines = listOf(NaviampLyricLineUi(0, text = "Compact lyric")),
+            positionSeconds = 0.0,
         )
         val actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {})
         setContent {
@@ -52,7 +60,7 @@ class NaviampFontSizeRenderingTest {
                         when (surface.value) {
                             0 -> NaviampMiniNowPlaying(nowPlaying, NaviampColors(), {}, actions,
                                 rememberNaviampPlayerBackground(InterfaceSettings(), nowPlaying.coverArtUrl, NaviampColors()))
-                            1 -> NaviampNowPlayingPanel(nowPlaying, colors = NaviampColors(), actions = actions)
+                            1, 3 -> NaviampNowPlayingPanel(nowPlaying, colors = NaviampColors(), actions = actions)
                             2 -> CenteredLyricsList(
                                 listOf(NaviampLyricLineUi(0, text = "Lyric line")), 0, null, 0,
                                 NaviampColors(), rememberLazyListState(), {},
@@ -62,22 +70,30 @@ class NaviampFontSizeRenderingTest {
                 }
             }
         }
-        for ((index, title) in listOf("Player title", "Queue title", "Lyric line").withIndex()) {
+        for ((index, title) in listOf("Player title", "Queue title", "Lyric line", "Compact lyric").withIndex()) {
             runOnIdle { surface.value = index; general.value = InterfaceFontSize.Standard; player.value = InterfaceFontSize.Standard }
+            if (index == 1) {
+                onNodeWithTag("now-playing-queue-drawer").assertDoesNotExist()
+                onNodeWithContentDescription("Queue").performScrollTo().assertIsDisplayed().performClick()
+            }
             fun fontPixels(): Float {
                 if (index == 1) {
-                    onNodeWithTag("now-playing-side-panel").performScrollTo().assertIsDisplayed()
+                    onNodeWithTag("now-playing-queue-drawer").assertIsDisplayed()
                     onNodeWithText(title).performScrollTo().assertIsDisplayed()
                 }
+                if (index == 3) {
+                    onNodeWithTag("now-playing-lyrics-card").performScrollTo().assertIsDisplayed()
+                }
                 val layouts = mutableListOf<TextLayoutResult>()
-                onNodeWithText(title).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                onNodeWithText(title).assertIsDisplayed()
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
                 return layouts.single().layoutInput.run { density.run { style.fontSize.toPx() } }
             }
             val standard = fontPixels()
             runOnIdle { general.value = InterfaceFontSize.Large }
             assertEquals(standard, fontPixels(), 0.01f)
             runOnIdle { player.value = InterfaceFontSize.Large }
-            assertTrue(fontPixels() > standard)
+            assertEquals(standard * InterfaceFontSize.Large.scale, fontPixels(), 0.01f)
             runOnIdle { player.value = InterfaceFontSize.Standard }
             assertEquals(standard, fontPixels(), 0.01f)
         }
@@ -91,20 +107,26 @@ class NaviampFontSizeRenderingTest {
             CompositionLocalProvider(LocalDensity provides Density(density.density, 2f)) {
                 NaviampFontSizeScope(settings.value.generalFontSize, includeStandardScale = true) {
                     Column(Modifier.width(280.dp).verticalScroll(rememberScrollState())) {
-                        FontSizeSettings(NaviampColors(), settings.value, { settings.value = it })
+                        FontSettings(NaviampColors(), settings.value, { settings.value = it })
                     }
                 }
             }
         }
-        onAllNodesWithText("Large")[0].performScrollTo().performClick()
-        onAllNodesWithText("Small")[1].performScrollTo().performClick()
-        runOnIdle {
-            assertEquals(InterfaceFontSize.Large, settings.value.generalFontSize)
-            assertEquals(InterfaceFontSize.Small, settings.value.nowPlayingFontSize)
+        fun choose(tag: String, option: String) {
+            onNodeWithTag("$tag-value").performScrollTo().performClick()
+            onNode(hasText(option) and hasClickAction() and hasAnyAncestor(isPopup())).performClick()
         }
-        onAllNodesWithText("Standard")[0].performScrollTo().performClick()
-        runOnIdle { assertEquals(InterfaceFontSize.Small, settings.value.nowPlayingFontSize) }
-        onAllNodesWithText("Standard")[1].performScrollTo().performClick()
+        choose("general-font-size", "150%")
+        choose("now-playing-font-size", "80%")
+        runOnIdle {
+            assertEquals(InterfaceFontSize(150), settings.value.generalFontSize)
+            assertEquals(InterfaceFontSize(80), settings.value.nowPlayingFontSize)
+        }
+        onNodeWithText("150%").assertExists()
+        onNodeWithText("80%").assertExists()
+        choose("general-font-size", "100% (default)")
+        runOnIdle { assertEquals(InterfaceFontSize(80), settings.value.nowPlayingFontSize) }
+        choose("now-playing-font-size", "100% (default)")
         runOnIdle { assertEquals(InterfaceSettings(), settings.value) }
     }
 
@@ -132,8 +154,8 @@ class NaviampFontSizeRenderingTest {
             }
         }
         for (system in listOf(1f, 2f)) {
-            for (generalSize in InterfaceFontSize.entries) {
-                for (playerSize in InterfaceFontSize.entries) {
+            for (generalSize in RepresentativeSizes) {
+                for (playerSize in RepresentativeSizes) {
                     runOnIdle {
                         accessibility.value = system
                         general.value = generalSize
@@ -193,3 +215,8 @@ class NaviampFontSizeRenderingTest {
         onNodeWithText("More…").assertDoesNotExist()
     }
 }
+
+private val RepresentativeSizes = listOf(
+    InterfaceFontSize(InterfaceFontSize.MinPercent), InterfaceFontSize.Small, InterfaceFontSize.Standard,
+    InterfaceFontSize.Large, InterfaceFontSize(InterfaceFontSize.MaxPercent),
+)

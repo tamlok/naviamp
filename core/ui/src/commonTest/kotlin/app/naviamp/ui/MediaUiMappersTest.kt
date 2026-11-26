@@ -46,9 +46,12 @@ class NavibeatHomeCardMapperTest {
 
 
     @Test
-    fun mixesForYouTilesStartAnAlbumSeededMixInsteadOfPlayingTheAlbum() {
+    fun mixesForYouTilesOpenGeneratedAlbumStationRecipes() {
         val home = HomeContent(
-            mixAlbums = listOf(app.naviamp.domain.Album(app.naviamp.domain.AlbumId("single"), "Single", "Seed Artist", null, null)),
+            generatedMixes = listOf(app.naviamp.domain.radio.GeneratedRadioStation(
+                "album-station", "Album station", app.naviamp.domain.radio.GeneratedRadioKind.Album,
+                albums = listOf(app.naviamp.domain.settings.SavedAlbum("single", "Single", "Seed Artist")),
+            )),
         )
 
         val item = home.toSharedHomeUi(coverArtUrl = { null })
@@ -57,9 +60,12 @@ class NavibeatHomeCardMapperTest {
             .items
             .single()
 
-        assertEquals(SharedHomeCollectionItemAction.PlayAlbumMix, item.action)
+        assertEquals(SharedHomeCollectionItemAction.StartGeneratedStation, item.action)
         assertEquals(SharedMediaItemKind.Album, item.mediaKind)
-        assertEquals("single", item.mediaItem.id)
+        assertEquals("album-station", item.mediaItem.id)
+        assertEquals("Single", item.mediaItem.subtitle)
+        assertEquals(GeneratedRadioActionRequest(
+            GeneratedRadioAction.Open, "album-station"), item.generatedRadioPreviewRequest())
     }
 
     @Test
@@ -114,11 +120,11 @@ class NavibeatHomeCardMapperTest {
     @Test
     fun generatedStationsCarryIconArtworkKeys() {
         val stations = HomeContent().toSharedHomeUi(coverArtUrl = { null })
-            .collectionSections
+            .serverRadioSections
             .single { it.id == "stations" }
             .items
 
-        assertEquals(listOf("library", "random-album"), stations.map { it.artworkKey })
+        assertEquals(listOf("something-new", "library", "random-album"), stations.map { it.artworkKey })
         stations.forEach { station ->
             assertEquals(SharedHomeCollectionArtwork.StationGenerated, station.artwork)
             assertEquals(SharedHomeCollectionItemAction.SelectStation, station.action)

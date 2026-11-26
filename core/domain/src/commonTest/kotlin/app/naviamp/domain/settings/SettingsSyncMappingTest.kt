@@ -32,12 +32,23 @@ class SettingsSyncMappingTest {
             listOf(SavedTrack("b", "B", artistName = "Artist"), SavedTrack("a", "A", artistName = "Artist")), station)
         val library = app.naviamp.domain.radio.GeneratedRadioLibrary(stations = listOf(station), batches = listOf(batch),
             preferences = app.naviamp.domain.radio.GeneratedRadioPreferences(false, 48))
-        val exported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(generatedRadio = library), 3L, "sender")
+        val interfaceSettings = InterfaceSettings(
+            generalFontSize = InterfaceFontSize(125), nowPlayingFontSize = InterfaceFontSize(135),
+            fontFamily = InterfaceFontFamily.Inter, installedFontFamily = "Fira Sans",
+            theme = NaviampThemeSettings(NaviampThemeMode.entries.last(), NaviampThemes.packs.last().id),
+        )
+        val cache = CacheSettings(unmeteredAudioPrefetchDepth = 8, meteredAudioPrefetchDepth = 1)
+        val exported = buildSettingsSyncDocument(SettingsSyncLocalSnapshot(
+            generatedRadio = library, interfaceSettings = interfaceSettings, cache = cache,
+        ), 3L, "sender")
         val decoded = SettingsSyncJson.decode(SettingsSyncJson.encode(exported))
         assertEquals(2, decoded.schemaVersion)
         val repository = RecordingProviderMediaSourceRepository()
         val djs = RecordingRadioDjPresetRepository()
-        assertEquals(library, applySettingsSyncDocument(decoded, repository, djs).generatedRadio)
+        val applied = applySettingsSyncDocument(decoded, repository, djs)
+        assertEquals(library, applied.generatedRadio)
+        assertEquals(interfaceSettings, applied.interfaceSettings)
+        assertEquals(cache, applied.cacheSettings)
         val legacyDocument = Json.parseToJsonElement(SettingsSyncJson.encode(exported)).jsonObject
         val legacyPreferences = legacyDocument.getValue("preferences").jsonObject
         val legacyLibrary = legacyPreferences.getValue("generatedRadio").jsonObject
@@ -314,6 +325,23 @@ class SettingsSyncMappingTest {
         assertFalse(SettingsSyncJson.decode("{}").preferences.playback.effectiveSonicSimilarityEnabled())
         assertTrue(SettingsSyncJson.decode("""{"preferences":{"playback":{"sonicSimilarityEnabled":true}}}""")
             .preferences.playback.effectiveSonicSimilarityEnabled())
+    }
+
+    @Test
+    fun sleepTimerFadeRoundTripsWithOlderDefaultsAndImportedNormalization() {
+        for (minutes in listOf(0, 1, 3, 5, 10)) {
+            val document = buildSettingsSyncDocument(
+                SettingsSyncLocalSnapshot(playback = PlaybackSettings(sleepTimerFadeMinutes = minutes)), 1L, "test")
+            val applied = applySettingsSyncDocument(SettingsSyncJson.decode(SettingsSyncJson.encode(document)),
+                RecordingProviderMediaSourceRepository(), RecordingRadioDjPresetRepository()).playbackSettings
+            assertEquals(minutes, applied.sleepTimerFadeMinutes)
+        }
+        assertEquals(0, SettingsSyncJson.decode("""{"preferences":{"playback":{"gaplessEnabled":true}}}""")
+            .preferences.playback.sleepTimerFadeMinutes)
+        for ((raw, expected) in listOf(Int.MIN_VALUE to 0, -1 to 0, 2 to 1, 4 to 3, 9 to 5, 11 to 10, Int.MAX_VALUE to 10)) {
+            val imported = SettingsSyncJson.decode("""{"preferences":{"playback":{"sleepTimerFadeMinutes":$raw}}}""")
+            assertEquals(expected, imported.preferences.playback.sleepTimerFadeMinutes)
+        }
     }
 
     @Test

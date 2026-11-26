@@ -38,6 +38,7 @@ class NaviampCoreGeneratedRadioController(
     private val closePage: () -> Unit,
     private val openSeed: suspend (String) -> Unit,
     private val builderRecipe: suspend (String) -> GeneratedRadioStation?,
+    private val queueUndo: NaviampCoreQueueUndoController? = null,
 ) : NaviampCoreCommandController {
     private val continuation = NaviampRadioContinuationController()
     private var current: GeneratedRadioCheckpoint? = null
@@ -68,6 +69,22 @@ class NaviampCoreGeneratedRadioController(
         if (context.wasPaused == paused && context.occurrences === live.queue.occurrences) return context
         return context.copy(wasPaused = paused, occurrences = live.queue.occurrences).also { current = it }
     }
+    internal data class UndoState(
+        val checkpoint: GeneratedRadioCheckpoint,
+        val terminal: Boolean,
+        val requestedFrontier: String?,
+    )
+
+    internal fun captureUndoState(): UndoState? = checkpoint()?.let { UndoState(it, terminal, requestedFrontier) }
+
+    internal fun restoreUndoState(state: UndoState?) {
+        restore(state?.checkpoint)
+        if (current != null && state != null) {
+            terminal = state.terminal
+            requestedFrontier = state.requestedFrontier
+        }
+    }
+
 
     private fun previewBatch(): GeneratedRadioBatch? =
         stateStore.state.value.shell.generatedRadio.takeIf { it.open && it.sourceAvailable }?.batch
@@ -231,6 +248,8 @@ class NaviampCoreGeneratedRadioController(
         val first = seedPrefix(resolved).firstOrNull()
         val live = playback.state.value
         val retain = preserveCurrent && first != null && live.currentTrack?.id == first.id && live.queue.current?.id == first.id
+        val capture = queueUndo?.capture()
+        var seedUndoId: Long? = null
         continuation.start(first?.id, refilling = true)
         terminal = false
         requestedFrontier = null
@@ -241,6 +260,8 @@ class NaviampCoreGeneratedRadioController(
             editingQueue = true
             try {
                 val update = queue.startGeneratedQueue(listOf(first), resolved.id, newBatchId())
+                queueUndo?.record(capture, NaviampQueueUndoKind.ReplacedQueue, update.queue, capture?.state?.queue?.current?.title)
+                seedUndoId = queueUndo?.pendingId()
                 effects.applyProviderQueue(update.queue, update.clearPreparedNext)
                 playback.updateCurrentTrack(first)
                 effects.playQueueSelection(update.queue, 0)
@@ -248,7 +269,8 @@ class NaviampCoreGeneratedRadioController(
             openNowPlaying()
         }
         rememberStation(resolved)
-        val build = launchBuild(resolved, epoch, initial = true, retainCurrent = retain, requestIsCurrent = initialGuard)
+        val build = launchBuild(resolved, epoch, initial = true, retainCurrent = retain, requestIsCurrent = initialGuard,
+            undoCapture = capture, seedUndoId = seedUndoId)
         val result = try { build.await() }
         catch (cancelled: CancellationException) {
             build.cancel()
@@ -262,7 +284,8 @@ class NaviampCoreGeneratedRadioController(
     }
 
     private fun launchBuild(station: GeneratedRadioStation, epoch: Long, initial: Boolean, retainCurrent: Boolean = false,
-        requestIsCurrent: () -> Boolean = { true }): Deferred<Boolean> {
+        requestIsCurrent: () -> Boolean = { true }, undoCapture: NaviampCoreQueueUndoController.Capture? = null,
+        seedUndoId: Long? = null): Deferred<Boolean> {
         val provider = providerSource.current()
         val token = continuation.state.sessionId
         fun isCurrent() = epoch == sourceEpoch && continuation.isCurrent(token) && provider != null &&
@@ -290,14 +313,18 @@ class NaviampCoreGeneratedRadioController(
                     val added = if (initial) prefix.drop(1) + tracks else tracks
                     if (initial && first == null) {
                         val update = queue.startGeneratedQueue(tracks, station.id, batchId)
+                        queueUndo?.record(undoCapture, NaviampQueueUndoKind.ReplacedQueue, update.queue, undoCapture?.state?.queue?.current?.title)
                         effects.applyProviderQueue(update.queue, update.clearPreparedNext)
                         playback.updateCurrentTrack(update.queue.current)
                         effects.playQueueSelection(update.queue, update.queue.currentIndex)
                     } else if (initial && retainCurrent) {
                         val update = queue.replaceGeneratedUpcomingOccurrences(added, station.id, batchId)
+                        queueUndo?.record(undoCapture, NaviampQueueUndoKind.ReplacedUpcoming, update.queue)
                         effects.applyProviderQueue(update.queue, update.clearPreparedNext)
                     } else {
-                        val update = queue.appendGeneratedBatch(added, station.id, batchId)
+                        val update = if (initial && queueUndo != null) {
+                            queueUndo.continueTransaction(seedUndoId) { queue.appendGeneratedBatch(added, station.id, batchId) }
+                        } else queue.appendGeneratedBatch(added, station.id, batchId)
                         if (update.tracksChanged) effects.applyProviderQueue(update.queue, clearPreparedNext = false)
                     }
                     current = current?.copy(seenTrackIds = (current!!.seenTrackIds + tracks.map { it.id.value }).distinct().takeLast(2_000))
@@ -346,10 +373,13 @@ class NaviampCoreGeneratedRadioController(
     }
 
     private fun recordDiagnostics(diagnostics: RadioBuildDiagnostics?) {
-        stateStore.update { state -> state.copy(
-            overlays = state.overlays.copy(radioNotice = diagnostics),
-            shell = state.shell.copy(playback = state.shell.playback.copy(radioDiagnostics = diagnostics)),
-        ) }
+        stateStore.update { state ->
+            val result = diagnostics?.whileOffline(state.shell.connectionSettings.connection.offline)
+            state.copy(
+                overlays = state.overlays.copy(radioNotice = result),
+                shell = state.shell.copy(playback = state.shell.playback.copy(radioDiagnostics = result)),
+            )
+        }
     }
 
     fun onPlaybackChanged(force: Boolean = false) {
@@ -393,6 +423,7 @@ class NaviampCoreGeneratedRadioController(
     fun authorityChanged() { cancelWork(); requestedFrontier = null; onPlaybackChanged(force = true) }
 
     fun stop() {
+        queueUndo?.discard()
         ++sourceEpoch; continuation.stop(); cancelWork(); current = null; terminal = false
         requestedFrontier = null; observedQueue = null; observedState = null
         publish(GeneratedRadioStatus.Inactive)
@@ -414,12 +445,14 @@ class NaviampCoreGeneratedRadioController(
     fun playFinite(tracks: List<Track>, startIndex: Int = 0) {
         val offline = providerSource.current() == null
         if (offline && !effects.capabilities.supportsDownloadedOnly) { publish(GeneratedRadioStatus.Unsupported); return }
-        stop()
         if (tracks.isEmpty()) return
+        val capture = queueUndo?.capture()
+        stop()
         current = GeneratedRadioCheckpoint(mode = GeneratedRadioPlaybackMode.FiniteBatch, endlessEnabled = false)
         editingQueue = true
         try {
             val update = queue.replaceQueue(app.naviamp.domain.queue.PlaybackQueue(tracks, startIndex).withUserOccurrences())
+            queueUndo?.record(capture, NaviampQueueUndoKind.ReplacedQueue, update.queue, capture?.state?.queue?.current?.title)
             if (offline) effects.applyQueue(update.queue, update.clearPreparedNext)
             else effects.applyProviderQueue(update.queue, update.clearPreparedNext)
             playback.updateCurrentTrack(update.queue.current)
@@ -440,10 +473,12 @@ class NaviampCoreGeneratedRadioController(
 
     fun applyBatch(station: GeneratedRadioStation, batch: GeneratedRadioBatch) {
         if (current?.station?.id != station.id || !available(station)) { publish(GeneratedRadioStatus.InvalidRecipe); return }
+        val capture = queueUndo?.capture()
         ++sourceEpoch; cancelWork()
         editingQueue = true
         try {
             val update = queue.replaceGeneratedUpcomingOccurrences(batch.tracks.map(SavedTrack::toTrack), station.id, batch.id)
+            queueUndo?.record(capture, NaviampQueueUndoKind.ReplacedUpcoming, update.queue)
             effects.applyProviderQueue(update.queue, update.clearPreparedNext)
             current = current?.copy(station = batch.resolvedRecipe?.takeIf { it.id == station.id && it.revision == station.revision } ?: station)
         } finally { editingQueue = false }

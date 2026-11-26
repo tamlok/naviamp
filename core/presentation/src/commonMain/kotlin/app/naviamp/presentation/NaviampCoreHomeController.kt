@@ -345,8 +345,6 @@ class NaviampCoreHomeController(
         launch { refreshProviderDiscovery(provider, generation) }
         try {
         runCatching {
-            // Home and the Playlists page must use current IDs, including after a server upgrade.
-            providerResponseService?.invalidatePlaylists(provider)
             val content = loadHomeContent(
                 HomeContentLoadRequest(
                     provider = provider,

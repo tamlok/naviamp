@@ -189,7 +189,8 @@ class NaviampCoreHomeControllerTest {
             val otherProvider = object : MediaProvider by provider {
                 override val cacheNamespace = "navidrome:https://example.test:other-user:folders=1"
             }
-            val responses = ProviderResponseService(ProviderResponseCacheService(HomeResponseStore()) { 1L })
+            val responseStore = HomeResponseStore()
+            val responses = ProviderResponseService(ProviderResponseCacheService(responseStore) { 1L })
             assertEquals(listOf(legacy), responses.playlists(provider, 50))
             assertEquals(listOf(legacy), responses.playlists(otherProvider, 50))
             val initialFetches = fetches
@@ -221,6 +222,17 @@ class NaviampCoreHomeControllerTest {
             assertEquals(listOf(canonical), registry.home.playlists)
             assertTrue(HomeSection.Playlists in registry.home.failedSections)
             assertEquals(canonical.id, store.state.value.shell.home.content.playlists.single().id)
+
+            val coldStore = NaviampCoreStateStore()
+            val coldRegistry = NaviampCoreMediaRegistry()
+            val coldHome = NaviampCoreHomeController(coldStore, { provider },
+                NaviampCoreNavigationController(NaviampNavigationController(), coldStore, { error("unused") }),
+                NaviampCoreHomeDateSource { HomeDate(2026, 100) },
+                providerResponseService = ProviderResponseService(ProviderResponseCacheService(responseStore) { 1L }),
+                mediaRegistry = coldRegistry)
+            coldHome.refreshAfterConnection()
+            assertEquals(canonical.id, coldStore.state.value.shell.home.content.playlists.single().id)
+            assertTrue(HomeSection.Playlists in coldRegistry.home.failedSections)
 
             playlistFailure = false
             playlists = emptyList()

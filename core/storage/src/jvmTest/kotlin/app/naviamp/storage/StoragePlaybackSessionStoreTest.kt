@@ -285,8 +285,12 @@ class StoragePlaybackSessionStoreTest {
             val store = StoragePlaybackSessionStore(database.naviampStorageQueries, { 42L })
             store.savePlaybackSession(session, source)
             driver.execute(null, "DROP TABLE playlist_playback_bookmark", 0)
+            driver.execute(null, "ALTER TABLE playback_session_state DROP COLUMN generated_radio_checkpoint_payload", 0)
+            driver.execute(null, "DROP TABLE offline_playlist_entry", 0)
+            driver.execute(null, "DROP TABLE offline_playlist", 0)
+            driver.execute(null, "DROP TABLE pending_audio_file", 0)
 
-            NaviampStorageDatabase.Schema.migrate(driver, 31L, 32L)
+            NaviampStorageDatabase.Schema.migrate(driver, 31L, NaviampStorageDatabase.Schema.version)
 
             assertNotNull(database.naviampStorageQueries.selectMediaSourceById(source).executeAsOneOrNull())
             assertEquals(session, store.loadPlaybackSession(source))
@@ -350,6 +354,9 @@ class StoragePlaybackSessionStoreTest {
             store.savePlaybackSession(session, source)
             store.playlistBookmarks.saveBookmark(source, "playlist", bookmark)
             driver.execute(null, "ALTER TABLE playback_session_state DROP COLUMN generated_radio_checkpoint_payload", 0)
+            driver.execute(null, "DROP TABLE offline_playlist_entry", 0)
+            driver.execute(null, "DROP TABLE offline_playlist", 0)
+            driver.execute(null, "DROP TABLE pending_audio_file", 0)
             NaviampStorageDatabase.Schema.migrate(driver, 32L, NaviampStorageDatabase.Schema.version)
             assertNull(queries.selectPlaybackSessionState(source).executeAsOne().generated_radio_checkpoint_payload)
             assertEquals(session, StoragePlaybackSessionStore(queries, { 43L }).loadPlaybackSession(source))

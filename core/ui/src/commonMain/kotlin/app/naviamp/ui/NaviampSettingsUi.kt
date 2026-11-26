@@ -96,6 +96,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -111,6 +115,7 @@ import app.naviamp.domain.playback.EqualizerPreset
 import app.naviamp.domain.playback.MaxEqualizerGainDb
 import app.naviamp.domain.playback.MinEqualizerGainDb
 import app.naviamp.domain.playback.ReplayGainMode
+import app.naviamp.domain.playback.SleepTimerFadeMinuteOptions
 import app.naviamp.domain.playback.AudioOutputDevice
 import app.naviamp.domain.radio.MaxArtistRunLength
 import app.naviamp.domain.radio.MinArtistRunLength
@@ -133,7 +138,6 @@ import app.naviamp.domain.settings.DefaultAudioCacheBytes
 import app.naviamp.domain.settings.DefaultDownloadStorageBytes
 import app.naviamp.domain.settings.DownloadedTrackPlayback
 import app.naviamp.domain.settings.InterfaceLanguage
-import app.naviamp.domain.settings.InterfaceFontSize
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.settings.HomeSectionLayout
 import app.naviamp.domain.settings.HomeSectionPageLayout
@@ -822,7 +826,7 @@ fun NaviampExperienceSettingsSection(
                 interfaceSettings = interfaceSettings,
                 onInterfaceSettingsChanged = onInterfaceSettingsChanged,
             )
-            ExperienceSettingsPage.TextSize -> FontSizeSettings(
+            ExperienceSettingsPage.Font -> FontSettings(
                 colors = colors,
                 interfaceSettings = interfaceSettings,
                 onInterfaceSettingsChanged = onInterfaceSettingsChanged,
@@ -874,14 +878,12 @@ fun NaviampExperienceSettingsSection(
             }
         }
         SettingsRow(
-            title = ExperienceSettingsPage.TextSize.title(),
-            subtitle = ExperienceSettingsPage.TextSize.subtitle(),
+            title = ExperienceSettingsPage.Font.title(),
+            subtitle = ExperienceSettingsPage.Font.subtitle(),
             colors = colors,
-            value = stringResource(Res.string.settings_font_size_summary,
-                interfaceSettings.generalFontSize.label(),
-                interfaceSettings.nowPlayingFontSize.label()),
+            value = interfaceSettings.fontSummary(),
         ) {
-            selectedSection = ExperienceSettingsPage.TextSize
+            selectedSection = ExperienceSettingsPage.Font
         }
         SettingsRow(
             title = ExperienceSettingsPage.Albums.title(),
@@ -1065,7 +1067,7 @@ private enum class ExperienceSettingsPage {
     Player,
     Radio,
     Lyrics,
-    TextSize,
+    Font,
     Albums,
     ArtistDetails,
     HomeScreen,
@@ -1080,7 +1082,7 @@ private fun ExperienceSettingsPage.title(): String =
         ExperienceSettingsPage.Player -> stringResource(Res.string.settings_experience_player_title)
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_title)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_title)
-        ExperienceSettingsPage.TextSize -> stringResource(Res.string.settings_font_size_title)
+        ExperienceSettingsPage.Font -> stringResource(Res.string.settings_font_title)
         ExperienceSettingsPage.Albums -> "Albums"
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_title)
         ExperienceSettingsPage.HomeScreen -> "Home Screen"
@@ -1095,7 +1097,7 @@ private fun ExperienceSettingsPage.subtitle(): String =
         ExperienceSettingsPage.Player -> stringResource(Res.string.settings_experience_player_subtitle)
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_subtitle)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_subtitle)
-        ExperienceSettingsPage.TextSize -> stringResource(Res.string.settings_font_size_subtitle)
+        ExperienceSettingsPage.Font -> stringResource(Res.string.settings_font_subtitle)
         ExperienceSettingsPage.Albums -> "Choose how album collections are presented"
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_subtitle)
         ExperienceSettingsPage.HomeScreen -> "Choose List, Grid, or Carousel for each Home section"
@@ -1160,53 +1162,6 @@ private fun UpdateNotificationSettings(
             onInterfaceSettingsChanged(
                 interfaceSettings.copy(applicationUpdateChannel = ApplicationUpdateChannel.Beta),
             )
-        }
-    }
-}
-
-@Composable
-internal fun FontSizeSettings(
-    colors: NaviampColors,
-    interfaceSettings: InterfaceSettings,
-    onInterfaceSettingsChanged: (InterfaceSettings) -> Unit,
-) {
-    Text(
-        stringResource(Res.string.settings_font_size_general_title),
-        color = colors.primaryText,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(horizontal = SettingsRowHorizontalPadding, vertical = 8.dp),
-    )
-    InterfaceFontSize.entries.forEach { size ->
-        SelectableSettingsRow(
-            colors = colors,
-            title = size.label(),
-            subtitle = size.subtitle(),
-            selected = interfaceSettings.generalFontSize == size,
-        ) {
-            onInterfaceSettingsChanged(interfaceSettings.copy(generalFontSize = size).normalized())
-        }
-    }
-    Text(
-        stringResource(Res.string.settings_font_size_now_playing_title),
-        color = colors.primaryText,
-        fontSize = 14.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(
-            start = SettingsRowHorizontalPadding,
-            end = SettingsRowHorizontalPadding,
-            top = 18.dp,
-            bottom = 8.dp,
-        ),
-    )
-    InterfaceFontSize.entries.forEach { size ->
-        SelectableSettingsRow(
-            colors = colors,
-            title = size.label(),
-            subtitle = size.subtitle(),
-            selected = interfaceSettings.nowPlayingFontSize == size,
-        ) {
-            onInterfaceSettingsChanged(interfaceSettings.copy(nowPlayingFontSize = size).normalized())
         }
     }
 }
@@ -2388,6 +2343,7 @@ fun NaviampAboutSettingsSection(
                     }
                     SettingsSectionTitle(stringResource(Res.string.settings_about_fonts_title), colors)
                     Text("Nunito Sans", color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
+                    Text("Inter", color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
                     SettingsSectionTitle(stringResource(Res.string.settings_about_audio_title), colors)
                     Text("BASS audio library", color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize)
                 }
@@ -3071,15 +3027,28 @@ private fun SharedCacheSettingsSection(
         )
         DetentIntSettingsSlider(
             colors = colors,
-            title = stringResource(Res.string.settings_audio_cache_prefetch_depth_title),
-            value = normalized.audioPrefetchDepth,
+            title = stringResource(Res.string.settings_audio_cache_prefetch_unmetered_title),
+            value = normalized.unmeteredAudioPrefetchDepth,
             detents = PrefetchDepthOptions,
             enabled = normalized.audioCachingEnabled,
-            valueLabel = { depth -> if (depth == 0) stringResource(Res.string.common_off) else stringResource(Res.string.settings_tracks_count, depth) },
+            valueLabel = { depth -> prefetchDepthLabel(depth) },
             onValueChanged = { depth ->
-                onCacheSettingsChanged(normalized.copy(audioPrefetchDepth = depth).normalized())
+                onCacheSettingsChanged(normalized.copy(unmeteredAudioPrefetchDepth = depth).normalized())
             },
         )
+        Text(stringResource(Res.string.settings_audio_cache_prefetch_unmetered_subtitle), color = colors.secondaryText, fontSize = 12.sp)
+        DetentIntSettingsSlider(
+            colors = colors,
+            title = stringResource(Res.string.settings_audio_cache_prefetch_metered_title),
+            value = normalized.meteredAudioPrefetchDepth,
+            detents = PrefetchDepthOptions,
+            enabled = normalized.audioCachingEnabled,
+            valueLabel = { depth -> prefetchDepthLabel(depth) },
+            onValueChanged = { depth ->
+                onCacheSettingsChanged(normalized.copy(meteredAudioPrefetchDepth = depth).normalized())
+            },
+        )
+        Text(stringResource(Res.string.settings_audio_cache_prefetch_metered_subtitle), color = colors.secondaryText, fontSize = 12.sp)
         DetentByteSettingsSlider(
             colors = colors,
             title = stringResource(Res.string.settings_audio_cache_budget_title),
@@ -3509,14 +3478,24 @@ fun NaviampAudioCacheSettingsSection(
     selectedPage?.let { page ->
         SettingsSubsectionHeader(page.title(), page.subtitle(), colors) { selectedPage = null }
         when (page) {
-            AudioCacheSettingsPage.PrefetchDepth -> PrefetchDepthOptions.forEach { depth ->
+            AudioCacheSettingsPage.UnmeteredPrefetchDepth -> PrefetchDepthOptions.forEach { depth ->
                 SelectableSettingsRow(
                     colors = colors,
-                    title = if (depth == 0) stringResource(Res.string.common_off) else stringResource(Res.string.settings_tracks_count, depth),
-                    selected = depth == normalized.audioPrefetchDepth,
+                    title = prefetchDepthLabel(depth),
+                    selected = depth == normalized.unmeteredAudioPrefetchDepth,
                     enabled = normalized.audioCachingEnabled,
                 ) {
-                    onCacheSettingsChanged(normalized.copy(audioPrefetchDepth = depth).normalized())
+                    onCacheSettingsChanged(normalized.copy(unmeteredAudioPrefetchDepth = depth).normalized())
+                }
+            }
+            AudioCacheSettingsPage.MeteredPrefetchDepth -> PrefetchDepthOptions.forEach { depth ->
+                SelectableSettingsRow(
+                    colors = colors,
+                    title = prefetchDepthLabel(depth),
+                    selected = depth == normalized.meteredAudioPrefetchDepth,
+                    enabled = normalized.audioCachingEnabled,
+                ) {
+                    onCacheSettingsChanged(normalized.copy(meteredAudioPrefetchDepth = depth).normalized())
                 }
             }
             AudioCacheSettingsPage.AudioCacheBudget -> AudioCacheBudgetOptions.forEach { bytes ->
@@ -3547,17 +3526,22 @@ fun NaviampAudioCacheSettingsSection(
         },
     )
     SettingsRow(
-        title = stringResource(Res.string.settings_audio_cache_prefetch_depth_title),
-        subtitle = stringResource(Res.string.settings_audio_cache_prefetch_depth_subtitle),
+        title = stringResource(Res.string.settings_audio_cache_prefetch_unmetered_title),
+        subtitle = stringResource(Res.string.settings_audio_cache_prefetch_unmetered_subtitle),
         colors = colors,
-        value = if (normalized.audioPrefetchDepth == 0) {
-            stringResource(Res.string.common_off)
-        } else {
-            stringResource(Res.string.settings_tracks_count, normalized.audioPrefetchDepth)
-        },
+        value = prefetchDepthLabel(normalized.unmeteredAudioPrefetchDepth),
         enabled = normalized.audioCachingEnabled,
     ) {
-        selectedPage = AudioCacheSettingsPage.PrefetchDepth
+        selectedPage = AudioCacheSettingsPage.UnmeteredPrefetchDepth
+    }
+    SettingsRow(
+        title = stringResource(Res.string.settings_audio_cache_prefetch_metered_title),
+        subtitle = stringResource(Res.string.settings_audio_cache_prefetch_metered_subtitle),
+        colors = colors,
+        value = prefetchDepthLabel(normalized.meteredAudioPrefetchDepth),
+        enabled = normalized.audioCachingEnabled,
+    ) {
+        selectedPage = AudioCacheSettingsPage.MeteredPrefetchDepth
     }
     SettingsRow(
         title = stringResource(Res.string.settings_audio_cache_budget_title),
@@ -3584,19 +3568,22 @@ fun NaviampAudioCacheSettingsSection(
     }
 }
 
-private enum class AudioCacheSettingsPage(
-    val title: String,
-    val subtitle: String,
-) {
-    PrefetchDepth("Prefetch Depth", "Tracks to cache ahead in the play queue"),
-    AudioCacheBudget("Audio Cache Budget", "Maximum space for prefetched audio"),
-    Location("Cache Location", "Internal, device, or removable storage"),
+private enum class AudioCacheSettingsPage {
+    UnmeteredPrefetchDepth,
+    MeteredPrefetchDepth,
+    AudioCacheBudget,
+    Location,
 }
+
+@Composable
+private fun prefetchDepthLabel(depth: Int): String =
+    if (depth == 0) stringResource(Res.string.common_off) else stringResource(Res.string.settings_tracks_count, depth)
 
 @Composable
 private fun AudioCacheSettingsPage.title(): String =
     when (this) {
-        AudioCacheSettingsPage.PrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_depth_title)
+        AudioCacheSettingsPage.UnmeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_unmetered_title)
+        AudioCacheSettingsPage.MeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_metered_title)
         AudioCacheSettingsPage.AudioCacheBudget -> stringResource(Res.string.settings_audio_cache_budget_title)
         AudioCacheSettingsPage.Location -> "Cache Location"
     }
@@ -3604,7 +3591,8 @@ private fun AudioCacheSettingsPage.title(): String =
 @Composable
 private fun AudioCacheSettingsPage.subtitle(): String =
     when (this) {
-        AudioCacheSettingsPage.PrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_depth_subtitle)
+        AudioCacheSettingsPage.UnmeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_unmetered_subtitle)
+        AudioCacheSettingsPage.MeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_metered_subtitle)
         AudioCacheSettingsPage.AudioCacheBudget -> stringResource(Res.string.settings_audio_cache_budget_subtitle)
         AudioCacheSettingsPage.Location -> "Internal, device, or removable storage"
     }
@@ -4445,7 +4433,26 @@ private fun GaplessCrossfadeSettings(
     onPlaybackSettingsChanged: (PlaybackSettings) -> Unit,
 ) {
     var crossfadeOpen by remember { mutableStateOf(false) }
+    var sleepTimerFadeOpen by remember { mutableStateOf(false) }
     var pendingCrossfadeDurationForStrict by remember { mutableStateOf<Int?>(null) }
+    if (sleepTimerFadeOpen) {
+        SettingsSubsectionHeader(
+            stringResource(Res.string.settings_sleep_timer_fade_title),
+            stringResource(Res.string.settings_sleep_timer_fade_subtitle),
+            colors,
+        ) { sleepTimerFadeOpen = false }
+        SleepTimerFadeMinuteOptions.forEach { minutes ->
+            SelectableSettingsRow(
+                colors = colors,
+                title = sleepTimerFadeLabel(minutes),
+                subtitle = if (minutes == 0) stringResource(Res.string.settings_sleep_timer_fade_off_subtitle) else null,
+                selected = playbackSettings.sleepTimerFadeMinutes == minutes,
+            ) {
+                onPlaybackSettingsChanged(playbackSettings.copy(sleepTimerFadeMinutes = minutes))
+            }
+        }
+        return
+    }
     if (crossfadeOpen) {
         SettingsSubsectionHeader(
             stringResource(Res.string.settings_crossfade_title),
@@ -4547,7 +4554,19 @@ private fun GaplessCrossfadeSettings(
     ) {
         crossfadeOpen = true
     }
+    SettingsRow(
+        title = stringResource(Res.string.settings_sleep_timer_fade_title),
+        subtitle = stringResource(Res.string.settings_sleep_timer_fade_subtitle),
+        colors = colors,
+        value = sleepTimerFadeLabel(playbackSettings.sleepTimerFadeMinutes),
+    ) {
+        sleepTimerFadeOpen = true
+    }
 }
+
+@Composable
+internal fun sleepTimerFadeLabel(minutes: Int): String =
+    if (minutes == 0) stringResource(Res.string.common_off) else stringResource(Res.string.settings_minutes_short, minutes)
 
 @Composable
 private fun PlayerExperienceSettings(
@@ -5322,6 +5341,21 @@ fun NaviampDebugPlaybackSettingsSection(
     )
 }
 
+/** Ten band labels share a narrow row, so large text or a wide font shrinks them to fit their slot. */
+@Composable
+private fun EqualizerAxisLabel(text: String, color: Color, modifier: Modifier) {
+    BasicText(
+        text,
+        style = LocalTextStyle.current.merge(
+            TextStyle(color = color, fontSize = 9.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+        ),
+        maxLines = 1,
+        softWrap = false,
+        autoSize = TextAutoSize.StepBased(minFontSize = 5.sp, maxFontSize = 9.sp, stepSize = 0.5.sp),
+        modifier = modifier,
+    )
+}
+
 @Composable
 internal fun EqualizerCurvePanel(
     colors: NaviampColors,
@@ -5353,13 +5387,10 @@ internal fun EqualizerCurvePanel(
         Text(stringResource(Res.string.equalizer_gain_axis), color = colors.secondaryText, fontSize = 11.sp)
         Row(modifier = Modifier.fillMaxWidth()) {
             normalized.bandsDb.forEach { gain ->
-                Text(
+                EqualizerAxisLabel(
                     if (gain % 1f == 0f) gain.toInt().toString() else gain.toDouble().oneDecimalLabel(),
-                    color = colors.primaryText,
-                    fontSize = 9.sp,
-                    maxLines = 1,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.weight(1f),
+                    colors.primaryText,
+                    Modifier.weight(1f),
                 )
             }
         }
@@ -5424,13 +5455,10 @@ internal fun EqualizerCurvePanel(
         }
         Row(modifier = Modifier.fillMaxWidth()) {
             EqualizerBandFrequencies.forEach { frequency ->
-                Text(
+                EqualizerAxisLabel(
                     if (frequency >= 1000) "${frequency / 1000}k" else frequency.toString(),
-                    color = colors.secondaryText,
-                    fontSize = 9.sp,
-                    maxLines = 1,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    modifier = Modifier.weight(1f),
+                    colors.secondaryText,
+                    Modifier.weight(1f),
                 )
             }
         }
@@ -6035,7 +6063,7 @@ private fun Float.preampLabel(): String =
 
 private val CrossfadeDurationOptions = listOf(0, 3, 5, 8, 12)
 private val PreampDbOptions = listOf(6f, 5f, 4f, 3f, 2f, 1f, 0f, -1f, -2f, -3f, -4f, -5f, -6f, -9f, -12f)
-private val SettingsRowHorizontalPadding = 14.dp
+internal val SettingsRowHorizontalPadding = 14.dp
 private val SettingsDetailRowVerticalPadding = 4.dp
 private val SettingsDetailItemSpacing = 4.dp
 private val SettingsCategoryTitleSize = 17.sp

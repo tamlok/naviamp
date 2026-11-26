@@ -19,6 +19,10 @@ import app.naviamp.domain.provider.MediaProvider
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.provider.ProviderCapabilities
 import app.naviamp.domain.radio.libraryRecentRadioStream
+import app.naviamp.domain.cache.CachedProviderResponse
+import app.naviamp.domain.cache.ProviderResponseStore
+import app.naviamp.domain.cache.ProviderResponseCacheService
+import app.naviamp.domain.cache.ProviderResponseService
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -29,6 +33,46 @@ import kotlin.test.assertTrue
 import kotlin.test.assertNull
 
 class HomeServiceTest {
+    @Test fun coldPlaylistFallbackKeepsFailureProvenanceUntilSuccessfulRevalidation() = runTest {
+        val cached = mutableMapOf<String, CachedProviderResponse>()
+        val store = object : ProviderResponseStore {
+            override fun cachedResponse(cacheKey: String) = cached[cacheKey]
+            override fun touchResponse(cacheKey: String, lastAccessedEpochMillis: Long) = Unit
+            override fun upsertResponse(cacheKey: String, providerId: String, resourceType: String, resourceId: String,
+                payload: String, createdAtEpochMillis: Long, lastAccessedEpochMillis: Long) {
+                cached[cacheKey] = CachedProviderResponse(payload, createdAtEpochMillis)
+            }
+            override fun deleteResponsesByProviderAndType(providerId: String, resourceType: String) = Unit
+            override fun deleteResponseByProviderTypeAndId(providerId: String, resourceType: String, resourceId: String) = Unit
+        }
+        var playlists = listOf(Playlist("old", "Playlist", 2))
+        var offline = false
+        var requests = 0
+        val provider = object : MediaProvider by FakeHomeProvider() {
+            override suspend fun playlists(limit: Int): List<Playlist> {
+                requests++
+                check(!offline) { "offline" }
+                return playlists
+            }
+        }
+        suspend fun load() = HomeService(provider,
+            providerResponseService = ProviderResponseService(ProviderResponseCacheService(store) { 1L }),
+            date = HomeDate(2026, 1)).load()
+        assertEquals(playlists, load().playlists)
+        playlists = listOf(Playlist("current", "Playlist", 2))
+        assertEquals(playlists, load().playlists)
+        offline = true
+        val fallback = load()
+        assertEquals(playlists, fallback.playlists)
+        assertTrue(HomeSection.Playlists in fallback.failedSections)
+        offline = false
+        playlists = emptyList()
+        val refreshed = load()
+        assertTrue(refreshed.playlists.isEmpty())
+        assertFalse(HomeSection.Playlists in refreshed.failedSections)
+        assertEquals(4, requests)
+    }
+
     @Test fun coordinatorRetainsFailedSectionsOnlyWithinTheSameSourceAndLibrary() = runTest {
         var content = HomeContent()
         val coordinator = HomeContentCoordinator({ content = it }, {})

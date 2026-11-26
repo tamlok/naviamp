@@ -1,8 +1,16 @@
 pluginManagement {
     repositories {
-        google()
-        gradlePluginPortal()
+        // Google hosts only the Android and Google plugins. Every other plugin marker resolves from
+        // Maven Central first, so the Plugin Portal is a fallback rather than a required hop.
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
+        gradlePluginPortal()
     }
 }
 
@@ -45,3 +53,6 @@ if (providers.gradleProperty("naviamp.tvos.sceneHost").orNull == "true") {
     include(":apps:tvos")
 }
 include(":tools:genre-ontology")
+if (providers.gradleProperty("naviamp.spikes.localFolder").orNull == "true") {
+    include(":tools:spikes:local-folder")
+}

@@ -145,6 +145,7 @@ fun naviampCoreStoredServiceCatalog(
                     recentRadioStreams = settings.loadRecentRadioStreams(),
                     recentInternetRadioStations = settings.loadRecentInternetRadioStations(),
                     generatedRadio = settings.generatedRadio.load(),
+                    cache = settings.loadCache(),
                 )
             },
             applyDocument = { document ->
@@ -154,8 +155,10 @@ fun naviampCoreStoredServiceCatalog(
                     radioDjPresetRepository = repositories.radioDjPresets,
                     localPlayback = settings.loadPlayback(),
                     localGeneratedRadio = settings.generatedRadio.load(),
+                    localCache = settings.loadCache(),
                 )
                 settings.saveInterface(applied.interfaceSettings)
+                settings.saveCache(applied.cacheSettings)
                 if (persistImportedPlayback == null) playback.settings.apply(applied.playbackSettings, redownload = false)
                 else persistImportedPlayback(applied.playbackSettings)
                 settings.saveVisualizer(applied.visualizer)

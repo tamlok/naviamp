@@ -192,7 +192,7 @@ class HomeService(
             .rotatedBy(date.dayOfYear)
         val genreSpotlight = genres.firstOrNull()
         val decadePick = pickHomeDecade(failures)
-        val playlistPartition = attempt(HomeSection.Playlists, failures, emptyList()) { playlists(limit = 50) }
+        val playlistPartition = attempt(HomeSection.Playlists, failures, emptyList()) { playlists(limit = 50, failures) }
             .partitionNavibeatMixes()
         val favoriteArtists = loadFavoriteArtists()
         if (favoriteStatus == FavoriteArtistsStatus.Failed || favoriteStatus == FavoriteArtistsStatus.Cached) {
@@ -358,8 +358,9 @@ class HomeService(
         providerResponseService?.artists(provider, limit)
             ?: provider.artists(limit)
 
-    private suspend fun playlists(limit: Int): List<Playlist> =
-        providerResponseService?.playlists(provider, limit)
+    private suspend fun playlists(limit: Int, failures: MutableSet<HomeSection>): List<Playlist> =
+        providerResponseService?.playlists(provider, limit, maxAgeMillis = 0L,
+            onRevalidationFailure = { failures += HomeSection.Playlists })
             ?: provider.playlists(limit)
 
     private suspend fun internetRadioStations(): List<InternetRadioStation> =
@@ -428,6 +429,8 @@ data class HomeStation(
 
 fun homeStations(homeContent: HomeContent): List<HomeStation> =
     buildList {
+        // Rendered with translated copy by the shared Home UI.
+        add(HomeStation(HomeStationSomethingNew, "Play something new", "A track you have never played"))
         add(HomeStation(HomeStationLibrary, "Library Radio", "Random tracks from your full library"))
         add(HomeStation(HomeStationRandomAlbum, "Random Album Radio", "Start from a random album"))
         homeContent.genres.take(3).forEach { genre ->
@@ -518,6 +521,7 @@ private fun Int.floorMod(divisor: Int): Int =
 
 const val HomeStationLibrary = "library"
 const val HomeStationRandomAlbum = "random-album"
+const val HomeStationSomethingNew = "something-new"
 const val HomeDefaultArtistLimit = 50
 
 private const val HomeStationGenrePrefix = "genre:"

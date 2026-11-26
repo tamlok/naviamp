@@ -17,6 +17,8 @@ data class SettingsSyncLocalSnapshot(
     val recentRadioStreams: List<RecentRadioStream> = emptyList(),
     val recentInternetRadioStations: List<SavedInternetRadioStation> = emptyList(),
     val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
+    /** Null when the host has no stored cache settings, so nothing portable is exported for them. */
+    val cache: CacheSettings? = null,
 )
 
 data class ImportedSettingsSyncServerProfiles(
@@ -33,6 +35,7 @@ data class AppliedSettingsSyncDocument(
     val recentInternetRadioStations: List<SavedInternetRadioStation>,
     val importedServerProfiles: ImportedSettingsSyncServerProfiles,
     val generatedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
+    val cacheSettings: CacheSettings = CacheSettings(),
 )
 
 /** Applies the platform-neutral repository mutations and normalization for a synced document. */
@@ -42,6 +45,7 @@ fun applySettingsSyncDocument(
     radioDjPresetRepository: RadioDjPresetRepository,
     localPlayback: PlaybackSettings = PlaybackSettings(),
     localGeneratedRadio: app.naviamp.domain.radio.GeneratedRadioLibrary = app.naviamp.domain.radio.GeneratedRadioLibrary(),
+    localCache: CacheSettings = CacheSettings(),
 ): AppliedSettingsSyncDocument {
     val preferences = document.preferences
     val importedServerProfiles = importSettingsSyncServerProfiles(
@@ -66,6 +70,7 @@ fun applySettingsSyncDocument(
         recentInternetRadioStations = preferences.recentInternetRadioStations,
         importedServerProfiles = importedServerProfiles,
         generatedRadio = generatedRadioForSettingsImport(document, localGeneratedRadio),
+        cacheSettings = localCache.withSyncedAudioPrefetch(preferences.audioPrefetch),
     )
 }
 
@@ -91,6 +96,7 @@ fun buildSettingsSyncDocument(
             recentRadioStreams = snapshot.recentRadioStreams,
             recentInternetRadioStations = snapshot.recentInternetRadioStations,
             generatedRadio = snapshot.generatedRadio,
+            audioPrefetch = snapshot.cache?.toSettingsSyncAudioPrefetch(),
         ),
     ).normalized()
 

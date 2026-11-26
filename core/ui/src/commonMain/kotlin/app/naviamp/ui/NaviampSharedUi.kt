@@ -161,7 +161,7 @@ private fun NaviampSharedAppShellContent(
     val playlistDetail = uiState.playlistDetail
     val remoteNowPlaying = uiState.connect.remoteNowPlaying.takeUnless { castOutput.selected }
     var radioDjCreationOpen by remember { mutableStateOf(false) }
-    val nowPlaying = (remoteNowPlaying ?: uiState.nowPlaying)?.withSelectedRemoteOutput(uiState.connect)
+    val nowPlaying = rememberEqualInstance((remoteNowPlaying ?: uiState.nowPlaying)?.withSelectedRemoteOutput(uiState.connect)
         ?.withCastOutput(
             castOutput,
             stringResource(Res.string.connect_remote_unavailable).takeIf { castOutput.unavailable },
@@ -171,15 +171,20 @@ private fun NaviampSharedAppShellContent(
                 general.interfaceSettings.nowPlaying,
                 general.interfaceSettings.albumArtworkPreference(connectionSettings.currentSourceId, playing.albumId),
             )
-        }
-    val nowPlayingActions = (if (remoteNowPlaying != null) {
+        })
+    val nowPlayingActions = rememberEqualInstance((if (remoteNowPlaying != null) {
         connectActions?.remoteNowPlayingActions?.withLocalDisplayActions(actions.nowPlayingActions)
             ?: actions.nowPlayingActions
     } else {
         actions.nowPlayingActions
     }).withSelectedRemoteOutputAction(uiState.connect, connectActions)
         .withCastOutputActions(castOutput, onCastPicker, onCastSelectLocal)
-        .copy(onCreateRadioDj = { radioDjCreationOpen = true })
+        .copy(onCreateRadioDj = { radioDjCreationOpen = true }))
+    // Opening and closing Now Playing must not recompose the browse screen, which does not
+    // read the open flag; it learns about the player layout through showFullNowPlaying.
+    val browseUiState = rememberEqualInstance(
+        uiState.copy(shellChrome = uiState.shellChrome.copy(nowPlayingOpen = false)),
+    )
     PreloadNaviampNowPlayingArtwork(nowPlaying)
     val supportsApplicationUpdates = shellChrome.supportsApplicationUpdates
     val selectedRoute = shellChrome.selectedRoute
@@ -247,11 +252,10 @@ private fun NaviampSharedAppShellContent(
         connected = connected,
         remoteNowPlayingAvailable = remoteNowPlaying != null,
     )
-    val showFullNowPlaying = canShowNowPlaying &&
+    val nowPlayingPresentable = canShowNowPlaying &&
         !showingDisconnectedConnectionForm &&
         !editingConnection &&
         !restoringConnection &&
-        nowPlayingOpen &&
         nowPlaying != null
     // NaviampMainScaffold keeps even filled artwork inside the system-bar safe area.
     NaviampThemeChromeEffect()
@@ -266,13 +270,12 @@ private fun NaviampSharedAppShellContent(
             outerContentScrollState.animateScrollTo(0)
         }
     }
-    val routeUsesOwnScroll = !connectionSetupOnly && sharedRouteUsesOwnScroll(
+    val routeCanUseOwnScroll = !connectionSetupOnly && sharedRouteUsesOwnScroll(
         connected = connected,
         editingConnection = editingConnection,
         selectedRoute = selectedRoute,
     ) &&
         !restoringConnection &&
-        !showFullNowPlaying &&
         (
             albumDetail.selectedAlbum != null ||
                 artistDetail.selectedArtist != null ||
@@ -293,7 +296,7 @@ private fun NaviampSharedAppShellContent(
             )
     MaterialTheme(
         colorScheme = LocalNaviampTheme.current.colorScheme,
-        typography = rememberNaviampTypography(),
+        typography = rememberNaviampTypography(interfaceSettings),
     ) {
         uiState.playlistMembership?.let { membership ->
             NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
@@ -308,9 +311,35 @@ private fun NaviampSharedAppShellContent(
                 )
             }
         }
-        Box(
+        BoxWithConstraints(
             modifier = Modifier.fillMaxSize().background(colors.background),
         ) {
+            val sheetPresentation = maxWidth < 780.dp || maxHeight < 480.dp
+            val showFullNowPlaying = nowPlayingPresentable && nowPlayingOpen && !sheetPresentation
+            val routeUsesOwnScroll = routeCanUseOwnScroll && !showFullNowPlaying
+            val sheetState = rememberNaviampNowPlayingSheetState(
+                open = nowPlayingPresentable && nowPlayingOpen && sheetPresentation,
+            )
+            NaviampNowPlayingSheetLayers(
+                state = sheetState,
+                onClose = navigationActions.onCloseNowPlaying,
+                sheet = {
+                    if (nowPlaying != null) {
+                        NaviampMainScaffold(
+                            selectedRoute = selectedRoute,
+                            colors = colors,
+                            onRouteSelected = navigationActions.onRouteSelected,
+                            showChrome = false,
+                            miniPlayer = {},
+                        ) {
+                            NaviampFontSizeScope(interfaceSettings.nowPlayingFontSize, interfaceSettings.generalFontSize) {
+                                FullNowPlaying(nowPlaying, playbackProgress, colors, visualizerBandsProvider,
+                                    shellChrome.selectedVisualizer, nowPlayingActions, interfaceSettings, playerBackground)
+                            }
+                        }
+                    }
+                },
+                base = {
             NaviampSystemBackHandler(
                 enabled = !connectionSetupOnly && !nowPlayingOpen &&
                     albumDetail.selectedAlbum == null && artistDetail.selectedArtist == null &&
@@ -321,7 +350,7 @@ private fun NaviampSharedAppShellContent(
                 nowPlaying = nowPlaying,
                 colors = colors,
                 actions = nowPlayingActions,
-                enabled = !connectionSetupOnly && !showFullNowPlaying,
+                enabled = !connectionSetupOnly && !showFullNowPlaying && !sheetState.coversBase,
                 fontSize = interfaceSettings.nowPlayingFontSize,
                 parentFontSize = interfaceSettings.generalFontSize,
             ) { openQueue, queueFocusRequester ->
@@ -341,6 +370,9 @@ private fun NaviampSharedAppShellContent(
                                 playbackProgress = playbackProgress,
                                 showVolumeBar = interfaceSettings.nowPlaying.showVolumeBar,
                                 queueFocusRequester = queueFocusRequester,
+                                modifier = if (sheetPresentation && nowPlayingPresentable) {
+                                    Modifier.naviampNowPlayingOpenGesture(sheetState, navigationActions.onOpenNowPlaying)
+                                } else Modifier,
                             )
                         }
                     }
@@ -403,7 +435,7 @@ private fun NaviampSharedAppShellContent(
                     } else {
                         ConnectedContent(
                             colors = colors,
-                            uiState = uiState,
+                            uiState = browseUiState,
                             showFullNowPlaying = showFullNowPlaying,
                             playerBackground = playerBackground,
                             playbackProgress = playbackProgress,
@@ -421,6 +453,8 @@ private fun NaviampSharedAppShellContent(
 
             }
             }
+                },
+            )
         }
         if (radioDjCreationOpen) {
             NaviampRadioDjCreationDialog(
@@ -501,6 +535,16 @@ internal fun NaviampConnectSourceMismatchDialog(
 internal const val NaviampConnectSourceMismatchDialogTestTag = "connect-source-mismatch"
 internal const val NaviampConnectSourceMismatchProvisionTestTag = "connect-source-mismatch-provision"
 internal const val NaviampConnectSourceMismatchSettingsTestTag = "connect-source-mismatch-settings"
+
+private class EqualInstanceHolder<T>(var value: T)
+
+/** Keeps the previous instance while [value] equals it, so equal state does not recompose its readers. */
+@Composable
+internal fun <T> rememberEqualInstance(value: T): T {
+    val holder = remember { EqualInstanceHolder(value) }
+    if (holder.value != value) holder.value = value
+    return holder.value
+}
 
 internal fun sharedRouteCanUseOwnScroll(
     editingConnection: Boolean,

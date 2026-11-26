@@ -191,6 +191,8 @@ internal fun NaviampCoreCommand.connectMediaSelectionOrNull(): NaviampCoreConnec
     // defers radio selections to Core recipe construction instead of sending this legacy flag.
     is NaviampCoreCommand.Home.StartAlbumMix ->
         NaviampCoreConnectMediaSelection(NaviampConnectMediaType.Track, seed.id.value, startRadio = true)
+    is NaviampCoreCommand.Home.StartSomethingNewRadio ->
+        NaviampCoreConnectMediaSelection(NaviampConnectMediaType.Track, seed.id.value, startRadio = startRadio)
     else -> null
 }
 
@@ -324,6 +326,7 @@ private fun NaviampCoreCommand.invalidatesInterruptionResume(): Boolean = when (
     is NaviampCoreCommand.NowPlaying.CurrentTrack -> request.action == app.naviamp.ui.NowPlayingCurrentTrackAction.StartRadio
     is NaviampCoreCommand.NowPlaying.QueueItem -> request.action in setOf(
         app.naviamp.ui.NowPlayingItemAction.StartRadio, app.naviamp.ui.NowPlayingItemAction.RemoveFromQueue)
+    is NaviampCoreCommand.NowPlaying.QueueUndo -> request.action == app.naviamp.ui.NaviampQueueUndoAction.Undo
     NaviampCoreCommand.Connection.Connect, is NaviampCoreCommand.Connection.ConnectSaved,
     is NaviampCoreCommand.Connection.SwitchAccount, is NaviampCoreCommand.Connection.SelectSavedSource -> true
     is NaviampCoreCommand.Home.PlayFavoriteSongs -> true
