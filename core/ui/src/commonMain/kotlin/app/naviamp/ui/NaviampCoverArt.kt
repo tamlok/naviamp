@@ -1,5 +1,8 @@
 package app.naviamp.ui
 
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.media_enlarged_image
+import org.jetbrains.compose.resources.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -158,7 +161,7 @@ fun NaviampExpandedMediaImage(
         image?.let {
             Image(
                 bitmap = it,
-                contentDescription = "Enlarged image",
+                contentDescription = stringResource(Res.string.media_enlarged_image),
                 // The parent already has the bitmap's exact aspect ratio. FillBounds avoids
                 // density/rounding differences exposing the placeholder as letterbox bars.
                 contentScale = ContentScale.FillBounds,

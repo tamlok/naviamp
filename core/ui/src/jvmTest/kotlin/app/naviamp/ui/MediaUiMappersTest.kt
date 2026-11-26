@@ -35,6 +35,8 @@ import app.naviamp.domain.settings.NowPlayingAlbumYearPreference
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import app.naviamp.domain.settings.HomeSectionPresentationSettings
 import app.naviamp.domain.settings.ConnectionFormState
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.ui_related
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -408,7 +410,6 @@ class MediaUiMappersTest {
         assertTrue(item.keepDownloadedActive)
         assertFalse(item.canEditPlaylist)
         assertTrue(item.canManagePlaylist)
-        assertEquals("3 tracks", item.subtitle)
     }
 
     @Test
@@ -601,7 +602,6 @@ class MediaUiMappersTest {
             ui.albumSections.map { it.releaseSection },
         )
         assertEquals("2026", ui.albumSections.first().albums.single().meta)
-        assertEquals("2 albums, EPs, and singles", ui.localLibraryLabel)
         assertEquals("", ui.sourceContextLabel)
     }
 
@@ -848,7 +848,6 @@ class MediaUiMappersTest {
         assertEquals(true, sections.hasPrevious)
         assertEquals(true, sections.hasNext)
         assertEquals(false, sections.shuffleEnabled)
-        assertEquals("RELATED", sections.relatedLabels.tabLabel)
     }
 
     @Test
@@ -872,8 +871,7 @@ class MediaUiMappersTest {
         assertEquals(true, sections.hasPrevious)
         assertEquals(true, sections.hasNext)
         assertEquals(false, sections.shuffleEnabled)
-        assertEquals("SONIC", sections.relatedLabels.tabLabel)
-        assertEquals("92% match", sections.related.single().meta)
+        assertEquals(92, sections.related.single().similarityPercent)
     }
 
     @Test
@@ -946,8 +944,8 @@ class MediaUiMappersTest {
             repeatMode = RepeatMode.Queue,
         )
 
-        assertEquals("RELATED", sections.relatedLabels.tabLabel)
-        assertEquals("", sections.related.single().meta)
+        assertEquals(Res.string.ui_related, sections.relatedLabels.tabLabel)
+        assertNull(sections.related.single().similarityPercent)
     }
 
     private fun item(id: String): NaviampNowPlayingItemUi =

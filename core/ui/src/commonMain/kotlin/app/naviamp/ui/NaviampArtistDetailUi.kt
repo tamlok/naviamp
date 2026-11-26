@@ -65,6 +65,7 @@ import app.naviamp.ui.generated.resources.discovery_find_in_aurral
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 
 @Composable
 internal fun albumReleaseSectionLabel(section: AlbumReleaseSection): String = when (section) {
@@ -107,10 +108,10 @@ fun NaviampArtistDetailContent(
         ) { colors ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
-                    Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+                    Icon(NaviampIcons.Back, contentDescription = stringResource(Res.string.common_back), tint = colors.primaryText)
                 }
                 Text(
-                    screen.selectedArtist?.title ?: "Artist",
+                    screen.selectedArtist?.title ?: stringResource(Res.string.tv_artist),
                     color = colors.primaryText,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -290,7 +291,7 @@ private fun ArtistDetailContent(
         sortOrder = albumSortOrder,
     )
     val displayedAlbums = visibleAlbumSections.flatMap { section -> section.albums }
-    val albumMenuItems: (SharedMediaItemUi) -> List<NaviampRowMenuItem> = { album ->
+    val albumMenuItems: @Composable (SharedMediaItemUi) -> List<NaviampRowMenuItem> = { album ->
         albumRowActions(
             canStartRadio = true,
             canDownload = true,
@@ -302,14 +303,14 @@ private fun ArtistDetailContent(
             val command = action.action.albumMediaCommandOrNull()
             when {
                 action.action == NaviampAction.AddToPlaylist -> NaviampRowMenuItem(
-                    action.label,
+                    action.localizedLabel(),
                     action.icon,
                     { albumForPlaylist = album },
                     action.enabled,
                 )
                 command != null -> {
                 NaviampRowMenuItem(
-                    action.label,
+                    action.localizedLabel(),
                     action.icon,
                     { onAlbumAction(NaviampArtistAlbumActionRequest(album, command)) },
                     action.enabled,
@@ -326,11 +327,11 @@ private fun ArtistDetailContent(
             background = headerBackground,
         ) { colors ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                NaviampTooltip("Back", colors) {
+                NaviampTooltip(stringResource(Res.string.common_back), colors) {
                     IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                         Icon(
                             NaviampIcons.Back,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(Res.string.common_back),
                             tint = colors.primaryText,
                             modifier = Modifier.size(18.dp),
                         )
@@ -379,7 +380,7 @@ private fun ArtistDetailContent(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        detail.localLibraryLabel.ifBlank { "${detail.albums.size} albums" },
+                        pluralStringResource(Res.plurals.media_artist_release_count, detail.localLibraryAlbumCount, detail.localLibraryAlbumCount),
                         color = colors.secondaryText,
                         fontSize = 13.sp,
                     )
@@ -387,29 +388,29 @@ private fun ArtistDetailContent(
                         colors = colors,
                         trailingToggle = naviampQuickAccessAction(detail.artist, QuickAccessKind.Artist),
                         actions = listOfNotNull(
-                            NaviampDetailAction("Play artist catalog", NaviampTransportIcons.Play, { onArtistPlay(displayedAlbums) }, displayedAlbums.isNotEmpty()),
-                            NaviampDetailAction("Start artist radio", NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_play_artist), NaviampTransportIcons.Play, { onArtistPlay(displayedAlbums) }, displayedAlbums.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_start_artist_radio), NaviampTransportIcons.Radio, onArtistRadio, detail.albums.isNotEmpty()),
                             NaviampDetailAction(
                                 stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
                                 NaviampIcons.KeepDownloaded, onKeepDownloaded, detail.albums.isNotEmpty() || keptDownloaded,
                                 selected = keptDownloaded,
                             ),
                             NaviampDetailAction(
-                                if (detail.artist.favoriteActive) "Remove artist favorite" else "Favorite artist",
+                                stringResource(if (detail.artist.favoriteActive) Res.string.ui_remove_artist_favorite else Res.string.ui_favorite_artist),
                                 if (detail.artist.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                                 onArtistFavoriteToggled,
                                 detail.artist.canFavorite,
                                 selected = detail.artist.favoriteActive,
                             ),
                             NaviampDetailAction(
-                                if (similarArtistsVisible) "Hide similar artists" else "Find similar artists",
+                                stringResource(if (similarArtistsVisible) Res.string.media_hide_similar_artists else Res.string.media_find_similar_artists),
                                 NaviampIcons.Artist,
                                 onFindSimilarArtists,
                                 selected = similarArtistsVisible,
                             ),
-                            NaviampDetailAction("Add artist to queue", NaviampIcons.Queue, onArtistAddToQueue, detail.albums.isNotEmpty()),
-                            NaviampDetailAction("Add artist to playlist", NaviampIcons.Playlist, { addArtistToPlaylistOpen = true }, detail.albums.isNotEmpty()),
-                            NaviampDetailAction("Shuffle artist catalog", NaviampTransportIcons.Shuffle, { onArtistShuffle(displayedAlbums) }, displayedAlbums.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_add_artist_queue), NaviampIcons.Queue, onArtistAddToQueue, detail.albums.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_add_artist_playlist), NaviampIcons.Playlist, { addArtistToPlaylistOpen = true }, detail.albums.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_shuffle_artist), NaviampTransportIcons.Shuffle, { onArtistShuffle(displayedAlbums) }, displayedAlbums.isNotEmpty()),
                             onFindInAurral?.let { NaviampDetailAction(stringResource(Res.string.discovery_find_in_aurral), NaviampIcons.Search, it) },
                         ),
                     )
@@ -429,12 +430,12 @@ private fun ArtistDetailContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Similar Artists".uppercase(),
+                        stringResource(Res.string.discovery_similar_artists).uppercase(),
                         color = colors.primaryText,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                     )
-                    MiniPlayerIconButton(colors, true, NaviampIcons.Artist, "Hide similar artists", onFindSimilarArtists)
+                    MiniPlayerIconButton(colors, true, NaviampIcons.Artist, stringResource(Res.string.media_hide_similar_artists), onFindSimilarArtists)
                 }
                 detail.similarArtistsStatus?.let {
                     Text(it, color = colors.secondaryText, fontSize = 11.sp)
@@ -460,9 +461,9 @@ private fun ArtistDetailContent(
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     if (detail.popularTracks.isNotEmpty()) {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            MiniPlayerIconButton(colors, true, NaviampTransportIcons.Play, "Play popular tracks", onPopularPlay)
-                            MiniPlayerIconButton(colors, true, NaviampTransportIcons.Radio, "Start popular tracks radio", onPopularRadio)
-                            MiniPlayerIconButton(colors, true, NaviampIcons.Queue, "Add popular tracks to queue", onPopularAddToQueue)
+                            MiniPlayerIconButton(colors, true, NaviampTransportIcons.Play, stringResource(Res.string.media_play_popular_tracks), onPopularPlay)
+                            MiniPlayerIconButton(colors, true, NaviampTransportIcons.Radio, stringResource(Res.string.media_start_popular_radio), onPopularRadio)
+                            MiniPlayerIconButton(colors, true, NaviampIcons.Queue, stringResource(Res.string.media_add_popular_queue), onPopularAddToQueue)
                         }
                     }
                     detail.popularTracksStatus?.let { status ->
@@ -674,7 +675,7 @@ internal fun ArtistSectionMediaCollection(
     mediaKind: SharedMediaItemKind,
     colors: NaviampColors,
     onSelected: (SharedMediaItemUi) -> Unit,
-    menuItems: (SharedMediaItemUi) -> List<NaviampRowMenuItem> = { emptyList() },
+    menuItems: @Composable (SharedMediaItemUi) -> List<NaviampRowMenuItem> = { emptyList() },
     onFavoriteToggled: ((SharedMediaItemUi) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
@@ -756,7 +757,7 @@ private fun SimilarArtistRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                artist.subtitle,
+                stringResource(if (opensLocalArtist) Res.string.media_artist_in_library else Res.string.media_view_browser),
                 color = colors.secondaryText,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -764,14 +765,14 @@ private fun SimilarArtistRow(
             )
         }
         if (!opensLocalArtist && externalUrl != null) {
-            NaviampTooltip("View in browser", colors) {
+            NaviampTooltip(stringResource(Res.string.media_view_browser), colors) {
                 IconButton(
                     onClick = { onSimilarArtistExternalSelected(externalUrl) },
                     modifier = Modifier.size(34.dp),
                 ) {
                     Icon(
                         imageVector = NaviampIcons.ExternalLink,
-                        contentDescription = "View in browser",
+                        contentDescription = stringResource(Res.string.media_view_browser),
                         tint = colors.secondaryText,
                         modifier = Modifier.size(18.dp),
                     )

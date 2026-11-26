@@ -1,5 +1,7 @@
 package app.naviamp.ui
 
+import app.naviamp.ui.generated.resources.*
+import org.jetbrains.compose.resources.StringResource
 import app.naviamp.domain.media.albumDiscSections
 
 import app.naviamp.domain.home.sortedFavoriteAlbums
@@ -51,7 +53,7 @@ import app.naviamp.domain.playback.SleepTimerRequest
 import app.naviamp.domain.playback.label
 import app.naviamp.domain.playback.playbackReplayGainAdjustment
 import app.naviamp.domain.playback.SleepTimerState
-import app.naviamp.domain.playback.sleepTimerDisplayLabel
+import app.naviamp.domain.playback.sleepTimerRemainingMillis
 import app.naviamp.domain.provider.isDiscoveryPreview
 import app.naviamp.domain.provider.MediaSearchResults
 import app.naviamp.domain.popular.SimilarArtistMatch
@@ -68,7 +70,8 @@ fun Artist.toSharedMediaItemUi(
     SharedMediaItemUi(
         id = id.value,
         title = name,
-        subtitle = "Artist",
+        subtitle = "",
+        subtitleResource = Res.string.tv_artist,
         coverArtUrl = coverArtUrl?.invoke(id.value),
         favoriteActive = favoritedAtIso8601 != null,
         canFavorite = canFavorite,
@@ -128,7 +131,7 @@ fun Playlist.toSharedMediaItemUi(
     SharedMediaItemUi(
         id = id,
         title = name,
-        subtitle = "$trackCount tracks",
+        subtitle = "",
         meta = durationSeconds?.durationLabel().orEmpty(),
         trackCount = trackCount,
         coverArtUrl = coverArtUrl(coverArtId),
@@ -143,7 +146,8 @@ fun InternetRadioStation.toSharedMediaItemUi(): SharedMediaItemUi =
     SharedMediaItemUi(
         id = id,
         title = name,
-        subtitle = homePageUrl ?: "Internet radio",
+        subtitle = homePageUrl.orEmpty(),
+        subtitleResource = if (homePageUrl == null) Res.string.tv_library_internet_radio else null,
         coverArtUrl = radioStationArtworkUrl(this),
     )
 
@@ -174,10 +178,8 @@ fun Genre.toSharedGenreMixItemUi(): SharedGenreMixItemUi =
     SharedGenreMixItemUi(
         id = name,
         title = name.trim(),
-        subtitle = listOfNotNull(
-            albumCount?.let { "$it albums" },
-            trackCount?.let { "$it tracks" },
-        ).joinToString(" - "),
+        albumCount = albumCount,
+        trackCount = trackCount,
     )
 
 fun genreDisplayTitle(name: String): String {
@@ -598,12 +600,14 @@ fun Track.toNowPlayingItemUi(
     id: String,
     coverArtUrl: String?,
     meta: String = durationSeconds?.durationLabel().orEmpty(),
+    similarityPercent: Int? = null,
 ): NaviampNowPlayingItemUi =
     NaviampNowPlayingItemUi(
         id = id,
         title = title,
         subtitle = artistName,
         meta = meta,
+        similarityPercent = similarityPercent,
         coverArtUrl = coverArtUrl,
         favoriteActive = favoritedAtIso8601 != null,
         hasAlbum = albumId != null,
@@ -615,12 +619,14 @@ fun List<Track>.toNowPlayingItemUis(
     coverArtUrl: (Track) -> String?,
     id: (index: Int, track: Track) -> String = { _, track -> track.id.value },
     meta: (Track) -> String = { track -> track.durationSeconds?.durationLabel().orEmpty() },
+    similarityPercent: (Track) -> Int? = { null },
 ): List<NaviampNowPlayingItemUi> =
     mapIndexed { index, track ->
         track.toNowPlayingItemUi(
             id = id(index, track),
             coverArtUrl = coverArtUrl(track),
             meta = meta(track),
+            similarityPercent = similarityPercent(track),
         )
     }
 
@@ -739,7 +745,8 @@ private fun nowPlayingSectionsUi(
         related = relatedTracks.toNowPlayingItemUis(
             coverArtUrl = coverArtUrl,
             id = relatedItemId,
-            meta = { track -> relatedTrackMeta(track, relatedTracksSource, relatedSimilarityByTrackId) },
+            meta = { "" },
+            similarityPercent = { track -> relatedTrackSimilarityPercent(track, relatedTracksSource, relatedSimilarityByTrackId) },
         ),
         relatedLabels = nowPlayingRelatedUiLabels(relatedTracksSource),
         hasPrevious = currentIndex > 0 || (repeatMode == RepeatMode.Queue && tracks.size > 1),
@@ -1056,9 +1063,11 @@ private fun resolveNowPlayingTargetTrack(
     }
 
 data class NowPlayingRelatedUiLabels(
-    val tabLabel: String,
-    val emptyLabel: String,
+    val tabLabel: StringResource,
+    val emptyLabel: StringResource,
 )
+
+fun remoteQueueRelatedEmptyLabel(): StringResource = Res.string.ui_remote_queue_related
 
 fun nowPlayingRelatedUiLabels(sonicSimilarityEnabled: Boolean): NowPlayingRelatedUiLabels =
     nowPlayingRelatedUiLabels(relatedTracksSourceForPreference(sonicSimilarityEnabled))
@@ -1066,32 +1075,32 @@ fun nowPlayingRelatedUiLabels(sonicSimilarityEnabled: Boolean): NowPlayingRelate
 fun nowPlayingRelatedUiLabels(source: RelatedTracksSource): NowPlayingRelatedUiLabels =
     when (source) {
         RelatedTracksSource.SonicSimilarity -> NowPlayingRelatedUiLabels(
-            tabLabel = "SONIC",
-            emptyLabel = "Sonic matches are not loaded.",
+            tabLabel = Res.string.ui_sonic,
+            emptyLabel = Res.string.ui_sonic_matches_not_loaded,
         )
         RelatedTracksSource.None,
         RelatedTracksSource.LocalLibrary,
         RelatedTracksSource.ProviderRadio,
         -> NowPlayingRelatedUiLabels(
-            tabLabel = "RELATED",
-            emptyLabel = "Related tracks are not loaded.",
+            tabLabel = Res.string.ui_related,
+            emptyLabel = Res.string.ui_related_tracks_not_loaded,
         )
     }
 
 private fun relatedTracksSourceForPreference(sonicSimilarityEnabled: Boolean): RelatedTracksSource =
     if (sonicSimilarityEnabled) RelatedTracksSource.SonicSimilarity else RelatedTracksSource.LocalLibrary
 
-private fun relatedTrackMeta(
+private fun relatedTrackSimilarityPercent(
     track: Track,
     source: RelatedTracksSource,
     similarityByTrackId: Map<TrackId, Double>,
-): String =
+): Int? =
     if (source == RelatedTracksSource.SonicSimilarity) {
         similarityByTrackId[track.id]?.let { similarity ->
-            "${(similarity.coerceIn(0.0, 1.0) * 100).toInt()}% match"
-        }.orEmpty()
+            (similarity.coerceIn(0.0, 1.0) * 100).toInt()
+        }
     } else {
-        ""
+        null
     }
 
 data class NowPlayingTrackCapabilities(
@@ -1137,9 +1146,6 @@ fun nowPlayingTrackCapabilities(
         lyricsAvailable = !isLiveStream && !isPreview,
     )
 
-fun nowPlayingEmbeddedTagRows(tags: List<Pair<String, String>>?): List<Pair<String, String>> =
-    tags ?: listOf("Status" to "Loading from cached audio")
-
 fun Track.compactFavoriteRatingLabel(): String? {
     val parts = listOfNotNull(
         favoritedAtIso8601?.let { "♥" },
@@ -1169,74 +1175,76 @@ fun Track.toNowPlayingDetailSections(
     streamQuality: StreamQuality? = null,
     replayGainInspectorEnabled: Boolean = false,
     replayGainMode: ReplayGainMode = ReplayGainMode.Off,
+    embeddedTagsLoading: Boolean = false,
 ): List<NaviampDetailSectionUi> =
     buildList {
         add(
             NaviampDetailSectionUi(
-                title = "Song",
+                titleResource = Res.string.ui_song,
                 rows = listOfNotNull(
-                    "Title" to title,
-                    "Artist" to artistName,
-                    "Album" to albumTitle.orUnknown(),
-                    albumReleaseYear?.let { "Year" to it.toString() },
-                    durationSeconds?.let { "Duration" to it.durationLabel() },
+                    Res.string.tv_album_sort_title detailValue title,
+                    Res.string.tv_artist detailValue artistName,
+                    Res.string.tv_album detailValue albumTitle,
+                    albumReleaseYear?.let { Res.string.ui_year detailValue it.toString() },
+                    durationSeconds?.let { Res.string.ui_duration detailValue it.durationLabel() },
                 ),
             ),
         )
         streamQuality?.let { quality ->
             add(
                 NaviampDetailSectionUi(
-                    title = "Stream",
+                    titleResource = Res.string.ui_stream,
                     rows = listOf(
-                        "Transcoded" to if (quality is StreamQuality.Transcoded) "Yes" else "No",
-                        "Quality" to quality.label(),
+                        Res.string.ui_transcoded detailValue if (quality is StreamQuality.Transcoded) Res.string.smart_playlist_summary_yes else Res.string.smart_playlist_summary_no,
+                        streamQualityDetailRow(quality),
                     ),
                 ),
             )
         }
-        if (embeddedTags != null) {
+        if (embeddedTags != null || embeddedTagsLoading) {
             add(
                 NaviampDetailSectionUi(
-                    title = "Embedded tags",
+                    titleResource = Res.string.ui_embedded_tags,
                     rows = when {
-                        embeddedTags.isEmpty() -> listOf("Status" to "No readable ID3/Vorbis tags found")
-                        else -> embeddedTags
+                        embeddedTags == null -> listOf(Res.string.tv_status detailValue Res.string.ui_loading_cached_audio)
+                        embeddedTags.isEmpty() -> listOf(Res.string.tv_status detailValue Res.string.ui_no_readable_id3_vorbis_tags_found)
+                        else -> embeddedTags.map { (key, value) -> NaviampDetailRowUi(null, value, metadataKey = key) }
                     },
                 ),
             )
         }
         add(
             NaviampDetailSectionUi(
-                title = "File",
+                titleResource = Res.string.ui_file,
                 rows = listOfNotNull(
-                    "Codec" to audioInfo?.codec.orUnknown(),
-                    audioInfo?.bitrateKbps?.let { "Bitrate" to "$it kbps" },
-                    audioInfo?.samplingRateHz?.let { "Sample rate" to "$it Hz" },
-                    audioInfo?.bitDepth?.let { "Bit depth" to "$it bit" },
-                    "Content type" to audioInfo?.contentType.orUnknown(),
+                    Res.string.settings_quality_codec_title detailValue audioInfo?.codec,
+                    audioInfo?.bitrateKbps?.let { Res.string.settings_quality_bitrate_title detailValue "$it kbps" },
+                    audioInfo?.samplingRateHz?.let { Res.string.ui_sample_rate detailValue "$it Hz" },
+                    audioInfo?.bitDepth?.let { Res.string.ui_bit_depth detailValue "$it bit" },
+                    Res.string.stream_details_content_type detailValue audioInfo?.contentType,
                 ),
             ),
         )
         add(
             NaviampDetailSectionUi(
-                title = "Library",
+                titleResource = Res.string.library_title,
                 rows = listOfNotNull(
-                    "Track ID" to id.value,
-                    artistId?.let { "Artist ID" to it.value },
-                    albumId?.let { "Album ID" to it.value },
-                    "Favorite" to if (favoritedAtIso8601 != null) "Yes" else "No",
-                    userRating?.let { "Rating" to it.ratingLabel() },
-                    bpm?.let { "BPM" to it.toString() },
-                    moods.takeIf { it.isNotEmpty() }?.let { "Mood" to it.joinToString(", ") },
-                    playCount?.let { "Play count" to it.toString() },
-                    lastPlayedAtIso8601?.let { "Last played" to it },
+                    Res.string.ui_track_id detailValue id.value,
+                    artistId?.let { Res.string.ui_artist_id detailValue it.value },
+                    albumId?.let { Res.string.ui_album_id detailValue it.value },
+                    Res.string.tv_favorite detailValue if (favoritedAtIso8601 != null) Res.string.smart_playlist_summary_yes else Res.string.smart_playlist_summary_no,
+                    userRating?.let { Res.string.ui_rating detailValue it.ratingLabel() },
+                    bpm?.let { Res.string.smart_playlist_unit_bpm detailValue it.toString() },
+                    moods.takeIf { it.isNotEmpty() }?.let { Res.string.ui_mood detailValue it.joinToString(", ") },
+                    playCount?.let { Res.string.ui_play_count detailValue it.toString() },
+                    lastPlayedAtIso8601?.let { Res.string.ui_last_played detailValue it },
                 ),
             ),
         )
         if (replayGainInspectorEnabled && replayGainMode != ReplayGainMode.Off) {
             add(
                 NaviampDetailSectionUi(
-                    title = "ReplayGain inspector",
+                    titleResource = Res.string.ui_replaygain_inspector,
                     rows = replayGainInspectorRows(replayGainMode, embeddedTags),
                 ),
             )
@@ -1244,12 +1252,12 @@ fun Track.toNowPlayingDetailSections(
         if (!replayGainInspectorEnabled) replayGain?.let { replayGain ->
             add(
                 NaviampDetailSectionUi(
-                    title = "Replay gain",
+                    titleResource = Res.string.settings_replay_gain_title,
                     rows = listOfNotNull(
-                        replayGain.trackGainDb?.let { "Track gain" to "${it.twoDecimalLabel()} dB" },
-                        replayGain.albumGainDb?.let { "Album gain" to "${it.twoDecimalLabel()} dB" },
-                        replayGain.trackPeak?.let { "Track peak" to it.sixDecimalLabel() },
-                        replayGain.albumPeak?.let { "Album peak" to it.sixDecimalLabel() },
+                        replayGain.trackGainDb?.let { Res.string.ui_track_gain detailValue "${it.twoDecimalLabel()} dB" },
+                        replayGain.albumGainDb?.let { Res.string.ui_album_gain detailValue "${it.twoDecimalLabel()} dB" },
+                        replayGain.trackPeak?.let { Res.string.ui_track_peak detailValue it.sixDecimalLabel() },
+                        replayGain.albumPeak?.let { Res.string.ui_album_peak detailValue it.sixDecimalLabel() },
                     ),
                 ),
             )
@@ -1259,7 +1267,7 @@ fun Track.toNowPlayingDetailSections(
 private fun Track.replayGainInspectorRows(
     replayGainMode: ReplayGainMode,
     embeddedTags: List<Pair<String, String>>?,
-): List<Pair<String, String>> {
+): List<NaviampDetailRowUi> {
     val source = replayGain
         ?.let { PlaybackReplayGain(it, ReplayGainSource.Provider) }
         ?: embeddedTags?.replayGainFromTagRows()
@@ -1273,16 +1281,25 @@ private fun Track.replayGainInspectorRows(
         ),
     )
     return buildList {
-        add("Selected mode" to replayGainMode.displayName)
-        add("Source" to (source?.source?.displayName ?: "No ReplayGain metadata"))
-        add("Active gain" to (adjustment.gainDb?.let { "${it.twoDecimalLabel()} dB" } ?: "Not applied"))
-        adjustment.peak?.let { add("Active peak" to it.sixDecimalLabel()) }
-        add("Volume factor" to adjustment.volumeFactor.toDouble().sixDecimalLabel())
-        if (adjustment.clippingPrevented) add("Clipping prevention" to "Reduced gain")
-        source?.replayGain?.trackGainDb?.let { add("Track gain" to "${it.twoDecimalLabel()} dB") }
-        source?.replayGain?.albumGainDb?.let { add("Album gain" to "${it.twoDecimalLabel()} dB") }
-        source?.replayGain?.trackPeak?.let { add("Track peak" to it.sixDecimalLabel()) }
-        source?.replayGain?.albumPeak?.let { add("Album peak" to it.sixDecimalLabel()) }
+        add(Res.string.ui_selected_mode detailValue when (replayGainMode) {
+            ReplayGainMode.Off -> Res.string.common_off
+            ReplayGainMode.Track -> Res.string.smart_playlist_field_category_track
+            ReplayGainMode.Album -> Res.string.tv_album
+        })
+        add(Res.string.settings_category_source_title detailValue when (source?.source) {
+            ReplayGainSource.Provider -> Res.string.ui_provider_metadata
+            ReplayGainSource.LocalTags -> Res.string.ui_local_file_tags
+            null -> Res.string.ui_no_replaygain_metadata
+        })
+        add(adjustment.gainDb?.let { Res.string.ui_active_gain detailValue "${it.twoDecimalLabel()} dB" }
+            ?: (Res.string.ui_active_gain detailValue Res.string.ui_not_applied))
+        adjustment.peak?.let { add(Res.string.ui_active_peak detailValue it.sixDecimalLabel()) }
+        add(Res.string.ui_volume_factor detailValue adjustment.volumeFactor.toDouble().sixDecimalLabel())
+        if (adjustment.clippingPrevented) add(Res.string.ui_clipping_prevention detailValue Res.string.ui_reduced_gain)
+        source?.replayGain?.trackGainDb?.let { add(Res.string.ui_track_gain detailValue "${it.twoDecimalLabel()} dB") }
+        source?.replayGain?.albumGainDb?.let { add(Res.string.ui_album_gain detailValue "${it.twoDecimalLabel()} dB") }
+        source?.replayGain?.trackPeak?.let { add(Res.string.ui_track_peak detailValue it.sixDecimalLabel()) }
+        source?.replayGain?.albumPeak?.let { add(Res.string.ui_album_peak detailValue it.sixDecimalLabel()) }
     }
 }
 
@@ -1336,8 +1353,8 @@ data class NowPlayingTrackUiConfig(
     val backTo: List<NaviampNowPlayingItemUi> = emptyList(),
     val upNext: List<NaviampNowPlayingItemUi> = emptyList(),
     val related: List<NaviampNowPlayingItemUi> = emptyList(),
-    val relatedTabLabel: String = "RELATED",
-    val relatedEmptyLabel: String = "Related tracks are not loaded.",
+    val relatedTabLabel: StringResource = Res.string.ui_related,
+    val relatedEmptyLabel: StringResource = Res.string.ui_related_tracks_not_loaded,
 )
 
 data class NowPlayingRadioUiConfig(
@@ -1424,6 +1441,7 @@ fun Track.toNowPlayingUi(config: NowPlayingTrackUiConfig): NowPlayingUi {
         menuEnabled = config.menuEnabled,
         detailSections = toNowPlayingDetailSections(
             embeddedTags = config.embeddedTags,
+            embeddedTagsLoading = config.embeddedTags == null,
             streamQuality = config.streamQuality,
             replayGainInspectorEnabled = config.replayGainInspectorEnabled,
             replayGainMode = config.replayGainMode,
@@ -1542,7 +1560,7 @@ fun Track.toTrackNowPlayingUi(
             lyricsAvailableTiming = lyricsAvailableTiming,
             menuEnabled = true,
             streamQuality = streamQuality,
-            embeddedTags = nowPlayingEmbeddedTagRows(embeddedTags),
+            embeddedTags = embeddedTags,
             replayGainInspectorEnabled = replayGainInspectorEnabled,
             replayGainMode = replayGainMode,
             playlistChoices = playlistChoices,
@@ -1561,7 +1579,8 @@ fun InternetRadioStation.toNowPlayingUi(config: NowPlayingRadioUiConfig): NowPla
     return NowPlayingUi(
         id = id,
         title = streamTitle ?: name,
-        subtitle = if (streamTitle == null) "Internet radio" else name,
+        subtitle = if (streamTitle == null) "" else name,
+        subtitleResource = if (streamTitle == null) Res.string.tv_library_internet_radio else null,
         stateLabel = config.stateLabel,
         coverArtUrl = config.coverArtUrl,
         isLive = true,
@@ -1615,14 +1634,16 @@ fun InternetRadioStation.toRadioNowPlayingUi(
 
 fun SleepTimerState?.toNaviampSleepTimerUi(nowEpochMillis: Long): NaviampSleepTimerUi =
     this?.let { timer ->
-        NaviampSleepTimerUi(active = true, label = sleepTimerDisplayLabel(timer, nowEpochMillis))
+        NaviampSleepTimerUi(active = true, target = timer.target, remainingMillis = sleepTimerRemainingMillis(timer, nowEpochMillis))
     } ?: NaviampSleepTimerUi()
 
 fun Track?.toMiniNowPlayingUi(config: MiniNowPlayingUiConfig): NowPlayingUi =
     NowPlayingUi(
         id = this?.id?.value.orEmpty(),
-        title = this?.title ?: "Queue is empty",
-        subtitle = this?.artistName ?: "Nothing Playing",
+        title = this?.title.orEmpty(),
+        titleResource = if (this == null) Res.string.mini_player_empty_subtitle else null,
+        subtitle = this?.artistName.orEmpty(),
+        subtitleResource = if (this == null) Res.string.mini_player_empty_title else null,
         stateLabel = config.stateLabel,
         coverArtUrl = config.albumCoverArtUrl ?: config.coverArtUrl,
         trackCoverArtUrl = config.coverArtUrl,
@@ -1638,7 +1659,7 @@ fun Playlist.toPlaylistChoiceUi(): NaviampPlaylistChoiceUi =
     NaviampPlaylistChoiceUi(
         id = id,
         name = name,
-        subtitle = "$trackCount tracks",
+        trackCount = trackCount,
     )
 
 fun Playlist.toSharedPlaylistDetailUi(
@@ -1705,7 +1726,8 @@ fun AlbumDetails.toSharedAlbumDetailUi(
             SharedMediaItemUi(
                 id = artistId.value,
                 title = credit.name,
-                subtitle = "Artist",
+                subtitle = "",
+        subtitleResource = Res.string.tv_artist,
             )
         } ?: nameOnlyArtistCredit(credit.name).toSharedMediaItemUi()
     }
@@ -1777,7 +1799,7 @@ fun ArtistDetails.toSharedArtistDetailUi(
         appearanceTracks = appearanceTracks.map { it.toSharedTrackRowUi(coverArtUrl) },
         appearanceLoadFailed = appearanceLoadFailed,
         appearancesTruncated = appearancesTruncated,
-        localLibraryLabel = artistLocalLibraryLabel(albums.size),
+        localLibraryAlbumCount = albums.size,
         biography = info?.biography.takeIf { showArtistInformation },
         popularTracks = if (showArtistTopTracks) popularTracks.take(app.naviamp.domain.settings.normalizedArtistTopTracksLimit(artistTopTracksLimit))
             .map { it.toSharedTrackRowUi(coverArtUrl).copy(hasArtist = false) } else emptyList(),
@@ -1788,14 +1810,10 @@ fun ArtistDetails.toSharedArtistDetailUi(
         similarArtistsExpanded = similarArtistsExpanded,
     )
 
-private fun artistLocalLibraryLabel(albumCount: Int): String =
-    if (albumCount == 1) "1 album, EP, or single" else "$albumCount albums, EPs, and singles"
-
 fun SimilarArtistMatch.toSharedSimilarArtistUi(): SharedSimilarArtistUi =
     SharedSimilarArtistUi(
         id = candidate.sourceArtistId,
         title = candidate.name,
-        subtitle = if (matchedArtist != null) "In library" else "View in browser",
         imageUrl = candidate.imageUrl,
         localArtistId = matchedArtist?.id?.value,
         externalUrl = candidate.externalUrl,
@@ -1816,7 +1834,8 @@ fun InternetRadioStation.toNowPlayingStationUi(): NaviampNowPlayingItemUi =
     NaviampNowPlayingItemUi(
         id = id,
         title = name,
-        subtitle = homePageUrl ?: "Internet radio",
+        subtitle = homePageUrl.orEmpty(),
+        subtitleResource = if (homePageUrl == null) Res.string.tv_library_internet_radio else null,
         coverArtUrl = radioStationArtworkUrl(this),
         mediaKind = SharedMediaItemKind.RadioStation,
     )
@@ -2002,5 +2021,18 @@ private fun Int.sampleRateKhzLabel(): String {
     }
 }
 
-private fun String?.orUnknown(): String =
-    this?.takeIf { it.isNotBlank() } ?: "Unknown"
+private infix fun StringResource.detailValue(value: String?): NaviampDetailRowUi =
+    NaviampDetailRowUi(this, value.orEmpty(), valueResource = if (value == null) Res.string.common_unknown else null)
+
+private infix fun StringResource.detailValue(valueResource: StringResource): NaviampDetailRowUi =
+    NaviampDetailRowUi(this, "", valueResource = valueResource)
+
+private fun streamQualityDetailRow(quality: StreamQuality): NaviampDetailRowUi = when (quality) {
+    StreamQuality.Original -> NaviampDetailRowUi(
+        Res.string.settings_playback_quality_title, "", valueResource = Res.string.ui_original,
+    )
+    is StreamQuality.Transcoded -> NaviampDetailRowUi(
+        Res.string.settings_playback_quality_title, "", valueResource = Res.string.ui_transcode_quality,
+        valueArguments = listOf(quality.codec.name.uppercase(), quality.bitrateKbps),
+    )
+}

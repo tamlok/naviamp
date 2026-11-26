@@ -318,42 +318,39 @@ object SmartPlaylistRefreshDelay {
     }
 }
 
+enum class SmartPlaylistTemplateId {
+    RecentlyPlayed, NeverPlayed, HighRated, FavoriteAlbums, RecentlyAddedButUnplayed, LongUnheardFavorites,
+}
+
 data class SmartPlaylistTemplate(
-    val title: String,
-    val description: String,
+    val id: SmartPlaylistTemplateId,
     val definition: SmartPlaylistDefinition,
 )
 
 object SmartPlaylistTemplates {
     val recommended: List<SmartPlaylistTemplate> = listOf(
         SmartPlaylistTemplate(
-            title = "Recently Played",
-            description = "Tracks played in the last 30 days.",
+            id = SmartPlaylistTemplateId.RecentlyPlayed,
             definition = recentlyPlayed(),
         ),
         SmartPlaylistTemplate(
-            title = "Never Played",
-            description = "Tracks with zero plays in random order.",
+            id = SmartPlaylistTemplateId.NeverPlayed,
             definition = neverPlayed(),
         ),
         SmartPlaylistTemplate(
-            title = "High Rated",
-            description = "Four-star-or-better tracks.",
+            id = SmartPlaylistTemplateId.HighRated,
             definition = highRated(),
         ),
         SmartPlaylistTemplate(
-            title = "Favorite Albums",
-            description = "Tracks from favorited albums.",
+            id = SmartPlaylistTemplateId.FavoriteAlbums,
             definition = favoriteAlbums(),
         ),
         SmartPlaylistTemplate(
-            title = "Recently Added but Unplayed",
-            description = "New library additions that have not been played yet.",
+            id = SmartPlaylistTemplateId.RecentlyAddedButUnplayed,
             definition = recentlyAddedButUnplayed(),
         ),
         SmartPlaylistTemplate(
-            title = "Long-Unheard Favorites",
-            description = "Loved tracks not played in the last six months.",
+            id = SmartPlaylistTemplateId.LongUnheardFavorites,
             definition = longUnheardFavorites(),
         ),
     )

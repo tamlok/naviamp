@@ -46,6 +46,8 @@ import app.naviamp.ui.generated.resources.settings_language_subtitle
 import app.naviamp.ui.generated.resources.settings_language_title
 import app.naviamp.ui.generated.resources.settings_selected_label
 import app.naviamp.ui.generated.resources.settings_title
+import app.naviamp.ui.generated.resources.tv_controllers
+import app.naviamp.ui.generated.resources.connect_devices_description
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.runtime.Composable
@@ -135,6 +137,10 @@ private val NaviampResourceLanguagePack = NaviampLanguagePack(
     settingsLanguageSpanishSubtitle = Res.string.settings_language_spanish_subtitle,
     selectedLabel = Res.string.settings_selected_label,
     categories = mapOf(
+        NaviampSettingsCategory.Controllers to NaviampSettingsCategoryText(
+            Res.string.tv_controllers,
+            Res.string.connect_devices_description,
+        ),
         NaviampSettingsCategory.Source to NaviampSettingsCategoryText(
             Res.string.settings_category_source_title,
             Res.string.settings_category_source_subtitle,

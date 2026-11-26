@@ -46,7 +46,14 @@ internal fun playlistTrackSongActions(track: SharedTrackRowUi, capabilities: Pla
         hasAlbum = track.hasAlbum,
         hasArtist = track.hasArtist,
         canShowDetails = track.detailSections.isNotEmpty(),
-    ).filter { it.action != NaviampAction.PlayTrackRadioNext && it.action != NaviampAction.AddTrackRadioToQueue }
+    ).mapNotNull { spec ->
+        when (spec.action) {
+            NaviampAction.PlayTrackRadioNext, NaviampAction.AddTrackRadioToQueue -> null
+            NaviampAction.AddToPlaylist -> spec.copy(labelResource = Res.string.playlist_item_add_to_playlist)
+            NaviampAction.AddToQueue -> spec.copy(labelResource = Res.string.playlist_item_add_queue)
+            else -> spec
+        }
+    }
         .sortedBy { when (it.action) {
             NaviampAction.AddToPlaylist -> 0
             NaviampAction.PlayNextTrack -> 1
@@ -82,20 +89,20 @@ internal fun PlaylistTrackOverflowMenu(
         NaviampRowMenuItem(label, icon, { onEdit(spec.action) }, spec.enabled)
     }
     val songItems = playlistTrackSongActions(track, capabilities).map { spec ->
-        val (label, action) = when (spec.action) {
-            NaviampAction.AddToPlaylist -> stringResource(Res.string.playlist_item_add_to_playlist) to SharedTrackRowAction.AddToPlaylist
-            NaviampAction.PlayNextTrack -> stringResource(Res.string.action_play_immediately_next) to SharedTrackRowAction.PlayNextTrack
-            NaviampAction.PlayNext -> stringResource(Res.string.action_play_after_current_group) to SharedTrackRowAction.PlayNext
-            NaviampAction.AddToQueue -> stringResource(Res.string.playlist_item_add_queue) to SharedTrackRowAction.AddToQueue
-            NaviampAction.StartTrackRadio -> stringResource(Res.string.tv_start_radio) to SharedTrackRowAction.StartRadio
-            NaviampAction.ToggleFavorite -> stringResource(if (track.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite) to SharedTrackRowAction.ToggleFavorite
-            NaviampAction.DownloadTrack -> stringResource(Res.string.playlist_item_download) to SharedTrackRowAction.Download
-            NaviampAction.GoToAlbum -> stringResource(Res.string.playlist_item_go_album) to SharedTrackRowAction.GoToAlbum
-            NaviampAction.GoToArtist -> stringResource(Res.string.playlist_item_go_artist) to SharedTrackRowAction.GoToArtist
-            else -> stringResource(Res.string.playlist_item_details) to null
+        val action = when (spec.action) {
+            NaviampAction.AddToPlaylist -> SharedTrackRowAction.AddToPlaylist
+            NaviampAction.PlayNextTrack -> SharedTrackRowAction.PlayNextTrack
+            NaviampAction.PlayNext -> SharedTrackRowAction.PlayNext
+            NaviampAction.AddToQueue -> SharedTrackRowAction.AddToQueue
+            NaviampAction.StartTrackRadio -> SharedTrackRowAction.StartRadio
+            NaviampAction.ToggleFavorite -> SharedTrackRowAction.ToggleFavorite
+            NaviampAction.DownloadTrack -> SharedTrackRowAction.Download
+            NaviampAction.GoToAlbum -> SharedTrackRowAction.GoToAlbum
+            NaviampAction.GoToArtist -> SharedTrackRowAction.GoToArtist
+            else -> null
         }
         NaviampRowMenuItem(
-            label = label,
+            label = spec.localizedLabel(),
             icon = if (spec.action == NaviampAction.ToggleFavorite && track.favoriteActive) NaviampTransportIcons.HeartFilled else spec.icon,
             onClick = {
                 when (action) {

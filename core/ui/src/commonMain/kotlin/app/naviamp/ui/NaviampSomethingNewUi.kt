@@ -18,7 +18,11 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.naviamp.domain.home.HomeStationLibrary
+import app.naviamp.domain.home.HomeStationRandomAlbum
 import app.naviamp.domain.home.HomeStationSomethingNew
+import app.naviamp.domain.home.parseHomeDecadeStationId
+import app.naviamp.domain.home.parseHomeGenreStationId
 import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -92,21 +96,72 @@ fun NaviampSomethingNewNoticeBar(
     }
 }
 
-private val SharedHomeCollectionItemUi.isSomethingNewStation: Boolean
-    get() = action == SharedHomeCollectionItemAction.SelectStation && station?.id == HomeStationSomethingNew
-
 @Composable
 internal fun SharedHomeCollectionItemUi.displayTitle(): String =
-    when {
-        action == SharedHomeCollectionItemAction.OpenFavoriteSongs -> stringResource(Res.string.favorite_songs_title)
-        isSomethingNewStation -> stringResource(Res.string.something_new_title)
+    when (action) {
+        SharedHomeCollectionItemAction.OpenFavoriteSongs -> stringResource(Res.string.favorite_songs_title)
+        SharedHomeCollectionItemAction.SelectMixBuilder -> mixBuilder?.localizedTitle() ?: title
+        SharedHomeCollectionItemAction.SelectStation -> station?.localizedTitle() ?: title
         else -> title
     }
 
 @Composable
 internal fun SharedHomeCollectionItemUi.displaySubtitle(): String =
-    when {
-        action == SharedHomeCollectionItemAction.OpenFavoriteSongs -> stringResource(Res.string.favorite_songs_subtitle)
-        isSomethingNewStation -> stringResource(Res.string.something_new_subtitle)
+    when (action) {
+        SharedHomeCollectionItemAction.OpenFavoriteSongs -> stringResource(Res.string.favorite_songs_subtitle)
+        SharedHomeCollectionItemAction.SelectMixBuilder -> mixBuilder?.localizedSubtitle() ?: subtitle
+        SharedHomeCollectionItemAction.SelectStation -> station?.localizedSubtitle() ?: subtitle
         else -> subtitle
     }
+
+@Composable
+internal fun SharedMixBuilderUi.localizedTitle(): String = when (id) {
+    "artist" -> stringResource(Res.string.mix_artist_builder_title)
+    "album" -> stringResource(Res.string.mix_album_builder_title)
+    "genre" -> stringResource(Res.string.mix_genre_builder_title)
+    "sonic-path" -> stringResource(Res.string.sonic_path_title)
+    "sonic-mix" -> stringResource(Res.string.nav_sonic_mix)
+    else -> title
+}
+
+@Composable
+internal fun SharedMixBuilderUi.localizedSubtitle(): String = when (id) {
+    "artist" -> stringResource(Res.string.mix_artist_builder_description)
+    "album" -> stringResource(Res.string.mix_album_builder_description)
+    "genre" -> stringResource(Res.string.mix_genre_builder_description)
+    "sonic-path" -> stringResource(Res.string.sonic_path_builder_description)
+    "sonic-mix" -> stringResource(Res.string.sonic_mix_builder_description)
+    else -> subtitle
+}
+
+@Composable
+private fun SharedHomeStationUi.localizedTitle(): String = when (id) {
+    HomeStationSomethingNew -> stringResource(Res.string.something_new_title)
+    HomeStationLibrary -> stringResource(Res.string.home_station_library_title)
+    HomeStationRandomAlbum -> stringResource(Res.string.home_station_random_album_title)
+    else -> {
+        val genre = parseHomeGenreStationId(id)
+        val decade = if (genre == null) parseHomeDecadeStationId(id) else null
+        when {
+            genre != null -> stringResource(Res.string.home_station_genre_title, genre)
+            decade != null -> stringResource(Res.string.home_station_decade_title, decade.fromYear, decade.toYear)
+            else -> title
+        }
+    }
+}
+
+@Composable
+private fun SharedHomeStationUi.localizedSubtitle(): String = when (id) {
+    HomeStationSomethingNew -> stringResource(Res.string.something_new_subtitle)
+    HomeStationLibrary -> stringResource(Res.string.home_station_library_description)
+    HomeStationRandomAlbum -> stringResource(Res.string.home_station_random_album_description)
+    else -> {
+        val genre = parseHomeGenreStationId(id)
+        val decade = if (genre == null) parseHomeDecadeStationId(id) else null
+        when {
+            genre != null -> stringResource(Res.string.home_station_genre_description, genre)
+            decade != null -> stringResource(Res.string.home_station_decade_description, decade.fromYear, decade.toYear)
+            else -> subtitle
+        }
+    }
+}

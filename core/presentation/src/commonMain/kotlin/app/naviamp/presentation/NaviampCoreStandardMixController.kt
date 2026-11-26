@@ -621,12 +621,9 @@ internal fun genreTreeRows(
         rows += SharedGenreMixTreeRowUi(
             ontologyId = node.id,
             title = genreDisplayTitle(node.canonicalName),
-            subtitle = genreGroupSubtitle(
-                selectableGenreCount = providerGenres.size,
-                directProviderNames = node.libraryGenreNames,
-                trackCount = node.trackCount,
-                albumCount = node.albumCount,
-            ),
+            directProviderNames = node.libraryGenreNames,
+            trackCount = node.trackCount,
+            albumCount = node.albumCount,
             depth = depth,
             expandable = node.childIds.isNotEmpty(),
             expanded = node.id in expandedIds,
@@ -648,17 +645,3 @@ internal fun genreTreeRows(
     return rows
 }
 
-private fun genreGroupSubtitle(
-    selectableGenreCount: Int,
-    directProviderNames: List<String>,
-    trackCount: Int?,
-    albumCount: Int?,
-): String = listOfNotNull(
-        when {
-            selectableGenreCount > 1 -> "$selectableGenreCount library genres"
-            directProviderNames.size > 1 -> directProviderNames.joinToString(" · ")
-            else -> null
-        },
-        trackCount?.let { "$it ${if (it == 1) "track" else "tracks"}" },
-        albumCount?.let { "$it ${if (it == 1) "album" else "albums"}" },
-    ).joinToString(" · ")

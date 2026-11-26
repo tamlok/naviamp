@@ -19,7 +19,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import app.naviamp.ui.generated.resources.Res
-import app.naviamp.ui.generated.resources.update_available_title
+import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 
 data class NaviampAvailableUpdate(
@@ -79,7 +79,7 @@ fun NaviampApplicationUpdateEffect(
             onDismissRequest = { availableUpdate = null },
             title = { Text(stringResource(Res.string.update_available_title)) },
             text = {
-                Text("${update.name} is available. You are currently running $currentVersion.")
+                Text(stringResource(Res.string.update_available_message, update.name, currentVersion))
             },
             confirmButton = {
                 NaviampTextButton(
@@ -88,12 +88,12 @@ fun NaviampApplicationUpdateEffect(
                         uriHandler.openUri(update.releaseUrl)
                     },
                 ) {
-                    Text("View Release")
+                    Text(stringResource(Res.string.update_view_release))
                 }
             },
             dismissButton = {
                 NaviampTextButton(onClick = { availableUpdate = null }) {
-                    Text("Later")
+                    Text(stringResource(Res.string.update_later))
                 }
             },
         )

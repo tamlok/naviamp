@@ -116,6 +116,7 @@ internal fun NaviampCompactSearchField(
     showClear: Boolean = value.isNotBlank(),
     modifier: Modifier = Modifier,
 ) {
+    val clearSearchLabel = stringResource(Res.string.media_clear_search)
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
@@ -153,7 +154,7 @@ internal fun NaviampCompactSearchField(
                         tint = colors.secondaryText,
                         modifier = Modifier
                             .size(18.dp)
-                            .semantics { contentDescription = "Clear search" }
+                            .semantics { contentDescription = clearSearchLabel }
                             .clickable(onClick = onClear),
                     )
                 }

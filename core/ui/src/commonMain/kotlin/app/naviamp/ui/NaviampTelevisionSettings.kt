@@ -1220,7 +1220,7 @@ private fun TelevisionDiagnosticsSettings(
         uiState.cache.diagnostics.sections.forEachIndexed { sectionIndex, section ->
             items(section.rows, key = { row -> "$sectionIndex:${row.first}" }) { row ->
                 TelevisionSettingsInfo(
-                    localizedDiagnosticText(row.first),
+                    localizedDiagnosticText(row.first, isLabel = true),
                     localizedDiagnosticText(row.second),
                     colors,
                 )

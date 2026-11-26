@@ -36,6 +36,7 @@ import app.naviamp.domain.connect.NaviampConnectStationRetry
 import app.naviamp.domain.radio.GeneratedRadioStation
 import app.naviamp.domain.radio.GeneratedRadioStatus
 import app.naviamp.ui.GeneratedRadioAction
+import app.naviamp.ui.remoteQueueRelatedEmptyLabel
 
 internal fun NaviampConnectTargetSnapshot.toRemoteNowPlayingUi(
     targetName: String,
@@ -103,7 +104,7 @@ internal fun NaviampConnectTargetSnapshot.toRemoteNowPlayingUi(
         upNext = if (queue.currentIndex < 0) emptyList() else {
             ((queue.currentIndex + 1)..queue.occurrences.lastIndex).map(::item)
         },
-        relatedEmptyLabel = "Related tracks stay on the TV queue.",
+        relatedEmptyLabel = remoteQueueRelatedEmptyLabel(),
         generatedStation = generatedRadio?.station,
         generatedStatus = GeneratedRadioStatus.entries.firstOrNull { it.name == generatedRadioState }
             ?: GeneratedRadioStatus.Inactive,

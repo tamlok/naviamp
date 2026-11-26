@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import app.naviamp.domain.settings.TrackSwipeAction
 import app.naviamp.domain.settings.TrackSwipeSettings
 import kotlin.math.abs
@@ -184,7 +186,7 @@ fun TrackRow(
                     if (track.popular) {
                         Icon(
                             imageVector = NaviampIcons.Fire,
-                            contentDescription = "Popular track",
+                            contentDescription = stringResource(Res.string.media_popular_track),
                             tint = colors.primaryText,
                             modifier = Modifier.size(10.dp),
                         )
@@ -256,13 +258,13 @@ fun TrackRow(
             hasAlbum = track.hasAlbum,
             hasArtist = track.hasArtist,
             canShowDetails = track.detailSections.isNotEmpty(),
-            playAfterCurrentGroupLabel = stringResource(Res.string.action_play_after_current_group),
-            playImmediatelyNextLabel = stringResource(Res.string.action_play_immediately_next),
+            playAfterCurrentGroupLabel = Res.string.action_play_after_current_group,
+            playImmediatelyNextLabel = Res.string.action_play_immediately_next,
         ).mapNotNull { action ->
             when (action.action) {
                 NaviampAction.PlayNext -> if (canAddToQueue) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.PlayNext)) },
                         action.enabled,
@@ -272,7 +274,7 @@ fun TrackRow(
                 }
                 NaviampAction.PlayNextTrack -> if (canAddToQueue) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.PlayNextTrack)) },
                         action.enabled,
@@ -292,7 +294,7 @@ fun TrackRow(
                 }
                 NaviampAction.PlayTrackRadioNext -> if (canStartRadio) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.PlayTrackRadioNext)) },
                         action.enabled,
@@ -302,7 +304,7 @@ fun TrackRow(
                 }
                 NaviampAction.AddTrackRadioToQueue -> if (canStartRadio) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.AddTrackRadioToQueue)) },
                         action.enabled,
@@ -312,7 +314,7 @@ fun TrackRow(
                 }
                 NaviampAction.DownloadTrack -> if (canDownload) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.Download)) },
                         action.enabled,
@@ -322,7 +324,7 @@ fun TrackRow(
                 }
                 NaviampAction.AddToQueue -> if (canAddToQueue) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.AddToQueue)) },
                         action.enabled,
@@ -332,7 +334,7 @@ fun TrackRow(
                 }
                 NaviampAction.AddToPlaylist -> if (canAddToPlaylist) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.AddToPlaylist)) },
                         action.enabled,
@@ -342,7 +344,7 @@ fun TrackRow(
                 }
                 NaviampAction.ToggleFavorite -> if (track.canToggleFavorite) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         if (track.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.ToggleFavorite)) },
                         action.enabled,
@@ -352,7 +354,7 @@ fun TrackRow(
                 }
                 NaviampAction.GoToAlbum -> if (track.hasAlbum) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.GoToAlbum)) },
                         action.enabled,
@@ -362,7 +364,7 @@ fun TrackRow(
                 }
                 NaviampAction.GoToArtist -> if (track.hasArtist) {
                     NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { dispatchTrackAction(SharedTrackRowActionRequest(track, SharedTrackRowAction.GoToArtist)) },
                         action.enabled,
@@ -371,7 +373,7 @@ fun TrackRow(
                     null
                 }
                 NaviampAction.TrackDetails -> NaviampRowMenuItem(
-                    action.label,
+                    action.localizedLabel(),
                     action.icon,
                     { detailsOpen = true },
                     action.enabled,
@@ -451,17 +453,17 @@ private fun trackSwipeActionVisual(
         TrackSwipeAction.GoToAlbum -> SharedTrackRowAction.GoToAlbum.takeIf { track.hasAlbum }
         TrackSwipeAction.GoToArtist -> SharedTrackRowAction.GoToArtist.takeIf { track.hasArtist }
     } ?: return null
-    val (label, icon) = when (action) {
-        TrackSwipeAction.PlayNext -> "Play next" to NaviampIcons.Queue
-        TrackSwipeAction.AddToQueue -> "Add to queue" to NaviampIcons.Queue
-        TrackSwipeAction.AddToPlaylist -> "Add to playlist" to NaviampIcons.Playlist
-        TrackSwipeAction.Download -> "Download" to NaviampIcons.Downloads
-        TrackSwipeAction.StartRadio -> "Start radio" to NaviampTransportIcons.Radio
+    val (labelResource, icon) = when (action) {
+        TrackSwipeAction.PlayNext -> Res.string.tv_play_next to NaviampIcons.Queue
+        TrackSwipeAction.AddToQueue -> Res.string.playlist_item_add_queue to NaviampIcons.Queue
+        TrackSwipeAction.AddToPlaylist -> Res.string.ui_add_to_playlist to NaviampIcons.Playlist
+        TrackSwipeAction.Download -> Res.string.playlist_item_download to NaviampIcons.Downloads
+        TrackSwipeAction.StartRadio -> Res.string.tv_start_radio to NaviampTransportIcons.Radio
         TrackSwipeAction.ToggleFavorite ->
-            (if (track.favoriteActive) "Unfavorite" else "Favorite") to
+            (if (track.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite) to
                 (if (track.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart)
-        TrackSwipeAction.GoToAlbum -> "Go to album" to NaviampIcons.Album
-        TrackSwipeAction.GoToArtist -> "Go to artist" to NaviampIcons.Artist
+        TrackSwipeAction.GoToAlbum -> Res.string.playlist_item_go_album to NaviampIcons.Album
+        TrackSwipeAction.GoToArtist -> Res.string.playlist_item_go_artist to NaviampIcons.Artist
         TrackSwipeAction.None,
         TrackSwipeAction.Play,
         TrackSwipeAction.Remove,
@@ -472,7 +474,7 @@ private fun trackSwipeActionVisual(
         -> return null
     }
     return TrackSwipeActionVisual(
-        label = label,
+        labelResource = labelResource,
         icon = icon,
         background = colors.success,
         contentColor = colors.onSuccess,
@@ -481,7 +483,7 @@ private fun trackSwipeActionVisual(
 }
 
 data class TrackSwipeActionVisual(
-    val label: String,
+    val labelResource: StringResource,
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val background: Color,
     val contentColor: Color = Color.Unspecified,
@@ -537,8 +539,9 @@ fun SwipeActionContainer(
             ) {
                 if (offsetX < 0f) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
                 val foreground = if (action.contentColor == Color.Unspecified) colors.onAccent else action.contentColor
-                Icon(action.icon, contentDescription = action.label, tint = foreground, modifier = Modifier.size(20.dp))
-                Text(action.label, color = foreground, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                val label = stringResource(action.labelResource)
+                Icon(action.icon, contentDescription = label, tint = foreground, modifier = Modifier.size(20.dp))
+                Text(label, color = foreground, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 if (offsetX > 0f) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }
         }
@@ -637,21 +640,21 @@ fun downloadedTrackSwipeActionVisual(
     onAction: (DownloadedTrackActionRequest) -> Unit,
 ): TrackSwipeActionVisual? = when (action) {
     TrackSwipeAction.Play -> TrackSwipeActionVisual(
-        label = "Play",
+        labelResource = Res.string.transport_play,
         icon = NaviampTransportIcons.Play,
         background = colors.success,
         contentColor = colors.onSuccess,
         onTriggered = { onAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.Select)) },
     )
     TrackSwipeAction.AddToPlaylist -> TrackSwipeActionVisual(
-        label = "Add to playlist",
+        labelResource = Res.string.ui_add_to_playlist,
         icon = NaviampIcons.Playlist,
         background = colors.accent,
         contentColor = colors.onAccent,
         onTriggered = { onAction(DownloadedTrackActionRequest(download, DownloadedTrackAction.AddToPlaylist)) },
     )
     TrackSwipeAction.Remove -> TrackSwipeActionVisual(
-        label = "Remove download",
+        labelResource = Res.string.ui_remove_download,
         icon = NaviampIcons.Trash,
         background = colors.error,
         contentColor = colors.onError,
@@ -688,7 +691,7 @@ internal fun MixCard(
                 .padding(8.dp),
         ) {
             Text(
-                "${album.subtitle} Mix",
+                stringResource(Res.string.media_named_mix , album.localizedSubtitle()),
                 color = overlayColors.primaryText,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
@@ -715,7 +718,7 @@ internal fun HomeStationSection(
     if (stations.isEmpty()) return
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        SectionHeader("STATIONS", colors)
+        SectionHeader(stringResource(Res.string.tv_home_stations).uppercase(), colors)
         stations.forEach { station ->
             StationRow(
                 title = station.title,
@@ -783,7 +786,7 @@ internal fun HomeSection(
                 if (stationStyle) {
                     StationRow(
                         title = item.title,
-                        subtitle = item.subtitle,
+                        subtitle = item.localizedSubtitle(),
                         colors = colors,
                         onClick = { onItemSelected?.invoke(item) },
                     )
@@ -841,6 +844,7 @@ fun SharedMediaRow(
     modifier: Modifier = Modifier,
     mediaKind: SharedMediaItemKind,
 ) {
+    val subtitle = item.localizedSubtitle()
     NaviampItemMenuRow(
         itemKey = item.id,
         modifier = modifier
@@ -855,7 +859,7 @@ fun SharedMediaRow(
                 }
             }
             .semantics {
-                contentDescription = listOf(item.title, item.subtitle, item.meta)
+                contentDescription = listOf(item.title, subtitle, item.meta)
                     .filter(String::isNotBlank).joinToString(", ")
             }
             .padding(horizontal = 8.dp, vertical = verticalPadding),
@@ -887,7 +891,7 @@ fun SharedMediaRow(
                 if (item.favoriteActive) {
                     Icon(
                         imageVector = NaviampTransportIcons.HeartFilled,
-                        contentDescription = "Favorite",
+                        contentDescription = stringResource(Res.string.tv_favorite),
                         tint = colors.favorite,
                         modifier = Modifier.size(15.dp),
                     )
@@ -898,7 +902,7 @@ fun SharedMediaRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    item.subtitle,
+                    subtitle,
                     color = colors.secondaryText,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -918,7 +922,7 @@ fun SharedMediaRow(
         }
         val favoriteMenuItem = if (canToggleFavorite) {
             NaviampRowMenuItem(
-                label = if (item.favoriteActive) "Remove favorite" else "Favorite",
+                label = stringResource(if (item.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite),
                 icon = if (item.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                 onClick = { onFavoriteToggled?.invoke(item) },
             )
@@ -957,7 +961,7 @@ fun SharedMediaGridTile(
     val cornerRadius = resolvedMediaArtworkCornerRadius(mediaKind, tileSize, 8.dp)
     val favoriteMenuItem = if (item.canFavorite && onFavoriteToggled != null) {
         NaviampRowMenuItem(
-            label = if (item.favoriteActive) "Remove favorite" else "Favorite",
+            label = stringResource(if (item.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite),
             icon = if (item.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
             onClick = { onFavoriteToggled(item) },
         )
@@ -978,7 +982,7 @@ fun SharedMediaGridTile(
             if (item.favoriteActive) {
                 Icon(
                     imageVector = NaviampTransportIcons.HeartFilled,
-                    contentDescription = "Favorite",
+                    contentDescription = stringResource(Res.string.tv_favorite),
                     tint = colors.favorite,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -1000,7 +1004,7 @@ fun SharedMediaGridTile(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    item.subtitle,
+                    item.localizedSubtitle(),
                     color = colors.secondaryText,
                     fontSize = 11.sp,
                     lineHeight = 13.sp,
@@ -1342,12 +1346,34 @@ fun GenreMixBuilderContent(
 }
 
 @Composable
+private fun SharedGenreMixTreeRowUi.localizedSubtitle(): String {
+    val genres = if (selectableGenreCount > 1) {
+        pluralStringResource(Res.plurals.media_library_genre_count, selectableGenreCount, selectableGenreCount)
+    } else null
+    val tracks = trackCount?.let { pluralStringResource(Res.plurals.tv_track_count, it, it) }
+    val albums = albumCount?.let { pluralStringResource(Res.plurals.media_album_count, it, it) }
+    return buildString {
+        if (genres != null) append(genres)
+        else if (directProviderNames.size > 1) directProviderNames.joinTo(this, separator = " · ")
+        tracks?.let {
+            if (isNotEmpty()) append(" · ")
+            append(it)
+        }
+        albums?.let {
+            if (isNotEmpty()) append(" · ")
+            append(it)
+        }
+    }
+}
+
+@Composable
 private fun GenreMixTreeRow(
     row: SharedGenreMixTreeRowUi,
     colors: NaviampColors,
     onToggle: () -> Unit,
     onSelect: () -> Unit,
 ) {
+    val subtitle = row.localizedSubtitle()
     val rowAction = when {
         row.selectableGenreCount > 0 && !row.selected -> onSelect
         row.expandable -> onToggle
@@ -1388,8 +1414,8 @@ private fun GenreMixTreeRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (row.subtitle.isNotBlank()) {
-                Text(row.subtitle, color = colors.secondaryText, fontSize = 11.sp)
+            if (subtitle.isNotBlank()) {
+                Text(subtitle, color = colors.secondaryText, fontSize = 11.sp)
             }
         }
     }
@@ -1602,7 +1628,7 @@ fun SonicMixBuilderContent(
                             modifier = Modifier.weight(1f),
                         )
                         BuilderRemoveTrackButton(
-                            contentDescription = "Remove ${track.title} from selected seed tracks",
+                            contentDescription = stringResource(Res.string.media_remove_seed_track , track.title),
                             onClick = { onTrackRemoved(track) },
                         )
                     }
@@ -1805,7 +1831,7 @@ private fun SonicPathTrackPicker(
                     modifier = Modifier.weight(1f),
                 )
                 BuilderRemoveTrackButton(
-                    contentDescription = "Remove ${track.title} from $title",
+                    contentDescription = stringResource(Res.string.media_remove_track_from , track.title, title),
                     onClick = onTrackCleared,
                 )
             }
@@ -1956,6 +1982,7 @@ private fun GenreMixGenreRow(
     colors: NaviampColors,
     onClick: () -> Unit,
 ) {
+    val subtitle = genre.localizedSubtitle()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1975,8 +2002,8 @@ private fun GenreMixGenreRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (genre.subtitle.isNotBlank()) {
-            Text(genre.subtitle, color = colors.secondaryText, fontSize = 12.sp)
+        if (subtitle.isNotBlank()) {
+            Text(subtitle, color = colors.secondaryText, fontSize = 12.sp)
         }
     }
 }
@@ -2030,7 +2057,7 @@ private fun AlbumMixAlbumTile(
             overflow = TextOverflow.Ellipsis,
         )
         Text(
-            album.subtitle,
+            album.localizedSubtitle(),
             color = colors.secondaryText,
             fontSize = 11.sp,
             lineHeight = 13.sp,
@@ -2148,7 +2175,7 @@ fun InternetRadioContent(
         ) {
             screen.status?.let { Text(it, color = colors.secondaryText, fontSize = 12.sp) }
             if (stations.isEmpty()) {
-                Text("Saved internet radio stations will appear here.", color = colors.secondaryText, fontSize = 12.sp)
+                Text(stringResource(Res.string.tv_no_internet_radio_stations_are_saved), color = colors.secondaryText, fontSize = 12.sp)
             }
             stations.sortedBy { it.item.title.lowercase() }.forEach { station ->
                 val stationItem = station.item
@@ -2165,7 +2192,7 @@ fun InternetRadioContent(
                     ).mapNotNull { action ->
                         when (action.action) {
                             NaviampAction.EditStation -> NaviampRowMenuItem(
-                                label = action.label,
+                                label = action.localizedLabel(),
                                 icon = action.icon,
                                 onClick = {
                                     handleStationAction(StationRowActionRequest(stationItem, StationRowAction.Edit))
@@ -2173,7 +2200,7 @@ fun InternetRadioContent(
                                 enabled = action.enabled,
                             )
                             NaviampAction.DeleteStation -> NaviampRowMenuItem(
-                                label = action.label,
+                                label = action.localizedLabel(),
                                 icon = action.icon,
                                 onClick = {
                                     handleStationAction(StationRowActionRequest(stationItem, StationRowAction.Delete))
@@ -2215,8 +2242,8 @@ fun InternetRadioContent(
         NaviampPopupPresence()
         NaviampAlertDialog(
             onDismissRequest = { stationBeingDeleted = null },
-            title = { Text("Delete station") },
-            text = { Text("Delete ${station.item.title}? This removes the server internet radio station.") },
+            title = { Text(stringResource(Res.string.tv_delete_station)) },
+            text = { Text(stringResource(Res.string.tv_delete_named_station , station.item.title)) },
             confirmButton = {
                 NaviampTextButton(
                     onClick = {
@@ -2229,12 +2256,12 @@ fun InternetRadioContent(
                         )
                     },
                 ) {
-                    Text("Delete")
+                    Text(stringResource(Res.string.common_delete))
                 }
             },
             dismissButton = {
                 NaviampTextButton(onClick = { stationBeingDeleted = null }) {
-                    Text("Cancel")
+                    Text(stringResource(Res.string.common_cancel))
                 }
             },
         )

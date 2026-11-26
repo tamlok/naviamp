@@ -30,7 +30,7 @@ import app.naviamp.domain.playback.PlaybackReplayGainMode
 import app.naviamp.domain.playback.PlaybackTransitionMode
 import app.naviamp.domain.settings.AlbumArtworkPreference
 import app.naviamp.ui.generated.resources.Res
-import app.naviamp.ui.generated.resources.album_artwork_album
+import app.naviamp.ui.generated.resources.*
 import app.naviamp.ui.generated.resources.album_artwork_inherit
 import app.naviamp.ui.generated.resources.album_artwork_preference
 import app.naviamp.ui.generated.resources.album_artwork_track
@@ -45,7 +45,7 @@ fun PlaybackProfileDialog(
     onSave: (PlaybackProfile) -> Unit,
     initialArtworkPreference: AlbumArtworkPreference? = null,
     onSaveArtworkPreference: ((AlbumArtworkPreference) -> Unit)? = null,
-    description: String = "Choose only the values this sequence should override. Inherited values continue to follow global playback settings.",
+    description: String = stringResource(Res.string.playback_profile_description),
 ) {
     val normalized = initialProfile.normalized()
     var transition by remember(title, normalized) { mutableStateOf(normalized.transitionMode) }
@@ -71,13 +71,13 @@ fun PlaybackProfileDialog(
                     fontSize = 12.sp,
                 )
                 ProfileChoiceSection(
-                    label = "Transitions",
+                    label = stringResource(Res.string.playback_profile_transitions),
                     choices = PlaybackTransitionMode.entries.map { mode ->
                         mode to when (mode) {
-                            PlaybackTransitionMode.Inherit -> "Inherit"
-                            PlaybackTransitionMode.Gapless -> "Gapless"
-                            PlaybackTransitionMode.Crossfade -> "Crossfade"
-                            PlaybackTransitionMode.Pause -> "Pause"
+                            PlaybackTransitionMode.Inherit -> stringResource(Res.string.album_artwork_inherit)
+                            PlaybackTransitionMode.Gapless -> stringResource(Res.string.settings_gapless_title)
+                            PlaybackTransitionMode.Crossfade -> stringResource(Res.string.settings_crossfade_title)
+                            PlaybackTransitionMode.Pause -> stringResource(Res.string.transport_pause)
                         }
                     },
                     selected = transition,
@@ -90,13 +90,13 @@ fun PlaybackProfileDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Text("Crossfade duration", color = colors.secondaryText, fontSize = 13.sp)
+                        Text(stringResource(Res.string.playback_profile_crossfade_duration), color = colors.secondaryText, fontSize = 13.sp)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             NaviampTextButton(
                                 enabled = crossfadeSeconds > MinPlaybackProfileCrossfadeSeconds,
                                 onClick = { crossfadeSeconds-- },
                             ) { Text("−") }
-                            Text("$crossfadeSeconds seconds", color = colors.primaryText, fontSize = 13.sp)
+                            Text(stringResource(Res.string.settings_seconds_count, crossfadeSeconds), color = colors.primaryText, fontSize = 13.sp)
                             NaviampTextButton(
                                 enabled = crossfadeSeconds < MaxPlaybackProfileCrossfadeSeconds,
                                 onClick = { crossfadeSeconds++ },
@@ -105,13 +105,13 @@ fun PlaybackProfileDialog(
                     }
                 }
                 ProfileChoiceSection(
-                    label = "ReplayGain",
+                    label = stringResource(Res.string.tv_replaygain),
                     choices = PlaybackReplayGainMode.entries.map { mode ->
                         mode to when (mode) {
-                            PlaybackReplayGainMode.Inherit -> "Inherit"
-                            PlaybackReplayGainMode.Off -> "Off"
-                            PlaybackReplayGainMode.Track -> "Track"
-                            PlaybackReplayGainMode.Album -> "Album"
+                            PlaybackReplayGainMode.Inherit -> stringResource(Res.string.album_artwork_inherit)
+                            PlaybackReplayGainMode.Off -> stringResource(Res.string.common_off)
+                            PlaybackReplayGainMode.Track -> stringResource(Res.string.smart_playlist_field_category_track)
+                            PlaybackReplayGainMode.Album -> stringResource(Res.string.tv_album)
                         }
                     },
                     selected = replayGain,
@@ -143,8 +143,8 @@ fun PlaybackProfileDialog(
                         onSave(PlaybackProfile())
                         onDismissRequest()
                     },
-                ) { Text("Use global settings") }
-                NaviampTextButton(onClick = onDismissRequest) { Text("Cancel") }
+                ) { Text(stringResource(Res.string.playback_profile_use_global)) }
+                NaviampTextButton(onClick = onDismissRequest) { Text(stringResource(Res.string.library_sources_cancel)) }
             }
         },
         confirmButton = {
@@ -164,7 +164,7 @@ fun PlaybackProfileDialog(
                     )
                     onDismissRequest()
                 },
-            ) { Text("Save") }
+            ) { Text(stringResource(Res.string.library_sources_save)) }
         },
     )
 }

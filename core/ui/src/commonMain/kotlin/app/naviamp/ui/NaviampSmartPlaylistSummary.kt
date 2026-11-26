@@ -143,7 +143,7 @@ private fun summaryValue(value: SmartPlaylistValue, field: String, operator: Sma
 }
 
 @Composable
-private fun summaryOperatorLabel(operator: SmartPlaylistOperator): String = stringResource(when (operator) {
+internal fun summaryOperatorLabel(operator: SmartPlaylistOperator): String = stringResource(when (operator) {
     SmartPlaylistOperator.Is -> Res.string.smart_playlist_summary_op_is
     SmartPlaylistOperator.IsNot -> Res.string.smart_playlist_summary_op_is_not
     SmartPlaylistOperator.GreaterThan -> Res.string.smart_playlist_summary_op_greater

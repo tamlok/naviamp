@@ -4,6 +4,8 @@ import app.naviamp.domain.InternetRadioStation
 import app.naviamp.domain.playback.PlaybackState
 import app.naviamp.domain.playback.PlaybackStreamMetadata
 import kotlin.test.*
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.stream_details
 
 class NaviampStreamDetailsTest {
     private val station = InternetRadioStation("rp", "Radio Paradise", "https://stream.radioparadise.com/aac-320")
@@ -15,9 +17,9 @@ class NaviampStreamDetailsTest {
         assertEquals(listOf(NaviampStreamDetailLabel.Station), ui.streamDetailSections.map { it.label })
         assertEquals(listOf(station.name, station.streamUrl), ui.streamDetailSections.values())
         val action = nowPlayingTrackMenuActions(false, true, ui.streamDetailSections.isNotEmpty(), false, false,
-            false, "Sleep timer", detailsLabel = "Stream Details").single { it.action == NaviampAction.TrackDetails }
+            false, NaviampSleepTimerUi(), detailsLabel = Res.string.stream_details).single { it.action == NaviampAction.TrackDetails }
         assertTrue(action.enabled)
-        assertEquals("Stream Details", action.label)
+        assertEquals(Res.string.stream_details, action.labelResource)
     }
 
     @Test fun richMetadataExposesGroupedFieldsAndCustomTags() {

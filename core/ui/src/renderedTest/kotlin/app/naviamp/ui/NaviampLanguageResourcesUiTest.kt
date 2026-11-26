@@ -14,6 +14,18 @@ import app.naviamp.domain.network.NaviampClientName
 import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.settings_language_use_subtitle
+import app.naviamp.ui.generated.resources.playlist_item_more_actions
+import app.naviamp.ui.generated.resources.playlist_item_unfavorite
+import app.naviamp.ui.generated.resources.tv_favorite
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
+import app.naviamp.domain.playback.SleepTimerTarget
+import app.naviamp.ui.generated.resources.ui_remove_album_favorite
+import app.naviamp.ui.generated.resources.ui_favorite_artist
+import app.naviamp.ui.generated.resources.download_stop_keeping_collection
+import app.naviamp.ui.generated.resources.ui_sleep_after_track
+import app.naviamp.ui.generated.resources.ui_sleep_in_duration
+import app.naviamp.ui.generated.resources.ui_timer_minutes_seconds
 import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -66,6 +78,81 @@ class NaviampLanguageResourcesUiTest {
                 assertEquals(1, creations)
                 assertEquals(if (next == InterfaceLanguage.Arabic) LayoutDirection.Rtl else LayoutDirection.Ltr, direction)
             }
+        }
+    }
+
+    @Test fun openPlaylistMenuRelocalizesWithoutChangingMediaOrActions() = runComposeUiTest {
+        var language by mutableStateOf(InterfaceLanguage.English)
+        val original = SharedTrackRowUi("unchanged-id", "Night Drive 夜行", "Artist 艺人", favoriteActive = true)
+        var track by mutableStateOf(original)
+        val requests = mutableListOf<SharedTrackRowActionRequest>()
+        val effect = createNaviampLocaleEffect()
+        setContent {
+            NaviampLocaleEnvironment(language, effect) {
+                StandardPlaylistManagementList(
+                    colors = NaviampColors(),
+                    initialTracks = listOf(track),
+                    onTrackSelected = {},
+                    onSave = {},
+                    onTrackAction = { request ->
+                        requests += request
+                        track = track.copy(favoriteActive = !track.favoriteActive)
+                    },
+                )
+            }
+        }
+        val moreActions = runBlocking { getString(Res.string.playlist_item_more_actions) }
+        val englishUnfavorite = runBlocking { getString(Res.string.playlist_item_unfavorite) }
+        onNodeWithContentDescription(moreActions).performClick()
+        onNodeWithText(englishUnfavorite).assertIsDisplayed()
+        runOnIdle { language = InterfaceLanguage.ChineseSimplified }
+        waitForIdle()
+        val chineseUnfavorite = runBlocking { getString(Res.string.playlist_item_unfavorite) }
+        onNodeWithText(englishUnfavorite).assertDoesNotExist()
+        onNodeWithText(chineseUnfavorite).assertIsDisplayed().performClick()
+        runOnIdle {
+            assertEquals(SharedTrackRowAction.ToggleFavorite, requests.single().action)
+            assertEquals(original, requests.single().track)
+        }
+        onNodeWithText(original.title).assertIsDisplayed()
+        onNodeWithText(original.subtitle).assertIsDisplayed()
+        val chineseMoreActions = runBlocking { getString(Res.string.playlist_item_more_actions) }
+        val chineseFavorite = runBlocking { getString(Res.string.tv_favorite) }
+        onNodeWithContentDescription(chineseMoreActions).performClick()
+        onNodeWithText(chineseFavorite).assertIsDisplayed()
+        onNodeWithText(chineseUnfavorite).assertDoesNotExist()
+    }
+
+    @Test fun cachedActionVariantsAndTimerDurationFollowLiveLanguageChanges() = runComposeUiTest {
+        var language by mutableStateOf(InterfaceLanguage.English)
+        val effect = createNaviampLocaleEffect()
+        val examples = listOf(
+            albumRowActions(canFavorite = true, favoriteActive = true).single() to Res.string.ui_remove_album_favorite,
+            artistRowActions(canFavorite = true).single() to Res.string.ui_favorite_artist,
+            playlistRowActions(canKeepDownloaded = true, keepDownloadedActive = true).single() to Res.string.download_stop_keeping_collection,
+            NaviampActionSpec(NaviampAction.SleepTimer,
+                sleepTimer = NaviampSleepTimerUi(active = true, target = SleepTimerTarget.TrackEnd)) to Res.string.ui_sleep_after_track,
+        )
+        val duration = NaviampActionSpec(NaviampAction.SleepTimer,
+            sleepTimer = NaviampSleepTimerUi(active = true, target = SleepTimerTarget.Duration, remainingMillis = 61_000))
+        setContent {
+            NaviampLocaleEnvironment(language, effect) {
+                Column {
+                    examples.forEachIndexed { index, (action, _) -> Text(action.localizedLabel(), Modifier.testTag("variant-$index")) }
+                    Text(duration.localizedLabel(), Modifier.testTag("duration"))
+                }
+            }
+        }
+        listOf(InterfaceLanguage.English, InterfaceLanguage.ChineseSimplified, InterfaceLanguage.English).forEach { next ->
+            runOnIdle { language = next }
+            waitForIdle()
+            examples.forEachIndexed { index, (_, resource) ->
+                onNodeWithTag("variant-$index").assertTextEquals(runBlocking { getString(resource) })
+            }
+            val expectedDuration = runBlocking {
+                getString(Res.string.ui_sleep_in_duration, getString(Res.string.ui_timer_minutes_seconds, 1L, "01"))
+            }
+            onNodeWithTag("duration").assertTextEquals(expectedDuration)
         }
     }
 

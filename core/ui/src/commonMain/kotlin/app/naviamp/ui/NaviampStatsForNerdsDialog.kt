@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.common_close
+import app.naviamp.ui.generated.resources.diagnostics_empty
 import app.naviamp.ui.generated.resources.tv_stats_for_nerds
 import org.jetbrains.compose.resources.stringResource
 
@@ -33,12 +34,12 @@ fun NaviampStatsForNerdsDialog(
     NaviampPopupPresence()
     NaviampAlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text("Stats for Nerds") },
+        title = { Text(stringResource(Res.string.tv_stats_for_nerds)) },
         text = {
             NaviampStatsForNerdsContent(diagnostics)
         },
         confirmButton = {
-            NaviampTextButton(onClick = onDismissRequest) { Text("Close") }
+            NaviampTextButton(onClick = onDismissRequest) { Text(stringResource(Res.string.common_close)) }
         },
     )
 }
@@ -87,7 +88,7 @@ fun NaviampStatsForNerdsContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (diagnostics.sections.isEmpty()) {
-            Text("No diagnostics are available yet")
+            Text(stringResource(Res.string.diagnostics_empty))
         } else {
             diagnostics.sections.forEach { section ->
                 Column(
@@ -98,13 +99,13 @@ fun NaviampStatsForNerdsContent(
                     verticalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(
-                        section.title,
+                        localizedDiagnosticText(section.title, isLabel = true),
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.SemiBold,
                     )
                     section.rows.forEach { (label, value) ->
                         Text(
-                            "${localizedDiagnosticText(label)}: ${localizedDiagnosticText(value)}",
+                            "${localizedDiagnosticText(label, isLabel = true)}: ${localizedDiagnosticText(value)}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )

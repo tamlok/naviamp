@@ -13,6 +13,9 @@ import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import kotlin.test.Test
 import java.io.File
 import javax.imageio.ImageIO
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.stream_details_metadata
+import app.naviamp.ui.generated.resources.tv_album_sort_title
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampStreamDetailsUiTest {
@@ -57,7 +60,8 @@ class NaviampStreamDetailsUiTest {
         setContent {
             StreamDetailsTestTheme {
             NaviampNowPlayingPanel(NowPlayingUi(id = "track", title = "Library song", subtitle = "Artist", stateLabel = "Paused", menuEnabled = true,
-                detailSections = listOf(NaviampDetailSectionUi("Song", listOf("Title" to "Library song")))),
+                detailSections = listOf(NaviampDetailSectionUi(Res.string.stream_details_metadata,
+                    listOf(NaviampDetailRowUi(Res.string.tv_album_sort_title, "Library song"))))),
                 colors = NaviampColors.Dark, actions = NaviampNowPlayingActions({}, {}, {}, {}, {}, {}, {}))
             }
         }

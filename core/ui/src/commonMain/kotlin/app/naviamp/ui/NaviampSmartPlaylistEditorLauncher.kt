@@ -163,7 +163,7 @@ internal fun SmartPlaylistEditorLoadFailureText(failure: SmartPlaylistEditorLoad
         null -> return
         is SmartPlaylistEditorLoadFailure.PasswordRequired -> when (failure.mode) {
             SmartPlaylistEditorMode.Duplicate -> stringResource(Res.string.smart_playlist_duplicate_password)
-            else -> "Enter your Navidrome password to edit this smart playlist."
+            else -> stringResource(Res.string.smart_playlist_edit_password)
         }
         SmartPlaylistEditorLoadFailure.Unsupported -> stringResource(Res.string.smart_playlist_unsupported_import)
         is SmartPlaylistEditorLoadFailure.Message -> failure.text.ifBlank { stringResource(Res.string.playlists_load_smart_failed) }
@@ -187,10 +187,17 @@ internal fun SmartPlaylistEditorHost(
     onUpdate: suspend (SharedMediaItemUi, SmartPlaylistDefinition, String?) -> Unit,
 ) {
     launcher.session?.let { session ->
+        val newPlaylistName = stringResource(Res.string.smart_playlist_new_name)
+        val initialDraft = remember(session) {
+            if (session.mode == SmartPlaylistEditorMode.Create) {
+                session.initialDraft.copy(name = newPlaylistName)
+            } else session.initialDraft
+        }
         SmartPlaylistBuilderDialog(
             colors = colors,
-            initialDraft = session.initialDraft,
+            initialDraft = initialDraft,
             currentPlaylistId = session.updateTarget?.id,
+            preserveTemplateIdentity = session.mode != SmartPlaylistEditorMode.Create,
             title = stringResource(
                 when (session.mode) {
                     SmartPlaylistEditorMode.Create -> Res.string.playlists_smart

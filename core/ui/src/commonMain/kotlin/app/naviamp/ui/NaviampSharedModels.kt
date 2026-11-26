@@ -1,5 +1,11 @@
 package app.naviamp.ui
 
+import androidx.compose.runtime.Composable
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
+import app.naviamp.ui.generated.resources.*
+import app.naviamp.domain.playback.SleepTimerTarget
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.naviamp.domain.playback.PlaybackState
@@ -279,6 +285,7 @@ data class SharedMediaItemUi(
     val canFavorite: Boolean = false,
     /** Present only while this item is shown from its saved offline copy. */
     val offlineAvailability: NaviampOfflineAvailabilityUi? = null,
+    val subtitleResource: StringResource? = null,
 )
 
 data class NaviampOfflineAvailabilityUi(val availableCount: Int, val totalCount: Int)
@@ -437,7 +444,7 @@ data class SharedArtistDetailUi(
     val appearanceLoadFailed: Boolean = false,
     val appearancesTruncated: Boolean = false,
     val sourceContextLabel: String = "",
-    val localLibraryLabel: String = "",
+    val localLibraryAlbumCount: Int = 0,
     val biography: String? = null,
     val popularTracks: List<SharedTrackRowUi> = emptyList(),
     val popularTracksVisible: Boolean = true,
@@ -520,7 +527,6 @@ data class SharedAlbumSectionUi(
 data class SharedSimilarArtistUi(
     val id: String,
     val title: String,
-    val subtitle: String,
     val imageUrl: String? = null,
     val localArtistId: String? = null,
     val externalUrl: String? = null,
@@ -1295,12 +1301,16 @@ data class SharedGenreMixItemUi(
     val id: String,
     val title: String,
     val subtitle: String = "",
+    val albumCount: Int? = null,
+    val trackCount: Int? = null,
 )
 
 data class SharedGenreMixTreeRowUi(
     val ontologyId: String,
     val title: String,
-    val subtitle: String = "",
+    val directProviderNames: List<String> = emptyList(),
+    val trackCount: Int? = null,
+    val albumCount: Int? = null,
     val depth: Int,
     val expandable: Boolean,
     val expanded: Boolean,
@@ -1404,8 +1414,8 @@ data class NowPlayingUi(
     val backTo: List<NaviampNowPlayingItemUi> = emptyList(),
     val upNext: List<NaviampNowPlayingItemUi> = emptyList(),
     val related: List<NaviampNowPlayingItemUi> = emptyList(),
-    val relatedTabLabel: String = "RELATED",
-    val relatedEmptyLabel: String = "Related tracks are not loaded.",
+    val relatedTabLabel: StringResource = Res.string.ui_related,
+    val relatedEmptyLabel: StringResource = Res.string.ui_related_tracks_not_loaded,
     val radioStations: List<NaviampNowPlayingItemUi> = emptyList(),
     val radioDjs: List<RadioDjPreset> = emptyList(),
     val activeRadioDjId: String? = null,
@@ -1413,6 +1423,8 @@ data class NowPlayingUi(
     val aurralRadioMetadata: String? = null,
     val generatedStation: app.naviamp.domain.radio.GeneratedRadioStation? = null,
     val generatedStatus: app.naviamp.domain.radio.GeneratedRadioStatus = app.naviamp.domain.radio.GeneratedRadioStatus.Inactive,
+    val subtitleResource: StringResource? = null,
+    val titleResource: StringResource? = null,
 )
 
 data class NowPlayingQueueContextUi(
@@ -1446,7 +1458,8 @@ data class NaviampCastOutputUi(
 
 data class NaviampSleepTimerUi(
     val active: Boolean = false,
-    val label: String = "Sleep timer",
+    val target: SleepTimerTarget? = null,
+    val remainingMillis: Long? = null,
 )
 
 data class NaviampConnectionCapabilitiesUi(
@@ -1716,15 +1729,62 @@ data class NaviampLyricCueUi(
 )
 
 data class NaviampDetailSectionUi(
-    val title: String,
-    val rows: List<Pair<String, String>>,
+    val titleResource: StringResource,
+    val rows: List<NaviampDetailRowUi>,
 )
+
+data class NaviampDetailRowUi(
+    val labelResource: StringResource?,
+    val value: String,
+    val metadataKey: String? = null,
+    val valueResource: StringResource? = null,
+    val valueArguments: List<Any> = emptyList(),
+)
+
+@Composable
+fun NaviampDetailSectionUi.localizedTitle(): String = stringResource(titleResource)
+
+@Composable
+fun NaviampDetailRowUi.localizedLabel(): String = labelResource?.let { stringResource(it) } ?: metadataKey.orEmpty()
+
+@Composable
+fun NaviampDetailRowUi.localizedValue(): String = valueResource?.let {
+    if (valueArguments.isEmpty()) stringResource(it) else stringResource(it, *valueArguments.toTypedArray())
+} ?: value
+
+@Composable
+fun SharedMediaItemUi.localizedSubtitle(): String = subtitleResource?.let { stringResource(it) }
+    ?: trackCount?.let { pluralStringResource(Res.plurals.tv_track_count, it, it) }
+    ?: subtitle
+
+@Composable
+fun NowPlayingUi.localizedSubtitle(): String = subtitleResource?.let { stringResource(it) } ?: subtitle
+
+@Composable
+fun NowPlayingUi.localizedTitle(): String = titleResource?.let { stringResource(it) } ?: title
 
 data class NaviampPlaylistChoiceUi(
     val id: String,
     val name: String,
     val subtitle: String = "",
+    val trackCount: Int? = null,
 )
+
+@Composable
+fun NaviampPlaylistChoiceUi.localizedSubtitle(): String =
+    trackCount?.let { pluralStringResource(Res.plurals.tv_track_count, it, it) } ?: subtitle
+
+@Composable
+fun SharedGenreMixItemUi.localizedSubtitle(): String {
+    val albums = albumCount?.let { pluralStringResource(Res.plurals.media_album_count, it, it) }
+    val tracks = trackCount?.let { pluralStringResource(Res.plurals.tv_track_count, it, it) }
+    return when {
+        albums != null && tracks != null -> "$albums - $tracks"
+        albums != null -> albums
+        tracks != null -> tracks
+        else -> subtitle
+    }
+}
 
 enum class SharedRoute(val icon: ImageVector) {
     Home(NaviampIcons.Home),

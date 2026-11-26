@@ -13,6 +13,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.playlist_item_add_queue
 
 @OptIn(ExperimentalTestApi::class)
 class NaviampPopupToggleTest {
@@ -123,7 +125,7 @@ class NaviampPopupToggleTest {
         setContent {
             Box(Modifier.size(600.dp, 400.dp)) {
                 SwipeActionContainer(
-                    swipeRight = TrackSwipeActionVisual("Queue", NaviampIcons.Queue, Color.Green, onTriggered = { swiped++ }),
+                    swipeRight = TrackSwipeActionVisual(Res.string.playlist_item_add_queue, NaviampIcons.Queue, Color.Green, onTriggered = { swiped++ }),
                 ) { modifier ->
                     TrackRow(
                         track = SharedTrackRowUi("song", "Song", "Artist"), colors = NaviampColors(),

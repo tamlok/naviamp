@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.stream_details_metadata
 
 class NaviampPlaylistTrackMenuTest {
     @Test
@@ -27,7 +29,7 @@ class NaviampPlaylistTrackMenuTest {
     @Test
     fun copyPrecedesPlaybackAndSongCapabilitiesAreRespected() {
         val track = SharedTrackRowUi("song", "Song", "Artist", hasAlbum = true, hasArtist = true,
-            detailSections = listOf(NaviampDetailSectionUi("Metadata", emptyList())))
+            detailSections = listOf(NaviampDetailSectionUi(Res.string.stream_details_metadata, emptyList())))
         val actions = playlistTrackSongActions(track, PlaylistTrackCapabilities(true, true, true, true)).map { it.action }
         assertEquals(listOf(NaviampAction.AddToPlaylist, NaviampAction.PlayNextTrack, NaviampAction.PlayNext,
             NaviampAction.AddToQueue, NaviampAction.StartTrackRadio, NaviampAction.ToggleFavorite,

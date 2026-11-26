@@ -404,7 +404,7 @@ private fun NaviampSharedAppShellContent(
                             Text(status, color = colors.secondaryText, fontSize = 13.sp)
                         }
                         serverVersion?.let {
-                            Text("Connected to Navidrome $it", color = colors.secondaryText, fontSize = 13.sp)
+                            Text(stringResource(Res.string.connection_connected_navidrome_version, it), color = colors.secondaryText, fontSize = 13.sp)
                         }
                     }
 
@@ -771,7 +771,7 @@ internal fun ConnectedContent(
                     )
                 }
                 if (artistMixBuilder.selectedArtists.isNotEmpty()) {
-                    PrimaryButton("Play Mix", colors, onClick = artistMixActions.onPlay)
+                    PrimaryButton(stringResource(Res.string.mix_play_mix), colors, onClick = artistMixActions.onPlay)
                 }
                 NaviampGeneratedRadioBuilderActions("ArtistMix", artistMixBuilder.selectedArtists.isNotEmpty(), actions.generatedRadioActions)
             }
@@ -794,7 +794,7 @@ internal fun ConnectedContent(
                     )
                 }
                 if (albumMixBuilder.selectedAlbums.isNotEmpty()) {
-                    PrimaryButton("Play Mix", colors, onClick = albumMixActions.onPlay)
+                    PrimaryButton(stringResource(Res.string.mix_play_mix), colors, onClick = albumMixActions.onPlay)
                 }
                 NaviampGeneratedRadioBuilderActions("AlbumMix", albumMixBuilder.selectedAlbums.isNotEmpty(), actions.generatedRadioActions)
             }
@@ -817,7 +817,7 @@ internal fun ConnectedContent(
                     )
                 }
                 if (genreMixBuilder.selectedGenres.isNotEmpty()) {
-                    PrimaryButton("Play Mix", colors, onClick = genreMixActions.onPlay)
+                    PrimaryButton(stringResource(Res.string.mix_play_mix), colors, onClick = genreMixActions.onPlay)
                 }
                 NaviampGeneratedRadioBuilderActions("GenreMix", genreMixBuilder.selectedGenres.isNotEmpty(), actions.generatedRadioActions)
             }
@@ -842,13 +842,13 @@ internal fun ConnectedContent(
                 if (sonicPathBuilder.hasPath) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = sonicPathActions.onPlay, modifier = Modifier.weight(1f)) {
-                            Text("Play Path")
+                            Text(stringResource(Res.string.sonic_path_play))
                         }
                         Button(onClick = sonicPathActions.onAddToQueue, modifier = Modifier.weight(1f)) {
-                            Text("Add to Queue")
+                            Text(stringResource(Res.string.mix_add_to_queue))
                         }
                         Button(onClick = { saveSonicPathDialogOpen = true }, modifier = Modifier.weight(1f)) {
-                            Text("Save")
+                            Text(stringResource(Res.string.common_save))
                         }
                     }
                 }
@@ -874,13 +874,13 @@ internal fun ConnectedContent(
                 if (sonicMixBuilder.hasMix) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         Button(onClick = sonicMixActions.onPlay, modifier = Modifier.weight(1f)) {
-                            Text("Play Mix")
+                            Text(stringResource(Res.string.mix_play_mix))
                         }
                         Button(onClick = sonicMixActions.onAddToQueue, modifier = Modifier.weight(1f)) {
-                            Text("Add to Queue")
+                            Text(stringResource(Res.string.mix_add_to_queue))
                         }
                         Button(onClick = { saveSonicMixDialogOpen = true }, modifier = Modifier.weight(1f)) {
-                            Text("Save")
+                            Text(stringResource(Res.string.common_save))
                         }
                     }
                 }
@@ -945,8 +945,8 @@ internal fun ConnectedContent(
         SaveQueueAsPlaylistDialog(
             colors = colors,
             status = playlists.status,
-            title = "Save path as playlist",
-            description = "Save this Sonic Path in order as a server playlist.",
+            title = stringResource(Res.string.generated_radio_save_playlist),
+            description = stringResource(Res.string.sonic_path_save_description),
             onDismissRequest = { saveSonicPathDialogOpen = false },
             onSave = { name ->
                 sonicPathActions.onSaveAsPlaylist(name)
@@ -958,8 +958,8 @@ internal fun ConnectedContent(
         SaveQueueAsPlaylistDialog(
             colors = colors,
             status = playlists.status,
-            title = "Save mix as playlist",
-            description = "Save this Sonic Mix in order as a server playlist.",
+            title = stringResource(Res.string.generated_radio_save_playlist),
+            description = stringResource(Res.string.sonic_mix_save_description),
             onDismissRequest = { saveSonicMixDialogOpen = false },
             onSave = { name ->
                 sonicMixActions.onSaveAsPlaylist(name)

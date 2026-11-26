@@ -510,7 +510,7 @@ fun NaviampSharedSettingsContent(
                         emptyText = stringResource(Res.string.settings_debugging_empty),
                     )
                     onOpenStatsForNerds?.let { openStats ->
-                        PrimaryButton("Open Stats for Nerds", colors, enabled = true, onClick = openStats)
+                        PrimaryButton(stringResource(Res.string.settings_open_stats), colors, enabled = true, onClick = openStats)
                     }
                     SharedLocalDataActions(
                         colors = colors,
@@ -566,17 +566,17 @@ internal fun NaviampConnectSettingsSection(
     ) {
         var localDeviceName by remember(connect.localDeviceName) { mutableStateOf(connect.localDeviceName) }
         var manualAddress by rememberSaveable { mutableStateOf("") }
-        SettingsSectionTitle("This device", colors)
+        SettingsSectionTitle(stringResource(Res.string.settings_this_device), colors)
         OutlinedTextField(
             colors = naviampOutlinedTextFieldColors(colors),
             value = localDeviceName,
             onValueChange = { if (it.length <= 64) localDeviceName = it },
             singleLine = true,
-            label = { Text("Friendly name") },
+            label = { Text(stringResource(Res.string.tv_friendly_name)) },
             modifier = Modifier.fillMaxWidth(),
         )
         PrimaryButton(
-            "Save device name",
+            stringResource(Res.string.settings_save_device_name),
             colors,
             enabled = localDeviceName.trim().isNotEmpty() && localDeviceName.trim() != connect.localDeviceName,
             onClick = { actions.onLocalDeviceNameChanged(localDeviceName) },
@@ -614,15 +614,15 @@ internal fun NaviampConnectSettingsSection(
                 onClick = { password = ""; actions.onCancelProvisioningCredential() })
         }
         connect.connectedTargetName?.let { targetName ->
-            SettingsSectionTitle("Controlling $targetName", colors)
+            SettingsSectionTitle(stringResource(Res.string.settings_controlling, targetName), colors)
             PrimaryButton(
-                "Set up $targetName with this connection",
+                stringResource(Res.string.settings_setup_target, targetName),
                 colors,
                 enabled = connect.canProvisionTarget && !connect.provisioningBusy,
                 onClick = actions.onProvisionTarget,
             )
             PrimaryButton(
-                "Stop controlling $targetName",
+                stringResource(Res.string.tv_stop_controlling_named, targetName),
                 colors,
                 enabled = true,
                 onClick = actions.onStopControlling,
@@ -647,9 +647,9 @@ internal fun NaviampConnectSettingsSection(
             connect.discoveredTargets.forEach { target ->
                 PrimaryButton(
                     label = if (target.instanceId == connect.selectedTargetId) {
-                        "Selected: ${target.displayName}"
+                        stringResource(Res.string.settings_selected_device, target.displayName)
                     } else {
-                        "Pair with ${target.displayName}"
+                        stringResource(Res.string.settings_pair_device, target.displayName)
                     },
                     colors = colors,
                     enabled = target.compatible,
@@ -668,7 +668,7 @@ internal fun NaviampConnectSettingsSection(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 PrimaryButton(
-                    "Pair securely",
+                    stringResource(Res.string.settings_pair_securely),
                     colors,
                     enabled = connect.enteredPairingCode.length == 6 &&
                         connect.pairingPhase != NaviampConnectPairingUiPhase.Handshaking,
@@ -677,11 +677,11 @@ internal fun NaviampConnectSettingsSection(
             }
         }
         if (connect.trustedDevices.isNotEmpty()) {
-            SettingsSectionTitle("Trusted devices", colors)
+            SettingsSectionTitle(stringResource(Res.string.settings_trusted_devices), colors)
             connect.trustedDevices.forEach { device ->
                 var alias by remember(device.deviceId, device.localAlias) { mutableStateOf(device.localAlias.orEmpty()) }
                 PrimaryButton(
-                    label = if (device.reconnectAvailable) "Reconnect to ${device.displayName}" else device.displayName,
+                    label = if (device.reconnectAvailable) stringResource(Res.string.settings_reconnect_device, device.displayName) else device.displayName,
                     colors = colors,
                     enabled = device.reconnectAvailable,
                     onClick = { actions.onTrustedDeviceSelected(device) },
@@ -698,19 +698,19 @@ internal fun NaviampConnectSettingsSection(
                     value = alias,
                     onValueChange = { if (it.length <= 64) alias = it },
                     singleLine = true,
-                    label = { Text("Local name (currently ${device.displayName})") },
+                    label = { Text(stringResource(Res.string.settings_local_device_name, device.displayName)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     PrimaryButton(
-                        "Save name",
+                        stringResource(Res.string.settings_save_name),
                         colors,
                         enabled = alias.trim() != device.localAlias.orEmpty(),
                         onClick = { actions.onTrustedDeviceAliasChanged(device.deviceId, alias) },
                         modifier = Modifier.weight(1f),
                     )
                     PrimaryButton(
-                        "Forget",
+                        stringResource(Res.string.settings_forget_device),
                         colors,
                         enabled = true,
                         onClick = { actions.onForgetTrustedDevice(device.deviceId) },
@@ -887,7 +887,7 @@ fun NaviampExperienceSettingsSection(
             title = ExperienceSettingsPage.Albums.title(),
             subtitle = ExperienceSettingsPage.Albums.subtitle(),
             colors = colors,
-            value = interfaceSettings.albumCollectionLayout.label,
+            value = interfaceSettings.albumCollectionLayout.localizedLabel(),
         ) {
             selectedSection = ExperienceSettingsPage.Albums
         }
@@ -895,7 +895,7 @@ fun NaviampExperienceSettingsSection(
             title = ExperienceSettingsPage.HomeScreen.title(),
             subtitle = ExperienceSettingsPage.HomeScreen.subtitle(),
             colors = colors,
-            value = "${HomeScreenSectionOptions.size} sections",
+            value = stringResource(Res.string.settings_section_count, HomeScreenSectionOptions.size),
         ) {
             selectedSection = ExperienceSettingsPage.HomeScreen
         }
@@ -911,7 +911,7 @@ fun NaviampExperienceSettingsSection(
                 title = ExperienceSettingsPage.KeyboardShortcuts.title(),
                 subtitle = ExperienceSettingsPage.KeyboardShortcuts.subtitle(),
                 colors = colors,
-                value = if (interfaceSettings.globalKeyboardShortcuts.enabled) "On" else "Off",
+                value = if (interfaceSettings.globalKeyboardShortcuts.enabled) stringResource(Res.string.tv_on) else stringResource(Res.string.common_off),
             ) {
                 selectedSection = ExperienceSettingsPage.KeyboardShortcuts
             }
@@ -956,8 +956,8 @@ fun NaviampExperienceSettingsSection(
             SettingsCheckboxRow(
                 colors = colors,
                 checked = interfaceSettings.showDesktopTooltips,
-                label = "Show hover tooltips",
-                subtitle = "Show labels when hovering over icon-only controls on desktop.",
+                label = stringResource(Res.string.settings_hover_tooltips),
+                subtitle = stringResource(Res.string.settings_hover_tooltips_description),
                 onCheckedChange = { enabled ->
                     onInterfaceSettingsChanged(interfaceSettings.copy(showDesktopTooltips = enabled).normalized())
                 },
@@ -969,7 +969,7 @@ fun NaviampExperienceSettingsSection(
             title = ExperienceSettingsPage.Updates.title(),
             subtitle = ExperienceSettingsPage.Updates.subtitle(),
             colors = colors,
-            value = if (interfaceSettings.checkForUpdates) updateChannel.label else "Off",
+            value = if (interfaceSettings.checkForUpdates) updateChannel.label else stringResource(Res.string.common_off),
         ) {
             selectedSection = ExperienceSettingsPage.Updates
         }
@@ -1081,12 +1081,12 @@ private fun ExperienceSettingsPage.title(): String =
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_title)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_title)
         ExperienceSettingsPage.Font -> stringResource(Res.string.settings_font_title)
-        ExperienceSettingsPage.Albums -> "Albums"
+        ExperienceSettingsPage.Albums -> stringResource(Res.string.discovery_catalog_albums)
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_title)
-        ExperienceSettingsPage.HomeScreen -> "Home Screen"
-        ExperienceSettingsPage.KeyboardShortcuts -> "Keyboard Shortcuts"
-        ExperienceSettingsPage.SwipeActions -> "Swipe Actions"
-        ExperienceSettingsPage.Updates -> "Update Notifications"
+        ExperienceSettingsPage.HomeScreen -> stringResource(Res.string.settings_home_screen)
+        ExperienceSettingsPage.KeyboardShortcuts -> stringResource(Res.string.settings_keyboard_shortcuts)
+        ExperienceSettingsPage.SwipeActions -> stringResource(Res.string.settings_swipe_actions)
+        ExperienceSettingsPage.Updates -> stringResource(Res.string.settings_update_notifications)
     }
 
 @Composable
@@ -1096,18 +1096,18 @@ private fun ExperienceSettingsPage.subtitle(): String =
         ExperienceSettingsPage.Radio -> stringResource(Res.string.settings_experience_related_tracks_subtitle)
         ExperienceSettingsPage.Lyrics -> stringResource(Res.string.settings_lyrics_subtitle)
         ExperienceSettingsPage.Font -> stringResource(Res.string.settings_font_subtitle)
-        ExperienceSettingsPage.Albums -> "Choose how album collections are presented"
+        ExperienceSettingsPage.Albums -> stringResource(Res.string.settings_albums_description)
         ExperienceSettingsPage.ArtistDetails -> stringResource(Res.string.settings_experience_artist_details_subtitle)
-        ExperienceSettingsPage.HomeScreen -> "Choose List, Grid, or Carousel for each Home section"
-        ExperienceSettingsPage.KeyboardShortcuts -> "Customize global Desktop shortcuts"
-        ExperienceSettingsPage.SwipeActions -> "Choose gesture shortcuts; actions stay available in each track's More actions menu"
+        ExperienceSettingsPage.HomeScreen -> stringResource(Res.string.settings_home_screen_description)
+        ExperienceSettingsPage.KeyboardShortcuts -> stringResource(Res.string.settings_keyboard_shortcuts_description)
+        ExperienceSettingsPage.SwipeActions -> stringResource(Res.string.settings_swipe_actions_description)
         ExperienceSettingsPage.Updates -> stringResource(Res.string.settings_updates_description)
     }
 
 private val ApplicationUpdateChannel.label: String
-    get() = when (this) {
-        ApplicationUpdateChannel.Stable -> "Stable"
-        ApplicationUpdateChannel.Beta -> "Beta"
+    @Composable get() = when (this) {
+        ApplicationUpdateChannel.Stable -> stringResource(Res.string.settings_update_stable)
+        ApplicationUpdateChannel.Beta -> stringResource(Res.string.settings_update_beta)
     }
 
 @Composable
@@ -1120,8 +1120,8 @@ private fun UpdateNotificationSettings(
     SettingsCheckboxRow(
         colors = colors,
         checked = interfaceSettings.checkForUpdates,
-        label = "Notify me about updates",
-        subtitle = "Check once a day and show a message when a newer release is available.",
+        label = stringResource(Res.string.settings_update_notify),
+        subtitle = stringResource(Res.string.settings_update_notify_description),
         onCheckedChange = { enabled ->
             onInterfaceSettingsChanged(interfaceSettings.copy(checkForUpdates = enabled))
         },
@@ -1130,7 +1130,7 @@ private fun UpdateNotificationSettings(
         val selectedChannel = interfaceSettings.applicationUpdateChannel
             ?: defaultApplicationUpdateChannel(installedVersion)
         Text(
-            "Release channel",
+            stringResource(Res.string.settings_update_channel),
             color = colors.primaryText,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
@@ -1144,7 +1144,7 @@ private fun UpdateNotificationSettings(
         SelectableSettingsRow(
             colors = colors,
             title = ApplicationUpdateChannel.Stable.label,
-            subtitle = "Notify only when a finished public release is available.",
+            subtitle = stringResource(Res.string.settings_update_stable_description),
             selected = selectedChannel == ApplicationUpdateChannel.Stable,
         ) {
             onInterfaceSettingsChanged(
@@ -1154,7 +1154,7 @@ private fun UpdateNotificationSettings(
         SelectableSettingsRow(
             colors = colors,
             title = ApplicationUpdateChannel.Beta.label,
-            subtitle = "Notify about beta releases as well as finished public releases.",
+            subtitle = stringResource(Res.string.settings_update_beta_description),
             selected = selectedChannel == ApplicationUpdateChannel.Beta,
         ) {
             onInterfaceSettingsChanged(
@@ -1359,14 +1359,14 @@ private fun AlbumExperienceSettings(
     var selectedPage by rememberSaveable { mutableStateOf<AlbumExperiencePage?>(null) }
 
     selectedPage?.let { page ->
-        SettingsSubsectionHeader(page.title, page.subtitle, colors) { selectedPage = null }
+        SettingsSubsectionHeader(stringResource(page.title), stringResource(page.subtitle), colors) { selectedPage = null }
         when (page) {
             AlbumExperiencePage.Presentation -> AlbumCollectionLayout.entries.forEach { layout ->
                 SelectableSettingsRow(
-                    title = layout.label,
+                    title = layout.localizedLabel(),
                     subtitle = when (layout) {
-                        AlbumCollectionLayout.List -> "Show album details in compact rows"
-                        AlbumCollectionLayout.Grid -> "Browse albums by cover art in a responsive grid"
+                        AlbumCollectionLayout.List -> stringResource(Res.string.settings_album_list_description)
+                        AlbumCollectionLayout.Grid -> stringResource(Res.string.settings_album_grid_description)
                     },
                     selected = interfaceSettings.albumCollectionLayout == layout,
                     colors = colors,
@@ -1376,11 +1376,11 @@ private fun AlbumExperienceSettings(
             }
             AlbumExperiencePage.Sorting -> AlbumSortOrder.entries.forEach { order ->
                 SelectableSettingsRow(
-                    title = order.label,
+                    title = order.localizedLabel(),
                     subtitle = when (order) {
-                        AlbumSortOrder.ReleaseYearAscending -> "Show the earliest releases first"
-                        AlbumSortOrder.ReleaseYearDescending -> "Show the newest releases first"
-                        AlbumSortOrder.Title -> "Sort alphabetically by album title"
+                        AlbumSortOrder.ReleaseYearAscending -> stringResource(Res.string.settings_album_oldest_description)
+                        AlbumSortOrder.ReleaseYearDescending -> stringResource(Res.string.settings_album_newest_description)
+                        AlbumSortOrder.Title -> stringResource(Res.string.settings_album_title_description)
                     },
                     selected = interfaceSettings.albumSortOrder == order,
                     colors = colors,
@@ -1392,26 +1392,26 @@ private fun AlbumExperienceSettings(
     } ?: run {
         SquareAlbumArtworkSetting(colors, interfaceSettings, onInterfaceSettingsChanged)
         SettingsRow(
-            title = AlbumExperiencePage.Presentation.title,
-            subtitle = AlbumExperiencePage.Presentation.subtitle,
+            title = stringResource(AlbumExperiencePage.Presentation.title),
+            subtitle = stringResource(AlbumExperiencePage.Presentation.subtitle),
             colors = colors,
-            value = interfaceSettings.albumCollectionLayout.label,
+            value = interfaceSettings.albumCollectionLayout.localizedLabel(),
         ) {
             selectedPage = AlbumExperiencePage.Presentation
         }
         SettingsRow(
-            title = AlbumExperiencePage.Sorting.title,
-            subtitle = AlbumExperiencePage.Sorting.subtitle,
+            title = stringResource(AlbumExperiencePage.Sorting.title),
+            subtitle = stringResource(AlbumExperiencePage.Sorting.subtitle),
             colors = colors,
-            value = interfaceSettings.albumSortOrder.label,
+            value = interfaceSettings.albumSortOrder.localizedLabel(),
         ) {
             selectedPage = AlbumExperiencePage.Sorting
         }
         SettingsCheckboxRow(
             colors = colors,
             checked = interfaceSettings.groupAlbumsByReleaseType,
-            label = "Separate albums by release type",
-            subtitle = "Show albums, EPs, singles, live releases, compilations, remixes, and soundtracks in their own sections",
+            label = stringResource(Res.string.settings_album_release_groups),
+            subtitle = stringResource(Res.string.settings_album_release_groups_description),
             onCheckedChange = { enabled ->
                 onInterfaceSettingsChanged(interfaceSettings.copy(groupAlbumsByReleaseType = enabled))
             },
@@ -1435,9 +1435,9 @@ internal fun SquareAlbumArtworkSetting(
     )
 }
 
-private enum class AlbumExperiencePage(val title: String, val subtitle: String) {
-    Presentation("Presentation", "Choose list or album-art grid presentation"),
-    Sorting("Sorting", "Choose how albums are ordered"),
+private enum class AlbumExperiencePage(val title: org.jetbrains.compose.resources.StringResource, val subtitle: org.jetbrains.compose.resources.StringResource) {
+    Presentation(Res.string.settings_album_presentation, Res.string.settings_album_presentation_description),
+    Sorting(Res.string.favorite_artists_sort_title, Res.string.settings_album_sorting_description),
 }
 
 @Composable
@@ -1497,7 +1497,7 @@ private fun GlobalKeyboardShortcutsSettingsPage(
     SettingsCheckboxRow(
         colors = colors,
         checked = settings.enabled,
-        label = "Global keyboard shortcuts",
+        label = stringResource(Res.string.settings_global_shortcuts),
         subtitle = stringResource(Res.string.settings_shortcuts_description),
         onCheckedChange = { enabled ->
             onInterfaceSettingsChanged(
@@ -1509,17 +1509,17 @@ private fun GlobalKeyboardShortcutsSettingsPage(
         val binding = bindings[action]
         val status = statuses[action]
         val registrationStatus = when {
-            !settings.enabled -> "Global shortcuts are off"
-            binding == null -> "Disabled"
-            status == null -> "Waiting for registration"
-            status.state == GlobalShortcutRegistrationState.Registered -> "Registered"
+            !settings.enabled -> stringResource(Res.string.settings_shortcuts_off)
+            binding == null -> stringResource(Res.string.similarity_admin_plugin_disabled)
+            status == null -> stringResource(Res.string.settings_shortcuts_waiting)
+            status.state == GlobalShortcutRegistrationState.Registered -> stringResource(Res.string.settings_shortcuts_registered)
             status.detail.isNotBlank() -> status.detail
-            status.state == GlobalShortcutRegistrationState.Conflict -> "Unavailable because another app or the operating system uses it"
-            else -> "Unavailable on this desktop session"
+            status.state == GlobalShortcutRegistrationState.Conflict -> stringResource(Res.string.settings_shortcuts_conflict)
+            else -> stringResource(Res.string.settings_shortcuts_unavailable)
         }
         SettingsRow(
             title = action.displayLabel(),
-            subtitle = "$registrationStatus\nShortcut: ${binding?.label(platform) ?: "None"}",
+            subtitle = stringResource(Res.string.settings_shortcut_status, registrationStatus, binding?.label(platform) ?: stringResource(Res.string.common_none)),
             colors = colors,
         ) {
             capturingAction = action
@@ -1535,7 +1535,7 @@ private fun GlobalKeyboardShortcutsSettingsPage(
         },
         modifier = Modifier.padding(horizontal = SettingsRowHorizontalPadding),
     ) {
-        Text("Reset ${platform.label} defaults")
+        Text(stringResource(Res.string.settings_shortcut_reset, platform.label))
     }
 
     capturingAction?.let { action ->
@@ -1557,7 +1557,14 @@ private fun GlobalKeyboardShortcutsSettingsPage(
 
 @Composable
 private fun GlobalShortcutAction.displayLabel(): String =
-    if (this == GlobalShortcutAction.BringToFront) stringResource(Res.string.shortcut_bring_to_front) else label
+    stringResource(when (this) {
+        GlobalShortcutAction.PlayPause -> Res.string.settings_shortcut_play_pause
+        GlobalShortcutAction.NextTrack -> Res.string.settings_shortcut_next_track
+        GlobalShortcutAction.Previous -> Res.string.transport_previous
+        GlobalShortcutAction.VolumeUp -> Res.string.settings_shortcut_volume_up
+        GlobalShortcutAction.VolumeDown -> Res.string.settings_shortcut_volume_down
+        GlobalShortcutAction.BringToFront -> Res.string.shortcut_bring_to_front
+    })
 
 @Composable
 private fun KeyboardShortcutCaptureDialog(
@@ -1567,7 +1574,7 @@ private fun KeyboardShortcutCaptureDialog(
     onDismiss: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
-    var message by remember { mutableStateOf("Press a key together with at least one modifier") }
+    var message by remember { mutableStateOf(Res.string.settings_shortcut_capture) }
     NaviampPopupPresence()
     NaviampAlertDialog(
         onDismissRequest = onDismiss,
@@ -1589,7 +1596,7 @@ private fun KeyboardShortcutCaptureDialog(
                         }
                         val key = event.toKeyboardShortcutKey()
                         if (key == null) {
-                            message = "That key is not supported. Use a letter, number, arrow, navigation key, Space, or F1–F12."
+                            message = Res.string.settings_shortcut_unsupported
                             return@onKeyEvent true
                         }
                         val binding = KeyboardShortcutBinding(
@@ -1600,22 +1607,22 @@ private fun KeyboardShortcutCaptureDialog(
                             meta = event.isMetaPressed,
                         )
                         if (!binding.hasModifier) {
-                            message = "Global shortcuts require at least one modifier key"
+                            message = Res.string.settings_shortcut_modifier_required
                         } else {
                             onCaptured(binding)
                         }
                         true
                     },
             ) {
-                Text(message, color = colors.primaryText, fontSize = 13.sp)
+                Text(stringResource(message), color = colors.primaryText, fontSize = 13.sp)
             }
             LaunchedEffect(Unit) { focusRequester.requestFocus() }
         },
         confirmButton = {
-            NaviampTextButton(onClick = { onCaptured(null) }) { Text("Disable shortcut") }
+            NaviampTextButton(onClick = { onCaptured(null) }) { Text(stringResource(Res.string.settings_shortcut_disable)) }
         },
         dismissButton = {
-            NaviampTextButton(onClick = onDismiss) { Text("Cancel") }
+            NaviampTextButton(onClick = onDismiss) { Text(stringResource(Res.string.library_sources_cancel)) }
         },
     )
 }
@@ -1697,7 +1704,7 @@ private fun HomeScreenSectionPresentationSettings(
     SettingsSubsectionHeader(
         title = selectedSection.title,
         subtitle = if (selectedSection.id == HomeSectionIds.Aurral) stringResource(Res.string.home_settings_visible)
-            else "Choose whether this section appears and how it is laid out",
+            else stringResource(Res.string.settings_home_section_description),
         colors = colors,
     ) { onSelectedSectionChanged(null) }
 
@@ -1732,14 +1739,14 @@ private fun HomeScreenSectionPresentationSettings(
         }
     }
 
-    SettingsSectionTitle("Home screen", colors)
+    SettingsSectionTitle(stringResource(Res.string.settings_home_screen), colors)
     HomeSectionLayout.entries.forEach { layout ->
         SelectableSettingsRow(
-            title = layout.label,
+            title = layout.localizedLabel(),
             subtitle = when (layout) {
-                HomeSectionLayout.List -> "Show every item in compact vertical rows"
-                HomeSectionLayout.Grid -> "Wrap items into a thumbnail grid"
-                HomeSectionLayout.Carousel -> "Show one horizontally scrolling row"
+                HomeSectionLayout.List -> stringResource(Res.string.settings_home_list_description)
+                HomeSectionLayout.Grid -> stringResource(Res.string.settings_home_grid_description)
+                HomeSectionLayout.Carousel -> stringResource(Res.string.settings_home_carousel_description)
             },
             selected = presentation.homeLayout == layout,
             colors = colors,
@@ -1754,11 +1761,11 @@ private fun HomeScreenSectionPresentationSettings(
     }
 
     if (selectedSection.id == HomeSectionIds.RecentRadio) {
-        SettingsSectionTitle("Stations shown", colors)
+        SettingsSectionTitle(stringResource(Res.string.settings_home_stations_shown), colors)
         RecentRadioHomeItemLimits.forEach { limit ->
             SelectableSettingsRow(
                 title = limit.toString(),
-                subtitle = "Show the $limit most recently played stations on Home",
+                subtitle = stringResource(Res.string.settings_home_recent_stations, limit),
                 selected = presentation.homeItemLimit == limit,
                 colors = colors,
             ) {
@@ -1772,13 +1779,13 @@ private fun HomeScreenSectionPresentationSettings(
         }
     }
 
-    SettingsSectionTitle("Dedicated page", colors)
+    SettingsSectionTitle(stringResource(Res.string.settings_home_dedicated_page), colors)
     HomeSectionPageLayout.entries.forEach { layout ->
         SelectableSettingsRow(
-            title = layout.label,
+            title = layout.localizedLabel(),
             subtitle = when (layout) {
-                HomeSectionPageLayout.List -> "Show every item in compact vertical rows"
-                HomeSectionPageLayout.Grid -> "Show every item in a responsive thumbnail grid"
+                HomeSectionPageLayout.List -> stringResource(Res.string.settings_home_list_description)
+                HomeSectionPageLayout.Grid -> stringResource(Res.string.settings_page_grid_description)
             },
             selected = presentation.pageLayout == layout,
             colors = colors,
@@ -1973,17 +1980,17 @@ private fun homeSectionDragGapOffset(
 
 private val HomeSectionOrderRowStep = 52.dp
 
-private enum class SwipeActionSlot(val title: String, val subtitle: String) {
-    LibraryRight("Library: swipe right", "Search, albums, playlists, and library tracks"),
-    LibraryLeft("Library: swipe left", "Search, albums, playlists, and library tracks"),
-    QueueRight("Queue: swipe right", "Back To and Up Next"),
-    QueueLeft("Queue: swipe left", "Back To and Up Next"),
-    RelatedRight("Related: swipe right", "Related and Sonic recommendations"),
-    RelatedLeft("Related: swipe left", "Related and Sonic recommendations"),
-    PlaylistEditRight("Playlist editing: swipe right", "Reorder or remove tracks in the playlist editor"),
-    PlaylistEditLeft("Playlist editing: swipe left", "Reorder or remove tracks in the playlist editor"),
-    DownloadsRight("Downloads: swipe right", "Downloaded tracks in Offline Mode"),
-    DownloadsLeft("Downloads: swipe left", "Downloaded tracks in Offline Mode"),
+private enum class SwipeActionSlot(val title: org.jetbrains.compose.resources.StringResource, val subtitle: org.jetbrains.compose.resources.StringResource) {
+    LibraryRight(Res.string.settings_swipe_library_right, Res.string.settings_swipe_library_description),
+    LibraryLeft(Res.string.settings_swipe_library_left, Res.string.settings_swipe_library_description),
+    QueueRight(Res.string.settings_swipe_queue_right, Res.string.settings_swipe_queue_description),
+    QueueLeft(Res.string.settings_swipe_queue_left, Res.string.settings_swipe_queue_description),
+    RelatedRight(Res.string.settings_swipe_related_right, Res.string.settings_swipe_related_description),
+    RelatedLeft(Res.string.settings_swipe_related_left, Res.string.settings_swipe_related_description),
+    PlaylistEditRight(Res.string.settings_swipe_playlist_edit_right, Res.string.settings_swipe_playlist_edit_description),
+    PlaylistEditLeft(Res.string.settings_swipe_playlist_edit_left, Res.string.settings_swipe_playlist_edit_description),
+    DownloadsRight(Res.string.settings_swipe_downloads_right, Res.string.settings_swipe_downloads_description),
+    DownloadsLeft(Res.string.settings_swipe_downloads_left, Res.string.settings_swipe_downloads_description),
 }
 
 @Composable
@@ -1996,7 +2003,7 @@ private fun SwipeActionSettings(
     val settings = interfaceSettings.trackSwipes
 
     selectedSlot?.let { slot ->
-        SettingsSubsectionHeader(slot.title, slot.subtitle, colors) { selectedSlot = null }
+        SettingsSubsectionHeader(stringResource(slot.title), stringResource(slot.subtitle), colors) { selectedSlot = null }
         swipeActionChoices(slot).forEach { action ->
             SelectableSettingsRow(
                 colors = colors,
@@ -2014,8 +2021,8 @@ private fun SwipeActionSettings(
 
     SwipeActionSlot.entries.forEach { slot ->
         SettingsRow(
-            title = slot.title,
-            subtitle = slot.subtitle,
+            title = stringResource(slot.title),
+            subtitle = stringResource(slot.subtitle),
             colors = colors,
             value = settings.action(slot).label(),
         ) {
@@ -2091,40 +2098,42 @@ private fun swipeActionChoices(slot: SwipeActionSlot): List<TrackSwipeAction> = 
     )
 }
 
+@Composable
 private fun TrackSwipeAction.label(): String = when (this) {
-    TrackSwipeAction.None -> "No action"
-    TrackSwipeAction.Play -> "Play"
-    TrackSwipeAction.PlayNext -> "Play next"
-    TrackSwipeAction.AddToQueue -> "Add to queue"
-    TrackSwipeAction.AddToPlaylist -> "Add to playlist"
-    TrackSwipeAction.Download -> "Download"
-    TrackSwipeAction.StartRadio -> "Start radio"
-    TrackSwipeAction.ToggleFavorite -> "Favorite / unfavorite"
-    TrackSwipeAction.GoToAlbum -> "Go to album"
-    TrackSwipeAction.GoToArtist -> "Go to artist"
-    TrackSwipeAction.Remove -> "Remove"
-    TrackSwipeAction.MoveUp -> "Move up"
-    TrackSwipeAction.MoveDown -> "Move down"
-    TrackSwipeAction.MoveToTop -> "Move to top"
-    TrackSwipeAction.MoveToBottom -> "Move to bottom"
+    TrackSwipeAction.None -> stringResource(Res.string.settings_swipe_none)
+    TrackSwipeAction.Play -> stringResource(Res.string.transport_play)
+    TrackSwipeAction.PlayNext -> stringResource(Res.string.tv_play_next)
+    TrackSwipeAction.AddToQueue -> stringResource(Res.string.generated_radio_add_queue)
+    TrackSwipeAction.AddToPlaylist -> stringResource(Res.string.ui_add_to_playlist)
+    TrackSwipeAction.Download -> stringResource(Res.string.playlist_item_download)
+    TrackSwipeAction.StartRadio -> stringResource(Res.string.tv_start_radio)
+    TrackSwipeAction.ToggleFavorite -> stringResource(Res.string.settings_swipe_toggle_favorite)
+    TrackSwipeAction.GoToAlbum -> stringResource(Res.string.playlist_item_go_album)
+    TrackSwipeAction.GoToArtist -> stringResource(Res.string.playlist_item_go_artist)
+    TrackSwipeAction.Remove -> stringResource(Res.string.mix_remove)
+    TrackSwipeAction.MoveUp -> stringResource(Res.string.smart_playlist_move_up)
+    TrackSwipeAction.MoveDown -> stringResource(Res.string.smart_playlist_move_down)
+    TrackSwipeAction.MoveToTop -> stringResource(Res.string.playlist_item_move_top)
+    TrackSwipeAction.MoveToBottom -> stringResource(Res.string.playlist_item_move_bottom)
 }
 
+@Composable
 private fun TrackSwipeAction.subtitle(): String = when (this) {
-    TrackSwipeAction.None -> "Disable this swipe direction"
-    TrackSwipeAction.Play -> "Play this downloaded track"
-    TrackSwipeAction.PlayNext -> "Insert or move the track after the current queue group, or after the current track when ungrouped"
-    TrackSwipeAction.AddToQueue -> "Append the track to the end of Up Next"
-    TrackSwipeAction.AddToPlaylist -> "Open the playlist picker"
-    TrackSwipeAction.Download -> "Save the track for offline playback"
-    TrackSwipeAction.StartRadio -> "Build a radio queue from the track"
-    TrackSwipeAction.ToggleFavorite -> "Toggle the track's favorite status"
-    TrackSwipeAction.GoToAlbum -> "Open the track's album"
-    TrackSwipeAction.GoToArtist -> "Open the track's artist"
-    TrackSwipeAction.Remove -> "Remove the track from this queue"
-    TrackSwipeAction.MoveUp -> "Move the track one position earlier"
-    TrackSwipeAction.MoveDown -> "Move the track one position later"
-    TrackSwipeAction.MoveToTop -> "Move the track to the beginning"
-    TrackSwipeAction.MoveToBottom -> "Move the track to the end"
+    TrackSwipeAction.None -> stringResource(Res.string.settings_swipe_none_description)
+    TrackSwipeAction.Play -> stringResource(Res.string.settings_swipe_play_description)
+    TrackSwipeAction.PlayNext -> stringResource(Res.string.settings_swipe_next_description)
+    TrackSwipeAction.AddToQueue -> stringResource(Res.string.settings_swipe_queue_description)
+    TrackSwipeAction.AddToPlaylist -> stringResource(Res.string.settings_swipe_playlist_description)
+    TrackSwipeAction.Download -> stringResource(Res.string.settings_swipe_download_description)
+    TrackSwipeAction.StartRadio -> stringResource(Res.string.settings_swipe_radio_description)
+    TrackSwipeAction.ToggleFavorite -> stringResource(Res.string.settings_swipe_favorite_description)
+    TrackSwipeAction.GoToAlbum -> stringResource(Res.string.settings_swipe_album_description)
+    TrackSwipeAction.GoToArtist -> stringResource(Res.string.settings_swipe_artist_description)
+    TrackSwipeAction.Remove -> stringResource(Res.string.settings_swipe_remove_description)
+    TrackSwipeAction.MoveUp -> stringResource(Res.string.settings_swipe_up_description)
+    TrackSwipeAction.MoveDown -> stringResource(Res.string.settings_swipe_down_description)
+    TrackSwipeAction.MoveToTop -> stringResource(Res.string.settings_swipe_top_description)
+    TrackSwipeAction.MoveToBottom -> stringResource(Res.string.settings_swipe_bottom_description)
 }
 
 @Composable
@@ -2834,9 +2843,9 @@ private fun AboutInfoRow(
 @Composable
 fun NaviampDiagnosticsSettingsSection(
     colors: NaviampColors,
-    title: String = "Diagnostics",
+    title: String = stringResource(Res.string.tv_diagnostics),
     diagnostics: NaviampDiagnosticsUi,
-    emptyText: String = "No diagnostics yet",
+    emptyText: String = stringResource(Res.string.settings_diagnostics_empty),
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -2848,7 +2857,7 @@ fun NaviampDiagnosticsSettingsSection(
         } else {
             diagnostics.sections.forEach { section ->
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(section.title, color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize, fontWeight = FontWeight.SemiBold)
+                    Text(localizedDiagnosticText(section.title, isLabel = true), color = colors.secondaryText, fontSize = SettingsDetailRowSubtitleSize, fontWeight = FontWeight.SemiBold)
                     section.rows.forEach { (label, value) ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -2856,7 +2865,7 @@ fun NaviampDiagnosticsSettingsSection(
                             verticalAlignment = Alignment.Top,
                         ) {
                             Text(
-                                localizedDiagnosticText(label),
+                                localizedDiagnosticText(label, isLabel = true),
                                 color = colors.mutedText,
                                 fontSize = SettingsDetailTinyTextSize,
                                 modifier = Modifier.weight(0.42f),
@@ -2951,7 +2960,7 @@ private fun SharedLocalDataActions(
             fontSize = SettingsDetailRowSubtitleSize,
         )
         onRefreshLibrary?.let { refresh ->
-            PrimarySettingsButton("Refresh library index", colors, enabled = true, onClick = refresh)
+            PrimarySettingsButton(stringResource(Res.string.settings_refresh_library), colors, enabled = true, onClick = refresh)
         }
         PrimarySettingsButton(stringResource(Res.string.settings_local_clear_cache), colors, enabled = onClearCache != null) {
             confirmAction = SharedLocalDataAction.ClearCache
@@ -3324,8 +3333,8 @@ fun NaviampDownloadsSettingsSection(
             DownloadsSettingsPage.Playback -> DownloadedTrackPlayback.entries.forEach { preference ->
                 SelectableSettingsRow(
                     colors = colors,
-                    title = preference.label,
-                    subtitle = preference.subtitle,
+                    title = preference.localizedLabel(),
+                    subtitle = preference.localizedSubtitle(),
                     selected = preference == playbackSettings.downloadedTrackPlayback,
                 ) {
                     onPlaybackSettingsChanged(playbackSettings.copy(downloadedTrackPlayback = preference))
@@ -3375,7 +3384,7 @@ fun NaviampDownloadsSettingsSection(
         title = stringResource(Res.string.settings_downloads_playback_title),
         subtitle = stringResource(Res.string.settings_downloads_playback_subtitle),
         colors = colors,
-        value = playbackSettings.downloadedTrackPlayback.label,
+        value = playbackSettings.downloadedTrackPlayback.localizedLabel(),
     ) {
         selectedPage = DownloadsSettingsPage.Playback
     }
@@ -3408,7 +3417,7 @@ fun NaviampDownloadsSettingsSection(
     }
     if (locations.isNotEmpty()) {
         val selected = locations.firstOrNull { it.id == selectedLocationId } ?: locations.first()
-        SettingsRow("Download location", "Where newly saved files are stored", colors, selected.displayLabel()) {
+        SettingsRow(stringResource(Res.string.settings_download_location), stringResource(Res.string.settings_download_location_description), colors, selected.displayLabel()) {
             selectedPage = DownloadsSettingsPage.Location
         }
     }
@@ -3439,7 +3448,7 @@ private fun DownloadsSettingsPage.title(): String =
         DownloadsSettingsPage.SavedFiles -> stringResource(Res.string.settings_downloads_saved_files_title)
         DownloadsSettingsPage.Playback -> stringResource(Res.string.settings_downloads_playback_title)
         DownloadsSettingsPage.StorageBudget -> stringResource(Res.string.settings_downloads_storage_budget_title)
-        DownloadsSettingsPage.Location -> "Download Location"
+        DownloadsSettingsPage.Location -> stringResource(Res.string.settings_download_location)
     }
 
 @Composable
@@ -3448,7 +3457,7 @@ private fun DownloadsSettingsPage.subtitle(): String =
         DownloadsSettingsPage.SavedFiles -> stringResource(Res.string.settings_downloads_saved_files_subtitle)
         DownloadsSettingsPage.Playback -> stringResource(Res.string.settings_downloads_playback_subtitle)
         DownloadsSettingsPage.StorageBudget -> stringResource(Res.string.settings_downloads_storage_budget_subtitle)
-        DownloadsSettingsPage.Location -> "Internal, device, or removable storage"
+        DownloadsSettingsPage.Location -> stringResource(Res.string.settings_storage_location_description)
     }
 
 @Composable
@@ -3543,7 +3552,7 @@ fun NaviampAudioCacheSettingsSection(
     }
     if (locations.isNotEmpty()) {
         val selected = locations.firstOrNull { it.id == selectedLocationId } ?: locations.first()
-        SettingsRow("Cache location", "Where newly prefetched audio is stored", colors, selected.displayLabel()) {
+        SettingsRow(stringResource(Res.string.settings_cache_location), stringResource(Res.string.settings_cache_location_description), colors, selected.displayLabel()) {
             selectedPage = AudioCacheSettingsPage.Location
         }
     }
@@ -3575,7 +3584,7 @@ private fun AudioCacheSettingsPage.title(): String =
         AudioCacheSettingsPage.UnmeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_unmetered_title)
         AudioCacheSettingsPage.MeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_metered_title)
         AudioCacheSettingsPage.AudioCacheBudget -> stringResource(Res.string.settings_audio_cache_budget_title)
-        AudioCacheSettingsPage.Location -> "Cache Location"
+        AudioCacheSettingsPage.Location -> stringResource(Res.string.settings_cache_location)
     }
 
 @Composable
@@ -3584,7 +3593,7 @@ private fun AudioCacheSettingsPage.subtitle(): String =
         AudioCacheSettingsPage.UnmeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_unmetered_subtitle)
         AudioCacheSettingsPage.MeteredPrefetchDepth -> stringResource(Res.string.settings_audio_cache_prefetch_metered_subtitle)
         AudioCacheSettingsPage.AudioCacheBudget -> stringResource(Res.string.settings_audio_cache_budget_subtitle)
-        AudioCacheSettingsPage.Location -> "Internal, device, or removable storage"
+        AudioCacheSettingsPage.Location -> stringResource(Res.string.settings_storage_location_description)
     }
 
 @Composable
@@ -3874,7 +3883,7 @@ private fun playbackSettingsSectionValue(
     when (section) {
         NaviampPlaybackSettingsSection.AudioOutput -> null
         NaviampPlaybackSettingsSection.AudioQuality -> playbackSettings.wifiStreamingQuality.summaryLabel()
-        NaviampPlaybackSettingsSection.ReplayGain -> playbackSettings.replayGainMode.displayName
+        NaviampPlaybackSettingsSection.ReplayGain -> playbackSettings.replayGainMode.localizedLabel()
         NaviampPlaybackSettingsSection.GaplessCrossfade -> playbackSettings.fadeSummary()
         NaviampPlaybackSettingsSection.Equalizer -> if (playbackSettings.equalizer.normalized().enabled) {
             stringResource(Res.string.common_enabled)
@@ -3996,8 +4005,8 @@ private fun AudioOutputSettings(
         )
         AudioOutputSettingsPage.SampleRateMatching -> SampleRateMatching.entries.forEach { mode ->
             SelectableSettingsRow(
-                title = mode.label,
-                subtitle = mode.subtitle,
+                title = mode.localizedLabel(),
+                subtitle = mode.localizedSubtitle(),
                 colors = colors,
                 selected = playbackSettings.sampleRateMatching == mode,
             ) {
@@ -4014,8 +4023,8 @@ private fun AudioOutputSettings(
         }
         AudioOutputSettingsPage.SampleRateConverter -> SampleRateConverter.entries.forEach { converter ->
             SelectableSettingsRow(
-                title = converter.label,
-                subtitle = converter.subtitle,
+                title = converter.localizedLabel(),
+                subtitle = converter.localizedSubtitle(),
                 colors = colors,
                 selected = playbackSettings.sampleRateConverter == converter,
             ) {
@@ -4035,13 +4044,13 @@ private fun AudioOutputSettings(
                 title = stringResource(Res.string.settings_sample_rate_matching_title),
                 subtitle = stringResource(Res.string.settings_sample_rate_matching_subtitle),
                 colors = colors,
-                value = playbackSettings.sampleRateMatching.label,
+                value = playbackSettings.sampleRateMatching.localizedLabel(),
             ) { selectedPage = AudioOutputSettingsPage.SampleRateMatching }
             SettingsRow(
                 title = stringResource(Res.string.settings_sample_rate_converter_title),
                 subtitle = stringResource(Res.string.settings_sample_rate_converter_subtitle),
                 colors = colors,
-                value = playbackSettings.sampleRateConverter.label,
+                value = playbackSettings.sampleRateConverter.localizedLabel(),
             ) { selectedPage = AudioOutputSettingsPage.SampleRateConverter }
             if (supportsStereoDownmix) SettingsCheckboxRow(
                 colors = colors,
@@ -4164,7 +4173,7 @@ private fun SelectableTextOption(
     subtitle: String? = null,
     selected: Boolean,
     enabled: Boolean = true,
-    selectedLabel: String = "Selected",
+    selectedLabel: String = stringResource(Res.string.library_view_state_selected),
     onClick: () -> Unit,
 ) {
     Row(
@@ -4354,7 +4363,7 @@ private fun ReplayGainSettings(
         ReplayGainMode.entries.forEach { mode ->
             SelectableSettingsRow(
                 colors = colors,
-                title = mode.displayName,
+                title = mode.localizedLabel(),
                 subtitle = mode.replayGainSubtitle(),
                 selected = playbackSettings.replayGainMode == mode,
                 enabled = supportsReplayGain,
@@ -4388,7 +4397,7 @@ private fun ReplayGainSettings(
         title = stringResource(Res.string.settings_replay_gain_title),
         subtitle = playbackSettings.replayGainMode.replayGainSubtitle(),
         colors = colors,
-        value = playbackSettings.replayGainMode.displayName,
+        value = playbackSettings.replayGainMode.localizedLabel(),
         enabled = supportsReplayGain,
     ) {
         replayGainModeOpen = true
@@ -4709,7 +4718,7 @@ private fun RadioTuningControls(
                 FilterChip(
                     selected = tuning.familiarity == familiarity,
                     onClick = { onTuningChanged(tuning.copy(familiarity = familiarity)) },
-                    label = { Text(familiarity.label) },
+                    label = { Text(familiarity.localizedLabel()) },
                     colors = chipColors,
                 )
             }
@@ -4722,7 +4731,7 @@ private fun RadioTuningControls(
                 FilterChip(
                     selected = tuning.artistSpread == spread,
                     onClick = { onTuningChanged(tuning.copy(artistSpread = spread)) },
-                    label = { Text(spread.label) },
+                    label = { Text(spread.localizedLabel()) },
                     colors = chipColors,
                 )
             }
@@ -4743,7 +4752,7 @@ private fun RadioTuningControls(
                 FilterChip(
                     selected = tuning.artistRunMode == mode,
                     onClick = { onTuningChanged(tuning.copy(artistRunMode = mode)) },
-                    label = { Text(mode.label) },
+                    label = { Text(mode.localizedLabel()) },
                     colors = chipColors,
                 )
             }
@@ -4785,7 +4794,7 @@ private fun SettingsNumberSlider(
     onValueChanged: (Int) -> Unit,
 ) {
     val normalized = value.coerceIn(MinArtistRunLength, MaxArtistRunLength)
-    Text("$label: $normalized", color = colors.secondaryText, fontSize = 12.sp)
+    Text(stringResource(Res.string.settings_number_value, label, normalized), color = colors.secondaryText, fontSize = 12.sp)
     Slider(
         value = normalized.toFloat(),
         onValueChange = { onValueChanged(it.toInt().coerceIn(MinArtistRunLength, MaxArtistRunLength)) },
@@ -5477,7 +5486,7 @@ private fun EqualizerSettings(
             EqualizerSettingsPage.Preset -> EqualizerPreset.entries.forEach { preset ->
                 SelectableSettingsRow(
                     colors = colors,
-                    title = preset.displayName,
+                    title = preset.localizedLabel(),
                     selected = equalizer.preset == preset,
                     enabled = supportsEqualizer,
                 ) {
@@ -5544,7 +5553,7 @@ private fun EqualizerSettings(
         title = stringResource(Res.string.settings_equalizer_preset_title),
         subtitle = stringResource(Res.string.settings_equalizer_preset_subtitle),
         colors = colors,
-        value = equalizer.preset.displayName,
+        value = equalizer.preset.localizedLabel(),
         enabled = supportsEqualizer,
     ) {
         selectedPage = EqualizerSettingsPage.Preset
@@ -6000,6 +6009,120 @@ private fun ReplayGainMode.replayGainSubtitle(): String =
         ReplayGainMode.Album -> stringResource(Res.string.settings_replay_gain_album_description)
     }
 
+@Composable
+private fun AlbumCollectionLayout.localizedLabel(): String = stringResource(when (this) {
+    AlbumCollectionLayout.List -> Res.string.settings_media_layout_list
+    AlbumCollectionLayout.Grid -> Res.string.settings_media_layout_grid
+})
+
+@Composable
+private fun AlbumSortOrder.localizedLabel(): String = stringResource(when (this) {
+    AlbumSortOrder.ReleaseYearAscending -> Res.string.settings_album_sort_order_release_year_ascending
+    AlbumSortOrder.ReleaseYearDescending -> Res.string.settings_album_sort_order_release_year_descending
+    AlbumSortOrder.Title -> Res.string.tv_album_sort_title
+})
+
+@Composable
+private fun HomeSectionLayout.localizedLabel(): String = stringResource(when (this) {
+    HomeSectionLayout.List -> Res.string.settings_media_layout_list
+    HomeSectionLayout.Grid -> Res.string.settings_media_layout_grid
+    HomeSectionLayout.Carousel -> Res.string.settings_home_section_layout_carousel
+})
+
+@Composable
+private fun HomeSectionPageLayout.localizedLabel(): String = stringResource(when (this) {
+    HomeSectionPageLayout.List -> Res.string.settings_media_layout_list
+    HomeSectionPageLayout.Grid -> Res.string.settings_media_layout_grid
+})
+
+@Composable
+private fun DownloadedTrackPlayback.localizedLabel(): String = stringResource(when (this) {
+    DownloadedTrackPlayback.PreferDownloaded -> Res.string.settings_downloaded_track_playback_prefer_downloaded
+    DownloadedTrackPlayback.PreferServer -> Res.string.settings_downloaded_track_playback_prefer_server
+})
+
+@Composable
+private fun SampleRateConverter.localizedLabel(): String = stringResource(when (this) {
+    SampleRateConverter.Linear -> Res.string.settings_sample_rate_converter_linear
+    SampleRateConverter.Sinc8 -> Res.string.settings_sample_rate_converter_sinc8
+    SampleRateConverter.Sinc16 -> Res.string.settings_sample_rate_converter_sinc16
+    SampleRateConverter.Sinc32 -> Res.string.settings_sample_rate_converter_sinc32
+    SampleRateConverter.Sinc64 -> Res.string.settings_sample_rate_converter_sinc64
+})
+
+@Composable
+private fun SampleRateMatching.localizedLabel(): String = stringResource(when (this) {
+    SampleRateMatching.Disabled -> Res.string.similarity_admin_plugin_disabled
+    SampleRateMatching.Smart -> Res.string.tv_smart
+    SampleRateMatching.Strict -> Res.string.tv_strict
+})
+
+@Composable
+private fun ReplayGainMode.localizedLabel(): String = stringResource(when (this) {
+    ReplayGainMode.Off -> Res.string.common_off
+    ReplayGainMode.Track -> Res.string.smart_playlist_field_category_track
+    ReplayGainMode.Album -> Res.string.tv_album
+})
+
+@Composable
+private fun EqualizerPreset.localizedLabel(): String = stringResource(when (this) {
+    EqualizerPreset.Flat -> Res.string.settings_equalizer_preset_flat
+    EqualizerPreset.BassBoost -> Res.string.settings_equalizer_preset_bass_boost
+    EqualizerPreset.TrebleBoost -> Res.string.settings_equalizer_preset_treble_boost
+    EqualizerPreset.Rock -> Res.string.settings_equalizer_preset_rock
+    EqualizerPreset.Pop -> Res.string.settings_equalizer_preset_pop
+    EqualizerPreset.Jazz -> Res.string.settings_equalizer_preset_jazz
+    EqualizerPreset.Classical -> Res.string.settings_equalizer_preset_classical
+    EqualizerPreset.DanceElectronic -> Res.string.settings_equalizer_preset_dance_electronic
+    EqualizerPreset.HipHop -> Res.string.settings_equalizer_preset_hip_hop
+    EqualizerPreset.Vocal -> Res.string.settings_equalizer_preset_vocal
+    EqualizerPreset.Acoustic -> Res.string.settings_equalizer_preset_acoustic
+    EqualizerPreset.Custom -> Res.string.storage_location_custom
+})
+
+@Composable
+private fun RadioFamiliarity.localizedLabel(): String = stringResource(when (this) {
+    RadioFamiliarity.Balanced -> Res.string.mix_bias_balanced
+    RadioFamiliarity.Favorites -> Res.string.mix_bias_favorites
+    RadioFamiliarity.DeepCuts -> Res.string.generated_radio_deep_cuts
+})
+
+@Composable
+private fun RadioArtistSpread.localizedLabel(): String = stringResource(when (this) {
+    RadioArtistSpread.Narrow -> Res.string.generated_radio_narrow
+    RadioArtistSpread.Balanced -> Res.string.mix_bias_balanced
+    RadioArtistSpread.Broad -> Res.string.generated_radio_broad
+})
+
+@Composable
+private fun RadioArtistRunMode.localizedLabel(): String = stringResource(when (this) {
+    RadioArtistRunMode.Mixed -> Res.string.generated_radio_mixed
+    RadioArtistRunMode.SingleArtist -> Res.string.generated_radio_single_artist
+    RadioArtistRunMode.ArtistBlocks -> Res.string.generated_radio_artist_blocks
+})
+
+@Composable
+private fun DownloadedTrackPlayback.localizedSubtitle(): String = stringResource(when (this) {
+    DownloadedTrackPlayback.PreferDownloaded -> Res.string.settings_downloaded_track_playback_prefer_downloaded_description
+    DownloadedTrackPlayback.PreferServer -> Res.string.settings_downloaded_track_playback_prefer_server_description
+})
+
+@Composable
+private fun SampleRateConverter.localizedSubtitle(): String = stringResource(when (this) {
+    SampleRateConverter.Linear -> Res.string.settings_sample_rate_converter_linear_description
+    SampleRateConverter.Sinc8 -> Res.string.settings_sample_rate_converter_sinc8_description
+    SampleRateConverter.Sinc16 -> Res.string.settings_sample_rate_converter_sinc16_description
+    SampleRateConverter.Sinc32 -> Res.string.settings_sample_rate_converter_sinc32_description
+    SampleRateConverter.Sinc64 -> Res.string.settings_sample_rate_converter_sinc64_description
+})
+
+@Composable
+private fun SampleRateMatching.localizedSubtitle(): String = stringResource(when (this) {
+    SampleRateMatching.Disabled -> Res.string.tv_sample_rates_are_fixed
+    SampleRateMatching.Smart -> Res.string.tv_sample_rates_are_adjusted_when_playback_is_idle
+    SampleRateMatching.Strict -> Res.string.tv_sample_rates_are_adjusted_for_each_track_as_needed
+})
+
 private val StreamingCodec.label: String
     get() = when (this) {
         StreamingCodec.Mp3 -> "MP3"
@@ -6010,8 +6133,8 @@ private val StreamingCodec.label: String
 @Composable
 private fun RadioTuningSettings.summaryLabel(): String =
     listOf(
-        familiarity.label,
-        artistSpread.label,
+        familiarity.localizedLabel(),
+        artistSpread.localizedLabel(),
         if (sameDecadeOnly) stringResource(Res.string.settings_radio_same_decade) else stringResource(Res.string.settings_radio_any_decade),
         when (artistRunMode) {
             RadioArtistRunMode.Mixed -> stringResource(Res.string.settings_radio_mixed_artists)

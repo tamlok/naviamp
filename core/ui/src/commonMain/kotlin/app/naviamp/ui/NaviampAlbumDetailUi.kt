@@ -60,6 +60,7 @@ import app.naviamp.domain.settings.toggleSelectedMusicFolderId
 import app.naviamp.domain.settings.AlbumArtworkPreference
 import app.naviamp.domain.settings.QuickAccessKind
 import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.*
 import app.naviamp.ui.generated.resources.album_settings
 import app.naviamp.ui.generated.resources.album_settings_description
 import app.naviamp.ui.generated.resources.album_disc_number
@@ -90,10 +91,10 @@ fun NaviampAlbumDetailContent(
         ) { colors ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
-                    Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+                    Icon(NaviampIcons.Back, contentDescription = stringResource(Res.string.common_back), tint = colors.primaryText)
                 }
                 Text(
-                    screen.selectedAlbum?.title ?: "Album",
+                    screen.selectedAlbum?.title ?: stringResource(Res.string.tv_album),
                     color = colors.primaryText,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -224,11 +225,11 @@ private fun AlbumDetailContent(
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) { colors ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                NaviampTooltip("Back", colors) {
+                NaviampTooltip(stringResource(Res.string.common_back), colors) {
                     IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                         Icon(
                             NaviampIcons.Back,
-                            contentDescription = "Back",
+                            contentDescription = stringResource(Res.string.common_back),
                             tint = colors.primaryText,
                             modifier = Modifier.size(18.dp),
                         )
@@ -266,7 +267,7 @@ private fun AlbumDetailContent(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
                     Text(
-                        detail.album.subtitle,
+                        detail.album.localizedSubtitle(),
                         color = colors.primaryText,
                         fontSize = 14.sp,
                         maxLines = 1,
@@ -288,20 +289,20 @@ private fun AlbumDetailContent(
                         colors = colors,
                         trailingToggle = naviampQuickAccessAction(detail.album, QuickAccessKind.Album),
                         actions = listOf(
-                            NaviampDetailAction("Play album", NaviampTransportIcons.Play, onPlayAlbum, detail.tracks.isNotEmpty()),
-                            NaviampDetailAction("Shuffle album", NaviampTransportIcons.Shuffle, onShuffleAlbum, detail.tracks.size > 1),
-                            NaviampDetailAction("Start album radio", NaviampTransportIcons.Radio, onAlbumRadio, detail.tracks.isNotEmpty()),
-                            NaviampDetailAction("Download album", NaviampIcons.Downloads, onAlbumDownload, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_play_album), NaviampTransportIcons.Play, onPlayAlbum, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_shuffle_album), NaviampTransportIcons.Shuffle, onShuffleAlbum, detail.tracks.size > 1),
+                            NaviampDetailAction(stringResource(Res.string.media_start_album_radio), NaviampTransportIcons.Radio, onAlbumRadio, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.ui_download_album), NaviampIcons.Downloads, onAlbumDownload, detail.tracks.isNotEmpty()),
                             NaviampDetailAction(
                                 stringResource(if (keptDownloaded) Res.string.download_stop_keeping_collection else Res.string.download_keep_collection),
                                 NaviampIcons.KeepDownloaded, onKeepDownloaded, detail.tracks.isNotEmpty() || keptDownloaded,
                                 selected = keptDownloaded,
                             ),
-                            NaviampDetailAction("Add album to queue", NaviampIcons.Queue, onAlbumAddToQueue, detail.tracks.isNotEmpty()),
-                            NaviampDetailAction("Add album to playlist", NaviampIcons.Playlist, { addAlbumToPlaylistOpen = true }, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_add_album_queue), NaviampIcons.Queue, onAlbumAddToQueue, detail.tracks.isNotEmpty()),
+                            NaviampDetailAction(stringResource(Res.string.media_add_album_playlist), NaviampIcons.Playlist, { addAlbumToPlaylistOpen = true }, detail.tracks.isNotEmpty()),
                             NaviampDetailAction(stringResource(Res.string.album_settings), NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()),
                             NaviampDetailAction(
-                                if (detail.album.favoriteActive) "Remove album favorite" else "Favorite album",
+                                stringResource(if (detail.album.favoriteActive) Res.string.ui_remove_album_favorite else Res.string.ui_favorite_album),
                                 if (detail.album.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                                 onAlbumFavoriteToggled,
                                 detail.album.canFavorite,

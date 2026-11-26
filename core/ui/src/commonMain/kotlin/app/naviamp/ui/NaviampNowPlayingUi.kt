@@ -149,6 +149,7 @@ import app.naviamp.domain.settings.TrackSwipeAction
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.StringResource
 import app.naviamp.ui.generated.resources.Res
 import app.naviamp.ui.generated.resources.*
 import kotlin.math.roundToInt
@@ -196,7 +197,16 @@ data class NaviampNowPlayingItemUi(
     val playNextPriority: Boolean = false,
     val actionTarget: NowPlayingItemTarget? = null,
     val mediaKind: SharedMediaItemKind = SharedMediaItemKind.Track,
+    val subtitleResource: StringResource? = null,
+    val similarityPercent: Int? = null,
 )
+
+@Composable
+fun NaviampNowPlayingItemUi.localizedSubtitle(): String = subtitleResource?.let { stringResource(it) } ?: subtitle
+
+@Composable
+fun NaviampNowPlayingItemUi.localizedMeta(): String =
+    similarityPercent?.let { stringResource(Res.string.ui_similarity_match, it) } ?: meta
 
 data class NaviampNowPlayingActions(
     val onPlaybackAction: (NowPlayingPlaybackActionRequest) -> Unit,
@@ -1090,8 +1100,32 @@ private fun VisualizerDropdownMenuItems(
     onVisualizerSelected: (NaviampVisualizer) -> Unit,
 ) {
     orderedNaviampVisualizers.forEach { visualizer ->
+        val label = stringResource(when (visualizer) {
+            NaviampVisualizer.AlbumArtReactive -> Res.string.visualizer_album_art
+            NaviampVisualizer.AnalogSignalFailure -> Res.string.visualizer_analog_signal_failure
+            NaviampVisualizer.AudioSphere -> Res.string.visualizer_audio_sphere
+            NaviampVisualizer.AudioTunnel -> Res.string.visualizer_audio_tunnel
+            NaviampVisualizer.FluidGradient -> Res.string.visualizer_fluid_gradient
+            NaviampVisualizer.FrequencyTerrain -> Res.string.visualizer_frequency_terrain
+            NaviampVisualizer.FftMountain -> Res.string.visualizer_mountains
+            NaviampVisualizer.FluidicNebulae -> Res.string.visualizer_fluidic_nebulae
+            NaviampVisualizer.LyricMirrorTunnel -> Res.string.visualizer_lyric_mirror_tunnel
+            NaviampVisualizer.OceanHorizon -> Res.string.visualizer_ocean_horizon
+            NaviampVisualizer.OceanOfInk -> Res.string.visualizer_ocean_of_ink
+            NaviampVisualizer.ParticleField -> Res.string.visualizer_particle_field
+            NaviampVisualizer.ParticleGalaxy -> Res.string.visualizer_particle_galaxy
+            NaviampVisualizer.PixelMountain -> Res.string.visualizer_pixel_mountains
+            NaviampVisualizer.PixelRidge -> Res.string.visualizer_pixel_ridge
+            NaviampVisualizer.RaymarchedSphereLiquid -> Res.string.visualizer_liquid_sphere
+            NaviampVisualizer.ReactiveBars -> Res.string.visualizer_reactive_bars
+            NaviampVisualizer.RibbonTrail -> Res.string.visualizer_ribbon_trail
+            NaviampVisualizer.SpectrumBars -> Res.string.visualizer_spectrum_bars
+            NaviampVisualizer.SpectralRidge -> Res.string.visualizer_spectral_ridge
+            NaviampVisualizer.WaveInterference -> Res.string.visualizer_wave_interference
+            NaviampVisualizer.VinylGroove -> Res.string.visualizer_vinyl_groove
+        })
         NaviampDropdownMenuItem(
-            label = if (visualizer == selectedVisualizer) "${visualizer.label} ✓" else visualizer.label,
+            label = if (visualizer == selectedVisualizer) "$label ✓" else label,
             enabled = visualizer != selectedVisualizer,
             onClick = { onVisualizerSelected(visualizer) },
         )
@@ -1212,7 +1246,7 @@ private fun NowPlayingDetails(
                 .padding(bottom = if (mobileLayout) 1.dp else 0.dp),
         ) {
             NowPlayingIdentityText(
-                text = nowPlaying.title,
+                text = nowPlaying.localizedTitle(),
                 alignStart = false,
                 color = colors.primaryText,
                 fontSize = titleFontSize,
@@ -1237,7 +1271,7 @@ private fun NowPlayingDetails(
                 )
             } else {
                 NowPlayingIdentityText(
-                    text = nowPlaying.subtitle,
+                    text = nowPlaying.localizedSubtitle(),
                     alignStart = false,
                     color = colors.secondaryText,
                     fontSize = metadataFontSize,
@@ -1252,7 +1286,7 @@ private fun NowPlayingDetails(
                 )
             }
             val albumText = when {
-                nowPlaying.isLive -> "Live stream"
+                nowPlaying.isLive -> stringResource(Res.string.now_playing_live_stream)
                 nowPlaying.albumTitle.isNotBlank() && displaySettings.showAlbumYear && nowPlaying.albumYear != null ->
                     "${nowPlaying.albumTitle} (${nowPlaying.albumYear})"
                 nowPlaying.albumTitle.isNotBlank() -> nowPlaying.albumTitle
@@ -1351,7 +1385,7 @@ private fun NowPlayingDetails(
             NaviampTransportIconButton(
                 enabled = nowPlaying.shuffleEnabled,
                 icon = NaviampTransportIcons.Shuffle,
-                contentDescription = if (nowPlaying.shuffleActive) "Turn shuffle off" else "Shuffle Up Next",
+                contentDescription = stringResource(if (nowPlaying.shuffleActive) Res.string.now_playing_shuffle_off else Res.string.now_playing_shuffle_up_next),
                 colors = controlColors,
                 selected = nowPlaying.shuffleActive,
                 buttonSize = secondaryTransportButtonSize,
@@ -1361,7 +1395,7 @@ private fun NowPlayingDetails(
             NaviampTransportIconButton(
                 enabled = nowPlaying.hasPrevious,
                 icon = NaviampTransportIcons.Previous,
-                contentDescription = "Previous",
+                contentDescription = stringResource(Res.string.transport_previous),
                 colors = controlColors,
                 buttonSize = transportButtonSize,
                 iconSize = transportIconSize,
@@ -1370,7 +1404,7 @@ private fun NowPlayingDetails(
             NaviampTransportIconButton(
                 enabled = canTogglePlayback,
                 icon = if (nowPlaying.isPlaying) NaviampTransportIcons.Pause else NaviampTransportIcons.Play,
-                contentDescription = if (nowPlaying.isPlaying) "Pause" else "Play",
+                contentDescription = stringResource(if (nowPlaying.isPlaying) Res.string.transport_pause else Res.string.transport_play),
                 colors = actionColors,
                 prominent = true,
                 buttonSize = prominentTransportButtonSize,
@@ -1386,7 +1420,7 @@ private fun NowPlayingDetails(
             NaviampTransportIconButton(
                 enabled = nowPlaying.hasNext,
                 icon = NaviampTransportIcons.Next,
-                contentDescription = "Next",
+                contentDescription = stringResource(Res.string.transport_next),
                 colors = controlColors,
                 buttonSize = transportButtonSize,
                 iconSize = transportIconSize,
@@ -1395,11 +1429,11 @@ private fun NowPlayingDetails(
             NaviampTransportIconButton(
                 enabled = nowPlaying.canRepeat,
                 icon = naviampRepeatIcon(nowPlaying.repeatMode),
-                contentDescription = when (nowPlaying.repeatMode) {
-                    NaviampRepeatMode.Off -> "Repeat off"
-                    NaviampRepeatMode.Queue -> "Repeat queue"
-                    NaviampRepeatMode.Track -> "Repeat current track"
-                },
+                contentDescription = stringResource(when (nowPlaying.repeatMode) {
+                    NaviampRepeatMode.Off -> Res.string.tv_repeat_off
+                    NaviampRepeatMode.Queue -> Res.string.tv_repeat_all
+                    NaviampRepeatMode.Track -> Res.string.tv_repeat_one
+                }),
                 colors = controlColors,
                 selected = nowPlaying.repeatMode != NaviampRepeatMode.Off,
                 buttonSize = secondaryTransportButtonSize,
@@ -1431,7 +1465,7 @@ private fun NowPlayingDetails(
                 NaviampTransportIconButton(
                     enabled = nowPlaying.canStartRadio,
                     icon = NaviampTransportIcons.Radio,
-                    contentDescription = "Start track radio",
+                    contentDescription = stringResource(Res.string.tv_start_radio),
                     colors = colors,
                     buttonSize = bottomActionButtonSize,
                     iconSize = bottomActionIconSize,
@@ -1441,7 +1475,7 @@ private fun NowPlayingDetails(
                     NaviampTransportIconButton(
                         enabled = true,
                         icon = NaviampIcons.Turntable,
-                        contentDescription = "DJs",
+                        contentDescription = stringResource(Res.string.settings_playback_radio_djs_title),
                         colors = colors,
                         selected = nowPlaying.activeRadioDjId != null,
                         buttonSize = bottomActionButtonSize,
@@ -1454,7 +1488,7 @@ private fun NowPlayingDetails(
                         offset = DpOffset(0.dp, 6.dp),
                     ) {
                         NaviampDropdownMenuItem(
-                            label = "Default radio",
+                            label = stringResource(Res.string.now_playing_default_radio),
                             icon = NaviampIcons.Turntable,
                             enabled = true,
                             selected = nowPlaying.activeRadioDjId == null,
@@ -1465,7 +1499,7 @@ private fun NowPlayingDetails(
                         )
                         if (nowPlaying.radioDjs.isEmpty()) {
                             NaviampDropdownMenuItem(
-                                label = "No DJs saved",
+                                label = stringResource(Res.string.settings_radio_no_djs),
                                 icon = NaviampIcons.Turntable,
                                 enabled = false,
                                 onClick = {},
@@ -1537,7 +1571,7 @@ private fun NowPlayingDetails(
                     NaviampTransportIconButton(
                         enabled = nowPlayingActionMenuEnabled(nowPlaying),
                         icon = NaviampTransportIcons.MoreVertical,
-                        contentDescription = if (nowPlaying.isLive) stringResource(Res.string.stream_actions) else "Track actions",
+                        contentDescription = stringResource(if (nowPlaying.isLive) Res.string.stream_actions else Res.string.tv_track_actions_title),
                         colors = colors,
                         buttonSize = bottomActionButtonSize,
                         iconSize = bottomActionIconSize,
@@ -1579,19 +1613,15 @@ private fun NowPlayingDetails(
                             visualizerAvailable = nowPlaying.visualizerAvailable,
                             isLive = nowPlaying.isLive,
                             hasDetails = nowPlaying.detailSections.isNotEmpty() || nowPlaying.streamDetailSections.isNotEmpty(),
-                            detailsLabel = stringResource(if (nowPlaying.isLive) Res.string.stream_details else Res.string.playlist_item_details),
+                            detailsLabel = if (nowPlaying.isLive) Res.string.stream_details else Res.string.playlist_item_details,
                             canAddToPlaylist = nowPlaying.canAddToPlaylist && nowPlaying.canEditPlaylistMembership,
                             canSaveQueueAsPlaylist = nowPlaying.canSaveQueueAsPlaylist,
                             canEmptyQueue = nowPlaying.upNext.isNotEmpty(),
-                            sleepTimerLabel = nowPlaying.sleepTimer.label,
+                            sleepTimer = nowPlaying.sleepTimer,
                             canPlaySomethingNew = actions.onPlaySomethingNew != null,
                         ).forEach { action ->
                             NaviampDropdownMenuItem(
-                                label = when (action.action) {
-                                    NaviampAction.StartTrackRadio -> stringResource(Res.string.tv_start_radio)
-                                    NaviampAction.PlaySomethingNew -> stringResource(Res.string.something_new_title)
-                                    else -> action.label
-                                },
+                                label = action.localizedLabel(),
                                 icon = action.icon,
                                 enabled = action.enabled,
                                 onClick = {
@@ -1674,9 +1704,9 @@ private fun NowPlayingDetails(
     }
     if (emptyQueueDialogOpen) {
         ConfirmActionDialog(
-            title = "Empty queue?",
-            message = "Remove all tracks from Up Next.",
-            confirmLabel = "Empty queue",
+            title = stringResource(Res.string.now_playing_empty_queue_title),
+            message = stringResource(Res.string.now_playing_empty_queue_message),
+            confirmLabel = stringResource(NaviampAction.EmptyQueue.labelResource),
             colors = colors,
             onDismissRequest = { emptyQueueDialogOpen = false },
             onConfirm = {
@@ -2080,7 +2110,7 @@ internal fun NowPlayingProgressRow(
                 colors = colors,
                 fontSize = timeFontSize,
             ) else Text(
-                if (nowPlaying.isLive) "Radio" else secondsLabel(durationSeconds),
+                if (nowPlaying.isLive) stringResource(Res.string.nav_radio) else secondsLabel(durationSeconds),
                 color = colors.primaryText,
                 textAlign = TextAlign.Center,
                 fontSize = timeFontSize,
@@ -2146,9 +2176,10 @@ internal fun NowPlayingPositionLabel(
     fontSize: TextUnit,
     width: Dp,
 ) {
+    val liveLabel = stringResource(Res.string.now_playing_live)
     NaviampRasterValueText(text = {
         val positionSeconds = progressState?.value?.positionSeconds ?: nowPlaying.positionSeconds
-        AnnotatedString(if (nowPlaying.isLive) "LIVE" else secondsLabel(positionSeconds))
+        AnnotatedString(if (nowPlaying.isLive) liveLabel else secondsLabel(positionSeconds))
     }, style = TextStyle(color = colors.primaryText, fontSize = fontSize, textAlign = TextAlign.Center), width = width)
 }
 
@@ -2395,7 +2426,7 @@ internal fun RatingRow(
                 ) {
                     Icon(
                         imageVector = if (selected) NaviampTransportIcons.StarFilled else NaviampTransportIcons.Star,
-                        contentDescription = "$value star rating",
+                        contentDescription = stringResource(Res.string.now_playing_star_rating, value),
                         tint = if (selected) colors.primaryText else inactiveColor,
                         modifier = Modifier.size(iconSize),
                     )
@@ -2526,7 +2557,7 @@ private fun NowPlayingQueuePanel(
             )
         }
         if (showStationList) {
-            Text("STATIONS", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(Res.string.tv_home_stations), color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             NowPlayingItemList(
                 items = nowPlaying.radioStations,
                 listState = queueState.stations,
@@ -2549,17 +2580,17 @@ private fun NowPlayingQueuePanel(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                NowPlayingTabButton("BACK TO", selectedTab == NaviampNowPlayingTab.BackTo, colors) {
+                NowPlayingTabButton(stringResource(Res.string.now_playing_back_to), selectedTab == NaviampNowPlayingTab.BackTo, colors) {
                     queueState.selectedTab = NaviampNowPlayingTab.BackTo
                 }
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                NowPlayingTabButton("UP NEXT", selectedTab == NaviampNowPlayingTab.UpNext, colors) {
+                NowPlayingTabButton(stringResource(Res.string.now_playing_up_next), selectedTab == NaviampNowPlayingTab.UpNext, colors) {
                     queueState.selectedTab = NaviampNowPlayingTab.UpNext
                 }
             }
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                NowPlayingTabButton(nowPlaying.relatedTabLabel, selectedTab == NaviampNowPlayingTab.Related, colors) {
+                NowPlayingTabButton(stringResource(nowPlaying.relatedTabLabel), selectedTab == NaviampNowPlayingTab.Related, colors) {
                     queueState.selectedTab = NaviampNowPlayingTab.Related
                 }
             }
@@ -2578,20 +2609,18 @@ private fun NowPlayingQueuePanel(
                 actions.selectItem(item, NowPlayingSelectionAction.SelectQueueItem)
             }
         }
-        val playAfterCurrentGroupLabel = stringResource(Res.string.action_play_after_current_group)
-        val playImmediatelyNextLabel = stringResource(Res.string.action_play_immediately_next)
         val rowActions = when (selectedTab) {
-            NaviampNowPlayingTab.Related -> relatedTrackRowActions(playAfterCurrentGroupLabel, playImmediatelyNextLabel)
+            NaviampNowPlayingTab.Related -> relatedTrackRowActions(Res.string.action_play_after_current_group, Res.string.action_play_immediately_next)
             NaviampNowPlayingTab.UpNext -> if (nowPlaying.queueManagementActionsOnly) {
                 listOf(
                     NaviampAction.RemoveFromQueue.toSpec(),
-                    NaviampAction.PlayNext.toSpec().copy(label = playAfterCurrentGroupLabel),
-                    NaviampAction.PlayNextTrack.toSpec().copy(label = playImmediatelyNextLabel),
+                    NaviampAction.PlayNext.toSpec(labelResource = Res.string.action_play_after_current_group),
+                    NaviampAction.PlayNextTrack.toSpec(labelResource = Res.string.action_play_immediately_next),
                 )
             } else {
-                upNextQueueRowActions(playAfterCurrentGroupLabel, playImmediatelyNextLabel)
+                upNextQueueRowActions(Res.string.action_play_after_current_group, Res.string.action_play_immediately_next)
             }
-            else -> if (nowPlaying.queueManagementActionsOnly) emptyList() else queueRowActions(playAfterCurrentGroupLabel, playImmediatelyNextLabel)
+            else -> if (nowPlaying.queueManagementActionsOnly) emptyList() else queueRowActions(Res.string.action_play_after_current_group, Res.string.action_play_immediately_next)
         }
         val listState = when (selectedTab) {
             NaviampNowPlayingTab.BackTo -> queueState.backTo
@@ -2605,9 +2634,9 @@ private fun NowPlayingQueuePanel(
             surfaceColor = surfaceColor,
             listState = listState,
             emptyLabel = when (selectedTab) {
-                NaviampNowPlayingTab.BackTo -> "Playback history will appear here"
-                NaviampNowPlayingTab.UpNext -> "Queue is empty"
-                NaviampNowPlayingTab.Related -> nowPlaying.relatedEmptyLabel
+                NaviampNowPlayingTab.BackTo -> stringResource(Res.string.now_playing_history_empty)
+                NaviampNowPlayingTab.UpNext -> stringResource(Res.string.now_playing_queue_empty)
+                NaviampNowPlayingTab.Related -> stringResource(nowPlaying.relatedEmptyLabel)
             },
             playlistChoices = nowPlaying.playlistChoices,
             useInlinePlaylistPicker = false,
@@ -2941,7 +2970,7 @@ private fun LyricsOffsetControls(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Text(
-            text = "Offset ${offsetMillis.offsetSecondsLabel()}",
+            text = stringResource(Res.string.lyrics_offset_seconds, offsetMillis.offsetSecondsLabel()),
             color = colors.secondaryText,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
@@ -2950,7 +2979,7 @@ private fun LyricsOffsetControls(
         NaviampTransportIconButton(
             enabled = enabled,
             icon = NaviampIcons.Minus,
-            contentDescription = "Decrease lyrics offset",
+            contentDescription = stringResource(Res.string.lyrics_offset_decrease),
             colors = colors,
             buttonSize = 28.dp,
             iconSize = 16.dp,
@@ -2959,7 +2988,7 @@ private fun LyricsOffsetControls(
         NaviampTransportIconButton(
             enabled = enabled,
             icon = NaviampIcons.Plus,
-            contentDescription = "Increase lyrics offset",
+            contentDescription = stringResource(Res.string.lyrics_offset_increase),
             colors = colors,
             buttonSize = 28.dp,
             iconSize = 16.dp,
@@ -2969,10 +2998,10 @@ private fun LyricsOffsetControls(
 }
 
 private fun Int.offsetSecondsLabel(): String {
-    if (this == 0) return "0.0s"
+    if (this == 0) return "0.0"
     val sign = if (this > 0) "+" else "-"
     val absoluteTenths = kotlin.math.abs(this) / 100
-    return "$sign${absoluteTenths / 10}.${absoluteTenths % 10}s"
+    return "$sign${absoluteTenths / 10}.${absoluteTenths % 10}"
 }
 
 private const val LyricsAutoScrollLeadMillis = 100L
@@ -3048,16 +3077,16 @@ fun TrackDetailsDialog(
                     sections.forEach { section ->
                         if (section.rows.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(section.title, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                section.rows.forEach { (label, value) ->
+                                Text(section.localizedTitle(), color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                section.rows.forEach { row ->
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         verticalAlignment = Alignment.Top,
                                         modifier = Modifier.fillMaxWidth(),
                                     ) {
-                                        Text(label, color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(96.dp))
+                                        Text(row.localizedLabel(), color = colors.secondaryText, fontSize = 12.sp, modifier = Modifier.width(96.dp))
                                         Text(
-                                            value,
+                                            row.localizedValue(),
                                             color = colors.primaryText.copy(alpha = 0.9f),
                                             fontSize = 12.sp,
                                             overflow = TextOverflow.Ellipsis,
@@ -3100,7 +3129,7 @@ fun ConfirmActionDialog(
         },
         dismissButton = {
             NaviampTextButton(onClick = onDismissRequest) {
-                Text("Cancel")
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -3124,28 +3153,28 @@ fun AddToPlaylistDialog(
 
     NaviampAlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text("Add to playlist", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(NaviampAction.AddToPlaylist.labelResource), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Add $title to a server playlist.", color = colors.secondaryText, fontSize = 12.sp)
+                Text(stringResource(Res.string.playlist_add_to_server_description, title), color = colors.secondaryText, fontSize = 12.sp)
                 status?.let { Text(it, color = colors.secondaryText, fontSize = 12.sp) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    NowPlayingTabButton("EXISTING", !createNew, colors) { createNew = false }
-                    NowPlayingTabButton("NEW", createNew, colors) { createNew = true }
+                    NowPlayingTabButton(stringResource(Res.string.playlist_existing_tab), !createNew, colors) { createNew = false }
+                    NowPlayingTabButton(stringResource(Res.string.playlist_new_tab), createNew, colors) { createNew = true }
                 }
                 if (createNew) {
                     OutlinedTextField(
                         colors = naviampOutlinedTextFieldColors(colors),
                         value = playlistName,
                         onValueChange = { playlistName = it },
-                        label = { Text("Playlist name") },
+                        label = { Text(stringResource(Res.string.playlists_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().naviampTextInputFocus(),
                     )
                 } else {
                     if (playlists.isEmpty()) {
                         Text(
-                            "No existing playlists are available",
+                            stringResource(Res.string.playlist_membership_empty),
                             color = colors.secondaryText,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 12.dp),
@@ -3171,8 +3200,9 @@ fun AddToPlaylistDialog(
                                     Icon(NaviampIcons.Playlist, contentDescription = null, tint = colors.secondaryText, modifier = Modifier.size(17.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(playlist.name, color = colors.primaryText, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        if (playlist.subtitle.isNotBlank()) {
-                                            Text(playlist.subtitle, color = colors.mutedText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        val subtitle = playlist.localizedSubtitle()
+                                        if (subtitle.isNotBlank()) {
+                                            Text(subtitle, color = colors.mutedText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
                                 }
@@ -3216,13 +3246,13 @@ fun AddToPlaylistDialog(
                     enabled = playlistName.isNotBlank(),
                     onClick = { onCreateAndAdd(playlistName.trim()) },
                 ) {
-                    Text("Create and add")
+                    Text(stringResource(Res.string.playlists_create_and_add))
                 }
             }
         },
         dismissButton = {
             NaviampTextButton(onClick = onDismissRequest) {
-                Text("Cancel")
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -3419,8 +3449,8 @@ fun TrackPlaylistMembershipDialog(
 fun SaveQueueAsPlaylistDialog(
     colors: NaviampColors,
     status: String?,
-    title: String = "Save queue as playlist",
-    description: String = "Save the current queue in order as a server playlist.",
+    title: String = stringResource(NaviampAction.SaveQueueAsPlaylist.labelResource),
+    description: String = stringResource(Res.string.now_playing_save_queue_description),
     onDismissRequest: () -> Unit,
     onSave: (String) -> Unit,
 ) {
@@ -3439,7 +3469,7 @@ fun SaveQueueAsPlaylistDialog(
                     colors = naviampOutlinedTextFieldColors(colors),
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    label = { Text("Playlist name") },
+                    label = { Text(stringResource(Res.string.playlists_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().naviampTextInputFocus(),
                 )
@@ -3450,12 +3480,12 @@ fun SaveQueueAsPlaylistDialog(
                 enabled = playlistName.isNotBlank(),
                 onClick = { onSave(playlistName.trim()) },
             ) {
-                Text("Save")
+                Text(stringResource(Res.string.common_save))
             }
         },
         dismissButton = {
             NaviampTextButton(onClick = onDismissRequest) {
-                Text("Cancel")
+                Text(stringResource(Res.string.common_cancel))
             }
         },
     )
@@ -3472,58 +3502,63 @@ fun SleepTimerDialog(
     NaviampPopupPresence()
     NaviampAlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text("Sleep timer", fontWeight = FontWeight.Bold) },
+        title = { Text(stringResource(NaviampAction.SleepTimer.labelResource), fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (timer.active) {
-                    Text(timer.label, color = colors.secondaryText, fontSize = 12.sp)
+                    Text(timer.localizedLabel(), color = colors.secondaryText, fontSize = 12.sp)
                 }
                 SleepTimerOptionRow(
-                    labels = listOf("15 min", "30 min", "45 min", "60 min"),
-                    onClick = { label ->
-                        val minutes = label.substringBefore(" ").toIntOrNull() ?: 15
-                        onTimerSelected(SleepTimerRequest.DurationMinutes(minutes))
-                    },
+                    requests = SleepTimerDurationOptions,
+                    onClick = onTimerSelected,
                 )
                 SleepTimerOptionRow(
-                    labels = listOf("Track end", "Album end", "Queue end"),
-                    onClick = { label ->
-                        when (label) {
-                            "Track end" -> onTimerSelected(SleepTimerRequest.TrackEnd)
-                            "Album end" -> onTimerSelected(SleepTimerRequest.AlbumEnd)
-                            "Queue end" -> onTimerSelected(SleepTimerRequest.QueueEnd)
-                        }
-                    },
+                    requests = SleepTimerBoundaryOptions,
+                    onClick = onTimerSelected,
                 )
             }
         },
         confirmButton = {
             if (timer.active) {
                 NaviampTextButton(onClick = onCancelTimer) {
-                    Text("Cancel timer")
+                    Text(stringResource(Res.string.sleep_timer_cancel))
                 }
             }
         },
         dismissButton = {
             NaviampTextButton(onClick = onDismissRequest) {
-                Text("Close")
+                Text(stringResource(Res.string.common_close))
             }
         },
     )
 }
 
+private val SleepTimerDurationOptions = listOf(
+    SleepTimerRequest.DurationMinutes(15),
+    SleepTimerRequest.DurationMinutes(30),
+    SleepTimerRequest.DurationMinutes(45),
+    SleepTimerRequest.DurationMinutes(60),
+)
+private val SleepTimerBoundaryOptions = listOf(SleepTimerRequest.TrackEnd, SleepTimerRequest.AlbumEnd, SleepTimerRequest.QueueEnd)
+
 @Composable
 private fun SleepTimerOptionRow(
-    labels: List<String>,
-    onClick: (String) -> Unit,
+    requests: List<SleepTimerRequest>,
+    onClick: (SleepTimerRequest) -> Unit,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        labels.forEach { label ->
+        requests.forEach { request ->
+            val label = when (request) {
+                is SleepTimerRequest.DurationMinutes -> stringResource(Res.string.settings_minutes_short, request.minutes)
+                SleepTimerRequest.TrackEnd -> stringResource(Res.string.sleep_timer_track_end)
+                SleepTimerRequest.AlbumEnd -> stringResource(Res.string.sleep_timer_album_end)
+                SleepTimerRequest.QueueEnd -> stringResource(Res.string.sleep_timer_queue_end)
+            }
             NaviampTextButton(
-                onClick = { onClick(label) },
+                onClick = { onClick(request) },
                 modifier = Modifier.weight(1f),
             ) {
                 Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -3555,7 +3590,7 @@ private fun NowPlayingItemList(
     modifier: Modifier = Modifier,
     listState: LazyListState = rememberLazyListState(),
     currentId: String? = null,
-    emptyLabel: String = "Nothing here yet",
+    emptyLabel: String = stringResource(Res.string.now_playing_list_empty),
     playlistChoices: List<NaviampPlaylistChoiceUi> = emptyList(),
     useInlinePlaylistPicker: Boolean = true,
     canAddToPlaylist: Boolean = true,
@@ -3582,9 +3617,9 @@ private fun NowPlayingItemList(
     ) {
         itemsIndexed(items, key = ::nowPlayingListItemKey) { index, item ->
             if (item.playNextPriority && index == 0) {
-                QueueSectionHeader("PLAY NEXT", colors)
+                QueueSectionHeader(stringResource(Res.string.tv_play_next_uppercase), colors)
             } else if (!item.playNextPriority && index > 0 && items[index - 1].playNextPriority) {
-                QueueSectionHeader("QUEUE", colors)
+                QueueSectionHeader(stringResource(Res.string.player_queue), colors)
             }
             val selected = item.id == currentId
             val menu = remember { NaviampItemMenuState() }
@@ -3602,7 +3637,7 @@ private fun NowPlayingItemList(
                 }?.let { action ->
                     NaviampActionSpec(
                         action = action,
-                        label = if (item.favoriteActive) "Unfavorite" else "Favorite",
+                        labelResource = if (item.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite,
                     )
                 },
             )
@@ -3651,21 +3686,22 @@ private fun NowPlayingItemList(
                     NaviampCoverArt(item.coverArtUrl, colors, artworkSize, 4.dp, mediaKind = item.mediaKind)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(item.title, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(item.subtitle, color = colors.secondaryText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(item.localizedSubtitle(), color = colors.secondaryText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (item.meta.isNotBlank()) {
-                        Text(item.meta, color = colors.mutedText, fontSize = 10.sp)
+                    val meta = item.localizedMeta()
+                    if (meta.isNotBlank()) {
+                        Text(meta, color = colors.mutedText, fontSize = 10.sp)
                     }
                     if (showActions) {
                         Box {
-                            NaviampTooltip("More actions", colors) {
+                            NaviampTooltip(stringResource(Res.string.playlist_item_more_actions), colors) {
                                 IconButton(
                                     onClick = menu::toggleFromButton,
                                     modifier = Modifier.size(28.dp),
                                 ) {
                                     Icon(
                                         imageVector = NaviampTransportIcons.MoreVertical,
-                                        contentDescription = "More actions",
+                                        contentDescription = stringResource(Res.string.playlist_item_more_actions),
                                         tint = colors.secondaryText,
                                         modifier = Modifier.size(17.dp),
                                     )
@@ -3678,7 +3714,7 @@ private fun NowPlayingItemList(
                             ) {
                                 visibleRowActions.forEach { action ->
                                     NaviampDropdownMenuItem(
-                                        label = action.label,
+                                        label = action.localizedLabel(),
                                         icon = if (action.action == NaviampAction.ToggleFavorite && item.favoriteActive) NaviampTransportIcons.HeartFilled else action.icon,
                                         enabled = action.enabled,
                                         onClick = {
@@ -3800,35 +3836,35 @@ internal fun nowPlayingSwipeActionVisual(
     TrackSwipeAction.None,
     TrackSwipeAction.Play,
     -> null
-    TrackSwipeAction.PlayNext -> swipeVisual(colors, "Play next", NaviampIcons.Queue) {
+    TrackSwipeAction.PlayNext -> swipeVisual(colors, Res.string.tv_play_next, NaviampIcons.Queue) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.PlayNext))
     }
-    TrackSwipeAction.AddToQueue -> swipeVisual(colors, "Add to queue", NaviampIcons.Queue) {
+    TrackSwipeAction.AddToQueue -> swipeVisual(colors, Res.string.playlist_item_add_queue, NaviampIcons.Queue) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.AddToQueue))
     }
-    TrackSwipeAction.AddToPlaylist -> swipeVisual(colors, "Add to playlist", NaviampIcons.Playlist, onTriggered = onAddToPlaylist)
-    TrackSwipeAction.Download -> swipeVisual(colors, "Download", NaviampIcons.Downloads) {
+    TrackSwipeAction.AddToPlaylist -> swipeVisual(colors, NaviampAction.AddToPlaylist.labelResource, NaviampIcons.Playlist, onTriggered = onAddToPlaylist)
+    TrackSwipeAction.Download -> swipeVisual(colors, NaviampAction.DownloadTrack.labelResource, NaviampIcons.Downloads) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.Download))
     }
-    TrackSwipeAction.StartRadio -> swipeVisual(colors, "Start radio", NaviampTransportIcons.Radio) {
+    TrackSwipeAction.StartRadio -> swipeVisual(colors, Res.string.tv_start_radio, NaviampTransportIcons.Radio) {
         onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.StartRadio))
     }
     TrackSwipeAction.ToggleFavorite -> if (canToggleFavorite) {
         swipeVisual(
             colors,
-            if (item.favoriteActive) "Unfavorite" else "Favorite",
+            if (item.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite,
             if (item.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
         ) {
             onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.ToggleFavorite))
         }
     } else null
     TrackSwipeAction.GoToAlbum -> if (item.hasAlbum) {
-        swipeVisual(colors, "Go to album", NaviampIcons.Album) {
+        swipeVisual(colors, Res.string.playlist_item_go_album, NaviampIcons.Album) {
             onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.GoToAlbum))
         }
     } else null
     TrackSwipeAction.GoToArtist -> if (item.hasArtist) {
-        swipeVisual(colors, "Go to artist", NaviampIcons.Artist) {
+        swipeVisual(colors, Res.string.playlist_item_go_artist, NaviampIcons.Artist) {
             onAction(nowPlayingItemActionRequest(item, NowPlayingItemAction.GoToArtist))
         }
     } else null
@@ -3837,7 +3873,7 @@ internal fun nowPlayingSwipeActionVisual(
         if (!queueContext || index == null) {
             null
         } else {
-            swipeVisual(colors, "Remove", NaviampIcons.Trash, destructive = true) {
+            swipeVisual(colors, Res.string.mix_remove, NaviampIcons.Trash, destructive = true) {
                 onAction(
                     NowPlayingItemActionRequest(
                         item = item,
@@ -3857,12 +3893,12 @@ internal fun nowPlayingSwipeActionVisual(
 
 private fun swipeVisual(
     colors: NaviampColors,
-    label: String,
+    labelResource: StringResource,
     icon: ImageVector,
     destructive: Boolean = false,
     onTriggered: () -> Unit,
 ): TrackSwipeActionVisual = TrackSwipeActionVisual(
-    label = label,
+    labelResource = labelResource,
     icon = icon,
     background = if (destructive) colors.error else colors.success,
     contentColor = if (destructive) colors.onError else colors.onSuccess,

@@ -186,6 +186,8 @@ internal fun SharedHomeCollectionSectionUi.localizedTitle(): String = when (titl
     SharedHomeCollectionTitleResource.Recommendations -> stringResource(Res.string.home_recommendations)
     SharedHomeCollectionTitleResource.SavedGeneratedStations -> stringResource(Res.string.generated_radio_saved)
     null -> when {
+        id == app.naviamp.domain.settings.HomeSectionIds.MixBuilders -> stringResource(Res.string.tv_home_mix_builders).uppercase()
+        id == app.naviamp.domain.settings.HomeSectionIds.Stations -> stringResource(Res.string.tv_home_stations).uppercase()
         id == app.naviamp.domain.settings.HomeSectionIds.GenreSpotlight && titleArgument != null ->
             stringResource(Res.string.home_more_in, titleArgument).uppercase()
         id == app.naviamp.domain.settings.HomeSectionIds.Decade && titleArgument != null ->
@@ -497,7 +499,7 @@ internal fun HomeCollectionArtwork(
         )
         if (item.artwork == SharedHomeCollectionArtwork.NavibeatGenerated) {
             Text(
-                text = "NAVIBEAT MIX",
+                text = stringResource(Res.string.home_navibeat_mix),
                 color = Color.White.copy(alpha = 0.72f),
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
@@ -601,14 +603,14 @@ private fun homeCollectionMenuItems(
         }))
     }
     if (item.artwork == SharedHomeCollectionArtwork.NavibeatGenerated) {
-        add(NaviampRowMenuItem("Shuffle mix", NaviampTransportIcons.Shuffle, {
+        add(NaviampRowMenuItem(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, {
             mediaActions.onMediaItemAction(
                 item.mediaItem.playlistActionRequest(
                     NaviampPlaylistMediaCommand.Detail(NaviampPlaylistDetailCommand.Play(shuffle = true)),
                 ),
             )
         }))
-        add(NaviampRowMenuItem("View", NaviampIcons.Playlist, {
+        add(NaviampRowMenuItem(stringResource(Res.string.common_view), NaviampIcons.Playlist, {
             mediaActions.onMediaItemAction(
                 item.mediaItem.playlistActionRequest(NaviampPlaylistMediaCommand.Select),
             )
@@ -617,14 +619,14 @@ private fun homeCollectionMenuItems(
     }
     when (item.mediaKind) {
         SharedMediaItemKind.Album -> {
-            add(NaviampRowMenuItem("Start Radio", NaviampTransportIcons.Radio, {
+            add(NaviampRowMenuItem(stringResource(Res.string.tv_start_radio), NaviampTransportIcons.Radio, {
                 mediaActions.onMediaItemAction(
                     item.mediaItem.albumActionRequest(NaviampArtistAlbumCommand.StartRadio),
                 )
             }))
             if (includeFavorite && item.mediaItem.canFavorite) {
                 add(NaviampRowMenuItem(
-                    if (item.mediaItem.favoriteActive) "Remove favorite" else "Favorite",
+                    stringResource(if (item.mediaItem.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite),
                     if (item.mediaItem.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                     {
                         mediaActions.onMediaItemAction(
@@ -635,12 +637,12 @@ private fun homeCollectionMenuItems(
             }
         }
         SharedMediaItemKind.Track -> item.track?.let { track ->
-            add(NaviampRowMenuItem("Start Radio", NaviampTransportIcons.Radio, {
+            add(NaviampRowMenuItem(stringResource(Res.string.tv_start_radio), NaviampTransportIcons.Radio, {
                 dispatchHomeTrackAction(item, track, SharedTrackRowAction.StartRadio, actions)
             }))
             if (includeFavorite && track.canToggleFavorite) {
                 add(NaviampRowMenuItem(
-                    if (track.favoriteActive) "Unfavorite" else "Favorite",
+                    stringResource(if (track.favoriteActive) Res.string.playlist_item_unfavorite else Res.string.tv_favorite),
                     if (track.favoriteActive) NaviampTransportIcons.HeartFilled else NaviampTransportIcons.Heart,
                     { dispatchHomeTrackAction(item, track, SharedTrackRowAction.ToggleFavorite, actions) },
                 ))
@@ -1101,7 +1103,9 @@ private fun SonicDiscoverySection(
     rows.forEach { row ->
         if (row.tracks.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                SectionHeader(row.title.uppercase(), colors)
+                val title = HomeScreenSectionOptions.firstOrNull { it.id == row.id }?.titleResource
+                    ?.let { stringResource(it) } ?: row.title
+                SectionHeader(title.uppercase(), colors)
                 row.tracks.forEach { track ->
                     TrackRow(
                         track = track,
@@ -1141,7 +1145,7 @@ private fun MixBuilderSection(
 ) {
     if (builders.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        SectionHeader("MIX BUILDERS", colors)
+        SectionHeader(stringResource(Res.string.tv_home_mix_builders).uppercase(), colors)
         builders.forEach { builder ->
             MixBuilderRow(
                 builder = builder,
@@ -1185,7 +1189,7 @@ private fun MixBuilderRow(
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                builder.title,
+                builder.localizedTitle(),
                 color = colors.primaryText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -1193,7 +1197,7 @@ private fun MixBuilderRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                builder.subtitle,
+                builder.localizedSubtitle(),
                 color = colors.secondaryText,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -1247,7 +1251,7 @@ fun NaviampSearchContent(
     val query = screen.query
     val results = screen.results
     val searchFocusRequester = remember { FocusRequester() }
-    val mediaMenuItems: (SharedMediaItemUi, SharedMediaItemKind, List<NaviampActionSpec>) -> List<NaviampRowMenuItem> =
+    val mediaMenuItems: @Composable (SharedMediaItemUi, SharedMediaItemKind, List<NaviampActionSpec>) -> List<NaviampRowMenuItem> =
         { item, kind, specs ->
             specs.mapNotNull { spec ->
                 val command = when (kind) {
@@ -1257,7 +1261,7 @@ fun NaviampSearchContent(
                 }
                 command?.let {
                     NaviampRowMenuItem(
-                        label = spec.label,
+                        label = spec.localizedLabel(),
                         icon = spec.icon,
                         onClick = { mediaActions.onMediaItemAction(NaviampMediaItemActionRequest(item, it)) },
                         enabled = spec.enabled,
@@ -1809,7 +1813,7 @@ fun NaviampLibraryContent(
                         }
                         command?.let {
                         NaviampRowMenuItem(
-                            label = spec.label,
+                            label = spec.localizedLabel(),
                             icon = spec.icon,
                             onClick = {
                                 mediaActions.onMediaItemAction(NaviampMediaItemActionRequest(item, it))
@@ -1970,13 +1974,13 @@ fun NaviampDownloadsContent(
             NaviampRowOverflowMenu(
                 colors = colors,
                 items = listOf(
-                    NaviampRowMenuItem("Refresh", NaviampIcons.Refresh, actions.onRefresh),
+                    NaviampRowMenuItem(stringResource(Res.string.library_refresh), NaviampIcons.Refresh, actions.onRefresh),
                     NaviampRowMenuItem(
-                        if (screen.keepFavoritesDownloaded) "Stop keeping favorites downloaded" else "Keep favorites downloaded",
+                        stringResource(if (screen.keepFavoritesDownloaded) Res.string.downloads_stop_keeping_favorites else Res.string.downloads_keep_favorites),
                         NaviampTransportIcons.Heart,
                         actions.onToggleKeepFavoritesDownloaded,
                     ),
-                    NaviampRowMenuItem("Delete All", NaviampIcons.Trash, { confirmDeleteAll = true }, downloads.isNotEmpty()),
+                    NaviampRowMenuItem(stringResource(Res.string.common_delete_all), NaviampIcons.Trash, { confirmDeleteAll = true }, downloads.isNotEmpty()),
                 ),
             )
         }
@@ -1994,10 +1998,10 @@ fun NaviampDownloadsContent(
                     .clickable { offlineDashboardExpanded = !offlineDashboardExpanded }
                     .padding(horizontal = 10.dp, vertical = 8.dp),
             ) {
-                Text("Offline dashboard", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(stringResource(Res.string.offline_dashboard_title), color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Icon(
                     if (offlineDashboardExpanded) NaviampIcons.ChevronUp else NaviampIcons.ChevronDown,
-                    contentDescription = if (offlineDashboardExpanded) "Hide offline dashboard" else "Show offline dashboard",
+                    contentDescription = stringResource(if (offlineDashboardExpanded) Res.string.offline_dashboard_hide else Res.string.offline_dashboard_show),
                     tint = colors.secondaryText,
                     modifier = Modifier.size(18.dp),
                 )
@@ -2016,7 +2020,7 @@ fun NaviampDownloadsContent(
         }
         if (screen.jobs.isNotEmpty()) {
             item {
-                Text("DOWNLOAD ACTIVITY", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(Res.string.downloads_activity), color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             items(screen.jobs, key = { job -> job.id }) { job ->
                 DownloadJobCard(
@@ -2073,7 +2077,7 @@ fun NaviampDownloadsContent(
                     items = downloadRowActions(canRemove = true, canAddToPlaylist = true).mapNotNull { action ->
                         when (action.action) {
                             NaviampAction.AddToPlaylist -> NaviampRowMenuItem(
-                                label = action.label,
+                                label = action.localizedLabel(),
                                 icon = action.icon,
                                 onClick = {
                                     handleDownloadAction(
@@ -2083,7 +2087,7 @@ fun NaviampDownloadsContent(
                                 enabled = action.enabled,
                             )
                             NaviampAction.RemoveDownload -> NaviampRowMenuItem(
-                                label = action.label,
+                                label = action.localizedLabel(),
                                 icon = action.icon,
                                 onClick = {
                                     handleDownloadAction(
@@ -2135,16 +2139,16 @@ fun NaviampDownloadsContent(
         NaviampPopupPresence()
         NaviampAlertDialog(
             onDismissRequest = { confirmDeleteAll = false },
-            title = { Text("Delete all downloads?") },
-            text = { Text("This removes every downloaded file shown for the active source. This cannot be undone.") },
+            title = { Text(stringResource(Res.string.downloads_delete_all_title)) },
+            text = { Text(stringResource(Res.string.downloads_delete_all_message)) },
             confirmButton = {
                 NaviampTextButton(onClick = {
                     confirmDeleteAll = false
                 actions.onDeleteAll()
-                }) { Text("Delete All") }
+                }) { Text(stringResource(Res.string.common_delete_all)) }
             },
             dismissButton = {
-                NaviampTextButton(onClick = { confirmDeleteAll = false }) { Text("Cancel") }
+                NaviampTextButton(onClick = { confirmDeleteAll = false }) { Text(stringResource(Res.string.common_cancel)) }
             },
         )
     }
@@ -2175,10 +2179,10 @@ private fun DownloadJobCard(
                 contentColor = colors.primaryText,
             )
             if (job.canCancel) {
-                NaviampTextButton(onClick = onCancel, colors = jobActionColors) { Text("Cancel") }
+                NaviampTextButton(onClick = onCancel, colors = jobActionColors) { Text(stringResource(Res.string.common_cancel)) }
             }
             if (job.canRetry) {
-                NaviampTextButton(onClick = onRetry, colors = jobActionColors) { Text("Retry") }
+                NaviampTextButton(onClick = onRetry, colors = jobActionColors) { Text(stringResource(Res.string.library_sources_retry)) }
             }
         }
         LinearProgressIndicator(

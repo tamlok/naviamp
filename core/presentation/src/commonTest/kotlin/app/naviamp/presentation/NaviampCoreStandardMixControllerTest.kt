@@ -399,7 +399,8 @@ class NaviampCoreStandardMixControllerTest {
         assertEquals(listOf("Music", "Rock", "Dream Pop", "Shoegaze"), ui.treeRows.map { it.title })
         assertEquals(listOf(0, 1, 2, 2), ui.treeRows.map { it.depth })
         assertEquals(4, ui.treeRows[1].selectableGenreCount)
-        assertEquals("345 tracks · 12 albums", ui.treeRows[2].subtitle)
+        assertEquals(345, ui.treeRows[2].trackCount)
+        assertEquals(12, ui.treeRows[2].albumCount)
 
         fixture.controller.execute(
             NaviampCoreCommand.MixBuilder.Genre(

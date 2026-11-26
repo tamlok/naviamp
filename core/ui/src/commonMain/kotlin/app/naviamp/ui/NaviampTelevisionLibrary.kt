@@ -530,7 +530,7 @@ internal fun TelevisionLibrary(
                         }
                     } else TelevisionMediaGrid(
                         items = items.map { item -> TelevisionMediaGridItem(
-                            key = item.id, title = item.title, subtitle = item.subtitle, coverArtUrl = item.coverArtUrl,
+                            key = item.id, title = item.title, subtitle = item.localizedSubtitle(), coverArtUrl = item.coverArtUrl,
                             mediaKind = if (view == NaviampLibraryView.Artists) SharedMediaItemKind.Artist else SharedMediaItemKind.Album,
                             action = {
                                 viewport.record(view, item.id)

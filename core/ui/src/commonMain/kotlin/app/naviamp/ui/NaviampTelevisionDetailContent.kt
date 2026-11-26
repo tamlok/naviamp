@@ -191,7 +191,7 @@ internal fun TelevisionArtistDetail(
             TelevisionDetailHero(
                 item = detail.artist,
                 quickAccessKind = QuickAccessKind.Artist,
-                subtitle = detail.artist.subtitle,
+                subtitle = detail.artist.localizedSubtitle(),
                 metadata = televisionReleaseCountLabel(detail.albums.size),
                 coverArtUrl = detail.artist.coverArtUrl,
                 fallbackCoverArtUrl = detail.artist.fallbackCoverArtUrl,

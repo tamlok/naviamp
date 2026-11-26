@@ -24,6 +24,10 @@ import app.naviamp.domain.settings.NowPlayingDisplaySettings
 import app.naviamp.domain.settings.InterfaceSettings
 import app.naviamp.domain.waveform.AudioWaveform
 import kotlinx.coroutines.flow.StateFlow
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.mini_player_empty_subtitle
+import app.naviamp.ui.generated.resources.mini_player_empty_title
+import app.naviamp.ui.generated.resources.tv_library_internet_radio
 
 data class NaviampNowPlayingPresentationUi(
     val nowPlaying: NowPlayingUi,
@@ -231,8 +235,10 @@ private fun NaviampNowPlayingContentInput.toNowPlayingUi(
         queueCurrentIndex = playbackQueue.currentIndex.takeIf { it in playbackQueue.tracks.indices },
         queueSnapshot = playbackQueue,
     ) ?: NowPlayingUi(
-        title = "Choose something to play",
-        subtitle = if (isLiveStream) "Internet radio" else "Nothing Playing",
+        title = "",
+        subtitle = "",
+        titleResource = Res.string.mini_player_empty_subtitle,
+        subtitleResource = if (isLiveStream) Res.string.tv_library_internet_radio else Res.string.mini_player_empty_title,
         stateLabel = stateLabel,
         coverArtUrl = coverArtUrl,
         volumePercent = volumePercent,

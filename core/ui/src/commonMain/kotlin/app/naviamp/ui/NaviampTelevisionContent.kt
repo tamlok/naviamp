@@ -1055,7 +1055,7 @@ internal fun TelevisionSearch(
                 TelevisionMediaGridItem(
                     key = "artist:${artist.id}",
                     title = artist.title,
-                    subtitle = artist.subtitle,
+                    subtitle = artist.localizedSubtitle(),
                     coverArtUrl = artist.coverArtUrl,
                     mediaKind = SharedMediaItemKind.Artist,
                     action = {
@@ -1663,7 +1663,7 @@ internal fun TelevisionNowPlaying(
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(
-                            nowPlaying.title,
+                            nowPlaying.localizedTitle(),
                             color = colors.primaryText,
                             fontSize = 38.sp,
                             lineHeight = 43.sp,
@@ -1672,7 +1672,7 @@ internal fun TelevisionNowPlaying(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            nowPlaying.subtitle,
+                            nowPlaying.localizedSubtitle(),
                             color = colors.secondaryText,
                             fontSize = 25.sp,
                             maxLines = 1,
@@ -1955,15 +1955,17 @@ private fun TelevisionNowPlayingQueue(
     val listState = rememberLazyListState()
     val currentFocusRequester = remember { FocusRequester() }
     val upcomingFocusRequesters = remember(upcoming.size) { List(upcoming.size) { FocusRequester() } }
-    val currentItem = remember(nowPlaying.id, nowPlaying.isLive, nowPlaying.queueCurrentIndex) {
+    val currentTitle = nowPlaying.localizedTitle()
+    val currentSubtitle = nowPlaying.localizedSubtitle()
+    val currentItem = remember(nowPlaying.id, nowPlaying.isLive, nowPlaying.queueCurrentIndex, currentTitle, currentSubtitle) {
         NaviampNowPlayingItemUi(
             id = if (nowPlaying.isLive) {
                 nowPlaying.id
             } else {
                 nowPlaying.queueCurrentIndex?.let(::nowPlayingQueueItemId) ?: "current:${nowPlaying.id}"
             },
-            title = nowPlaying.title,
-            subtitle = nowPlaying.subtitle,
+            title = currentTitle,
+            subtitle = currentSubtitle,
             meta = nowPlaying.albumLine.ifBlank { nowPlaying.albumTitle },
             coverArtUrl = nowPlaying.coverArtUrl,
             artistCredits = nowPlaying.artistCredits,
@@ -2165,7 +2167,7 @@ private fun TelevisionQueueRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(item.subtitle, color = colors.secondaryText, fontSize = 13.sp, maxLines = 1)
+            Text(item.localizedSubtitle(), color = colors.secondaryText, fontSize = 13.sp, maxLines = 1)
         }
         if (item.meta.isNotBlank()) Text(item.meta, color = colors.mutedText, fontSize = 12.sp)
         label?.let {
@@ -2198,7 +2200,7 @@ private fun TelevisionQueueActionsDialog(
             ) {
                 Text(stringResource(Res.string.tv_queue_actions), color = colors.primaryText, fontSize = 27.sp, fontWeight = FontWeight.Black)
                 Text(item.title, color = colors.primaryText, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                Text(item.subtitle, color = colors.secondaryText, fontSize = 16.sp)
+                Text(item.localizedSubtitle(), color = colors.secondaryText, fontSize = 16.sp)
                 Row(horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxWidth()) {
                     actions.forEachIndexed { index, (action, label) ->
                         TelevisionDialogAction(
@@ -2235,7 +2237,7 @@ internal fun TelevisionMiniPlayer(
             NaviampCoverArt(nowPlaying.coverArtUrl, colors, 36.dp, 6.dp, mediaKind = if (nowPlaying.isLive) SharedMediaItemKind.RadioStation else SharedMediaItemKind.Track)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    nowPlaying.title,
+                    nowPlaying.localizedTitle(),
                     color = colors.primaryText,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -2243,7 +2245,7 @@ internal fun TelevisionMiniPlayer(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    nowPlaying.subtitle,
+                    nowPlaying.localizedSubtitle(),
                     color = colors.secondaryText,
                     fontSize = 12.sp,
                     maxLines = 1,

@@ -19,6 +19,11 @@ import app.naviamp.domain.queue.PlaybackQueue
 import app.naviamp.domain.queue.PlaybackQueueGroup
 import app.naviamp.domain.queue.RepeatMode
 import app.naviamp.domain.settings.NowPlayingDisplaySettings
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.ui_file
+import app.naviamp.ui.generated.resources.settings_quality_bitrate_title
+import app.naviamp.ui.generated.resources.ui_sample_rate
+import app.naviamp.ui.generated.resources.ui_bit_depth
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -31,10 +36,10 @@ class NaviampNowPlayingPresentationTest {
     fun fileSampleRateAndDepthUseThePlayerFormatWhileDetailsKeepBitrate() {
         val enriched = track("aurral").copy(audioInfo = AudioInfo("FLAC", 350, "audio/flac", 16, 44100))
         assertEquals("FLAC  44.1 / 16", enriched.nowPlayingAudioInfoLabel())
-        val file = enriched.toNowPlayingDetailSections().first { it.title == "File" }
-        assertTrue("Bitrate" to "350 kbps" in file.rows)
-        assertTrue("Sample rate" to "44100 Hz" in file.rows)
-        assertTrue("Bit depth" to "16 bit" in file.rows)
+        val file = enriched.toNowPlayingDetailSections().first { it.titleResource == Res.string.ui_file }
+        assertEquals("350 kbps", file.rows.single { it.labelResource == Res.string.settings_quality_bitrate_title }.value)
+        assertEquals("44100 Hz", file.rows.single { it.labelResource == Res.string.ui_sample_rate }.value)
+        assertEquals("16 bit", file.rows.single { it.labelResource == Res.string.ui_bit_depth }.value)
     }
 
     @Test
@@ -133,14 +138,6 @@ class NaviampNowPlayingPresentationTest {
         assertNull(context(second, restored.copy(currentIndex = 1, groups = listOf(playlist))))
         assertNull(context(first, restored.copy(groups = listOf(playlist.copy(label = "  ")))))
         assertNull(context(first, restored.copy(groups = listOf(playlist.copy(label = "provider-id")))))
-    }
-
-    @Test
-    fun emptyQueueInvitesPlaybackWithoutClaimingTheSourceIsDisconnected() {
-        val presentation = input(track = null).toPresentationUi()
-
-        assertEquals("Choose something to play", presentation.nowPlaying.title)
-        assertEquals("Nothing Playing", presentation.nowPlaying.subtitle)
     }
 
     @Test

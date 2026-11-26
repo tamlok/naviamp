@@ -1,5 +1,8 @@
 package app.naviamp.ui
 
+import app.naviamp.ui.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.pluralStringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
@@ -123,7 +126,7 @@ fun StandardPlaylistEditorDialog(
     var tracks by remember(initialTracks) { mutableStateOf(initialTracks) }
     var undoTracks by remember(initialTracks) { mutableStateOf<List<SharedTrackRowUi>?>(null) }
     var saving by remember(initialTracks) { mutableStateOf(false) }
-    var errorMessage by remember(initialTracks) { mutableStateOf<String?>(null) }
+    var saveError by remember(initialTracks) { mutableStateOf<Throwable?>(null) }
     val scope = rememberCoroutineScope()
     val trackNumberWidth = trackNumberColumnWidth(tracks.size)
 
@@ -132,7 +135,7 @@ fun StandardPlaylistEditorDialog(
         if (updated != tracks) {
             undoTracks = tracks
             tracks = updated
-            errorMessage = null
+            saveError = null
         }
     }
 
@@ -140,7 +143,7 @@ fun StandardPlaylistEditorDialog(
 
     NaviampAlertDialog(
         onDismissRequest = { if (!saving) onDismissRequest() },
-        title = { Text("Edit $playlistName") },
+        title = { Text(stringResource(Res.string.playlist_edit_named , playlistName)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -148,7 +151,7 @@ fun StandardPlaylistEditorDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("${tracks.size} tracks", color = colors.secondaryText, fontSize = 12.sp)
+                    Text(pluralStringResource(Res.plurals.tv_track_count, tracks.size, tracks.size), color = colors.secondaryText, fontSize = 12.sp)
                     NaviampTextButton(
                         enabled = undoTracks != null && !saving,
                         onClick = {
@@ -159,10 +162,11 @@ fun StandardPlaylistEditorDialog(
                             }
                         },
                     ) {
-                        Text("Undo")
+                        Text(stringResource(Res.string.queue_undo_action))
                     }
                 }
-                errorMessage?.let { message ->
+                saveError?.let { error ->
+                    val message = error.message ?: stringResource(Res.string.playlist_update_failed)
                     Text(message, color = colors.secondaryText, fontSize = 12.sp)
                 }
                 LazyColumn(
@@ -201,19 +205,19 @@ fun StandardPlaylistEditorDialog(
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    PlaylistEditIconButton(NaviampIcons.MoveToTop, "Move to top", index > 0) {
+                                    PlaylistEditIconButton(NaviampIcons.MoveToTop, stringResource(Res.string.playlist_item_move_top), index > 0) {
                                         apply(index, TrackSwipeAction.MoveToTop)
                                     }
-                                    PlaylistEditIconButton(NaviampIcons.ChevronUp, "Move up", index > 0) {
+                                    PlaylistEditIconButton(NaviampIcons.ChevronUp, stringResource(Res.string.smart_playlist_move_up), index > 0) {
                                         apply(index, TrackSwipeAction.MoveUp)
                                     }
-                                    PlaylistEditIconButton(NaviampIcons.ChevronDown, "Move down", index < tracks.lastIndex) {
+                                    PlaylistEditIconButton(NaviampIcons.ChevronDown, stringResource(Res.string.smart_playlist_move_down), index < tracks.lastIndex) {
                                         apply(index, TrackSwipeAction.MoveDown)
                                     }
-                                    PlaylistEditIconButton(NaviampIcons.MoveToBottom, "Move to bottom", index < tracks.lastIndex) {
+                                    PlaylistEditIconButton(NaviampIcons.MoveToBottom, stringResource(Res.string.playlist_item_move_bottom), index < tracks.lastIndex) {
                                         apply(index, TrackSwipeAction.MoveToBottom)
                                     }
-                                    PlaylistEditIconButton(NaviampIcons.Trash, "Remove", true) {
+                                    PlaylistEditIconButton(NaviampIcons.Trash, stringResource(Res.string.mix_remove), true) {
                                         apply(index, TrackSwipeAction.Remove)
                                     }
                                 }
@@ -229,25 +233,25 @@ fun StandardPlaylistEditorDialog(
                 enabled = !saving && tracks != initialTracks,
                 onClick = {
                     saving = true
-                    errorMessage = null
+                    saveError = null
                     scope.launch {
                         try {
                             onSave(tracks)
                             onDismissRequest()
                         } catch (error: Throwable) {
-                            errorMessage = error.message ?: "Could not update playlist."
+                            saveError = error
                         } finally {
                             saving = false
                         }
                     }
                 },
             ) {
-                Text(if (saving) "Saving..." else "Save")
+                Text(stringResource(if (saving) Res.string.playlist_saving else Res.string.common_save))
             }
         },
         dismissButton = {
             NaviampTextButton(enabled = !saving, onClick = onDismissRequest) {
-                Text("Cancel")
+                Text(stringResource(Res.string.common_cancel))
             }
         },
         containerColor = colors.controlSurface,
@@ -281,7 +285,7 @@ fun StandardPlaylistManagementList(
     var savedTracks by remember(initialTrackIds) { mutableStateOf(initialTracks) }
     var undoEntries by remember(initialTrackIds) { mutableStateOf<List<PlaylistManagementEntry>?>(null) }
     var saving by remember(initialTrackIds) { mutableStateOf(false) }
-    var errorMessage by remember(initialTrackIds) { mutableStateOf<String?>(null) }
+    var saveError by remember(initialTrackIds) { mutableStateOf<Throwable?>(null) }
     var positionEntryKey by remember(initialTrackIds) { mutableStateOf<String?>(null) }
     var draggingIndex by remember(initialTrackIds) { mutableStateOf<Int?>(null) }
     var dragOffsetY by remember { mutableStateOf(0f) }
@@ -337,7 +341,7 @@ fun StandardPlaylistManagementList(
         if (updated != entries) {
             undoEntries = entries
             entries = updated
-            errorMessage = null
+            saveError = null
         }
     }
 
@@ -348,7 +352,7 @@ fun StandardPlaylistManagementList(
             if (toIndex != fromIndex) {
                 undoEntries = entries
                 entries = entries.moveItem(fromIndex, toIndex)
-                errorMessage = null
+                saveError = null
             }
         }
         draggingIndex = null
@@ -362,11 +366,11 @@ fun StandardPlaylistManagementList(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("Playlist tracks", color = colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Text(stringResource(Res.string.playlist_tracks), color = colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PlaylistManagementActionButton(
                     colors = colors,
-                    label = "Undo",
+                    label = stringResource(Res.string.queue_undo_action),
                     enabled = undoEntries != null && !saving,
                     onClick = {
                         undoEntries?.let { previous ->
@@ -378,11 +382,11 @@ fun StandardPlaylistManagementList(
                 )
                 PlaylistManagementActionButton(
                     colors = colors,
-                    label = if (saving) "Saving..." else "Save changes",
+                    label = stringResource(if (saving) Res.string.playlist_saving else Res.string.playlist_membership_apply),
                     enabled = entries.map { it.track.id } != savedTracks.map { it.id } && !saving,
                     onClick = {
                         saving = true
-                        errorMessage = null
+                        saveError = null
                         scope.launch {
                             val requestedTracks = entries.map { it.track }
                             try {
@@ -391,7 +395,7 @@ fun StandardPlaylistManagementList(
                                 savedTracks = requestedTracks
                                 undoEntries = null
                             } catch (error: Throwable) {
-                                errorMessage = error.message ?: "Could not update playlist."
+                                saveError = error
                             } finally {
                                 saving = false
                             }
@@ -400,7 +404,8 @@ fun StandardPlaylistManagementList(
                 )
             }
         }
-        errorMessage?.let { message ->
+        saveError?.let { error ->
+            val message = error.message ?: stringResource(Res.string.playlist_update_failed)
             if (message != externallyDisplayedStatus) {
                 Text(message, color = colors.secondaryText, fontSize = 12.sp)
             }
@@ -493,7 +498,7 @@ fun StandardPlaylistManagementList(
                     if (updated != entries) {
                         undoEntries = entries
                         entries = updated
-                        errorMessage = null
+                        saveError = null
                     }
                 }
                 positionEntryKey = null
@@ -515,7 +520,7 @@ fun SmartPlaylistTrackList(
     val trackNumberWidth = trackNumberColumnWidth(tracks.size)
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (isSmartPlaylist) Text(
-            "Generated tracks - edit the smart playlist rules to change this list",
+            stringResource(Res.string.playlist_generated_tracks_hint),
             color = colors.secondaryText,
             fontSize = 12.sp,
         )
@@ -581,7 +586,7 @@ private fun PlaylistManagementTrackRow(
         Text(track.meta, color = colors.mutedText, fontSize = 11.sp)
         Icon(
             NaviampTransportIcons.Menu,
-            contentDescription = "Drag to reorder",
+            contentDescription = stringResource(Res.string.playlist_drag_reorder),
             tint = if (isDragging) colors.primaryText else colors.secondaryText,
             modifier = Modifier
                 .size(28.dp)
@@ -680,16 +685,16 @@ private fun playlistEditSwipeVisual(
     onTriggered: (TrackSwipeAction) -> Unit,
 ): TrackSwipeActionVisual? {
     if (action !in PlaylistEditSwipeActions) return null
-    val (label, icon) = when (action) {
-        TrackSwipeAction.Remove -> "Remove" to NaviampIcons.Trash
-        TrackSwipeAction.MoveUp -> "Move up" to NaviampIcons.ChevronUp
-        TrackSwipeAction.MoveDown -> "Move down" to NaviampIcons.ChevronDown
-        TrackSwipeAction.MoveToTop -> "Move to top" to NaviampIcons.MoveToTop
-        TrackSwipeAction.MoveToBottom -> "Move to bottom" to NaviampIcons.MoveToBottom
+    val (labelResource, icon) = when (action) {
+        TrackSwipeAction.Remove -> Res.string.mix_remove to NaviampIcons.Trash
+        TrackSwipeAction.MoveUp -> Res.string.smart_playlist_move_up to NaviampIcons.ChevronUp
+        TrackSwipeAction.MoveDown -> Res.string.smart_playlist_move_down to NaviampIcons.ChevronDown
+        TrackSwipeAction.MoveToTop -> Res.string.playlist_item_move_top to NaviampIcons.MoveToTop
+        TrackSwipeAction.MoveToBottom -> Res.string.playlist_item_move_bottom to NaviampIcons.MoveToBottom
         else -> return null
     }
     return TrackSwipeActionVisual(
-        label = label,
+        labelResource = labelResource,
         icon = icon,
         background = if (action == TrackSwipeAction.Remove) colors.error else colors.accent,
         contentColor = if (action == TrackSwipeAction.Remove) colors.onError else colors.onAccent,

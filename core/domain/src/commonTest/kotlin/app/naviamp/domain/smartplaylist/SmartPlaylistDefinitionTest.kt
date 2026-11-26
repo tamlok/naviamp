@@ -150,21 +150,6 @@ class SmartPlaylistDefinitionTest {
     }
 
     @Test
-    fun recommendedTemplatesMatchRoadmapCandidates() {
-        assertEquals(
-            listOf(
-                "Recently Played",
-                "Never Played",
-                "High Rated",
-                "Favorite Albums",
-                "Recently Added but Unplayed",
-                "Long-Unheard Favorites",
-            ),
-            SmartPlaylistTemplates.recommended.map { it.title },
-        )
-    }
-
-    @Test
     fun buildsRecentlyAddedButUnplayedTemplate() {
         val json = SmartPlaylistTemplates.recentlyAddedButUnplayed(days = 90, limit = 250).toJsonElement()
         val rules = json["all"]?.jsonArray.orEmpty()

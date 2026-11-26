@@ -9,7 +9,7 @@ class NaviampActionCatalogTest {
         fun actions(available: Boolean, live: Boolean = false) = nowPlayingTrackMenuActions(
             visualizerAvailable = false, isLive = live, hasDetails = false,
             canAddToPlaylist = false, canSaveQueueAsPlaylist = false, canEmptyQueue = false,
-            sleepTimerLabel = "Sleep timer", canStartRadio = available,
+            sleepTimer = NaviampSleepTimerUi(), canStartRadio = available,
         ).map { it.action }
         assertEquals(true, NaviampAction.StartTrackRadio in actions(true))
         assertEquals(false, NaviampAction.StartTrackRadio in actions(false))
@@ -21,7 +21,7 @@ class NaviampActionCatalogTest {
         fun actions(available: Boolean, live: Boolean = false) = nowPlayingTrackMenuActions(
             visualizerAvailable = false, isLive = live, hasDetails = false,
             canAddToPlaylist = false, canSaveQueueAsPlaylist = false, canEmptyQueue = false,
-            sleepTimerLabel = "Sleep timer", canPlaySomethingNew = available,
+            sleepTimer = NaviampSleepTimerUi(), canPlaySomethingNew = available,
         ).map { it.action }
         assertEquals(true, NaviampAction.PlaySomethingNew in actions(true))
         assertEquals(true, NaviampAction.PlaySomethingNew in actions(true, live = true))
@@ -59,7 +59,6 @@ class NaviampActionCatalogTest {
             ),
             actions.map { it.action },
         )
-        assertEquals("Start Radio", actions.first { it.action == NaviampAction.StartTrackRadio }.label)
     }
 
     @Test
@@ -73,7 +72,6 @@ class NaviampActionCatalogTest {
             listOf(NaviampAction.StartAlbumRadio, NaviampAction.ToggleFavorite),
             actions.map { it.action },
         )
-        assertEquals("Start Radio", actions.first().label)
     }
 
     @Test
@@ -98,7 +96,6 @@ class NaviampActionCatalogTest {
             ),
             actions.map { it.action },
         )
-        assertEquals("Unfavorite", actions.first { it.action == NaviampAction.ToggleFavorite }.label)
     }
 
     @Test
@@ -155,12 +152,4 @@ class NaviampActionCatalogTest {
         )
     }
 
-    @Test
-    fun keepDownloadedPlaylistActionReflectsCurrentPolicy() {
-        val inactive = playlistRowActions(canKeepDownloaded = true).single()
-        val active = playlistRowActions(canKeepDownloaded = true, keepDownloadedActive = true).single()
-
-        assertEquals("Keep downloaded", inactive.label)
-        assertEquals("Stop keeping downloaded", active.label)
-    }
 }

@@ -280,7 +280,7 @@ private fun PlaylistListRow(
     onAddToPlaylist: () -> Unit,
     onDuplicateSmartPlaylist: () -> Unit,
 ) {
-    val duplicateSmartPlaylistLabel = stringResource(Res.string.playlists_duplicate_smart)
+    val duplicateSmartPlaylistLabel = Res.string.playlists_duplicate_smart
     NaviampItemMenuRow(
         itemKey = playlist.id,
         modifier = Modifier
@@ -326,7 +326,7 @@ private fun PlaylistListRow(
             ) {
                 val offline = playlist.offlineAvailability
                 Text(
-                    offline?.let { offlineAvailabilityLabel(it) } ?: playlist.subtitle,
+                    offline?.let { offlineAvailabilityLabel(it) } ?: playlist.localizedSubtitle(),
                     color = colors.secondaryText,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -373,13 +373,13 @@ private fun PlaylistListRow(
             )).mapNotNull { action ->
                 when (action.action) {
                     NaviampAction.DownloadPlaylist -> NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { onAction(playlist.playlistDetailRequest(NaviampPlaylistDetailCommand.Download(null))) },
                         action.enabled,
                     )
                     NaviampAction.KeepPlaylistDownloaded -> NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         {
                             onAction(playlist.playlistDetailRequest(NaviampPlaylistDetailCommand.Download(KeepDownloadedActionValue)))
@@ -387,20 +387,20 @@ private fun PlaylistListRow(
                         action.enabled,
                     )
                     NaviampAction.AddToQueue -> NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { onAction(playlist.playlistDetailRequest(NaviampPlaylistDetailCommand.AddToQueue)) },
                         action.enabled,
                     )
                     NaviampAction.AddPlaylistToPlaylist -> NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         { onAddToPlaylist() },
                         action.enabled,
                     )
-                    NaviampAction.RenamePlaylist -> NaviampRowMenuItem(action.label, action.icon, onRename, action.enabled)
+                    NaviampAction.RenamePlaylist -> NaviampRowMenuItem(action.localizedLabel(), action.icon, onRename, action.enabled)
                     NaviampAction.EditSmartPlaylist -> NaviampRowMenuItem(
-                        action.label,
+                        action.localizedLabel(),
                         action.icon,
                         {
                             onAction(playlist.playlistRequest(NaviampPlaylistMediaCommand.EditSmartPlaylist))
@@ -408,8 +408,8 @@ private fun PlaylistListRow(
                         action.enabled,
                     )
                     NaviampAction.DuplicateSmartPlaylist ->
-                        NaviampRowMenuItem(action.label, action.icon, onDuplicateSmartPlaylist, action.enabled)
-                    NaviampAction.DeletePlaylist -> NaviampRowMenuItem(action.label, action.icon, onDelete, action.enabled)
+                        NaviampRowMenuItem(action.localizedLabel(), action.icon, onDuplicateSmartPlaylist, action.enabled)
+                    NaviampAction.DeletePlaylist -> NaviampRowMenuItem(action.localizedLabel(), action.icon, onDelete, action.enabled)
                     else -> null
                 }
             },
@@ -451,10 +451,10 @@ fun NaviampPlaylistDetailContent(
         ) { colors ->
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = actions.onBack, modifier = Modifier.size(36.dp)) {
-                    Icon(NaviampIcons.Back, contentDescription = "Back", tint = colors.primaryText)
+                    Icon(NaviampIcons.Back, contentDescription = stringResource(Res.string.common_back), tint = colors.primaryText)
                 }
                 Text(
-                    screen.selectedPlaylist?.title ?: "Playlist",
+                    screen.selectedPlaylist?.title ?: stringResource(Res.string.tv_playlist),
                     color = colors.primaryText,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -721,7 +721,7 @@ private fun PlaylistDetailContent(
                             add(NaviampDetailAction(stringResource(Res.string.playlists_play), NaviampTransportIcons.Play, onPlayPlaylist, offline.availableCount > 0))
                             add(NaviampDetailAction(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, onShufflePlaylist, offline.availableCount > 1))
                             add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_queue), NaviampIcons.Queue, onAddPlaylistToQueue, offline.availableCount > 0))
-                            add(NaviampDetailAction("Playback profile", NaviampIcons.Settings, { playbackProfileOpen = true }, offline.availableCount > 0))
+                            add(NaviampDetailAction(stringResource(Res.string.playlist_playback_profile), NaviampIcons.Settings, { playbackProfileOpen = true }, offline.availableCount > 0))
                         } else buildList {
                             add(NaviampDetailAction(stringResource(Res.string.playlists_play), NaviampTransportIcons.Play, onPlayPlaylist, detail.tracks.isNotEmpty()))
                             add(NaviampDetailAction(stringResource(Res.string.playlists_shuffle), NaviampTransportIcons.Shuffle, onShufflePlaylist, detail.tracks.size > 1))
@@ -746,7 +746,7 @@ private fun PlaylistDetailContent(
                             }
                             add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_queue), NaviampIcons.Queue, onAddPlaylistToQueue, detail.tracks.isNotEmpty()))
                             add(NaviampDetailAction(stringResource(Res.string.playlists_download), NaviampIcons.Downloads, onDownloadPlaylist, detail.tracks.isNotEmpty()))
-                            add(NaviampDetailAction("Playback profile", NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()))
+                            add(NaviampDetailAction(stringResource(Res.string.playlist_playback_profile), NaviampIcons.Settings, { playbackProfileOpen = true }, detail.tracks.isNotEmpty()))
                             if (!detail.playlist.isSmartPlaylist) {
                                 add(NaviampDetailAction(stringResource(Res.string.playlists_add_to_playlist), NaviampIcons.Playlist, { addToPlaylistOpen = true }, detail.tracks.isNotEmpty()))
                                 if (detail.playlist.canEditPlaylist) add(NaviampDetailAction(stringResource(Res.string.playlists_bulk_tools_title), NaviampIcons.Layers2, { bulkToolsOpen = true }, detail.tracks.isNotEmpty()))
@@ -885,7 +885,7 @@ private fun PlaylistDetailContent(
     )
     if (playbackProfileOpen) {
         PlaybackProfileDialog(
-            title = "${detail.playlist.title} playback profile",
+            title = stringResource(Res.string.playlist_named_playback_profile , detail.playlist.title),
             initialProfile = playbackProfile,
             colors = colors,
             onDismissRequest = { playbackProfileOpen = false },

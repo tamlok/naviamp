@@ -3,10 +3,11 @@ package app.naviamp.ui
 import androidx.compose.runtime.Composable
 import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
+import org.jetbrains.compose.resources.StringResource
 
 @Composable
 internal fun List<NaviampStreamDetailSection>.localizedStreamDetailSections(): List<NaviampDetailSectionUi> = map { section ->
-    NaviampDetailSectionUi(section.label.streamDetailLabel(), section.rows.map { row ->
+    NaviampDetailSectionUi(section.label.streamDetailLabelResource(), section.rows.map { row ->
         val value = when {
             row.embeddedPicture -> stringResource(Res.string.stream_details_embedded_artwork)
             row.label == NaviampStreamDetailLabel.Bitrate -> row.value.toIntOrNull()
@@ -15,12 +16,11 @@ internal fun List<NaviampStreamDetailSection>.localizedStreamDetailSections(): L
         }
         val displayValue = value.replace("<redacted>", "<${stringResource(Res.string.stream_details_redacted)}>")
             .replace("<unparseable url>", stringResource(Res.string.stream_details_unavailable_url))
-        (row.label?.streamDetailLabel() ?: row.metadataKey.orEmpty()) to displayValue
+        NaviampDetailRowUi(row.label?.streamDetailLabelResource(), displayValue, metadataKey = row.metadataKey)
     })
 }
 
-@Composable
-private fun NaviampStreamDetailLabel.streamDetailLabel(): String = stringResource(when (this) {
+private fun NaviampStreamDetailLabel.streamDetailLabelResource(): StringResource = when (this) {
     NaviampStreamDetailLabel.Station -> Res.string.stream_details_station
     NaviampStreamDetailLabel.Broadcast -> Res.string.stream_details_broadcast
     NaviampStreamDetailLabel.Audio -> Res.string.settings_about_audio_title
@@ -39,4 +39,4 @@ private fun NaviampStreamDetailLabel.streamDetailLabel(): String = stringResourc
     NaviampStreamDetailLabel.SampleRate -> Res.string.stream_details_sample_rate
     NaviampStreamDetailLabel.Channels -> Res.string.stream_details_channels
     NaviampStreamDetailLabel.ContentType -> Res.string.stream_details_content_type
-})
+}

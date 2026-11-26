@@ -7,6 +7,7 @@ Release changes are grouped into user-facing Features, Bug Fixes, and deployment
 ### Bug Fixes
 
 - Update the About page attribution to “A LeTalk Production Based on Naviamp”, including existing translations.
+- Localize previously hardcoded pages, menus, dialogs, player controls, and accessibility labels in Simplified Chinese, preserving live language switching and user-provided names. Controller-generated status/error messages and Android notification-channel labels remain unchanged.
 
 ## v1.0.0
 

@@ -23,6 +23,8 @@ import androidx.compose.ui.test.right
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import app.naviamp.domain.settings.TrackSwipeAction
+import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.playlist_item_add_queue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -237,15 +239,15 @@ private fun SwipeTestSurface(
     onSwipeLeft: (() -> Unit)?,
 ) {
     SwipeActionContainer(
-        swipeRight = onSwipeRight?.let { action -> testVisual("Right", action) },
-        swipeLeft = onSwipeLeft?.let { action -> testVisual("Left", action) },
+        swipeRight = onSwipeRight?.let(::testVisual),
+        swipeLeft = onSwipeLeft?.let(::testVisual),
     ) { modifier ->
         Box(modifier.testTag(SwipeContentTag).size(width = 300.dp, height = 48.dp))
     }
 }
 
-private fun testVisual(label: String, onTriggered: () -> Unit) = TrackSwipeActionVisual(
-    label = label,
+private fun testVisual(onTriggered: () -> Unit) = TrackSwipeActionVisual(
+    labelResource = Res.string.playlist_item_add_queue,
     icon = NaviampIcons.Queue,
     background = Color.Green,
     onTriggered = onTriggered,

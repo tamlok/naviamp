@@ -25,6 +25,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
 @Composable
 fun ColumnScope.NaviampProductRouteContent(
@@ -133,7 +134,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    NaviampPageTitle("Artist Mix", colors)
+                    NaviampPageTitle(stringResource(Res.string.mix_artist_builder_title), colors)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -156,7 +157,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Play Mix")
+                            Text(stringResource(Res.string.mix_play_mix))
                         }
                     }
                     NaviampGeneratedRadioBuilderActions("ArtistMix", shellState.artistMixBuilder.selectedArtists.isNotEmpty(), shellActions.generatedRadioActions)
@@ -165,7 +166,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    NaviampPageTitle("Album Mix", colors)
+                    NaviampPageTitle(stringResource(Res.string.mix_album_builder_title), colors)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -188,7 +189,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Play Mix")
+                            Text(stringResource(Res.string.mix_play_mix))
                         }
                     }
                     NaviampGeneratedRadioBuilderActions("AlbumMix", shellState.albumMixBuilder.selectedAlbums.isNotEmpty(), shellActions.generatedRadioActions)
@@ -197,7 +198,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    NaviampPageTitle("Genre Mix", colors)
+                    NaviampPageTitle(stringResource(Res.string.mix_genre_builder_title), colors)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -220,7 +221,7 @@ fun ColumnScope.NaviampProductRouteContent(
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("Play Mix")
+                            Text(stringResource(Res.string.mix_play_mix))
                         }
                     }
                     NaviampGeneratedRadioBuilderActions("GenreMix", shellState.genreMixBuilder.selectedGenres.isNotEmpty(), shellActions.generatedRadioActions)
@@ -229,7 +230,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    NaviampPageTitle("Sonic Path", colors)
+                    NaviampPageTitle(stringResource(Res.string.sonic_path_title), colors)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -256,19 +257,19 @@ fun ColumnScope.NaviampProductRouteContent(
                                 ),
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Play Path")
+                                Text(stringResource(Res.string.sonic_path_play))
                             }
                             Button(
                                 onClick = shellActions.sonicPathActions.onAddToQueue,
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Add to Queue")
+                                Text(stringResource(Res.string.mix_add_to_queue))
                             }
                             Button(
                                 onClick = { saveSonicPathDialogOpen = true },
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Save")
+                                Text(stringResource(Res.string.common_save))
                             }
                         }
                     }
@@ -277,7 +278,7 @@ fun ColumnScope.NaviampProductRouteContent(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    NaviampPageTitle("Sonic Mix", colors)
+                    NaviampPageTitle(stringResource(Res.string.nav_sonic_mix), colors)
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -304,19 +305,19 @@ fun ColumnScope.NaviampProductRouteContent(
                                 ),
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Play Mix")
+                                Text(stringResource(Res.string.mix_play_mix))
                             }
                             Button(
                                 onClick = shellActions.sonicMixActions.onAddToQueue,
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Add to Queue")
+                                Text(stringResource(Res.string.mix_add_to_queue))
                             }
                             Button(
                                 onClick = { saveSonicMixDialogOpen = true },
                                 modifier = Modifier.weight(1f),
                             ) {
-                                Text("Save")
+                                Text(stringResource(Res.string.common_save))
                             }
                         }
                     }
@@ -341,8 +342,8 @@ fun ColumnScope.NaviampProductRouteContent(
         SaveQueueAsPlaylistDialog(
             colors = colors,
             status = null,
-            title = "Save path as playlist",
-            description = "Save this Sonic Path in order as a server playlist.",
+            title = stringResource(Res.string.generated_radio_save_playlist),
+            description = stringResource(Res.string.sonic_path_save_description),
             onDismissRequest = { saveSonicPathDialogOpen = false },
             onSave = { name ->
                 shellActions.sonicPathActions.onSaveAsPlaylist(name)
@@ -354,8 +355,8 @@ fun ColumnScope.NaviampProductRouteContent(
         SaveQueueAsPlaylistDialog(
             colors = colors,
             status = null,
-            title = "Save mix as playlist",
-            description = "Save this Sonic Mix in order as a server playlist.",
+            title = stringResource(Res.string.generated_radio_save_playlist),
+            description = stringResource(Res.string.sonic_mix_save_description),
             onDismissRequest = { saveSonicMixDialogOpen = false },
             onSave = { name ->
                 shellActions.sonicMixActions.onSaveAsPlaylist(name)

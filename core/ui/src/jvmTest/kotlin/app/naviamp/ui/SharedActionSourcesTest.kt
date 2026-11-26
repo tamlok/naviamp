@@ -57,7 +57,6 @@ class SharedActionSourcesTest {
                 SharedSimilarArtistUi(
                     id = "similar-remote",
                     title = "Similar",
-                    subtitle = "In library",
                     localArtistId = "similar-local",
                 ),
             ),
@@ -301,7 +300,7 @@ class SharedActionSourcesTest {
         val album = album("album")
         val albumItem = SharedMediaItemUi("album", "Album", "Artist")
         val choice = NaviampPlaylistChoiceUi("target", "Target")
-        val similar = SharedSimilarArtistUi("similar", "Similar", "")
+        val similar = SharedSimilarArtistUi("similar", "Similar")
         val artistActions = mutableListOf<String>()
         val artistHandlers = ResolvedArtistDetailActionHandlers<Artist>(
             onPlayCatalog = { _, albums, shuffle -> artistActions += "play:${albums.size}:$shuffle" },

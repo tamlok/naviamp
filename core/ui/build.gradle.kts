@@ -124,7 +124,7 @@ kotlin {
             implementation(libs.compose.material3)
             implementation("org.jetbrains.compose.runtime:runtime:$composeVersion")
             implementation("org.jetbrains.compose.ui:ui:$composeVersion")
-            implementation("org.jetbrains.compose.components:components-resources:$composeVersion")
+            api("org.jetbrains.compose.components:components-resources:$composeVersion")
             implementation(libs.androidx.lifecycle.runtime.compose)
         }
         commonTest.dependencies {
