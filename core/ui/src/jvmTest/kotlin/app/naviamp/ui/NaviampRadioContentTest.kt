@@ -17,6 +17,9 @@ import app.naviamp.domain.home.HomeStationLibrary
 import app.naviamp.domain.radio.GeneratedRadioKind
 import app.naviamp.domain.radio.GeneratedRadioStation
 import app.naviamp.domain.settings.SavedArtist
+import app.naviamp.ui.generated.resources.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -25,6 +28,8 @@ import kotlin.test.assertTrue
 class NaviampRadioContentTest {
     @Test
     fun sectionsMoveOutOfHomeAndServerActionsKeepTheirOriginalIntents() = runDesktopComposeUiTest(690, 900) {
+        val artistMixLabel = runBlocking { getString(Res.string.mix_artist_builder_title) }
+        val libraryRadioLabel = runBlocking { getString(Res.string.home_station_library_title) }
         var showHome by mutableStateOf(true)
         var home by mutableStateOf(home())
         val builders = mutableListOf<String>()
@@ -49,8 +54,8 @@ class NaviampRadioContentTest {
         onNodeWithText("Internet Radio").assertIsNotSelected()
         onNodeWithText("Home album").assertDoesNotExist()
         assertTrue(builders.isEmpty() && stations.isEmpty() && generated.isEmpty())
-        onNodeWithText("Artist Mix").performScrollTo().performClick()
-        onNodeWithText("Library Radio").performScrollTo().performClick()
+        onNodeWithText(artistMixLabel).performScrollTo().performClick()
+        onNodeWithText(libraryRadioLabel).performScrollTo().performClick()
         onNodeWithText("Evening station").performScrollTo().performClick()
         assertEquals(listOf("artist"), builders)
         assertEquals(listOf(HomeStationLibrary), stations)
@@ -63,7 +68,7 @@ class NaviampRadioContentTest {
         onNodeWithText("Server Radio").assertIsSelected()
         onNodeWithText("Internet Radio").performClick()
         onNodeWithText("Ambient One").assertIsDisplayed()
-        listOf("Artist Mix", "Library Radio", "Saved stations").forEach { onNodeWithText(it, ignoreCase = true).assertDoesNotExist() }
+        listOf(artistMixLabel, libraryRadioLabel, "Saved stations").forEach { onNodeWithText(it, ignoreCase = true).assertDoesNotExist() }
         assertEquals(1, generated.size)
     }
 

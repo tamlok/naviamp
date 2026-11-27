@@ -33,6 +33,9 @@ import app.naviamp.domain.settings.NaviampThemeMode
 import app.naviamp.domain.settings.NaviampThemePack
 import app.naviamp.domain.playback.EqualizerSettings
 import app.naviamp.domain.playback.PlaybackProfileTargetType
+import app.naviamp.ui.generated.resources.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
 import kotlin.test.*
 
 @OptIn(ExperimentalTestApi::class)
@@ -106,6 +109,7 @@ class NaviampNowPlayingLayoutTest {
     }
 
     @Test fun stationFlameOpensDetailsWithoutMovingPlayerContent() {
+        val djLabel = runBlocking { getString(Res.string.settings_playback_radio_djs_title) }
         for ((width, height) in listOf(320 to 720, 1000 to 720)) runDesktopComposeUiTest(width, height) {
             val station = app.naviamp.domain.radio.GeneratedRadioStation("station-id", "A long station name that must not resize the player controls",
                 app.naviamp.domain.radio.GeneratedRadioKind.Track)
@@ -135,7 +139,7 @@ class NaviampNowPlayingLayoutTest {
             runOnIdle { playing.value = playing.value.copy(generatedStation = station,
                 generatedStatus = app.naviamp.domain.radio.GeneratedRadioStatus.Active) }
             button.assertIsEnabled().assertIsSelected()
-            val dj = onNodeWithContentDescription("DJs").getUnclippedBoundsInRoot()
+            val dj = onNodeWithContentDescription(djLabel).getUnclippedBoundsInRoot()
             val flame = button.getUnclippedBoundsInRoot()
             assertEquals(dj.right, flame.left)
             assertEquals(dj.top, flame.top)
@@ -190,7 +194,12 @@ class NaviampNowPlayingLayoutTest {
             val bottom = onNodeWithTag("now-playing-bottom-actions").performScrollTo().getUnclippedBoundsInRoot()
             val speaker = onNodeWithTag("volume-popup-button")
             val cast = onNodeWithContentDescription("Cast to a device")
-            val bottomNodes = listOf("Start track radio", "DJs", "Preview station", "Volume", "Cast to a device", "Queue", "Track actions")
+            val bottomNodes = runBlocking {
+                listOf(Res.string.tv_start_radio, Res.string.settings_playback_radio_djs_title,
+                    Res.string.generated_radio_preview, Res.string.now_playing_volume,
+                    Res.string.now_playing_cast_to_device, Res.string.player_queue, Res.string.tv_track_actions_title)
+                    .map { getString(it) }
+            }
                 .map { onNodeWithContentDescription(it).assertIsDisplayed().assertWidthIsAtLeast(40.dp)
                     .assertHeightIsAtLeast(40.dp).getUnclippedBoundsInRoot() }
             for (bounds in bottomNodes) {
@@ -734,6 +743,7 @@ class NaviampNowPlayingLayoutTest {
     }
 
     @Test fun unavailableLyricsAndStationsStillSupportQueueDrawerPinAndDismiss() = runDesktopComposeUiTest(1280, 720) {
+        val stationsLabel = runBlocking { getString(Res.string.tv_home_stations) }
         val live = mutableStateOf(false)
         val display = mutableListOf<NowPlayingDisplayAction>()
         setContent {
@@ -750,7 +760,7 @@ class NaviampNowPlayingLayoutTest {
             onNodeWithContentDescription("Queue").assertIsEnabled().performClick()
             onNodeWithTag("now-playing-queue-drawer").assertIsDisplayed()
             onNodeWithText("Lyrics unavailable").assertDoesNotExist()
-            if (isLive) onNodeWithText("STATIONS").assertIsDisplayed()
+            if (isLive) onNodeWithText(stationsLabel).assertIsDisplayed()
             onNodeWithContentDescription("Pin queue").assertIsDisplayed().performClick()
             onNodeWithTag("now-playing-queue-card").assertIsDisplayed()
             onNodeWithText("Lyrics unavailable").assertIsDisplayed()

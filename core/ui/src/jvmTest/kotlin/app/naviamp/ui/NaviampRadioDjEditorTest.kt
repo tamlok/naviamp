@@ -24,6 +24,9 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.runComposeUiTest
 import app.naviamp.domain.settings.PlaybackSettings
+import app.naviamp.ui.generated.resources.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -32,6 +35,7 @@ import kotlin.test.assertFalse
 class NaviampRadioDjEditorTest {
     @Test
     fun compactPlayerOpensDjEditorFromMenu() = runDesktopComposeUiTest(width = 360, height = 640) {
+        val djLabel = runBlocking { getString(Res.string.settings_playback_radio_djs_title) }
         val editorOpen = mutableStateOf(false)
         setContent {
             NaviampNowPlayingPanel(
@@ -50,7 +54,7 @@ class NaviampRadioDjEditorTest {
         }
 
         onAllNodesWithContentDescription("New DJ").assertCountEquals(0)
-        onNodeWithContentDescription("DJs").performClick()
+        onNodeWithContentDescription(djLabel).performClick()
         onNodeWithText("Create new DJ").performClick()
         onNodeWithText("DJ name").assertExists()
         onNodeWithText("Cancel").performScrollTo().performClick()
@@ -59,6 +63,7 @@ class NaviampRadioDjEditorTest {
 
     @Test
     fun nowPlayingCreatesAndCancelsDjsWithoutChangingPlayback() = runDesktopComposeUiTest(width = 420, height = 900) {
+        val djLabel = runBlocking { getString(Res.string.settings_playback_radio_djs_title) }
         val settings = mutableStateOf(PlaybackSettings())
         val editorOpen = mutableStateOf(false)
         var playbackCommands = 0
@@ -93,7 +98,7 @@ class NaviampRadioDjEditorTest {
             }
         }
 
-        onNodeWithContentDescription("DJs").performClick()
+        onNodeWithContentDescription(djLabel).performClick()
         onNodeWithText("Create new DJ").performClick()
         onNodeWithText("DJ name").performTextInput("Evening")
         onNodeWithText("Save").performClick()
@@ -102,7 +107,7 @@ class NaviampRadioDjEditorTest {
         assertFalse(editorOpen.value)
         assertEquals(0, playbackCommands)
 
-        onNodeWithContentDescription("DJs").performClick()
+        onNodeWithContentDescription(djLabel).performClick()
         onNodeWithText("Evening").assertExists()
         onNodeWithText("Create new DJ").performClick()
         onNodeWithText("Cancel").performClick()

@@ -14,6 +14,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import app.naviamp.ui.generated.resources.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -23,6 +26,9 @@ import kotlin.test.assertTrue
 class NaviampRepeatControlsUiTest {
     @Test
     fun fullPlayerCyclesFromGreyOffThroughBothActiveModesAndBack() = runComposeUiTest {
+        val offLabel = runBlocking { getString(Res.string.tv_repeat_off) }
+        val allLabel = runBlocking { getString(Res.string.tv_repeat_all) }
+        val oneLabel = runBlocking { getString(Res.string.tv_repeat_one) }
         mainClock.autoAdvance = false
         val mode = mutableStateOf(NaviampRepeatMode.Off)
         val available = mutableStateOf(true)
@@ -47,20 +53,20 @@ class NaviampRepeatControlsUiTest {
             }
         }
         mainClock.advanceTimeBy(100)
-        val off = onNodeWithContentDescription("Repeat off").assertIsEnabled().captureToImage().peakLuminance()
-        onNodeWithContentDescription("Repeat off").performClick()
+        val off = onNodeWithContentDescription(offLabel).assertIsEnabled().captureToImage().peakLuminance()
+        onNodeWithContentDescription(offLabel).performClick()
         mainClock.advanceTimeByFrame()
-        val all = onNodeWithContentDescription("Repeat queue").assertIsEnabled().captureToImage().peakLuminance()
+        val all = onNodeWithContentDescription(allLabel).assertIsEnabled().captureToImage().peakLuminance()
         assertTrue(all > off + 0.25f, "Repeat Off must visibly dim the icon: off=$off, all=$all")
         onNodeWithText("A").assertDoesNotExist()
-        onNodeWithContentDescription("Repeat queue").performClick()
+        onNodeWithContentDescription(allLabel).performClick()
         mainClock.advanceTimeByFrame()
-        onNodeWithContentDescription("Repeat current track").assertIsEnabled().performClick()
+        onNodeWithContentDescription(oneLabel).assertIsEnabled().performClick()
         mainClock.advanceTimeByFrame()
-        onNodeWithContentDescription("Repeat off").assertIsEnabled()
+        onNodeWithContentDescription(offLabel).assertIsEnabled()
         runOnIdle { assertEquals(3, actions); available.value = false }
         mainClock.advanceTimeByFrame()
-        onNodeWithContentDescription("Repeat off").assertIsNotEnabled().performClick()
+        onNodeWithContentDescription(offLabel).assertIsNotEnabled().performClick()
         runOnIdle { assertEquals(3, actions) }
     }
 

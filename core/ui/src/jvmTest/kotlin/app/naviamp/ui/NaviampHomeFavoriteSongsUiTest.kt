@@ -5,6 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
+import app.naviamp.ui.generated.resources.*
+import kotlinx.coroutines.runBlocking
+import org.jetbrains.compose.resources.getString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -155,6 +158,7 @@ class NaviampHomeFavoriteSongsUiTest {
 
     @Test
     fun rowMenuUsesStandardTrackCapabilitiesWithoutPlaylistManagement() = runDesktopComposeUiTest(800, 700) {
+        val downloadLabel = runBlocking { getString(Res.string.playlist_item_download) }
         val page = mutableStateOf(SharedFavoriteSongsPageUi(
             tracks = listOf(favoriteTrack(0)), status = FavoriteSongsStatus.Ready,
         ))
@@ -165,7 +169,7 @@ class NaviampHomeFavoriteSongsUiTest {
             }
         }
         onNodeWithContentDescription("More actions").performClick()
-        onNodeWithText("Download track").assertDoesNotExist()
+        onNodeWithText(downloadLabel).assertDoesNotExist()
         onNodeWithText("Start Radio").assertDoesNotExist()
         onNodeWithText("Add to playlist").assertIsDisplayed()
         onNodeWithText("Remove from This Playlist").assertDoesNotExist()
@@ -173,7 +177,7 @@ class NaviampHomeFavoriteSongsUiTest {
         onNodeWithText("Add to queue").performClick()
         runOnIdle { page.value = page.value.copy(canDownload = true, canStartRadio = true) }
         onNodeWithContentDescription("More actions").performClick()
-        onNodeWithText("Download track").assertIsDisplayed().performClick()
+        onNodeWithText(downloadLabel).assertIsDisplayed().performClick()
         onNodeWithContentDescription("More actions").performClick()
         onNodeWithText("Start Radio").assertIsDisplayed().performClick()
         onNodeWithContentDescription("More actions").performClick()
