@@ -108,7 +108,7 @@ class NaviampCorePlaylistBrowseControllerTest {
             val shell = store.state.value.shell
             assertEquals(0, shell.playlists.playlists.first().trackCount)
             assertEquals(unaffected, shell.playlists.playlists.last())
-            assertEquals("0 tracks", shell.playlistChoices.single().subtitle)
+            assertEquals(0, shell.playlistChoices.single().trackCount)
             assertEquals(0, registry.playlist("playlist-a")?.trackCount)
             assertFalse(shell.playlists.refreshing)
             assertNull(shell.playlists.status)

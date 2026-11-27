@@ -220,14 +220,14 @@ class NaviampNavigationFixesUiTest {
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Radio)
         }
         waitUntil(timeoutMillis = 10_000) { reads == 2 && !core.state.value.shell.radio.refreshing }
-        onNodeWithText("Internet Radio").performClick()
+        onNode(hasText("Internet Radio") and isSelectable()).performClick()
         onNodeWithText("Recovered station").assertIsDisplayed()
         capture("radio-navigation-recovery")
         runOnIdle {
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Home)
             core.actions.shell.navigationActions.onRouteSelected(SharedRoute.Radio)
         }
-        onNodeWithText("Internet Radio").performClick()
+        onNode(hasText("Internet Radio") and isSelectable()).performClick()
         onNodeWithText("Recovered station").assertIsDisplayed()
         runOnIdle { assertEquals(2, reads); core.close() }
     }
