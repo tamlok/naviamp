@@ -55,8 +55,9 @@ targets without platform-specific product behavior. The complete experience chec
 
 ### Generated station session extension (development)
 
-`stationSessionVersion` is an additive integer, defaulting to zero for older peers. Version 1
-support enables `station_start`, `station_handoff` and revision-bound `station_retry` commands.
+`welcome.stationSessionVersion` and `snapshot.stationSessionVersion` are additive integers,
+defaulting to zero for older peers. Version 1 support enables `station_start`, `station_handoff`
+and revision-bound `station_retry` commands.
 No new enum capability is placed in pre-negotiation discovery/hello payloads. An unsupported
 station operation is rejected before playback changes; a recipe is never attached to the legacy
 `handoff_queue` command where an older target would silently discard it.
@@ -85,12 +86,39 @@ vectors exist.
 
 ### Protected assets and trust boundary
 
-September 10 consent update: explicitly choosing **Show pairing code** authorizes one live
+November 2026 one-flow update (#713) — supersedes the September 10 consent rules below:
+
+- **Presence vs. code offer.** A target with any trust record keeps its listener and DNS-SD
+  registration alive for trusted resumption without generating a code. A code exists only while the
+  user keeps the *Let another device connect* panel open (or the TV first-run screen is shown); it
+  regenerates on expiry and after each failed attempt, and five failures pause new codes for 30 s.
+  Trusted resumption validates against the presence advertisement and never consumes the code.
+- **Showing a code is the consent.** A pairing request can exist only while a code is shown, so it
+  is authenticated automatically; there is no approval prompt. Every authenticated session therefore
+  came from a displayed code or a trusted device, and the target applies its provisioning offers
+  without approval (validation and rollback are unchanged). The old session-bound setup grant was
+  removed.
+- **Discovery TXT `code`.** `"1"` while the device is showing a code, `"0"` for presence only; a
+  missing key (protocol-v1 targets) means it may be showing one. Controllers list `code=1` and
+  missing-key devices as *Nearby*. When six digits are typed, a single `code=1` device is chosen
+  automatically (waiting up to 5 s for one to appear); a missing-key device is never chosen without a
+  tap, so a device that briefly drops off discovery never sends the code to another device.
+- **Additive Welcome fields.** `initialSetupAllowed` is `true` only when the target supports
+  provisioning and is empty, so a v1 controller still sets up an empty target but never replaces a
+  configured one. `hasSavedAccounts` (nullable, default `null`) tells the controller whether to
+  preselect sign-in in its post-connect sheet; if absent, it falls back to whether
+  `snapshot.sourceIdentity` is present. `stationSessionVersion` (default `0`) independently negotiates
+  generated-station start, retry, and checkpoint/state handoff; the Welcome value matches the target's
+  snapshot version. Controllers no longer provision automatically; the user chooses *Sign it in*,
+  *Play on …*, or *Done*.
+- The protocol version remains 1: these changes are additive and v1 peers keep pairing and resuming.
+
+September 10 consent update (historical): explicitly choosing **Show pairing code** authorizes one live
 code-authenticated peer to pair. On an empty target, that same action also authorizes initial
 source and portable-settings provisioning in the resulting authenticated session. The UI explains
 this before displaying the code. Background advertisements and trusted reconnects never create this
-authorization. The primitive and durable identity proofs are unchanged; the consent policy is now
-owned by `NaviampConnectInitialSetupAuthorization` in Core.
+authorization. The primitive and durable identity proofs were unchanged; the consent policy was
+owned by a session-bound Core grant, superseded by the November one-flow update above.
 
 The grant is bound to the displayed offer and authenticated session, expires at the original code's
 five-minute deadline, and is consumed by successful setup or revoked on session closure/cancellation.
@@ -107,8 +135,7 @@ automatic initial setup; trust resumption itself cannot refresh the grant.
 - DNS-SD records, display names, instance IDs, protocol/capability ranges, listening ports, public
   identity keys/fingerprints, and non-secret trust records are public local-network metadata.
 - Pairing establishes trust in one durable peer identity. After pairing, that trusted controller is
-  authorized for every capability the target advertises. Initial provisioning additionally requires
-  the live empty-target grant above; other provisioning requires a separate target approval.
+  authorized for every capability the target advertises, including validated connection provisioning.
 
 September 10 validation: the shared grant tests cover offer/session identity, configured targets,
 expiry, completion, cancellation, and resumption isolation. The Android TV emulator runs the actual
@@ -124,8 +151,8 @@ Version 1 defends against a passive listener and an active unauthenticated attac
 network who can discover, connect, drop, delay, reorder, replay, alter, and inject packets or spoof
 DNS-SD metadata. It requires:
 
-- the six-digit display code never to cross the wire and each approved PAKE attempt to consume it;
-- explicit target consent by displaying a live code, or visible per-peer approval, before PAKE work begins;
+- the six-digit display code never to cross the wire and each authenticated PAKE attempt to consume it;
+- explicit target consent by displaying a live code before PAKE work begins;
 - PAKE confirmation plus durable ECDSA proofs binding protocol version, session, ordered identities,
   public keys, fingerprints, and controller/target roles;
 - independent directional AES-256-GCM keys and nonce prefixes, contiguous sequence enforcement,
@@ -179,7 +206,7 @@ The short code shown on the TV must bootstrap a reviewed password-authenticated 
 code is consumed by the pairing operation and is never sent as an ordinary password, serialized in
 protocol messages, logged, or retained in controller state. Pairing additionally requires:
 
-- explicit TV consent to display a live code, or visible per-peer approval;
+- explicit target consent to display a live code;
 - expiring codes and rate-limited attempts;
 - mutual device authentication and explicit key confirmation;
 - channel binding between pairing and the encrypted session;
@@ -202,21 +229,22 @@ Kotlin/Native Apple targets, so an interoperable reviewed Apple implementation a
 still required. The previously evaluated RustCrypto SPAKE2 package is not being used.
 
 Naviamp will not implement a PAKE or other cryptographic primitive itself. Android playback commands
-now remain on the retained authenticated session and run through shared executors and authorization
+remain on the retained authenticated session and run through shared executors and authorization
 policy. Connection provisioning is capability-gated, encrypted inside that retained session, and
-requires either the session-bound initial-setup grant or explicit target approval. Core excludes
-local certificate paths and device-only settings,
+applied automatically for a code-authenticated or trusted controller. Core excludes local certificate
+paths and device-only settings,
 validates the offered connection through the normal provider owner before saving or applying
 portable settings, and preserves the existing source if validation fails. Completed provisioning
 requests deliberately cannot be replayed or retained in the request-deduplication cache. The target
 returns an encrypted provisioning result so the controller reports validation success, failure, or
-rejection instead of remaining on the approval prompt.
+rejection instead of waiting indefinitely.
 
-The additive `welcome.initialSetupAllowed` flag defaults to false for older peers. A new controller
-only automatically offers setup after code pairing with this flag and the provisioning capability;
-resumption does not initiate provisioning. Offers carry `initialSetup` (default false) and a random
-`setupId`; results echo `setupId`. The controller accepts results only for its current pending setup
-on that authenticated session, with an uncorrelated-result fallback only for legacy manual setup.
+The additive `welcome.initialSetupAllowed` flag defaults to false for older peers. Older controllers
+use it with the provisioning capability for automatic empty-target setup; new controllers show the
+post-connect choice instead. Resumption does not initiate provisioning. Offers carry `initialSetup`
+(default false) and a random `setupId`; results echo `setupId`. The controller accepts results only
+for its current pending setup on that authenticated session, with an uncorrelated-result fallback
+only for legacy manual setup.
 There is one outstanding setup per side. Writes are bounded to ten seconds, target validation to
 45 seconds, and controller completion waiting to 60 seconds. Disconnect cancels outstanding work;
 late results cannot update a replacement session. Provisioning is never replayed on reconnect.
@@ -236,8 +264,8 @@ payload failure. The JVM/Android socket effect uses a bounded four-byte big-endi
 contains no pairing or command policy.
 
 Successful initial pairing also retains the confirmed PAKE root behind Core's secure-value
-boundary, separate from the non-secret trust record. While the TV explicitly advertises pairing
-mode, a remembered controller may use that credential to open a fresh session without another code
+boundary, separate from the non-secret trust record. While the target advertises trusted presence,
+a remembered controller may use that credential to open a fresh session without a displayed code
 or another trust record. The resume exchange binds both durable identities, the advertised target
 fingerprint, fresh controller and target contributions, and encrypted mutual confirmations into the
 new session; a replayed offer, missing/mismatched credential, or changed identity fails closed.
@@ -247,8 +275,8 @@ Each peer then signs one canonical proof binding the negotiated protocol, pairin
 ordered controller and target device IDs, fingerprints, and public keys. Core verifies that each
 fingerprint is actually the SHA-256 digest of its supplied public key, validates the ECDSA proof,
 and requires a final encrypted acknowledgement from both sides before creating trust. A target
-removes the display code from retained state when approval begins; a failed handshake requires a
-fresh pairing attempt rather than retaining the code.
+removes the display code from retained state when authentication begins; while the code panel stays
+open, completion or failure rotates the consumed offer rather than retaining its code.
 
 ## Platform boundaries
 
@@ -265,8 +293,9 @@ Hosts provide only the native effects that cannot live in common Kotlin:
   the simulator does not model it completely.
 - Desktop: the selected OS/JVM DNS-SD, socket, and secure-value implementations.
 
-Discovery does not imply trust. An unpaired target advertises only while its explicit pairing screen
-is active, and discovery alone never enables commands or connection provisioning.
+Discovery does not imply trust. A target advertises `code=1` only while its code is shown and
+otherwise only presence for already-trusted peers; discovery alone never enables commands or
+connection provisioning.
 
 ## Delivery sequence
 
@@ -282,7 +311,7 @@ is active, and discovery alone never enables commands or connection provisioning
    implemented; Android durable trust persistence is implemented; Apple adapters remain pending.**
 4. TV pairing UI and phone/Desktop playback-target selection, permission, expiry, revoke, and
    recovery flows.
-   **Android TV pairing/approval and Android phone discovery/code entry are wired to the shared Core
+   **Android TV code display and Android phone discovery/code entry are wired to the shared Core
    lifecycle. Shared output selection, self-name/local-alias editing, revoke, and automatic trusted
    reconnect are implemented. Desktop-to-TV-emulator live acceptance is complete. Stronger
    diagnostics/recovery presentation and Apple host wiring remain.**
@@ -291,9 +320,9 @@ is active, and discovery alone never enables commands or connection provisioning
    favorites, repeat, shuffle, queue selection, Play Next, reorder, removal, catalog playback, and
    Internet Radio.**
 6. Assisted connection provisioning and same-source atomic queue handoff. **Implemented in shared
-   Core, including session-bound initial setup consent, explicit approval for later replacement,
-   portable-settings filtering, failure rollback, and
-   controller-to-target plus target-to-controller transfer.**
+   Core, including the post-connect sign-in choice, automatic target validation for authenticated
+   controllers, portable-settings filtering, failure rollback, and controller-to-target plus
+   target-to-controller transfer.**
 7. Physical Pixel controller to Android TV emulator acceptance, followed by the capability-based
    phone/Desktop controller-and-target matrix and Apple targets.
 

@@ -4,7 +4,6 @@ import app.naviamp.ui.generated.resources.settings_keep_screen_awake
 import app.naviamp.ui.generated.resources.settings_keep_screen_awake_description
 import app.naviamp.ui.generated.resources.settings_keep_screen_awake_failed
 
-import app.naviamp.ui.generated.resources.connect_setup_code_consent
 import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.domain.settings.InterfaceFontFamily
 import app.naviamp.domain.settings.InterfaceFontSize
@@ -42,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -90,14 +90,14 @@ internal enum class TelevisionSettingsCategory(
     Display(Res.string.tv_display, Res.string.tv_now_playing_uppercase, NaviampIcons.Experience),
     Playback(Res.string.settings_category_playback_title, Res.string.tv_audio_and_queue_behavior, NaviampTransportIcons.Play),
     Lyrics(Res.string.settings_lyrics_title, Res.string.tv_sources_and_synchronization, NaviampTransportIcons.Lyrics),
-    Controllers(Res.string.tv_controllers, Res.string.tv_trusted_naviamp_remotes, NaviampIcons.Player),
+    Devices(Res.string.settings_devices_title, Res.string.settings_devices_subtitle, NaviampIcons.Player),
     Diagnostics(Res.string.tv_diagnostics, Res.string.tv_connection_and_local_health, NaviampIcons.Bug),
     About(Res.string.settings_category_about_title, Res.string.tv_version_and_build_information, NaviampIcons.AppMark),
 }
 
 internal fun televisionSettingsCategories(controllersAvailable: Boolean): List<TelevisionSettingsCategory> =
     TelevisionSettingsCategory.entries.filter { category ->
-        category != TelevisionSettingsCategory.Controllers || controllersAvailable
+        category != TelevisionSettingsCategory.Devices || controllersAvailable
     }
 
 internal enum class TelevisionSettingsChoicePage {
@@ -394,7 +394,7 @@ private fun TelevisionSettingsCategoryPage(
             firstFocusRequester,
         )
         TelevisionSettingsCategory.About -> TelevisionAboutSettings(uiState, colors, firstFocusRequester)
-        TelevisionSettingsCategory.Controllers -> TelevisionControllersSettings(
+        TelevisionSettingsCategory.Devices -> TelevisionControllersSettings(
             connect = uiState.connect,
             actions = actions.connectActions,
             colors = colors,
@@ -404,7 +404,7 @@ private fun TelevisionSettingsCategoryPage(
 }
 
 @Composable
-private fun TelevisionControllersSettings(
+internal fun TelevisionControllersSettings(
     connect: NaviampConnectSettingsUi,
     actions: NaviampConnectSettingsActions?,
     colors: NaviampColors,
@@ -413,6 +413,14 @@ private fun TelevisionControllersSettings(
     if (!connect.available || actions == null) {
         TelevisionSettingsMessage(stringResource(Res.string.tv_naviamp_connect_is_unavailable_on_this_device), colors, firstFocusRequester)
         return
+    }
+    // The code exists only while it is shown here; leaving this page ends the offer.
+    var codeShown by remember { mutableStateOf(false) }
+    var enterCodeShown by remember { mutableStateOf(false) }
+    if (codeShown) {
+        val start by rememberUpdatedState(actions.onStartPairingMode)
+        val stop by rememberUpdatedState(actions.onStopPairingMode)
+        NaviampWhileVisibleEffect(onVisible = { start() }, onHidden = { stop() })
     }
     var renameOpen by remember { mutableStateOf(false) }
     var deviceName by remember(connect.localDeviceName) { mutableStateOf(connect.localDeviceName) }
@@ -455,7 +463,7 @@ private fun TelevisionControllersSettings(
                 modifier = Modifier.focusRequester(firstFocusRequester),
             )
         }
-        connect.recovery?.let { recovery ->
+        connect.recovery?.takeUnless { enterCodeShown && connect.canDiscover }?.let { recovery ->
             item(key = "connect-recovery") {
                 NaviampConnectRecoveryPanel(recovery, colors, actions.onRetryConnection,
                     actions.onOpenPermissionSettings, television = true)
@@ -464,40 +472,17 @@ private fun TelevisionControllersSettings(
         if (connect.canAdvertise) {
             item(key = "pairing-mode") {
                 TelevisionSettingsRow(
-                    title = if (connect.pairingActive) stringResource(Res.string.tv_stop_pairing) else stringResource(Res.string.tv_pair_a_controller),
-                    subtitle = stringResource(Res.string.connect_setup_code_consent) +
-                        (connect.listeningPort?.let { port ->
-                            "\n" + stringResource(Res.string.connect_manual_port, port)
+                    title = stringResource(Res.string.connect_let_another_device_connect),
+                    subtitle = stringResource(Res.string.connect_show_code_instructions) +
+                        (connect.listeningPort?.takeIf { codeShown }?.let { port ->
+                            "\n" + stringResource(Res.string.connect_port, port)
                         } ?: ""),
-                    value = connect.pairingCode?.let(::formatNaviampConnectPairingCode),
+                    value = connect.pairingCode?.takeIf { codeShown }?.let(::formatNaviampConnectPairingCode),
                     icon = NaviampIcons.Player,
-                    selected = connect.pairingActive,
+                    selected = codeShown,
                     colors = colors,
-                    onClick = if (connect.pairingActive) actions.onStopPairingMode else actions.onStartPairingMode,
+                    onClick = { codeShown = !codeShown; enterCodeShown = false },
                 )
-            }
-            if (connect.pairingPhase == NaviampConnectPairingUiPhase.AwaitingApproval) {
-                item(key = "approve-controller") {
-                    TelevisionSettingsRow(
-                        title = stringResource(Res.string.tv_approve_named_controller, connect.pendingControllerName ?: stringResource(Res.string.tv_controller_fallback)),
-                        subtitle = stringResource(Res.string.tv_only_approve_if_you_started_pairing_on_this_device),
-                        value = stringResource(Res.string.tv_approve),
-                        icon = NaviampIcons.Player,
-                        disclosure = true,
-                        colors = colors,
-                        onClick = actions.onApproveController,
-                    )
-                }
-                item(key = "reject-controller") {
-                    TelevisionSettingsRow(
-                        title = stringResource(Res.string.tv_reject_request),
-                        subtitle = stringResource(Res.string.tv_close_this_connection_without_creating_trust),
-                        value = stringResource(Res.string.tv_reject),
-                        icon = NaviampIcons.Close,
-                        colors = colors,
-                        onClick = actions.onRejectController,
-                    )
-                }
             }
         }
         if (connect.canDiscover) {
@@ -513,56 +498,27 @@ private fun TelevisionControllersSettings(
                     )
                 }
             }
-            item(key = "refresh-targets") {
+            item(key = "connect-device") {
                 TelevisionSettingsRow(
-                    title = stringResource(Res.string.tv_find_naviamp_targets),
-                    subtitle = connect.displayStatus() ?: stringResource(Res.string.tv_search_this_local_network_for_naviamp_devices_ready_to_pair),
-                    value = connect.discoveredTargets.size.takeIf { it > 0 }?.toString(),
-                    icon = NaviampIcons.Refresh,
-                    colors = colors,
-                    onClick = actions.onRefreshTargets,
-                )
-            }
-            items(connect.discoveredTargets, key = { "target-${it.instanceId}" }) { target ->
-                TelevisionSettingsRow(
-                    title = target.displayName,
-                    subtitle = target.detail,
-                    value = if (target.compatible) stringResource(Res.string.tv_pair) else stringResource(Res.string.tv_update_required),
+                    title = stringResource(Res.string.connect_a_device),
+                    subtitle = stringResource(Res.string.connect_enter_code_instructions),
                     icon = NaviampIcons.Player,
-                    disclosure = target.compatible,
-                    enabled = target.compatible,
+                    selected = enterCodeShown,
                     colors = colors,
-                    onClick = { actions.onTargetSelected(target) },
+                    onClick = { enterCodeShown = !enterCodeShown; codeShown = false },
                 )
             }
-        }
-        if (connect.pendingProvisioningConnectionName != null) {
-            item(key = "approve-provisioning") {
-                TelevisionSettingsRow(
-                    title = stringResource(Res.string.tv_set_up_named_source, connect.pendingProvisioningConnectionName.orEmpty()),
-                    subtitle = stringResource(Res.string.tv_provisioning_requested_by, connect.pendingProvisioningControllerName ?: stringResource(Res.string.tv_paired_controller_fallback)),
-                    value = stringResource(Res.string.tv_approve),
-                    icon = NaviampIcons.Library,
-                    disclosure = true,
-                    colors = colors,
-                    onClick = actions.onApproveProvisioning,
-                )
-            }
-            item(key = "reject-provisioning") {
-                TelevisionSettingsRow(
-                    title = stringResource(Res.string.tv_reject_server_setup),
-                    subtitle = stringResource(Res.string.tv_discard_the_transferred_credential_without_saving_a_connection),
-                    value = stringResource(Res.string.tv_reject),
-                    icon = NaviampIcons.Close,
-                    colors = colors,
-                    onClick = actions.onRejectProvisioning,
-                )
+            if (enterCodeShown) {
+                item(key = "enter-code") {
+                    NaviampConnectEnterCodePanel(connect, colors, actions)
+                }
             }
         }
         items(connect.trustedDevices, key = { "trusted-${it.deviceId}" }) { device ->
             TelevisionSettingsRow(
                 title = device.displayName,
-                subtitle = localizedConnectionStatus(device.detail),
+                subtitle = stringResource(if (device.playbackTarget) Res.string.connect_device_plays_music
+                    else Res.string.connect_device_remote),
                 value = if (device.reconnectAvailable) stringResource(Res.string.common_reconnect) else stringResource(Res.string.tv_trusted),
                 icon = NaviampIcons.Player,
                 enabled = device.reconnectAvailable,
@@ -1527,7 +1483,7 @@ private fun televisionSettingsCategoryValue(
     }
     TelevisionSettingsCategory.Playback -> if (uiState.playback.settings.gaplessEnabled) stringResource(Res.string.settings_gapless_title) else null
     TelevisionSettingsCategory.Lyrics -> if (uiState.playback.settings.lrclibLyricsEnabled) stringResource(Res.string.tv_online_on) else stringResource(Res.string.tv_server_tags)
-    TelevisionSettingsCategory.Controllers -> when {
+    TelevisionSettingsCategory.Devices -> when {
         uiState.connect.pairingCode != null -> formatNaviampConnectPairingCode(uiState.connect.pairingCode)
         uiState.connect.trustedDevices.isNotEmpty() -> pluralStringResource(Res.plurals.tv_trusted_devices_count, uiState.connect.trustedDevices.size, uiState.connect.trustedDevices.size)
         else -> null

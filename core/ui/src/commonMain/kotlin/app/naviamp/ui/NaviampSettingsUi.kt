@@ -10,10 +10,6 @@ import app.naviamp.ui.generated.resources.settings_keep_screen_awake
 import app.naviamp.ui.generated.resources.settings_keep_screen_awake_description
 import app.naviamp.ui.generated.resources.settings_keep_screen_awake_failed
 
-import app.naviamp.ui.generated.resources.connect_setup_password_required
-import app.naviamp.ui.generated.resources.connection_password
-import app.naviamp.ui.generated.resources.connect_pairing_code
-import app.naviamp.ui.generated.resources.connect_devices_description
 import app.naviamp.domain.network.NaviampAppVersion
 import app.naviamp.domain.network.NaviampAppBuildNumber
 import androidx.compose.foundation.background
@@ -61,6 +57,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -244,7 +241,7 @@ enum class NaviampSettingsCategory(
     Playback("Playback", "Make your ears happy", NaviampTransportIcons.Play),
     Downloads("Downloads", "Music on the go", NaviampIcons.Downloads),
     AudioCache("Audio Cache", "Prefetch and playback cache", NaviampIcons.Cache),
-    Controllers("Controllers", "Control TVs on this network", NaviampIcons.Player),
+    Devices("Devices", "Connect and control your devices", NaviampIcons.Player),
     Debugging("Debugging", "Diagnostics and local data", NaviampIcons.Bug),
     About("About", "Version, libraries, changelog", NaviampIcons.AppMark),
 }
@@ -490,7 +487,7 @@ fun NaviampSharedSettingsContent(
                     selectedLocationId = selectedAudioCacheLocationId,
                     onLocationChanged = onAudioCacheLocationChanged,
                 )
-                NaviampSettingsCategory.Controllers -> NaviampConnectSettingsSection(
+                NaviampSettingsCategory.Devices -> NaviampConnectSettingsSection(
                     colors = colors,
                     connect = connect,
                     actions = connectActions,
@@ -528,7 +525,7 @@ fun NaviampSharedSettingsContent(
         } ?: run {
             val currentConnection = savedConnections.firstOrNull { it.current }
             NaviampSettingsCategory.entries.filter { category ->
-                category != NaviampSettingsCategory.Controllers ||
+                category != NaviampSettingsCategory.Devices ||
                     (connect.available && connectActions != null)
             }.forEach { category ->
                 SettingsCategoryRow(
@@ -539,7 +536,6 @@ fun NaviampSharedSettingsContent(
                     subtitle = when (category) {
                         NaviampSettingsCategory.Source -> currentConnection?.displayName ?: connectionStatus ?: languagePack.categorySubtitle(category)
                         NaviampSettingsCategory.Language -> languagePack.languageTitle(interfaceSettings.language)
-                        NaviampSettingsCategory.Controllers -> stringResource(Res.string.connect_devices_description)
                         else -> languagePack.categorySubtitle(category)
                     },
                     onClick = { selectedCategory = category },
@@ -557,167 +553,114 @@ internal fun NaviampConnectSettingsSection(
     actions: NaviampConnectSettingsActions?,
 ) {
     if (!connect.available || actions == null) {
-        SettingsPlaceholderSection(colors, stringResource(Res.string.connect_title), stringResource(Res.string.tv_naviamp_connect_is_unavailable_on_this_device))
+        SettingsPlaceholderSection(colors, stringResource(Res.string.settings_devices_title),
+            stringResource(Res.string.tv_naviamp_connect_is_unavailable_on_this_device))
         return
     }
+    // Only one panel is open at a time; each panel's composition owns its offer or discovery.
+    var openPanel by rememberSaveable { mutableStateOf<String?>(null) }
     Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = SettingsRowHorizontalPadding),
     ) {
         var localDeviceName by remember(connect.localDeviceName) { mutableStateOf(connect.localDeviceName) }
-        var manualAddress by rememberSaveable { mutableStateOf("") }
-        SettingsSectionTitle(stringResource(Res.string.settings_this_device), colors)
+        SettingsSectionTitle(stringResource(Res.string.connect_this_device), colors)
         OutlinedTextField(
             colors = naviampOutlinedTextFieldColors(colors),
             value = localDeviceName,
             onValueChange = { if (it.length <= 64) localDeviceName = it },
             singleLine = true,
-            label = { Text(stringResource(Res.string.tv_friendly_name)) },
+            label = { Text(stringResource(Res.string.connect_device_name)) },
             modifier = Modifier.fillMaxWidth(),
         )
         PrimaryButton(
-            stringResource(Res.string.settings_save_device_name),
+            stringResource(Res.string.connect_save_device_name),
             colors,
             enabled = localDeviceName.trim().isNotEmpty() && localDeviceName.trim() != connect.localDeviceName,
             onClick = { actions.onLocalDeviceNameChanged(localDeviceName) },
         )
-        connect.recovery?.let { recovery ->
-            NaviampConnectRecoveryPanel(recovery, colors, actions.onRetryConnection,
-                actions.onOpenPermissionSettings, television = false)
-        } ?: run {
-            connect.displayStatus()?.let { Text(it, color = colors.secondaryText, fontSize = 12.sp) }
+        if (openPanel == null) {
+            connect.recovery?.let { recovery ->
+                NaviampConnectRecoveryPanel(recovery, colors, actions.onRetryConnection,
+                    actions.onOpenPermissionSettings, television = false)
+            } ?: connect.displayStatus()?.let { Text(it, color = colors.secondaryText, fontSize = 12.sp) }
         }
-        NaviampConnectTargetSettings(connect, colors, actions)
-        if (connect.needsProvisioningCredential) {
-            var password by remember { mutableStateOf("") }
-            Text(stringResource(Res.string.connect_setup_password_required), color = colors.secondaryText)
-            OutlinedTextField(
-                colors = naviampOutlinedTextFieldColors(colors),
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(stringResource(Res.string.connection_password)) },
-                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Password),
-                singleLine = true,
-                enabled = !connect.provisioningBusy,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            PrimaryButton(stringResource(Res.string.common_connect), colors,
-                enabled = password.isNotBlank() && !connect.provisioningBusy,
-                onClick = {
-                    val submitted = password
-                    password = ""
-                    actions.onSubmitProvisioningCredential(submitted)
-                })
-            PrimaryButton(stringResource(Res.string.common_cancel), colors, enabled = true,
-                onClick = { password = ""; actions.onCancelProvisioningCredential() })
-        }
-        connect.connectedTargetName?.let { targetName ->
-            SettingsSectionTitle(stringResource(Res.string.settings_controlling, targetName), colors)
-            PrimaryButton(
-                stringResource(Res.string.settings_setup_target, targetName),
-                colors,
-                enabled = connect.canProvisionTarget && !connect.provisioningBusy,
-                onClick = actions.onProvisionTarget,
-            )
-            PrimaryButton(
-                stringResource(Res.string.tv_stop_controlling_named, targetName),
-                colors,
-                enabled = true,
-                onClick = actions.onStopControlling,
-            )
+        if (connect.canAdvertise) {
+            PrimaryButton(stringResource(Res.string.connect_let_another_device_connect), colors,
+                onClick = { openPanel = if (openPanel == ShowCodePanel) null else ShowCodePanel })
+            if (openPanel == ShowCodePanel) NaviampConnectShowCodePanel(connect, colors, actions)
         }
         if (connect.canDiscover) {
-            PrimaryButton(stringResource(Res.string.connect_find_devices), colors, enabled = true, onClick = actions.onRefreshTargets)
-            Text(stringResource(Res.string.connect_manual_address_hint), color = colors.secondaryText, fontSize = 12.sp)
-            OutlinedTextField(
-                colors = naviampOutlinedTextFieldColors(colors),
-                value = manualAddress,
-                onValueChange = { manualAddress = it },
-                singleLine = true,
-                label = { Text(stringResource(Res.string.connect_manual_address_label)) },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            PrimaryButton(
-                stringResource(Res.string.connect_manual_pair), colors,
-                enabled = manualAddress.isNotBlank(),
-                onClick = { actions.onManualEndpointSelected(manualAddress) },
-            )
-            connect.discoveredTargets.forEach { target ->
-                PrimaryButton(
-                    label = if (target.instanceId == connect.selectedTargetId) {
-                        stringResource(Res.string.settings_selected_device, target.displayName)
-                    } else {
-                        stringResource(Res.string.settings_pair_device, target.displayName)
-                    },
-                    colors = colors,
-                    enabled = target.compatible,
-                    onClick = { actions.onTargetSelected(target) },
-                )
-            }
-            if (connect.pairingPhase == NaviampConnectPairingUiPhase.AwaitingCode ||
-                connect.selectedTargetId != null || connect.manualEndpointAwaitingCode
-            ) {
-                OutlinedTextField(
-                    colors = naviampOutlinedTextFieldColors(colors),
-                    value = connect.enteredPairingCode,
-                    onValueChange = actions.onPairingCodeChanged,
-                    singleLine = true,
-                    label = { Text(stringResource(Res.string.connect_pairing_code)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                PrimaryButton(
-                    stringResource(Res.string.settings_pair_securely),
-                    colors,
-                    enabled = connect.enteredPairingCode.length == 6 &&
-                        connect.pairingPhase != NaviampConnectPairingUiPhase.Handshaking,
-                    onClick = actions.onSubmitPairingCode,
-                )
-            }
+            PrimaryButton(stringResource(Res.string.connect_a_device), colors,
+                onClick = { openPanel = if (openPanel == EnterCodePanel) null else EnterCodePanel })
+            if (openPanel == EnterCodePanel) NaviampConnectEnterCodePanel(connect, colors, actions)
+        }
+        connect.connectedTargetName?.let { targetName ->
+            PrimaryButton(stringResource(Res.string.tv_stop_controlling_named, targetName), colors,
+                onClick = actions.onStopControlling)
         }
         if (connect.trustedDevices.isNotEmpty()) {
-            SettingsSectionTitle(stringResource(Res.string.settings_trusted_devices), colors)
-            connect.trustedDevices.forEach { device ->
-                var alias by remember(device.deviceId, device.localAlias) { mutableStateOf(device.localAlias.orEmpty()) }
-                PrimaryButton(
-                    label = if (device.reconnectAvailable) stringResource(Res.string.settings_reconnect_device, device.displayName) else device.displayName,
-                    colors = colors,
-                    enabled = device.reconnectAvailable,
-                    onClick = { actions.onTrustedDeviceSelected(device) },
-                )
-                if (manualAddress.isNotBlank() && device.reconnectAvailable) {
-                    PrimaryButton(
-                        label = stringResource(Res.string.connect_manual_reconnect, device.displayName),
-                        colors = colors,
-                        onClick = { actions.onManualTrustedEndpointSelected(device, manualAddress) },
-                    )
-                }
-                OutlinedTextField(
-                    colors = naviampOutlinedTextFieldColors(colors),
-                    value = alias,
-                    onValueChange = { if (it.length <= 64) alias = it },
-                    singleLine = true,
-                    label = { Text(stringResource(Res.string.settings_local_device_name, device.displayName)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    PrimaryButton(
-                        stringResource(Res.string.settings_save_name),
-                        colors,
-                        enabled = alias.trim() != device.localAlias.orEmpty(),
-                        onClick = { actions.onTrustedDeviceAliasChanged(device.deviceId, alias) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    PrimaryButton(
-                        stringResource(Res.string.settings_forget_device),
-                        colors,
-                        enabled = true,
-                        onClick = { actions.onForgetTrustedDevice(device.deviceId) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+            SettingsSectionTitle(stringResource(Res.string.connect_your_devices), colors)
+            connect.trustedDevices.forEach { device -> NaviampConnectTrustedDeviceRow(device, colors, actions) }
+        }
+    }
+}
+
+private const val ShowCodePanel = "show-code"
+private const val EnterCodePanel = "enter-code"
+
+@Composable
+private fun NaviampConnectTrustedDeviceRow(
+    device: NaviampConnectTrustedDeviceUi,
+    colors: NaviampColors,
+    actions: NaviampConnectSettingsActions,
+) {
+    var expanded by rememberSaveable(device.deviceId) { mutableStateOf(false) }
+    var alias by remember(device.deviceId, device.localAlias) { mutableStateOf(device.localAlias.orEmpty()) }
+    var address by rememberSaveable(device.deviceId) { mutableStateOf("") }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+        TextButton(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
+                Text(device.displayName, color = colors.primaryText, fontWeight = FontWeight.Bold)
+                Text(stringResource(if (device.playbackTarget) Res.string.connect_device_plays_music
+                    else Res.string.connect_device_remote), color = colors.secondaryText, fontSize = 12.sp)
             }
+        }
+        if (!expanded) return@Column
+        if (device.reconnectAvailable && device.playbackTarget) {
+            PrimaryButton(stringResource(Res.string.common_connect), colors,
+                onClick = { actions.onTrustedDeviceSelected(device) },
+                modifier = Modifier.fillMaxWidth().testTag("connect-trusted-${device.deviceId}"))
+        }
+        OutlinedTextField(
+            colors = naviampOutlinedTextFieldColors(colors),
+            value = alias,
+            onValueChange = { if (it.length <= 64) alias = it },
+            singleLine = true,
+            label = { Text(stringResource(Res.string.connect_device_rename_label)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            PrimaryButton(stringResource(Res.string.common_save), colors,
+                enabled = alias.trim() != device.localAlias.orEmpty(),
+                onClick = { actions.onTrustedDeviceAliasChanged(device.deviceId, alias) },
+                modifier = Modifier.weight(1f))
+            PrimaryButton(stringResource(Res.string.connect_forget), colors,
+                onClick = { actions.onForgetTrustedDevice(device.deviceId) },
+                modifier = Modifier.weight(1f))
+        }
+        if (device.reconnectAvailable) {
+            OutlinedTextField(
+                colors = naviampOutlinedTextFieldColors(colors),
+                value = address,
+                onValueChange = { address = it },
+                singleLine = true,
+                label = { Text(stringResource(Res.string.connect_address_label)) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PrimaryButton(stringResource(Res.string.connect_connect_at_address), colors,
+                enabled = address.isNotBlank(),
+                onClick = { actions.onManualTrustedEndpointSelected(device, address) })
         }
     }
 }
@@ -2255,8 +2198,7 @@ private fun SettingsDetailHeader(
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(languagePack.categoryLabel(category), color = colors.primaryText, fontSize = SettingsCategoryTitleSize, fontWeight = FontWeight.Bold)
             Text(
-                if (category == NaviampSettingsCategory.Controllers) stringResource(Res.string.connect_devices_description)
-                else languagePack.categorySubtitle(category),
+                languagePack.categorySubtitle(category),
                 color = colors.secondaryText, fontSize = SettingsDetailSubtitleSize,
             )
         }

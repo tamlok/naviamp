@@ -10,7 +10,7 @@ import kotlin.test.*
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class NaviampCoreConnectSetupRecoveryTest {
     @Test
-    fun rejectionDoesNotRequestCredentialsAndTheExistingSourceCanBeRetried() = runTest {
+    fun trustedDeviceSetupAppliesWithoutApproval() = runTest {
         val network = ConnectTestNetwork()
         val events = mutableListOf<NaviampCoreConnectTraceEvent>()
         val source = ConnectTestSource(configured = true)
@@ -24,38 +24,20 @@ class NaviampCoreConnectSetupRecoveryTest {
             runCurrent()
             actions.onProvisionTarget()
             runCurrent()
-            assertEquals("Fixture source", mac.state.value.shell.connect.pendingProvisioningConnectionName)
-            mac.actions.shell.connectActions!!.onRejectProvisioning()
-            runCurrent()
-            assertEquals(NaviampConnectStatusText.ConnectionSetupRequestRejected, phone.state.value.shell.connect.statusMessage?.text)
-            assertFalse(phone.state.value.shell.connect.needsProvisioningCredential)
-            assertFalse(phone.state.value.shell.connect.provisioningBusy)
-            assertNull(destination.currentSourceId())
-            assertEquals(0, destination.connects)
-
-            actions.onProvisionTarget()
-            runCurrent()
-            mac.actions.shell.connectActions!!.onApproveProvisioning()
-            runCurrent()
             advanceTimeBy(16_000)
             runCurrent()
             assertEquals("mac", phone.state.value.shell.connect.connectedTargetName, "Validation must not block heartbeat replies")
             assertTrue(phone.state.value.shell.connect.provisioningBusy)
+            assertEquals(NaviampConnectStatusText.PreparingThisConnectionForSecureTvSetup,
+                phone.state.value.shell.connect.statusMessage?.text, "Automatic setup never asks for target approval")
             advanceTimeBy(4_001)
             runCurrent()
             assertEquals(NaviampConnectStatusText.TvSetupCompletedSecurely, phone.state.value.shell.connect.statusMessage?.text)
             assertFalse(phone.state.value.shell.connect.needsProvisioningCredential)
+            assertEquals(1, destination.connects, "A trusted device setup applies without approval on the target")
             assertEquals("fixture", destination.currentSourceId())
-            assertEquals(2, source.exports)
-            assertEquals(1, destination.connects)
-            val received = events.filter { it.kind == NaviampCoreConnectTraceKind.SetupOfferReceived }
-            assertEquals(2, received.size)
-            assertNotEquals(received[0].setupId, received[1].setupId)
-            val rejected = events.single { it.kind == NaviampCoreConnectTraceKind.SetupRejected }
-            assertEquals(received[0].setupId, rejected.setupId)
-            assertEquals(received[0].sessionId, rejected.sessionId)
-            val validated = events.single { it.kind == NaviampCoreConnectTraceKind.SetupValidationSucceeded }
-            assertEquals(received[1].setupId, validated.setupId)
+            assertEquals(1, source.exports)
+            assertTrue(events.none { it.kind == NaviampCoreConnectTraceKind.SetupRejected })
             assertTrue(events.none { it.kind == NaviampCoreConnectTraceKind.HeartbeatOrWriteTimedOut })
             assertTrue(events.none { it.logLine().contains("fixture-password") || it.logLine().contains("example.invalid") })
         } finally { phone.close(); mac.close() }
@@ -75,7 +57,6 @@ class NaviampCoreConnectSetupRecoveryTest {
             runCurrent()
             actions.onProvisionTarget()
             runCurrent()
-            mac.actions.shell.connectActions!!.onApproveProvisioning()
             runCurrent()
             assertEquals(NaviampConnectStatusText.CouldNotValidateThatConnectionCheckTheServerAndCredentialThenRetry,
                 phone.state.value.shell.connect.statusMessage?.text)

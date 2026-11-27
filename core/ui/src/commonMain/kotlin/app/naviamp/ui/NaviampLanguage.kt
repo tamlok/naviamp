@@ -4,6 +4,8 @@ import app.naviamp.domain.settings.InterfaceLanguage
 import app.naviamp.ui.generated.resources.settings_category_appearance_subtitle
 import app.naviamp.ui.generated.resources.settings_category_appearance_title
 import app.naviamp.ui.generated.resources.Res
+import app.naviamp.ui.generated.resources.settings_devices_subtitle
+import app.naviamp.ui.generated.resources.settings_devices_title
 import app.naviamp.ui.generated.resources.settings_category_about_subtitle
 import app.naviamp.ui.generated.resources.settings_category_about_title
 import app.naviamp.ui.generated.resources.settings_category_audio_cache_subtitle
@@ -46,8 +48,6 @@ import app.naviamp.ui.generated.resources.settings_language_subtitle
 import app.naviamp.ui.generated.resources.settings_language_title
 import app.naviamp.ui.generated.resources.settings_selected_label
 import app.naviamp.ui.generated.resources.settings_title
-import app.naviamp.ui.generated.resources.tv_controllers
-import app.naviamp.ui.generated.resources.connect_devices_description
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.runtime.Composable
@@ -137,10 +137,6 @@ private val NaviampResourceLanguagePack = NaviampLanguagePack(
     settingsLanguageSpanishSubtitle = Res.string.settings_language_spanish_subtitle,
     selectedLabel = Res.string.settings_selected_label,
     categories = mapOf(
-        NaviampSettingsCategory.Controllers to NaviampSettingsCategoryText(
-            Res.string.tv_controllers,
-            Res.string.connect_devices_description,
-        ),
         NaviampSettingsCategory.Source to NaviampSettingsCategoryText(
             Res.string.settings_category_source_title,
             Res.string.settings_category_source_subtitle,
@@ -168,6 +164,10 @@ private val NaviampResourceLanguagePack = NaviampLanguagePack(
         NaviampSettingsCategory.AudioCache to NaviampSettingsCategoryText(
             Res.string.settings_category_audio_cache_title,
             Res.string.settings_category_audio_cache_subtitle,
+        ),
+        NaviampSettingsCategory.Devices to NaviampSettingsCategoryText(
+            Res.string.settings_devices_title,
+            Res.string.settings_devices_subtitle,
         ),
         NaviampSettingsCategory.Debugging to NaviampSettingsCategoryText(
             Res.string.settings_category_debugging_title,

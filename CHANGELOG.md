@@ -2,6 +2,17 @@
 
 Release changes are grouped into user-facing Features, Bug Fixes, and deployment or infrastructure-related System Settings. Internal task-tracking notes are intentionally not included.
 
+## Unreleased
+
+### Improvements
+
+- Start offline without waiting for an unavailable network, and reconnect in the background when connectivity returns without interrupting downloaded playback.
+- Connect Navo devices from Settings → Devices using one code-entry flow, with optional account setup and playback selection after connecting.
+
+### Bug fixes
+
+- Keep Android backups from restoring Connect secrets without the Keystore keys needed to use them.
+
 ## v1.1.0
 
 Navo 1.1.0 expands Simplified Chinese coverage, makes action outcomes visible, and improves playback-profile handling across Connect devices.

@@ -10,12 +10,12 @@ import kotlin.test.assertTrue
 
 class NaviampTelevisionSettingsPolicyTest {
     @Test
-    fun televisionControllersCategoryRequiresCapability() {
+    fun televisionDevicesCategoryRequiresCapability() {
         val current = televisionSettingsCategories(controllersAvailable = false)
 
-        assertFalse(TelevisionSettingsCategory.Controllers in current)
+        assertFalse(TelevisionSettingsCategory.Devices in current)
         assertTrue(
-            TelevisionSettingsCategory.Controllers in televisionSettingsCategories(controllersAvailable = true),
+            TelevisionSettingsCategory.Devices in televisionSettingsCategories(controllersAvailable = true),
         )
     }
 
