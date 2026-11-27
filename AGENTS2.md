@@ -2,7 +2,7 @@
 
 Supplementary guidance for this checkout. Read together with [AGENTS.md](AGENTS.md);
 upstream rules in that file take precedence if repeated guidance here diverges, except for the
-explicit fork branch and pull-request override under Repository workflow below.
+explicit fork branch, pull-request, and release-publication overrides under Repository workflow below.
 
 ## Project Overview
 
@@ -218,6 +218,14 @@ do not substitute a feature-branch push or PR. Honor explicitly requested branch
 Push only when requested, rebase onto the target when necessary, and never force-push without
 explicit authorization.
 
+**Fork release-publication override:** Publish GitHub Releases only by default. Keep GitHub
+Discussions disabled and `release-announcement.yml` disabled; do not create an Announcements
+Discussion, send or forward release notes to Discord, configure a Discord webhook, or enable either
+destination unless the owner explicitly opts in. This overrides upstream requirements to announce
+every release through Discussion or Discord. Versioned `-announcement.md` files remain offline
+validation inputs when required by the tag validator, not authorization to post. Verify both
+destinations remain disabled immediately before and after each GitHub-only publication.
+
 ### Rapidly changing upstream
 
 Upstream develops rapidly. Keep local changes as independent of existing upstream code as practical:
@@ -375,14 +383,16 @@ open until the real app meets its documented budget.
   the public website's feature/compatibility/download/install pages against accepted source and actual
   distribution; correct stale claims and record evidence in release readiness. Submission is not availability.
 - Name every GitHub release exactly `Navo vX.Y.Z`, with no subtitle; verify before and after
-  publication. Publish an **Announcements** Discussion for each new pushed release, covering new
-  capabilities, changes, fixes and upgrade/compatibility notes; never announce unreleased branches.
-- GitHub release entries credit each community contributor's accurate role and link originating
+  publication. Follow the GitHub-only publication override above; Discussion and Discord announcements
+  require explicit owner opt-in. Feature branches and unreleased work never receive announcements.
+  Only announce shipped changes, important fixes, and upgrade or compatibility notes.
+- GitHub release entries credit each community contributor's accurate role, linking originating
   issues and implementation PRs when available (commit if neither exists), using absolute URLs. Track acknowledgments
   across releases; verify first-time status against prior notes and all contribution history, including
   reports/testing/docs/translations, not just commits or GitHub's first-PR list. Credit only shipped work.
-- For community contributions, include consistent, deduplicated **Thanks** in GitHub notes, shared
-  About changelog, Discord and Announcements Discussion; welcome first-time acknowledged contributors,
-  include reporters/testers, use preferred public handles and honor anonymity. About/Discord retain plain
-  change bullets without per-change credits or issue/PR/commit references; add only Thanks. Prepare this
-  plain-list version when forwarding to Discord. Detailed links/credits belong in GitHub release notes.
+- For community contributions, include consistent, deduplicated **Thanks** in the
+  GitHub notes and the shared About changelog, plus the offline plain-list announcement input.
+  Apply the same Thanks section to Discussion or Discord only when the owner explicitly opts in;
+  welcome first-time contributors, include reporters/testers, and honor preferred/anonymous attribution.
+  About and offline/opted-in Discord copy use plain bullets without per-change links or credits.
+  Detailed issue/PR/commit links and per-change credits belong in GitHub release notes.

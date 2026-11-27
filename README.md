@@ -21,7 +21,7 @@ independent application identity and release channel.
 - [Source and issue tracking](https://github.com/tamlok/navo)
 - [This fork's releases and release notes](https://github.com/tamlok/navo/releases)
 
-Navo 1.0.0 targets Windows x64 and Android 8.0 or newer (API 26). Release pipelines produce Android APKs and Windows ZIP/MSI/EXE packages. Download only
+Navo targets Windows x64 and Android 8.0 or newer (API 26). Release pipelines produce Android APKs and Windows ZIP/MSI/EXE packages. Download only
 artifacts actually published on this fork's Releases page. Upstream Google Play, OEM stores,
 App Store, Microsoft Store, TestFlight and Flatpak channels do not distribute this fork's identity.
 No replacement store listing or public Flatpak remote is configured by this repository.
@@ -154,7 +154,7 @@ controls that the active server cannot fulfill.
 
 ## Screenshots
 
-These retained screenshots show upstream Naviamp, not Navo 1.0.0. Navo has different navigation,
+These retained screenshots show upstream Naviamp, not the current Navo release. Navo has different navigation,
 one adaptive expanded player, generated Radio stations, and its own artwork; these are historical references.
 
 <table>
@@ -182,7 +182,7 @@ every queue. Artist, Album, and Genre Mix work broadly; servers with sonic simil
 unlock Sonic Mix, Sonic Path, related tracks, track radio, and sonic autoplay. Generated results can
 be edited in the queue or saved as a normal playlist.
 
-Navo 1.0.0 separates generated stations from their saved batches: preview,
+Navo separates generated stations from their saved batches: preview,
 refresh, name and save a station, or replay the exact batch. Explicit stations keep their original
 seeds and tuning while prefilling upcoming music, independently of ordinary autoplay. Home mix
 recommendations use listening activity and favorites with an exploration allocation. Strict genre,
@@ -206,6 +206,10 @@ Resume a playlist from its saved track and position, independently of other play
 Shuffle and explicitly selecting a track start fresh. Pin playlists, albums and artists to Quick
 Access, and filter Library to favorites. Home, Playlists, Library and Radio support pull-down refresh.
 
+The 1.1.0 source also carries the controlling device’s album or playlist playback profile with
+Connect starts and whole-collection queue additions. Update both devices to 1.1.0 to use this;
+older peers remain compatible and use the target’s own profile. Playback profiles are not synced.
+
 ## Playback and presentation
 
 Navo uses the BASS audio engine and combines its playback controls with a flexible shared UI:
@@ -225,6 +229,7 @@ Navo uses the BASS audio engine and combines its playback controls with a flexib
 - Online lyrics fallback through configured sources, persistent caching, next-track prefetch,
   adjustable text size, and duration-based scrolling for plain lyrics.
 - Naviamp and Forest themes with Light, Dark or System mode, and shared appearance backup/sync.
+- Translated action-outcome notices with screen-reader announcements, dismissal and focus-aware timing in the 1.1.0 source.
 
 ## Platforms and downloads
 
@@ -246,10 +251,10 @@ settings, reconnect accounts and select download storage. Source package names a
 unchanged. Earlier local LeTalk builds using `cn.com.letalk.naviamp` have separate app/data/credential
 namespaces; the final ID does not migrate them automatically. The existing signing key can be reused.
 
-Local Navo development builds may display 2.12.x. The update checker will not offer 1.0.0 over that
-higher version; download it manually. On Windows, back up shared settings and uninstall the development
-installer before installing 1.0.0: Windows package version changes from `2.12.65` to `1.0.66` under
-the same fork installer family. Android build 66 can update build 65 with the same signing key.
+Local Navo development builds may display 2.12.x. The update checker will not offer a lower 1.x
+version; download the latest public 1.x release manually. On Windows, back up shared settings and
+uninstall the development installer before installing it under the same fork installer family.
+Android updates require the same signing key and a higher build code; build 67 can replace 65 or 66.
 
 `APPLICATION_NAME` defines Navo's product and package names; `APPLICATION_ID` and `RELEASE_REPOSITORY`
 retain its identity and update channel. Historical release notes and acceptance records describe
@@ -259,7 +264,11 @@ upstream versions, not verified LeTalk store availability.
 
 Choose System default or any of the 17 bundled interface languages in Settings. Partial translations
 fall back to English where text is missing. Language preferences participate in settings export/import
-and sync; use Navo 1.0.0 on devices sharing the current settings schema.
+and sync; use Navo 1.0.0 or later on devices sharing generated-station settings (schema 2).
+
+The 1.1.0 source expands Simplified Chinese to previously hardcoded pages, menus, smart playlists,
+player controls and accessibility labels. Some controller details, playlist-dialog status lines and
+Android notification-channel labels remain in English. Names from your library are not translated.
 
 
 Upstream Naviamp uses [Hosted Weblate](https://hosted.weblate.org/projects/naviamp/) for community
@@ -322,7 +331,7 @@ running apps and does not launch an older build when compilation fails.
 
 ### Release and verification guidance
 
-The [Navo 1.0.0 readiness record](docs/releases/v1.0.0-readiness.md) records release gates and
+The [Navo 1.1.0 readiness record](docs/releases/v1.1.0-readiness.md) records release gates and
 distribution status. Fork packaging and enabled checks follow the [development workflow](docs/development-workflow.md).
 
 Shared test guidance is documented in [Testing](docs/testing.md). The shared

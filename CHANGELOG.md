@@ -2,16 +2,38 @@
 
 Release changes are grouped into user-facing Features, Bug Fixes, and deployment or infrastructure-related System Settings. Internal task-tracking notes are intentionally not included.
 
-## Unreleased
+## v1.1.0
 
-### Bug Fixes
+Navo 1.1.0 expands Simplified Chinese coverage, makes action outcomes visible, and improves playback-profile handling across Connect devices.
 
-- Update the About page attribution to “A LeTalk Production Based on Naviamp”, including existing translations.
-- Localize previously hardcoded pages, menus, dialogs, player controls, and accessibility labels in Simplified Chinese, preserving live language switching and user-provided names. Controller-generated status/error messages and Android notification-channel labels remain unchanged.
-- Show translated action outcomes in the shared bottom notice stack, with accessible timing and dismissal.
-- Re-prepare the next track after transition settings change while respecting the active album or playlist profile.
-- Apply playback profiles to Connect and in-playlist starts without overriding an explicitly selected track with a playlist bookmark.
-- Preserve playback-profile groups when Radio replaces upcoming tracks, alongside generated-radio occurrence tracking.
+### Improvements
+
+- Expand Simplified Chinese across previously hardcoded pages, menus, dialogs, smart playlists, player controls, and accessibility labels, while preserving live language switching and names from your library.
+- Albums and playlists started or added to the queue through Navo Connect now use the playback profile saved on the controlling device.
+
+### Bug fixes
+
+- Show translated action outcomes in the shared bottom notice stack instead of silently dropping them, with screen-reader announcements, dismissal, and focus-aware timing.
+- Keep gapless and crossfade transitions ready when playback settings change during a track, while honoring album and playlist profiles.
+- Use the current playlist name after a rename when starting a track from that playlist.
+- Correct the About page attribution to “A LeTalk Production Based on Naviamp”.
+
+### Upgrade notes
+
+- No special upgrade steps are required from Navo 1.0.0. Settings, accounts, playlist bookmarks, and generated-station sync schema 2 are unchanged.
+- Update both Connect devices to 1.1.0 for controller playback profiles to follow the music. Older peers remain compatible and use the target device’s profile; playback profiles are not automatically synced.
+- For local Navo 2.12.x development installations, download the latest 1.x release manually. On Windows, back up settings and uninstall the development installer first. Android build 67 can update builds 65 and 66 with the same signing key.
+
+### Known issues
+
+- Windows downloads are not publisher-signed and may show an operating-system security warning.
+- Only Windows x64 and Android 8.0 or newer (API 26) packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included.
+- Connect remains beta. Cast requires compatible online media and a reachable receiver. Vehicle integration depends on the head unit; physical vehicle acceptance is not established by emulator checks.
+- Some controller-generated details, playlist-dialog status lines, and Android notification-channel labels remain in English.
+
+### Thanks
+
+- Thanks to @ursasmar for reporting, testing, and implementing the upstream status-notice and playback-profile fixes.
 
 ## v1.0.0
 

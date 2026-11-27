@@ -20,7 +20,7 @@ previous local `cn.com.letalk.naviamp` builds (including their `.v2test` variant
 settings or credentials are read or automatically migrated. The existing fork signing key is retained;
 `APPLICATION_NAME` remains Navo. This is an installation-ID change, not only a display-name change.
 
-For Navo 1.0.0 release gates and distribution status, see the [readiness record](releases/v1.0.0-readiness.md).
+For Navo 1.1.0 release gates and distribution status, see the [readiness record](releases/v1.1.0-readiness.md).
 The dated verification sections below describe upstream builds, not this fork's release acceptance.
 
 ## Now-playing publication for Android Automotive OS

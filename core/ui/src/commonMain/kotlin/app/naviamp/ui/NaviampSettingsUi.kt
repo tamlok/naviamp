@@ -2900,41 +2900,42 @@ private val DefaultNaviampLibraries = listOf(
 // Release notes stay in English and out of localized string resources.
 private val DefaultNaviampChangelog = listOf(
     NaviampChangelogSectionUi(
-        title = "Features",
+        title = "Improvements",
         entries = listOf(
-            "Navo launches on Windows and Android, including Android TV and Google TV, with its own blue-arrow artwork and independent release channel.",
-            "Connect Navidrome, Subsonic/OpenSubsonic, Jellyfin, Bandcamp, or Aurral. Browse your library, manage playlists, download music, and listen with native BASS playback, gapless transitions, ReplayGain, and crossfade where supported.",
-            "Build generated radio from artists, albums, genres, or songs. Preview and save station recipes, refresh a batch, replay its exact order, or save it as a playlist. Stations retain their seeds and tuning as playback continues.",
-            "Explore personalized Home mixes and a dedicated Radio destination with Server Radio and Internet Radio tabs. Sonic discovery follows the similarity capabilities of your server.",
-            "Browse Home, Playlists, Library, Radio, and My with adaptive navigation. Open one expanded player, control playback from the mini-player, and keep Queue in a drawer or pinned beside lyrics.",
-            "Resume playlists from their saved track and position, pin playlists, albums, and artists to Quick Access, filter Library favorites, and pull down to refresh browsing pages.",
-            "Follow synchronized or plain lyrics with online fallback, cached results, next-track prefetch, adjustable text size, and timed scrolling for untimed lyrics. Choose Naviamp or Forest themes, Light/Dark/System mode, and artwork-inspired player backgrounds.",
-            "Use Android Auto, Android TV remote navigation, Google Cast, and Navo Connect remote control (beta). Settings backup and folder sync carry supported preferences between devices.",
+            "Expand Simplified Chinese across previously hardcoded pages, menus, dialogs, smart playlists, player controls, and accessibility labels, while preserving live language switching and names from your library.",
+            "Albums and playlists started or added to the queue through Navo Connect now use the playback profile saved on the controlling device.",
+        ),
+    ),
+    NaviampChangelogSectionUi(
+        title = "Bug fixes",
+        entries = listOf(
+            "Show translated action outcomes in the shared bottom notice stack instead of silently dropping them, with screen-reader announcements, dismissal, and focus-aware timing.",
+            "Keep gapless and crossfade transitions ready when playback settings change during a track, while honoring album and playlist profiles.",
+            "Use the current playlist name after a rename when starting a track from that playlist.",
+            "Correct the About page attribution to “A LeTalk Production Based on Naviamp”.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Upgrade notes",
         entries = listOf(
-            "This is the first public Navo release, not an update to upstream Naviamp. The cn.com.letalk.navo application identity does not automatically migrate upstream or earlier cn.com.letalk.naviamp data or credentials. Export and import shared settings deliberately, reconnect accounts, and select download storage.",
-            "For local Navo 2.12.x development installations, download 1.0.0 manually: the update checker will not offer a lower version. On Windows, back up settings and uninstall the development installer before installing 1.0.0. Android build 66 can update build 65 when signed with the same key.",
-            "Aurral requires version 3.x. Server-backed features depend on provider capabilities and account permissions; sonic discovery requires compatible similarity data.",
-            "Generated-station settings use sync schema 2. Use Navo 1.0.0 on devices sharing those settings or transferring stations. Older settings imports remain readable; removed split-view and player-layout preferences are ignored.",
+            "No special upgrade steps are required from Navo 1.0.0. Settings, accounts, playlist bookmarks, and generated-station sync schema 2 are unchanged.",
+            "Update both Connect devices to 1.1.0 for controller playback profiles to follow the music. Older peers remain compatible and use the target device’s profile; playback profiles are not automatically synced.",
+            "For local Navo 2.12.x development installations, download the latest 1.x release manually. On Windows, back up settings and uninstall the development installer first. Android build 67 can update builds 65 and 66 with the same signing key.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Known issues",
         entries = listOf(
             "Windows downloads are not publisher-signed and may show an operating-system security warning.",
-            "Only Windows x64 and Android packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included; retained platform sources do not establish release support.",
-            "Navo Connect remains beta. Google Cast requires compatible online media and a reachable receiver. Vehicle displays and Android Auto availability depend on the head unit; physical vehicle acceptance is not established by emulator checks.",
+            "Only Windows x64 and Android 8.0 or newer (API 26) packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included.",
+            "Connect remains beta. Cast requires compatible online media and a reachable receiver. Vehicle integration depends on the head unit; physical vehicle acceptance is not established by emulator checks.",
+            "Some controller-generated details, playlist-dialog status lines, and Android notification-channel labels remain in English.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Thanks",
         entries = listOf(
-            "Thanks to @ursasmar and the upstream Naviamp community for the shared application that Navo builds on.",
-            "Thanks to @crsthn-slv for inherited upstream radio, TV, playback, lyrics, testing, and Brazilian Portuguese translation contributions.",
-            "Thanks to @sewnie for reporting the inherited upstream Android startup failure when the Cast module is unavailable.",
+            "Thanks to @ursasmar for reporting, testing, and implementing the upstream status-notice and playback-profile fixes.",
         ),
     ),
 )
