@@ -206,10 +206,24 @@ Resume a playlist from its saved track and position, independently of other play
 Shuffle and explicitly selecting a track start fresh. Pin playlists, albums and artists to Quick
 Access, and filter Library to favorites. Home, Playlists, Library and Radio support pull-down refresh.
 
-The 1.1.0 source also carries the controlling device’s album or playlist playback profile with
-Connect starts and whole-collection queue additions. Update both devices to 1.1.0 to use this;
+Since 1.1.0, Connect carries the controlling device’s album or playlist playback profile with
+starts and whole-collection queue additions. Both devices need 1.1.0 or newer for this;
 older peers remain compatible and use the target’s own profile. Playback profiles are not synced.
 
+## Connect and offline recovery
+
+The 1.1.1 source simplifies setup in Settings → Devices: show a six-digit code on one device and
+enter it on the other, then choose whether to send your active account and portable settings,
+play on that device, or finish. Showing a code grants connection consent; trusted devices can
+apply account setup without another approval on the receiving device. Show codes only to devices
+you trust. Existing trusted pairings and protocol-v1 peers remain supported; update both devices
+for the complete flow. Older devices may require selection from Nearby. After an Android reinstall,
+backup restore, or device transfer, use a new code if trust is lost and forget obsolete duplicate entries.
+
+Offline Mode, or Android reporting no network, now opens offline content without a server wait.
+Background reconnection respects Offline Mode and keeps downloaded playback running. With Offline
+Mode off, Windows startup or an unreachable server on an apparently connected network can still
+wait for provider timeouts before falling back. Download music before going offline.
 ## Playback and presentation
 
 Navo uses the BASS audio engine and combines its playback controls with a flexible shared UI:
@@ -229,7 +243,7 @@ Navo uses the BASS audio engine and combines its playback controls with a flexib
 - Online lyrics fallback through configured sources, persistent caching, next-track prefetch,
   adjustable text size, and duration-based scrolling for plain lyrics.
 - Naviamp and Forest themes with Light, Dark or System mode, and shared appearance backup/sync.
-- Translated action-outcome notices with screen-reader announcements, dismissal and focus-aware timing in the 1.1.0 source.
+- Translated action-outcome notices with screen-reader announcements, dismissal and focus-aware timing.
 
 ## Platforms and downloads
 
@@ -254,7 +268,7 @@ namespaces; the final ID does not migrate them automatically. The existing signi
 Local Navo development builds may display 2.12.x. The update checker will not offer a lower 1.x
 version; download the latest public 1.x release manually. On Windows, back up shared settings and
 uninstall the development installer before installing it under the same fork installer family.
-Android updates require the same signing key and a higher build code; build 67 can replace 65 or 66.
+Android updates require the same signing key and a higher build code; build 68 can replace builds 65–67.
 
 `APPLICATION_NAME` defines Navo's product and package names; `APPLICATION_ID` and `RELEASE_REPOSITORY`
 retain its identity and update channel. Historical release notes and acceptance records describe
@@ -266,9 +280,10 @@ Choose System default or any of the 17 bundled interface languages in Settings. 
 fall back to English where text is missing. Language preferences participate in settings export/import
 and sync; use Navo 1.0.0 or later on devices sharing generated-station settings (schema 2).
 
-The 1.1.0 source expands Simplified Chinese to previously hardcoded pages, menus, smart playlists,
-player controls and accessibility labels. Some controller details, playlist-dialog status lines and
-Android notification-channel labels remain in English. Names from your library are not translated.
+Since 1.1.0, Simplified Chinese covers previously hardcoded pages, menus, smart playlists,
+player controls and accessibility labels. The 1.1.1 source also localizes Connect status messages.
+Some playlist-dialog status lines and Android notification-channel labels remain in English.
+Names from your library are not translated.
 
 
 Upstream Naviamp uses [Hosted Weblate](https://hosted.weblate.org/projects/naviamp/) for community
@@ -331,7 +346,7 @@ running apps and does not launch an older build when compilation fails.
 
 ### Release and verification guidance
 
-The [Navo 1.1.0 readiness record](docs/releases/v1.1.0-readiness.md) records release gates and
+The [Navo 1.1.1 readiness record](docs/releases/v1.1.1-readiness.md) records release gates and
 distribution status. Fork packaging and enabled checks follow the [development workflow](docs/development-workflow.md).
 
 Shared test guidance is documented in [Testing](docs/testing.md). The shared

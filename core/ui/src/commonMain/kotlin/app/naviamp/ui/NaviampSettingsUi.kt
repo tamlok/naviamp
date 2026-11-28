@@ -2844,25 +2844,24 @@ private val DefaultNaviampChangelog = listOf(
     NaviampChangelogSectionUi(
         title = "Improvements",
         entries = listOf(
-            "Expand Simplified Chinese across previously hardcoded pages, menus, dialogs, smart playlists, player controls, and accessibility labels, while preserving live language switching and names from your library.",
-            "Albums and playlists started or added to the queue through Navo Connect now use the playback profile saved on the controlling device.",
+            "Connect devices from Settings → Devices by showing a six-digit code on one device and entering it on the other. Then choose whether to send your active account and portable settings, play on that device, or finish without either action.",
+            "Open offline content immediately when Offline Mode is enabled or Android reports no network. Reconnect in the background when the network or server returns without interrupting downloaded playback.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Bug fixes",
         entries = listOf(
-            "Show translated action outcomes in the shared bottom notice stack instead of silently dropping them, with screen-reader announcements, dismissal, and focus-aware timing.",
-            "Keep gapless and crossfade transitions ready when playback settings change during a track, while honoring album and playlist profiles.",
-            "Use the current playlist name after a rename when starting a track from that playlist.",
-            "Correct the About page attribution to “A LeTalk Production Based on Naviamp”.",
+            "Exclude Connect trust and secrets from Android backups and device transfers so they are not restored without the Keystore keys needed to use them.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Upgrade notes",
         entries = listOf(
-            "No special upgrade steps are required from Navo 1.0.0. Settings, accounts, playlist bookmarks, and generated-station sync schema 2 are unchanged.",
-            "Update both Connect devices to 1.1.0 for controller playback profiles to follow the music. Older peers remain compatible and use the target device’s profile; playback profiles are not automatically synced.",
-            "For local Navo 2.12.x development installations, download the latest 1.x release manually. On Windows, back up settings and uninstall the development installer first. Android build 67 can update builds 65 and 66 with the same signing key.",
+            "No special installation steps are required from Navo 1.1.0. In-place updates retain settings, accounts, playlist bookmarks, and generated-station sync schema 2.",
+            "Existing trusted Connect pairings remain supported. Update both devices to 1.1.1 for the complete new flow; older devices may need to be selected from Nearby before entering their code.",
+            "Show a Connect code only to a device you trust. Showing the code authorizes the connection, and trusted devices can apply account setup without another approval on the receiving device.",
+            "After an Android reinstall, backup restore, or device transfer, connect again with a fresh code if trust is lost. Forget obsolete duplicate device entries; they are not removed automatically.",
+            "For local Navo 2.12.x development installations, download the latest 1.x release manually. On Windows, back up settings and uninstall the development installer first. Android build 68 can update builds 65–67 with the same signing key.",
         ),
     ),
     NaviampChangelogSectionUi(
@@ -2870,14 +2869,15 @@ private val DefaultNaviampChangelog = listOf(
         entries = listOf(
             "Windows downloads are not publisher-signed and may show an operating-system security warning.",
             "Only Windows x64 and Android 8.0 or newer (API 26) packages are released. No Navo store listing, macOS, Linux, iOS, or Apple TV download is included.",
+            "With Offline Mode off, Windows startup or an unreachable server on an apparently connected network can still wait for provider timeouts before falling back to offline content.",
             "Connect remains beta. Cast requires compatible online media and a reachable receiver. Vehicle integration depends on the head unit; physical vehicle acceptance is not established by emulator checks.",
-            "Some controller-generated details, playlist-dialog status lines, and Android notification-channel labels remain in English.",
+            "Some playlist-dialog status lines and Android notification-channel labels remain in English.",
         ),
     ),
     NaviampChangelogSectionUi(
         title = "Thanks",
         entries = listOf(
-            "Thanks to @ursasmar for reporting, testing, and implementing the upstream status-notice and playback-profile fixes.",
+            "Thanks to @ursasmar for reporting and implementing the upstream Connect and offline-recovery improvements, and for testing the Connect flow.",
         ),
     ),
 )
